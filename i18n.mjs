@@ -150,7 +150,9 @@ export const MESSAGES = {
     'ui.scheduleFailed': 'Die Automatik ließ sich nicht einrichten. {message}',
     'ui.alreadyRunning': 'Die Oberfläche läuft bereits: {url}',
     'ui.listening': 'Tweakable DJ – Oberfläche läuft auf {url}',
-    'ui.stopHint': 'Beenden mit Strg+C.',
+    'ui.stopHint': 'Die Oberfläche öffnest du im Browser unter dieser Adresse.\n'
+      + 'Dieses Fenster muss offen bleiben, solange du Tweakable DJ benutzt – wird es geschlossen, ist das Programm beendet.\n'
+      + 'Beenden mit Strg+C oder durch Schließen des Fensters.',
     'ui.badPort': 'TWEAKABLE_DJ_PORT muss eine Zahl von 1 bis 65535 sein, nicht "{value}".',
     'ui.keyFormat': 'Ein API-Key hat genau 32 Zeichen aus 0–9 und a–f.',
     'ui.userFormat': 'Dieser Benutzername enthält Zeichen, die es bei Last.fm nicht gibt.',
@@ -279,7 +281,9 @@ export const MESSAGES = {
     'ui.scheduleFailed': 'Automatic runs couldn’t be set up. {message}',
     'ui.alreadyRunning': 'The interface is already running: {url}',
     'ui.listening': 'Tweakable DJ – interface running at {url}',
-    'ui.stopHint': 'Press Ctrl+C to stop.',
+    'ui.stopHint': 'Open the interface in your browser at this address.\n'
+      + 'Keep this window open while you use Tweakable DJ – closing it stops the program.\n'
+      + 'To stop, press Ctrl+C or close this window.',
     'ui.badPort': 'TWEAKABLE_DJ_PORT must be a number from 1 to 65535, not "{value}".',
     'ui.keyFormat': 'An API key has exactly 32 characters from 0–9 and a–f.',
     'ui.userFormat': 'This username contains characters that Last.fm doesn’t allow.',
