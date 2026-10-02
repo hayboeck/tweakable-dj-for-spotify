@@ -1,0 +1,44 @@
+// Einstellungen für Tweakable DJ. Alles hinter // ist ein Kommentar und wird ignoriert.
+// Am einfachsten über die Oberfläche einrichten und ändern (Doppelklick auf "Tweakable DJ.cmd"). Im Terminal: "node dj.mjs --dry" (nur anzeigen) oder "node dj.mjs".
+{
+  // --- Zugangsdaten und Quelle ---
+  "spotify": { "clientId": "HIER_CLIENT_ID_EINTRAGEN" },                                // Client ID aus dem Spotify Developer Dashboard
+  "lastfm": { "apiKey": "HIER_API_KEY_EINTRAGEN", "user": "HIER_LASTFM_NUTZERNAME" },  // Last.fm-API-Key und dein Last.fm-Name ("" = ohne Hörverlauf)
+  "seed": "liked",                    // Woher deine Favoriten kommen: "liked" = Lieblingssongs, oder Link zu einer eigenen Playlist
+
+  // --- Playlist ---
+  "playlistName": "Tweakable DJ",       // Name der Playlist, die befüllt wird (gibt es sie nicht, wird sie angelegt)
+  "size": 50,                         // Anzahl Songs pro Lauf
+  "familiarShare": 0.15,              // Anteil Favoriten (0.15 = 15 % ≈ 8 Songs), der Rest sind neue Songs
+
+  // --- Auswahl ---
+  "adventure": 0.4,                   // 0 = ähnliche Songs bevorzugen, 0.5 = egal, 1 = entfernte bevorzugen; zugleich Chance auf Abstecher zu verwandten Künstlern
+  "seedsPerRun": 20,                  // So viele Ausgangspunkte werden pro Lauf gezogen, zu denen Last.fm ähnliche Songs sucht
+  "useLastfmTopTracks": true,         // Deine Last.fm-Top-Songs der letzten 3 Monate zusätzlich als Ausgangspunkte verwenden
+
+  // --- Was du gerade hörst ---
+  "currentDays": 7,                   // "Aktuell" = in so vielen Tagen gehört (laut Last.fm)
+  "currentFactor": 3,                 // So viel stärker zählt aktuell Gehörtes: bei Ausgangspunkten, bei der Auslosung und bei den Favoriten (1 = aus)
+
+  // --- Abwechslung ---
+  "maxPerArtist": 2,                  // Höchstens so viele Songs pro Interpret in der ganzen Playlist
+  "artistWindow": 20,                 // Fenstergröße für die Regel darunter: je so viele aufeinanderfolgende Songs …
+  "maxPerWindow": 3,                  // … enthalten höchstens so viele Songs zum selben Künstler (von ihm oder über ihn gefunden)
+  "artistGap": 4,                     // Mindestens so viele Songs Abstand zwischen zwei Songs desselben Interpreten
+
+  // --- Keine Wiederholungen ---
+  "excludeRecentDays": 14,            // Songs, die du in so vielen Tagen gehört hast, kommen nicht hinein
+  "noRepeatRuns": 3,                  // Songs aus so vielen vorigen Läufen kommen nicht hinein
+
+  // --- Sperrliste ---
+  "blockedArtists": [],               // Künstler, die nie gespielt werden, z. B. ["Künstler A", "Künstler B"]
+
+  // --- Automatik ---
+  // In der Oberfläche einstellen: Nur beim Speichern dort trägt Tweakable DJ sich in den Zeitplaner deines PCs ein.
+  "schedule": "off",                  // Playlist automatisch neu erstellen: "off" = aus, "daily" = täglich, "weekly" = wöchentlich
+  "scheduleTime": "07:00",            // Uhrzeit (24 Stunden, HH:MM)
+  "scheduleDay": "MON",               // Wochentag bei "weekly": "MON", "TUE", "WED", "THU", "FRI", "SAT" oder "SUN"
+
+  // --- Sprache ---
+  "language": ""                      // Sprache der Oberfläche und der Ausgabe: "de" = Deutsch, "en" = Englisch, "" = noch nicht gewählt (Systemsprache)
+}

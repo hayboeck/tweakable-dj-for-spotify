@@ -1,0 +1,22 @@
+# Einheitliche Zeilenenden, egal ob die Dateien unter Windows, Mac oder Linux bearbeitet werden.
+# Die Startdateien für Mac und Linux (start.sh, Tweakable DJ.command) laufen nur mit LF,
+# die für Windows (Tweakable DJ.cmd) braucht CRLF.
+* text=auto
+
+*.sh      text eol=lf
+*.command text eol=lf
+*.mjs     text eol=lf
+*.html    text eol=lf
+*.md      text eol=lf
+*.jsonc   text eol=lf
+*.svg     text eol=lf
+*.yml     text eol=lf
+*.cmd     text eol=crlf
+
+# Bilder (Screenshots in docs/) nie umwandeln oder als Text vergleichen
+*.png     binary
+
+# Nur für GitHub, nicht in der ZIP-Datei zum Herunterladen (git archive).
+/.github        export-ignore
+/.gitattributes export-ignore
+/tests          export-ignore

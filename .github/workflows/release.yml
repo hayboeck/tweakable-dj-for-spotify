@@ -1,0 +1,108 @@
+# Baut die ZIP-Datei zum Herunterladen und hängt sie an ein neues Release an.
+# Auslöser: ein hochgeladener Versions-Tag, z. B. (vorher "version" in package.json auf 1.0.0 setzen)
+#   git tag v1.0.0
+#   git push origin v1.0.0
+# Ergebnis: tweakable-dj-v<Version>.zip mit dem Ordner tweakable-dj.
+# In die ZIP-Datei kommen nur Dateien, die im Repository sind (git archive), auch die Screenshots in docs/.
+# Persönliche Dateien (config.jsonc, tokens.json, state.json, lastfm-cache.json) sind per
+# .gitignore nie dabei; der Ablauf prüft das zur Sicherheit noch einmal.
+# Tags mit Bindestrich (z. B. v1.1.0-beta.1) werden als Vorabversion markiert.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    name: ZIP-Datei bauen und veröffentlichen
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash # bricht bei Fehlern ab, auch mitten in einer Pipe (-eo pipefail)
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v5
+
+      # Der Hinweis auf neue Versionen (update.mjs) vergleicht den Tag des neuesten Releases (ohne v)
+      # mit "version" aus package.json. Passen beide nicht zusammen, sähe man den Hinweis auch mit der
+      # neuen ZIP-Datei immer wieder.
+      - name: Tag und Version in package.json vergleichen
+        run: |
+          set -eu
+          version=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} passt nicht zu \"version\": \"${version}\" in package.json (erwartet: v${version})."
+            exit 1
+          fi
+
+      - name: ZIP-Datei bauen
+        run: |
+          set -eu
+          ordner="tweakable-dj"
+          zip_datei="${ordner}-${GITHUB_REF_NAME}.zip"
+          mkdir build
+
+          # Nur versionierte Dateien; .github und .gitattributes lässt export-ignore weg.
+          git archive --format=tar --prefix="${ordner}/" "$GITHUB_SHA" | tar -x -C build
+
+          # Sicherheitsnetz: persönliche und automatisch angelegte Dateien, Tests und .github
+          # dürfen nie in die ZIP-Datei.
+          verboten=$(cd "build/${ordner}" && find . \( -name config.jsonc -o -name tokens.json -o -name state.json \
+            -o -name lastfm-cache.json -o -name 'automatik.*' -o -name update-check.json -o -name '*.log' \
+            -o -path ./tests -o -path ./.github \) -print)
+          if [ -n "$verboten" ]; then
+            echo "::error::Diese Dateien dürfen nicht veröffentlicht werden: ${verboten}"
+            exit 1
+          fi
+
+          # Die Startdateien müssen dabei sein.
+          for f in "Tweakable DJ.cmd" "Tweakable DJ.command" start.sh; do
+            if [ ! -f "build/${ordner}/${f}" ]; then
+              echo "::error::Startdatei ${f} fehlt."
+              exit 1
+            fi
+          done
+
+          # Die Screenshots in docs/ kommen mit (zusammen rund 1,3 MB), damit die README in der ZIP-Datei ihre
+          # Bilder zeigt: Jedes dort eingebundene Bild muss vorhanden sein.
+          for f in $(cd "build/${ordner}" && grep -oh 'docs/[A-Za-z0-9._-]*\.png' README.md README.de.md | sort -u); do
+            if [ ! -f "build/${ordner}/${f}" ]; then
+              echo "::error::Bild ${f} aus der README fehlt."
+              exit 1
+            fi
+          done
+
+          # Startdateien für Mac und Linux ausführbar machen, auch wenn das Bit
+          # beim Einchecken unter Windows verloren gegangen ist.
+          chmod +x "build/${ordner}/start.sh" "build/${ordner}/Tweakable DJ.command"
+
+          # zip speichert die Unix-Rechte mit, entpackt auf Mac und Linux bleiben sie erhalten.
+          (cd build && zip -r -X -9 "../${zip_datei}" "${ordner}")
+          unzip -Z "${zip_datei}"
+          echo "ZIP_DATEI=${zip_datei}" >> "$GITHUB_ENV"
+
+      - name: Release anlegen und ZIP-Datei anhängen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          tag="$GITHUB_REF_NAME"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            # Release gibt es schon (z. B. Ablauf erneut gestartet): nur die ZIP-Datei ersetzen.
+            gh release upload "$tag" "$ZIP_DATEI" --clobber
+          else
+            vorab=""
+            case "$tag" in *-*) vorab="--prerelease" ;; esac
+            gh release create "$tag" "$ZIP_DATEI" \
+              --title "Tweakable DJ for Spotify $tag" \
+              --generate-notes \
+              --verify-tag \
+              $vorab
+          fi

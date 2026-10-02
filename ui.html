@@ -1,0 +1,1799 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tweakable DJ for Spotify</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #16181d;
+    --muted: #5d6470;
+    --border: #e1e4e9;
+    --accent: #1b8f4d;
+    --accent-soft: #e6f4ec;
+    --warn: #a66300;
+    --danger: #b3261e;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --card: #171a21;
+      --text: #e8eaed;
+      --muted: #9aa1ad;
+      --border: #2a2f3a;
+      --accent: #3ecf7a;
+      --accent-soft: #1b2c22;
+      --warn: #f0b049;
+      --danger: #ff8a80;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  a { color: var(--accent); }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 120px; }
+  main.no-bar { padding-bottom: 32px; }
+  /* Kopf: Titel | Zugangsdaten + Status | Sprache. Auf schmalen Bildschirmen rutscht die Mitte in die zweite Zeile. */
+  header { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px 14px; margin-bottom: 20px; }
+  h1 { font-size: 26px; margin: 0; letter-spacing: -.01em; }
+  .tagline { margin: 2px 0 0; font-size: 14px; }
+  .sub { color: var(--muted); margin: 2px 0 0; }
+  .head-side { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  @media (max-width: 600px) {
+    header { grid-template-columns: 1fr auto; align-items: start; }
+    .head-side { grid-column: 1 / -1; grid-row: 2; }
+    h1 { font-size: 22px; }
+  }
+  .chip { font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .chip.dirty { color: var(--warn); border-color: currentColor; }
+  .lang { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; background: var(--card); }
+  .lang button { font: inherit; font-size: 13px; font-weight: 600; letter-spacing: .03em; padding: 4px 11px; border: 0; background: none; color: var(--muted); cursor: pointer; }
+  .lang button + button { border-left: 1px solid var(--border); }
+  .lang button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+  .lang button:focus-visible { outline-offset: -2px; }
+  .banner { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--danger); color: var(--danger); }
+  .notice { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--warn); }
+  .notice > p { margin: 0; font-weight: 600; }
+  /* Hinweis auf eine neue Version: Rahmen in der Akzentfarbe, mit × zum Ausblenden (wie bei der Sperrliste). */
+  .update { display: flex; align-items: center; gap: 8px; padding: 8px 6px 8px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--accent); }
+  .update p { margin: 0; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .update a { font-weight: 600; white-space: nowrap; }
+  .update button { flex: none; font: inherit; font-size: 17px; line-height: 1; width: 28px; height: 28px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
+  .update button:hover { background: var(--border); color: var(--text); }
+  button.link { font: inherit; font-size: 13.5px; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
+
+  section { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 6px 18px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 4px; }
+  .row { padding: 14px 0; border-top: 1px solid var(--border); }
+  section h2 + .row { border-top: 0; }
+  .row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .row-head label { font-weight: 600; }
+  output { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); white-space: nowrap; }
+  input[type=range] { width: 100%; margin: 10px 0 2px; accent-color: var(--accent); }
+  .scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .hint { margin: 6px 0 0; font-size: 13.5px; color: var(--accent); }
+  .hint:empty { display: none; }
+  .help { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); }
+  .help:empty { display: none; }
+  .reset { margin-top: 6px; font-size: 12.5px; background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; cursor: pointer; }
+  input[type=text], select { width: 100%; margin-top: 8px; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
+
+  .switch { position: relative; width: 44px; height: 26px; flex: none; }
+  .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--border); transition: background .15s; pointer-events: none; }
+  .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .15s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(18px); }
+  .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Voreinstellungen */
+  .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 10px 0 8px; }
+  .preset { text-align: left; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
+  .preset b { display: block; margin-bottom: 2px; }
+  .preset span { display: block; font-size: 13px; color: var(--muted); }
+  .preset[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  .preset[aria-pressed="true"] b::after { content: " ✓"; color: var(--accent); }
+  #preset-state { margin: 0 0 14px; }
+
+  /* Sperrliste */
+  .add-row { display: flex; gap: 8px; margin-top: 8px; }
+  .add-row input[type=text] { margin-top: 0; min-width: 0; }
+  .add-row .btn { flex: none; }
+  .tags { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 10px 0 0; }
+  .tag { display: inline-flex; align-items: center; gap: 2px; padding: 2px 3px 2px 11px; border-radius: 999px; background: var(--accent-soft); border: 1px solid var(--border); font-size: 14px; }
+  .tag button { font: inherit; font-size: 17px; line-height: 1; width: 26px; height: 26px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
+  .tag button:hover { background: var(--border); color: var(--text); }
+  .tags .empty { color: var(--muted); font-size: 13.5px; }
+
+  /* Automatik */
+  .row-head .label { font-weight: 600; }
+  .seg { display: flex; margin-top: 8px; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--bg); }
+  .seg label { flex: 1; min-width: 0; position: relative; }
+  .seg input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .seg input:disabled { cursor: default; }
+  .seg span { display: block; padding: 8px 6px; text-align: center; font-weight: 600; color: var(--muted); }
+  .seg label + label span { border-left: 1px solid var(--border); }
+  .seg input:checked + span { background: var(--accent-soft); color: var(--accent); }
+  .seg input:disabled + span { opacity: .5; }
+  .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+  input[type=time] { margin-top: 8px; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; color-scheme: light dark; }
+  select.short, input[type=time] { display: block; width: auto; min-width: 160px; max-width: 100%; }
+  .facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: 14px; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; font-weight: 600; }
+  .facts .ok { color: var(--accent); }
+  .facts .err { color: var(--danger); }
+  #auto-status > * + * { margin-top: 8px; }
+  .auto-problem { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--warn); }
+  .auto-problem p { margin: 0 0 8px; font-size: 14px; }
+  @media (max-width: 480px) {
+    .facts { grid-template-columns: 1fr; gap: 0; }
+    .facts dd + dt { margin-top: 6px; }
+  }
+
+  /* Einrichtung */
+  .intro { margin: 0 0 16px; color: var(--muted); }
+  .steps { list-style: none; padding: 0; margin: 0; }
+  .step { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .step.active { border-color: var(--accent); }
+  .step h2 { margin: 0; font-size: inherit; }
+  .step-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: none; border: 0; border-radius: 14px; font: inherit; font-weight: 600; color: var(--text); text-align: left; cursor: pointer; }
+  .num { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--border); font-size: 14px; color: var(--muted); }
+  .step.active .num { border-color: var(--accent); color: var(--accent); }
+  .step.done .num { background: var(--accent); border-color: var(--accent); color: var(--card); }
+  .step-state { margin-left: auto; font-size: 13px; font-weight: 400; color: var(--muted); white-space: nowrap; }
+  .step.done .step-state { color: var(--accent); }
+  .step-body { padding: 0 18px 18px; }
+  .step-body > p:first-child { margin-top: 0; }
+  .howto { padding-left: 22px; margin: 8px 0 14px; }
+  .howto li { margin-bottom: 8px; }
+  .field { margin-top: 14px; }
+  .field label { display: block; font-weight: 600; }
+  .copy { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 2px; }
+  code { font: 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 5px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); word-break: break-all; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .msg { margin: 8px 0 0; font-size: 14px; }
+  .msg:empty { display: none; }
+  .msg.ok { color: var(--accent); }
+  .msg.err { color: var(--danger); }
+  .msg.warn { color: var(--warn); }
+  .login-box .actions { margin-top: 10px; }
+
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--border); }
+  .bar-inner { max-width: 760px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  button.btn { font: inherit; font-weight: 600; padding: 9px 14px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
+  button.btn.small { padding: 5px 10px; font-size: 13.5px; }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { button.btn.primary { color: #0b1a11; } }
+  button.btn:disabled { opacity: .5; cursor: default; }
+
+  .out-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 8px; }
+  .summary { font-weight: 600; }
+  .open { font-weight: 600; color: var(--accent); }
+  pre { margin: 0 0 16px; padding: 12px; max-height: 480px; overflow: auto; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); font: 12.5px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+  pre .now { color: var(--accent); }
+  pre .warn { color: var(--warn); }
+  pre .err { color: var(--danger); font-weight: 600; }
+
+  .credit { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); text-align: center; }
+  .credit p { margin: 2px 0; }
+  .credit a { color: inherit; }
+  .credit .version { margin-top: 6px; opacity: .85; }
+</style>
+</head>
+<body>
+<!-- Alle Texte stehen unten im Skript in TEXT.de bzw. TEXT.en (page): data-t = Text, data-html = Text mit Auszeichnung, data-ph = Platzhalter. -->
+<main id="main">
+  <header>
+    <div>
+      <h1>Tweakable DJ for Spotify</h1>
+      <p class="tagline" data-t="tagline"></p>
+      <p class="sub" id="sub"></p>
+    </div>
+    <div class="head-side">
+      <button type="button" class="link" id="open-setup" data-t="openSetup" hidden></button>
+      <span id="status" class="chip" role="status"></span>
+    </div>
+    <div class="lang" role="group" aria-label="Sprache / Language">
+      <button type="button" data-lang="de" lang="de" title="Deutsch" aria-pressed="false">DE</button>
+      <button type="button" data-lang="en" lang="en" title="English" aria-pressed="false">EN</button>
+    </div>
+  </header>
+  <div id="banner" class="banner" role="alert" hidden></div>
+  <div id="notice" class="notice" hidden>
+    <p id="notice-text"></p>
+    <div id="notice-login"></div>
+  </div>
+  <!-- Neue Version auf GitHub (GET /api/update), ausblendbar je Version -->
+  <div id="update" class="update" role="status" hidden>
+    <p><span id="update-text"></span> – <a id="update-link" target="_blank" rel="noopener"></a></p>
+    <button type="button" id="update-close">×</button>
+  </div>
+
+  <!-- Einrichtungs-Assistent -->
+  <div id="setup" hidden>
+    <p class="intro" data-t="intro"></p>
+    <ol class="steps">
+      <li class="step">
+        <h2><button type="button" class="step-head" aria-controls="step-1"><span class="num">1</span><span data-t="step1"></span><span class="step-state"></span></button></h2>
+        <div class="step-body" id="step-1" hidden>
+          <p data-t="s1Text"></p>
+          <ol class="howto">
+            <li data-html="s1Dashboard"></li>
+            <li data-html="s1Create"></li>
+            <li><span data-html="s1Redirect"></span>
+              <span class="copy"><code id="redirect-uri">http://127.0.0.1:8888/callback</code><button type="button" class="btn small" id="copy-uri" data-t="copy"></button></span>
+              <span class="help" data-t="s1Exact"></span></li>
+            <li data-html="s1Api"></li>
+            <li data-html="s1ClientId"></li>
+          </ol>
+          <div class="field">
+            <label for="w-client">Client ID</label>
+            <input type="text" id="w-client" autocomplete="off" spellcheck="false" maxlength="64" data-ph="hexPh" aria-describedby="w-client-msg">
+            <p class="msg" id="w-client-msg" role="status"></p>
+          </div>
+          <div class="actions"><button type="button" class="btn primary" id="w-client-save" data-t="saveNext"></button></div>
+        </div>
+      </li>
+      <li class="step">
+        <h2><button type="button" class="step-head" aria-controls="step-2"><span class="num">2</span><span data-t="step2"></span><span class="step-state"></span></button></h2>
+        <div class="step-body" id="step-2" hidden>
+          <p data-t="s2Text"></p>
+          <ol class="howto">
+            <li data-html="s2Account"></li>
+            <li data-html="s2Form"></li>
+            <li data-html="s2Key"></li>
+          </ol>
+          <div class="field">
+            <label for="w-key" data-t="apiKey"></label>
+            <input type="text" id="w-key" autocomplete="off" spellcheck="false" maxlength="64" data-ph="hexPh">
+          </div>
+          <div class="field">
+            <label for="w-user" data-t="user"></label>
+            <input type="text" id="w-user" autocomplete="off" spellcheck="false" maxlength="30" aria-describedby="w-user-help">
+            <p class="help" id="w-user-help" data-html="userHelp"></p>
+          </div>
+          <div class="msg" id="w-lastfm-msg" role="status"></div>
+          <div class="actions">
+            <button type="button" class="btn" id="w-lastfm-check" data-t="check"></button>
+            <button type="button" class="btn primary" id="w-lastfm-save"></button>
+          </div>
+        </div>
+      </li>
+      <li class="step">
+        <h2><button type="button" class="step-head" aria-controls="step-3"><span class="num">3</span><span data-t="step3"></span><span class="step-state"></span></button></h2>
+        <div class="step-body" id="step-3" hidden>
+          <p data-t="s3Text"></p>
+          <p id="w-login-state" class="help"></p>
+          <div id="w-login"></div>
+          <div class="actions"><button type="button" class="btn" id="w-login-next" data-t="next"></button></div>
+        </div>
+      </li>
+      <li class="step">
+        <h2><button type="button" class="step-head" aria-controls="step-4"><span class="num">4</span><span data-t="step4"></span><span class="step-state"></span></button></h2>
+        <div class="step-body" id="step-4" hidden>
+          <p data-t="s4Text"></p>
+          <div class="field">
+            <label for="w-seed" data-t="step4"></label>
+            <select id="w-seed" aria-describedby="w-seed-help"></select>
+            <p class="help" id="w-seed-help" data-t="s4Help"></p>
+            <p class="msg warn" id="w-seed-note" role="status"></p>
+          </div>
+          <div class="actions"><button type="button" class="btn primary" id="w-seed-save" data-t="saveNext"></button></div>
+        </div>
+      </li>
+      <li class="step">
+        <h2><button type="button" class="step-head" aria-controls="step-5"><span class="num">5</span><span data-t="step5"></span><span class="step-state"></span></button></h2>
+        <div class="step-body" id="step-5" hidden>
+          <p id="w-done-text"></p>
+          <div class="actions"><button type="button" class="btn primary" id="w-finish" data-t="finish"></button></div>
+        </div>
+      </li>
+    </ol>
+    <p><button type="button" class="link" id="w-close" data-t="close" hidden></button></p>
+  </div>
+
+  <!-- Regler -->
+  <div id="settings" hidden>
+    <section aria-labelledby="presets-title">
+      <h2 id="presets-title" data-t="presets"></h2>
+      <p class="help" data-t="presetsHelp"></p>
+      <div class="preset-grid" id="preset-grid"></div>
+      <p class="hint" id="preset-state" role="status"></p>
+    </section>
+    <div id="groups"></div>
+    <section id="out" hidden>
+      <div class="out-head">
+        <span id="summary" class="summary"></span>
+        <a id="open" class="open" target="_blank" rel="noopener" data-t="open" hidden></a>
+      </div>
+      <pre id="log"></pre>
+    </section>
+  </div>
+
+  <footer class="credit">
+    <p data-html="creditLastfm"></p>
+    <p data-t="creditSpotify"></p>
+    <p class="version" id="version" hidden></p>
+  </footer>
+</main>
+<div class="bar" id="bar" hidden>
+  <div class="bar-inner">
+    <button class="btn" id="discard" data-t="discard"></button>
+    <button class="btn" id="save" data-t="save"></button>
+    <button class="btn" id="dry" data-t="dry"></button>
+    <button class="btn primary" id="run" data-t="run"></button>
+  </div>
+</div>
+
+<script>
+// --- Texte auf Deutsch und Englisch ---
+// Beide Sprachen haben dieselben Schlüssel. Funktionen bekommen Zahlen o. Ä. und liefern den fertigen Text.
+// Die Meldungen des Servers (Fehler, Prüfung bei Last.fm, Ausgabe der Läufe) kommen aus i18n.mjs, passend zum Header X-Lang.
+
+const LASTFM_APPS = 'https://www.last.fm/settings/applications';
+const ext = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
+
+const TEXT = {
+  de: {
+    locale: 'de-AT',
+    pct: v => `${Math.round(v * 100)} %`,
+    title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Einrichtung' : 'Tweakable DJ for Spotify'),
+    sub: { setup: 'Einrichtung in 5 Schritten', settings: 'Einstellungen für deine Playlist' },
+    status: { loading: 'Lädt …', setup: 'Einrichtung', running: 'Läuft …', dirty: 'Ungespeicherte Änderungen', saved: 'Gespeichert', error: 'Fehler' },
+    // "Mo 06.10., 07:00"
+    when: d => `${['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][d.getDay()]} ${two(d.getDate())}.${two(d.getMonth() + 1)}., ${two(d.getHours())}:${two(d.getMinutes())}`,
+    page: {
+      tagline: 'Dein persönlicher, einstellbarer DJ für Spotify – ohne Ansagen, mit mehr Abwechslung.',
+      openSetup: 'Zugangsdaten ändern',
+      intro: 'Einmal einrichten, dann läuft alles über diese Seite. Du brauchst Spotify Premium, ein kostenloses Last.fm-Konto und etwa 10 Minuten.',
+      step1: 'Spotify-App anlegen',
+      step2: 'Last.fm verbinden',
+      step3: 'Bei Spotify anmelden',
+      step4: 'Quelle deiner Favoriten',
+      step5: 'Fertig',
+      s1Text: 'Tweakable DJ braucht eine eigene App bei Spotify. Die ist kostenlos, gehört nur dir und ist in ein paar Minuten angelegt.',
+      s1Dashboard: `Öffne das ${ext('https://developer.spotify.com/dashboard', 'Spotify Developer Dashboard ↗')} und melde dich mit deinem Spotify-Konto an.`,
+      s1Create: 'Klicke auf <b>Create app</b>. Name und Beschreibung sind frei wählbar, z. B. „Tweakable DJ“.',
+      s1Redirect: 'Trage bei <b>Redirect URIs</b> diese Adresse ein und klicke auf <b>Add</b>:',
+      copy: 'Kopieren',
+      copied: 'Kopiert ✓',
+      s1Exact: 'Genau so, mit 127.0.0.1 und nicht „localhost“.',
+      s1Api: 'Hake bei der Frage nach der API <b>Web API</b> an, stimme den Bedingungen zu und klicke auf <b>Save</b>.',
+      s1ClientId: 'Öffne in deiner App <b>Settings</b> und kopiere die <b>Client ID</b>. Das Client Secret brauchst du nicht.',
+      hexPh: '32 Zeichen aus 0–9 und a–f',
+      saveNext: 'Speichern und weiter',
+      s2Text: 'Last.fm liefert die ähnlichen Songs und kennt deinen Hörverlauf. Dafür brauchst du einen kostenlosen API-Key.',
+      s2Account: `Öffne ${ext('https://www.last.fm/api/account/create', 'Last.fm: API-Konto anlegen ↗')} und melde dich an (oder lege dort ein Konto an).`,
+      s2Form: 'Name und Beschreibung frei wählen, <b>Callback URL</b> leer lassen, absenden.',
+      s2Key: 'Kopiere den <b>API key</b>. Das Shared secret brauchst du nicht.',
+      apiKey: 'API-Key',
+      user: 'Last.fm-Benutzername',
+      userHelp: 'Steht in der Adresse deines Profils: last.fm/user/<i>name</i>',
+      check: 'Prüfen',
+      s3Text: 'Erlaube Tweakable DJ, deine Lieblingssongs und Playlists zu lesen und die Playlist zu befüllen. Die Anmeldung wird nur auf diesem PC gespeichert.',
+      next: 'Weiter',
+      s4Text: 'Aus diesen Songs wählt der DJ seine Ausgangspunkte und Favoriten.',
+      s4Help: 'Zur Auswahl stehen deine Lieblingssongs und Playlists, die dir gehören oder bei denen du mitarbeitest – nur deren Songs gibt Spotify heraus.',
+      finish: 'Zu den Reglern',
+      close: '← Zurück zu den Reglern',
+      presets: 'Voreinstellungen',
+      presetsHelp: 'Setzen mehrere Regler auf einmal. Name, Quelle, Anzahl Songs und Sperrliste bleiben, wie sie sind. Gespeichert wird erst mit „Speichern“.',
+      open: 'In Spotify öffnen ↗',
+      creditLastfm: `Ähnliche Songs und Hörverlauf: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · Nutzung nur nicht kommerziell · nicht mit Last.fm verbunden`,
+      creditSpotify: 'Kein offizielles Spotify-Produkt · Spotify ist eine Marke von Spotify AB',
+      discard: 'Verwerfen',
+      save: 'Speichern',
+      dry: 'Probelauf',
+      run: 'Playlist neu erstellen',
+    },
+    adventure: {
+      similar: x => `Ähnliche Songs haben ein ${x}× größeres Los`,
+      distant: x => `Entfernte Songs haben ein ${x}× größeres Los`,
+      equal: 'Ähnlichkeit spielt bei der Auslosung keine Rolle',
+      detours: p => `Abstecher bei ${p} der Ausgangspunkte`,
+    },
+    groups: {
+      playlist: 'Playlist',
+      selection: 'Auswahl',
+      current: 'Was du gerade hörst',
+      variety: 'Abwechslung',
+      repeats: 'Keine Wiederholungen',
+      blocked: 'Sperrliste',
+      auto: 'Automatisch neu erstellen',
+    },
+    items: {
+      playlistName: { label: 'Name der Playlist', help: 'Diese Playlist wird befüllt. Gibt es sie noch nicht, wird sie angelegt.' },
+      seed: { label: 'Quelle deiner Favoriten',
+        help: 'Aus diesen Songs zieht der DJ Ausgangspunkte und Favoriten. Zur Auswahl stehen Playlists, die dir gehören oder bei denen du mitarbeitest.' },
+      size: { label: 'Anzahl Songs', fmt: v => plural(v, 'Song', 'Songs'), help: 'So viele Songs kommen bei jedem Lauf in die Playlist.' },
+      familiarShare: { label: 'Anteil Favoriten', fmt: v => pct(v),
+        hint: (v, c) => `≈ ${Math.round(c.size * v)} Favoriten und ${c.size - Math.round(c.size * v)} neue Songs`,
+        help: 'Favoriten kommen aus deinen Lieblingssongs, der Rest sind Songs, die dort noch nicht drin sind.' },
+      adventure: { label: 'Abenteuer', fmt: v => num(v), hint: v => adventureHint(v),
+        help: '0 = ähnliche Songs bevorzugen, 0,5 = egal, 1 = entfernte Songs bevorzugen. Bestimmt auch, wie oft der DJ zu verwandten Künstlern abschweift.' },
+      seedsPerRun: { label: 'Ausgangspunkte pro Lauf', fmt: v => num(v),
+        help: 'Zu so vielen gezogenen Songs sucht Last.fm ähnliche. Mehr = breiterer Mix, der Lauf dauert etwas länger.' },
+      useLastfmTopTracks: { label: 'Last.fm-Top-Songs einbeziehen', help: 'Deine meistgehörten Songs der letzten 3 Monate zusätzlich als Ausgangspunkte verwenden.' },
+      currentDays: { label: 'Zeitraum „aktuell“', fmt: v => plural(v, 'Tag', 'Tage'), help: 'Was du laut Last.fm in diesem Zeitraum gehört hast, zählt als aktuell.' },
+      currentFactor: { label: 'Gewicht für aktuelles Hören', fmt: v => (v === 1 ? 'aus' : `× ${num(v)}`),
+        hint: v => (v === 1 ? '' : `Aktuell Gehörtes hat ein ${num(v)}× größeres Los`),
+        help: 'Gilt bei den Ausgangspunkten, bei der Auslosung der neuen Songs und bei den Favoriten. 1 = aus.' },
+      maxPerArtist: { label: 'Songs pro Interpret', fmt: v => `max. ${v}`, help: 'Höchstens so viele Songs desselben Interpreten in der ganzen Playlist.' },
+      artistWindow: { label: 'Fenstergröße', fmt: v => plural(v, 'Song', 'Songs'), help: 'In je so vielen aufeinanderfolgenden Songs gilt die Regel darunter.' },
+      maxPerWindow: { label: 'Songs pro Künstler im Fenster', fmt: v => `max. ${v}`,
+        hint: (v, c) => `„${v} aus ${c.artistWindow}“ → höchstens ${Math.ceil(c.size * v / c.artistWindow)} Songs pro Künstler in ${c.size} Songs`,
+        help: 'Zählt Songs von einem Künstler und neue Songs, die über ihn gefunden wurden.' },
+      artistGap: { label: 'Abstand gleicher Interpret', fmt: v => (v ? plural(v, 'Song', 'Songs') : 'aus'),
+        help: 'Mindestens so viele andere Songs zwischen zwei Songs desselben Interpreten.' },
+      excludeRecentDays: { label: 'Kürzlich Gehörtes sperren', fmt: v => (v ? plural(v, 'Tag', 'Tage') : 'aus'),
+        help: 'Songs, die du laut Last.fm in diesem Zeitraum gehört hast, kommen nicht in die Playlist.' },
+      noRepeatRuns: { label: 'Vorige Läufe sperren', fmt: v => (v ? plural(v, 'Lauf', 'Läufe') : 'aus'),
+        help: 'Songs aus so vielen vorigen Läufen kommen nicht wieder.' },
+      blockedArtists: { label: 'Künstler, die nie gespielt werden', placeholder: 'Name des Künstlers', help: 'Songs dieser Künstler kommen nie in die Playlist.' },
+      schedule: { label: 'Wie oft', options: { off: 'Aus', daily: 'Täglich', weekly: 'Wöchentlich' },
+        help: 'Tweakable DJ erstellt die Playlist zur eingestellten Zeit von selbst neu, auch wenn diese Seite geschlossen ist.' },
+      scheduleDay: { label: 'Wochentag',
+        options: { MON: 'Montag', TUE: 'Dienstag', WED: 'Mittwoch', THU: 'Donnerstag', FRI: 'Freitag', SAT: 'Samstag', SUN: 'Sonntag' } },
+      scheduleTime: { label: 'Uhrzeit', fmt: v => `${v} Uhr`,
+        hint: (v, c) => `${c.schedule === 'weekly' ? `Jeden ${T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay}` : 'Jeden Tag'} um ${v} Uhr` },
+    },
+    list: {
+      add: 'Hinzufügen',
+      remove: 'Entfernen',
+      removeName: name => `${name} entfernen`,
+      empty: 'Noch niemand gesperrt.',
+      duplicate: name => `„${name}“ steht schon auf der Liste.`,
+    },
+    reset: d => `Standard: ${d}`,
+    on: 'an',
+    off: 'aus',
+    presets: {
+      discover: ['Entdecken', 'Viele neue Songs, auch weiter weg von deinem Geschmack, und kaum Wiederholungen.'],
+      familiar: ['Vertraut', 'Mehr Favoriten und sehr ähnliche neue Songs, wenig Überraschungen.'],
+      current: ['Meine aktuelle Phase', 'Richtet sich stark nach dem, was du in den letzten 7 Tagen gehört hast.'],
+      standard: ['Standard', 'Die ausgewogenen Grundeinstellungen.'],
+    },
+    presetMatch: name => `Passt gerade genau: ${name}`,
+    presetNone: 'Keine Voreinstellung passt genau – das ist deine eigene Mischung.',
+    emptyName: 'Der Name der Playlist darf nicht leer sein.',
+    // Kurzgründe zu errorCode aus @@RESULT bzw. automatik.json ('other' → Text aus error)
+    errors: {
+      login_expired: 'Spotify-Anmeldung abgelaufen',
+      not_logged_in: 'Noch nicht bei Spotify angemeldet',
+      forbidden: 'Spotify verweigert den Zugriff (403)',
+      lastfm_key: 'Der Last.fm-API-Key ist ungültig',
+      setup_incomplete: 'Einrichtung nicht abgeschlossen',
+      node_version: 'Node.js ist zu alt',
+    },
+    run: {
+      running: dry => (dry ? 'Probelauf läuft … (ca. 1 Minute)' : 'Playlist wird neu erstellt … (ca. 1 Minute)'),
+      ok: (r, dry) => `${dry ? 'Probelauf' : 'Fertig'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${num(r.songs)} Songs (${num(r.fresh)} neu, davon ${num(r.freshCurrent)} über aktuelles Hören; ${num(r.familiar)} Favoriten)`,
+      done: dry => (dry ? 'Probelauf fertig' : 'Fertig'),
+      unchanged: ' · Playlist nicht verändert',
+      failedWith: reason => `Fehlgeschlagen: ${reason} – siehe Ausgabe`,
+      failed: 'Fehlgeschlagen – siehe Ausgabe',
+      failedShort: 'Fehlgeschlagen',
+      ended: dry => (dry ? 'Probelauf beendet – siehe Ausgabe' : 'Beendet – siehe Ausgabe'),
+    },
+    seed: {
+      liked: 'Lieblingssongs',
+      likedLong: 'Lieblingssongs (Songs mit Herz)',
+      songs: n => plural(n, 'Song', 'Songs'),
+      playlist: 'Playlist',
+      collaborative: ' (gemeinsam)',
+      other: 'Playlist aus deinen Einstellungen (nicht in deiner Liste)',
+      configured: 'Eingestellte Playlist',
+      login: 'Deine Playlists erscheinen hier, sobald du bei Spotify angemeldet bist.',
+      loading: 'Deine Playlists werden geladen …',
+      error: msg => `Deine Playlists sind gerade nicht abrufbar: ${msg}`,
+    },
+    login: {
+      start: 'Mit Spotify anmelden',
+      again: 'Neu anmelden',
+      cancel: 'Abbrechen',
+      openPage: 'Anmeldeseite öffnen ↗',
+      help: 'Zeigt Spotify „Invalid client“, stimmt die Client ID nicht. Bei „Invalid redirect URI“ fehlt die Redirect URI im Dashboard oder ist anders geschrieben (Einrichtung, Schritt 1).',
+      pending: 'Im Browser hat sich ein Tab mit Spotify geöffnet. Stimme dort zu und komm dann hierher zurück. ',
+      noTab: 'Kein Tab zu sehen? ',
+      newClientId: 'Neue Client ID gespeichert – bitte melde dich neu an.',
+    },
+    notice: {
+      done: 'Angemeldet ✓ Die Spotify-Anmeldung gilt jetzt wieder 6 Monate.',
+      expired: 'Deine Spotify-Anmeldung ist abgelaufen oder fehlt. Melde dich neu an, dann klappt es wieder.',
+      left: n => `Deine Spotify-Anmeldung läuft in ${plural(n, 'Tag', 'Tagen')} ab. Spotify verlangt alle 6 Monate eine neue Anmeldung.`,
+      probably: 'Deine Spotify-Anmeldung ist wahrscheinlich abgelaufen. Spotify verlangt alle 6 Monate eine neue Anmeldung.',
+    },
+    setup: {
+      done: 'erledigt ✓',
+      loggedIn: age => `Du bist angemeldet ✓${age == null ? '' : age === 0 ? ' (seit heute)' : ` (seit ${plural(age, 'Tag', 'Tagen')})`}. Neu anmelden musst du nur für ein anderes Konto oder wenn die Anmeldung abgelaufen ist.`,
+      notLoggedIn: 'Noch nicht angemeldet.',
+      open: steps => `Noch offen: Schritt ${steps.join(', ')}.`,
+      allDone: 'Alles eingerichtet ✓ Stelle jetzt die Regler ein und klicke auf „Probelauf“. Er zeigt, welche Songs der DJ auswählen würde, und ändert nichts an deiner Playlist.',
+      formatOk: 'Format passt ✓',
+      badChars: 'Eine Client ID enthält nur die Zeichen 0–9 und a–f.',
+      length: n => `Eine Client ID hat genau 32 Zeichen – hier sind es ${n}.`,
+      pasteId: 'Bitte die Client ID einfügen.',
+      checking: 'Prüfe bei Last.fm …',
+      connect: ' Verbinde Spotify mit Last.fm: ',
+      connectLink: 'Last.fm → Einstellungen → Anwendungen ↗',
+      connectRest: ', dort bei Spotify auf „Verbinden“ klicken. Danach erfasst Last.fm jeden Song, den du auf Spotify hörst.',
+      saved: 'Gespeichert. ',
+      savedUnchecked: 'Gespeichert, aber nicht geprüft. ',
+      loadFailed: msg => `Einstellungen konnten nicht geladen werden: ${msg}`,
+    },
+    // Hinweis auf eine neue Version
+    update: {
+      text: (latest, current) => (current ? `Neue Version ${latest} verfügbar (du hast ${current})` : `Neue Version ${latest} verfügbar`),
+      link: 'Download ↗',
+      close: 'Hinweis ausblenden',
+    },
+    // Automatik (platform wie in Node: win32, darwin, linux)
+    auto: {
+      platform: {
+        win32: 'Dein PC muss an sein; war er aus, wird der Lauf beim nächsten Einschalten nachgeholt.',
+        darwin: 'Dein Mac muss an sein. Schläft er zur eingestellten Zeit, wird der Lauf nach dem Aufwachen nachgeholt; war er ausgeschaltet, entfällt er.',
+        linux: 'Dein PC muss an sein. Verpasste Läufe (PC aus oder im Ruhezustand) entfallen.',
+      },
+      place: { win32: 'die Windows-Aufgabenplanung', darwin: 'launchd (macOS)', linux: 'deine crontab' },
+      pendingOn: place => `Wird beim Speichern in ${place ?? 'den Zeitplaner deines PCs'} eingetragen.`,
+      pendingOff: 'Wird beim Speichern ausgeschaltet.',
+      savedOn: place => `Eingetragen in ${place ?? 'den Zeitplaner deines PCs'} ✓`,
+      savedOff: 'Automatik ausgeschaltet ✓',
+      removed: 'Eintrag entfernt ✓',
+      next: 'Nächster Lauf',
+      last: 'Letzter automatischer Lauf',
+      running: 'läuft gerade …',
+      aborted: '✗ abgebrochen, ohne Ergebnis',
+      ok: (songs, dry) => `✓ ${songs != null ? plural(songs, 'Song', 'Songs') : 'fertig'}${dry ? ' (Probelauf)' : ''}`,
+      okSummary: (summary, dry) => `✓ ${summary}${dry ? ' (Probelauf)' : ''}`,
+      open: 'In Spotify öffnen ↗',
+      loginAgain: 'Jetzt neu anmelden',
+      loginRenewed: '(inzwischen neu angemeldet ✓)',
+      failed: reason => `✗ ${reason}`,
+      logHint: 'Details stehen in automatik.log im Ordner von Tweakable DJ.',
+      notice: 'Der letzte automatische Lauf ist fehlgeschlagen, weil die Spotify-Anmeldung abgelaufen ist. Melde dich neu an, dann klappt der nächste Lauf wieder.',
+      statusError: msg => `Der Stand der Automatik ist gerade nicht abrufbar: ${msg}`,
+      invalid: msg => `${msg} Stelle die Automatik hier neu ein und speichere.`,
+      // Warum der Eintrag im Zeitplaner nicht passt → [Erklärung, Button]
+      problems: {
+        missing: ['Die Automatik ist eingestellt, aber nicht eingetragen, z. B. nach dem Umzug auf einen neuen PC. Einmal speichern, um sie einzutragen.', 'Automatik speichern'],
+        folder: ['Die Automatik zeigt noch auf einen anderen Ordner, z. B. weil du Tweakable DJ verschoben hast. Einmal speichern, um die Automatik zu aktualisieren.', 'Automatik speichern'],
+        settings: ['Die Automatik ist anders eingetragen als hier eingestellt, z. B. nach einem Update von Node.js. Einmal speichern, um sie zu aktualisieren.', 'Automatik speichern'],
+        disabled: ['Die Automatik ist im Zeitplaner ausgeschaltet. Einmal speichern, um sie wieder einzuschalten.', 'Automatik speichern'],
+        leftover: ['Im Zeitplaner steht noch ein Eintrag von Tweakable DJ, obwohl die Automatik hier aus ist (z. B. von einem verschobenen oder kopierten Ordner).', 'Eintrag entfernen'],
+      },
+      // Eintrag unter einem früheren Namen (z. B. „Mein DJ“): beim Speichern wird er ersetzt bzw. entfernt.
+      legacy: (names, on) => `Im Zeitplaner steht noch ein Eintrag unter dem alten Namen ${names.map(n => `„${n}“`).join(', ')}. Einmal speichern ${on ? 'ersetzt ihn durch den neuen' : 'entfernt ihn'}.`,
+      legacyButton: on => (on ? 'Automatik speichern' : 'Eintrag entfernen'),
+      disabledMac: ' Prüfe auch unter Systemeinstellungen → Allgemein → Anmeldeobjekte, ob „node“ im Hintergrund laufen darf.',
+    },
+  },
+
+  en: {
+    locale: 'en-GB',
+    pct: v => `${Math.round(v * 100)}%`,
+    title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Setup' : 'Tweakable DJ for Spotify'),
+    sub: { setup: 'Setup in 5 steps', settings: 'Settings for your playlist' },
+    status: { loading: 'Loading …', setup: 'Setup', running: 'Running …', dirty: 'Unsaved changes', saved: 'Saved', error: 'Error' },
+    // "Mon 6 Oct, 07:00"
+    when: d => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]} ${d.getDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]}, ${two(d.getHours())}:${two(d.getMinutes())}`,
+    page: {
+      tagline: 'Your personal, tweakable DJ for Spotify – no talking, more variety.',
+      openSetup: 'Change credentials',
+      intro: 'Set it up once, then everything runs from this page. You need Spotify Premium, a free Last.fm account and about 10 minutes.',
+      step1: 'Create a Spotify app',
+      step2: 'Connect Last.fm',
+      step3: 'Log in to Spotify',
+      step4: 'Source of your favorites',
+      step5: 'Done',
+      s1Text: 'Tweakable DJ needs its own app at Spotify. It’s free, belongs only to you and takes a few minutes to create.',
+      s1Dashboard: `Open the ${ext('https://developer.spotify.com/dashboard', 'Spotify Developer Dashboard ↗')} and log in with your Spotify account.`,
+      s1Create: 'Click <b>Create app</b>. Name and description are up to you, e.g. “Tweakable DJ”.',
+      s1Redirect: 'Under <b>Redirect URIs</b>, enter this address and click <b>Add</b>:',
+      copy: 'Copy',
+      copied: 'Copied ✓',
+      s1Exact: 'Exactly like this, with 127.0.0.1 and not “localhost”.',
+      s1Api: 'When asked which API you plan to use, tick <b>Web API</b>, accept the terms and click <b>Save</b>.',
+      s1ClientId: 'In your app, open <b>Settings</b> and copy the <b>Client ID</b>. You don’t need the client secret.',
+      hexPh: '32 characters from 0–9 and a–f',
+      saveNext: 'Save and continue',
+      s2Text: 'Last.fm provides the similar songs and knows your listening history. For this you need a free API key.',
+      s2Account: `Open ${ext('https://www.last.fm/api/account/create', 'Last.fm: create API account ↗')} and log in (or sign up there).`,
+      s2Form: 'Choose any name and description, leave <b>Callback URL</b> empty and submit.',
+      s2Key: 'Copy the <b>API key</b>. You don’t need the shared secret.',
+      apiKey: 'API key',
+      user: 'Last.fm username',
+      userHelp: 'It’s in the address of your profile: last.fm/user/<i>name</i>',
+      check: 'Check',
+      s3Text: 'Allow Tweakable DJ to read your Liked Songs and playlists and to fill the playlist. The login is stored only on this computer.',
+      next: 'Continue',
+      s4Text: 'The DJ picks its starting points and favorites from these songs.',
+      s4Help: 'You can choose your Liked Songs and playlists you own or collaborate on – Spotify only shares the songs of those.',
+      finish: 'Go to the controls',
+      close: '← Back to the controls',
+      presets: 'Presets',
+      presetsHelp: 'Set several controls at once. Name, source, number of songs and block list stay as they are. Nothing is saved until you click “Save”.',
+      open: 'Open in Spotify ↗',
+      creditLastfm: `Similar songs and listening history: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · non-commercial use only · not affiliated with Last.fm`,
+      creditSpotify: 'Not an official Spotify product · Spotify is a trademark of Spotify AB',
+      discard: 'Discard',
+      save: 'Save',
+      dry: 'Test run',
+      run: 'Rebuild playlist',
+    },
+    adventure: {
+      similar: x => `Similar songs are ${x}× as likely to be drawn`,
+      distant: x => `Distant songs are ${x}× as likely to be drawn`,
+      equal: 'Similarity makes no difference in the draw',
+      detours: p => `detours at ${p} of the starting points`,
+    },
+    groups: {
+      playlist: 'Playlist',
+      selection: 'Selection',
+      current: 'What you’re listening to now',
+      variety: 'Variety',
+      repeats: 'No repeats',
+      blocked: 'Block list',
+      auto: 'Rebuild automatically',
+    },
+    items: {
+      playlistName: { label: 'Playlist name', help: 'This playlist gets filled. If it doesn’t exist yet, it is created.' },
+      seed: { label: 'Source of your favorites',
+        help: 'The DJ draws starting points and favorites from these songs. You can choose playlists you own or collaborate on.' },
+      size: { label: 'Number of songs', fmt: v => plural(v, 'song', 'songs'), help: 'This many songs go into the playlist on every run.' },
+      familiarShare: { label: 'Share of favorites', fmt: v => pct(v),
+        hint: (v, c) => `≈ ${Math.round(c.size * v)} favorites and ${c.size - Math.round(c.size * v)} new songs`,
+        help: 'Favorites come from your Liked Songs; the rest are songs that aren’t in there yet.' },
+      adventure: { label: 'Adventure', fmt: v => num(v), hint: v => adventureHint(v),
+        help: '0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant songs. Also sets how often the DJ wanders off to related artists.' },
+      seedsPerRun: { label: 'Starting points per run', fmt: v => num(v),
+        help: 'Last.fm looks for songs similar to this many drawn songs. More = a broader mix; the run takes a little longer.' },
+      useLastfmTopTracks: { label: 'Include Last.fm top songs', help: 'Also use your most-played songs of the last 3 months as starting points.' },
+      currentDays: { label: 'Period counted as “current”', fmt: v => plural(v, 'day', 'days'), help: 'Whatever Last.fm says you played in this period counts as current.' },
+      currentFactor: { label: 'Weight of current listening', fmt: v => (v === 1 ? 'off' : `× ${num(v)}`),
+        hint: v => (v === 1 ? '' : `What you’re listening to now is ${num(v)}× as likely to be drawn`),
+        help: 'Applies to the starting points, the draw of new songs and the favorites. 1 = off.' },
+      maxPerArtist: { label: 'Songs per artist', fmt: v => `max ${v}`, help: 'At most this many songs by the same artist in the whole playlist.' },
+      artistWindow: { label: 'Window size', fmt: v => plural(v, 'song', 'songs'), help: 'The rule below applies to every stretch of this many consecutive songs.' },
+      maxPerWindow: { label: 'Songs per artist in the window', fmt: v => `max ${v}`,
+        hint: (v, c) => `“${v} in ${c.artistWindow}” → at most ${Math.ceil(c.size * v / c.artistWindow)} songs per artist in ${c.size} songs`,
+        help: 'Counts songs by an artist and new songs found via that artist.' },
+      artistGap: { label: 'Gap between songs by the same artist', fmt: v => (v ? plural(v, 'song', 'songs') : 'off'),
+        help: 'At least this many other songs between two songs by the same artist.' },
+      excludeRecentDays: { label: 'Block recently played songs', fmt: v => (v ? plural(v, 'day', 'days') : 'off'),
+        help: 'Songs you played in this period (according to Last.fm) don’t go into the playlist.' },
+      noRepeatRuns: { label: 'Block previous runs', fmt: v => (v ? plural(v, 'run', 'runs') : 'off'),
+        help: 'Songs from this many previous runs don’t come back.' },
+      blockedArtists: { label: 'Artists that are never played', placeholder: 'Artist name', help: 'Songs by these artists never go into the playlist.' },
+      schedule: { label: 'How often', options: { off: 'Off', daily: 'Daily', weekly: 'Weekly' },
+        help: 'Tweakable DJ rebuilds the playlist by itself at the set time, even when this page is closed.' },
+      scheduleDay: { label: 'Day of the week',
+        options: { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' } },
+      scheduleTime: { label: 'Time', fmt: v => v,
+        hint: (v, c) => `${c.schedule === 'weekly' ? `Every ${T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay}` : 'Every day'} at ${v}` },
+    },
+    list: {
+      add: 'Add',
+      remove: 'Remove',
+      removeName: name => `Remove ${name}`,
+      empty: 'Nobody blocked yet.',
+      duplicate: name => `“${name}” is already on the list.`,
+    },
+    reset: d => `Default: ${d}`,
+    on: 'on',
+    off: 'off',
+    presets: {
+      discover: ['Discover', 'Lots of new songs, also further from your taste, and hardly any repeats.'],
+      familiar: ['Familiar', 'More favorites and very similar new songs, few surprises.'],
+      current: ['My current phase', 'Closely follows what you’ve listened to in the last 7 days.'],
+      standard: ['Default', 'The balanced basic settings.'],
+    },
+    presetMatch: name => `Matches exactly: ${name}`,
+    presetNone: 'No preset matches exactly – this is your own mix.',
+    emptyName: 'The playlist name can’t be empty.',
+    errors: {
+      login_expired: 'Spotify login expired',
+      not_logged_in: 'Not logged in to Spotify yet',
+      forbidden: 'Spotify denies access (403)',
+      lastfm_key: 'The Last.fm API key is invalid',
+      setup_incomplete: 'Setup not finished',
+      node_version: 'Node.js is too old',
+    },
+    run: {
+      running: dry => (dry ? 'Test run in progress … (about 1 minute)' : 'Rebuilding the playlist … (about 1 minute)'),
+      ok: (r, dry) => `${dry ? 'Test run' : 'Done'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${plural(r.songs, 'song', 'songs')} (${num(r.fresh)} new, ${num(r.freshCurrent)} of them via current listening; ${plural(r.familiar, 'favorite', 'favorites')})`,
+      done: dry => (dry ? 'Test run finished' : 'Done'),
+      unchanged: ' · playlist not changed',
+      failedWith: reason => `Failed: ${reason} – see output`,
+      failed: 'Failed – see output',
+      failedShort: 'Failed',
+      ended: dry => (dry ? 'Test run ended – see output' : 'Ended – see output'),
+    },
+    seed: {
+      liked: 'Liked Songs',
+      likedLong: 'Liked Songs (songs with a heart)',
+      songs: n => plural(n, 'song', 'songs'),
+      playlist: 'Playlist',
+      collaborative: ' (collaborative)',
+      other: 'Playlist from your settings (not in your list)',
+      configured: 'Configured playlist',
+      login: 'Your playlists appear here once you’re logged in to Spotify.',
+      loading: 'Loading your playlists …',
+      error: msg => `Your playlists can’t be loaded right now: ${msg}`,
+    },
+    login: {
+      start: 'Log in with Spotify',
+      again: 'Log in again',
+      cancel: 'Cancel',
+      openPage: 'Open login page ↗',
+      help: 'If Spotify shows “Invalid client”, the Client ID is wrong. With “Invalid redirect URI”, the redirect URI is missing in the dashboard or spelled differently (setup, step 1).',
+      pending: 'A Spotify tab has opened in your browser. Agree there, then come back here. ',
+      noTab: 'Don’t see a tab? ',
+      newClientId: 'New Client ID saved – please log in again.',
+    },
+    notice: {
+      done: 'Logged in ✓ The Spotify login is valid for another 6 months.',
+      expired: 'Your Spotify login has expired or is missing. Log in again and it will work again.',
+      left: n => `Your Spotify login expires in ${plural(n, 'day', 'days')}. Spotify requires a new login every 6 months.`,
+      probably: 'Your Spotify login has probably expired. Spotify requires a new login every 6 months.',
+    },
+    setup: {
+      done: 'done ✓',
+      loggedIn: age => `You’re logged in ✓${age == null ? '' : age === 0 ? ' (since today)' : ` (for ${plural(age, 'day', 'days')})`}. You only need to log in again for a different account or when the login has expired.`,
+      notLoggedIn: 'Not logged in yet.',
+      open: steps => `Still to do: step${steps.length > 1 ? 's' : ''} ${steps.join(', ')}.`,
+      allDone: 'All set ✓ Now adjust the controls and click “Test run”. It shows which songs the DJ would pick and doesn’t change your playlist.',
+      formatOk: 'Format looks right ✓',
+      badChars: 'A Client ID only contains the characters 0–9 and a–f.',
+      length: n => `A Client ID has exactly 32 characters – this one has ${n}.`,
+      pasteId: 'Please paste the Client ID.',
+      checking: 'Checking with Last.fm …',
+      connect: ' Connect Spotify to Last.fm: ',
+      connectLink: 'Last.fm → Settings → Applications ↗',
+      connectRest: ', then click “Connect” next to Spotify. After that, Last.fm records every song you play on Spotify.',
+      saved: 'Saved. ',
+      savedUnchecked: 'Saved, but not checked. ',
+      loadFailed: msg => `Settings couldn’t be loaded: ${msg}`,
+    },
+    update: {
+      text: (latest, current) => (current ? `New version ${latest} available (you have ${current})` : `New version ${latest} available`),
+      link: 'download ↗',
+      close: 'Dismiss notice',
+    },
+    auto: {
+      platform: {
+        win32: 'Your PC needs to be on; if it was off, the run is made up the next time you turn it on.',
+        darwin: 'Your Mac needs to be on. If it’s asleep at the set time, the run is made up after it wakes; if it was switched off, the run is skipped.',
+        linux: 'Your PC needs to be on. Missed runs (PC off or asleep) are skipped.',
+      },
+      place: { win32: 'Windows Task Scheduler', darwin: 'launchd (macOS)', linux: 'your crontab' },
+      pendingOn: place => `Will be added to ${place ?? 'your computer’s scheduler'} when you save.`,
+      pendingOff: 'Will be turned off when you save.',
+      savedOn: place => `Added to ${place ?? 'your computer’s scheduler'} ✓`,
+      savedOff: 'Automatic runs turned off ✓',
+      removed: 'Entry removed ✓',
+      next: 'Next run',
+      last: 'Last automatic run',
+      running: 'running …',
+      aborted: '✗ aborted, no result',
+      ok: (songs, dry) => `✓ ${songs != null ? plural(songs, 'song', 'songs') : 'done'}${dry ? ' (test run)' : ''}`,
+      okSummary: (summary, dry) => `✓ ${summary}${dry ? ' (test run)' : ''}`,
+      open: 'Open in Spotify ↗',
+      loginAgain: 'Log in again now',
+      loginRenewed: '(logged in again since then ✓)',
+      failed: reason => `✗ ${reason}`,
+      logHint: 'Details are in automatik.log in the Tweakable DJ folder.',
+      notice: 'The last automatic run failed because the Spotify login has expired. Log in again and the next run will work.',
+      statusError: msg => `The status of automatic runs isn’t available right now: ${msg}`,
+      invalid: msg => `${msg} Set up automatic runs here again and save.`,
+      problems: {
+        missing: ['Automatic runs are set but not registered, e.g. after moving to a new computer. Save once to register them.', 'Save automatic runs'],
+        folder: ['Automatic runs still point to a different folder, e.g. because you moved Tweakable DJ. Save once to update them.', 'Save automatic runs'],
+        settings: ['Automatic runs are registered differently from what is set here, e.g. after a Node.js update. Save once to update them.', 'Save automatic runs'],
+        disabled: ['Automatic runs are disabled in the scheduler. Save once to turn them back on.', 'Save automatic runs'],
+        leftover: ['The scheduler still has an entry from Tweakable DJ, although automatic runs are off here (e.g. from a moved or copied folder).', 'Remove entry'],
+      },
+      legacy: (names, on) => `The scheduler still has an entry under the old name ${names.map(n => `“${n}”`).join(', ')}. Saving once ${on ? 'replaces it with the new one' : 'removes it'}.`,
+      legacyButton: on => (on ? 'Save automatic runs' : 'Remove entry'),
+      disabledMac: ' Also check under System Settings → General → Login Items whether “node” is allowed to run in the background.',
+    },
+  },
+};
+
+// --- Sprache: Config (language) → vorgemerkte Wahl in diesem Browser → Sprache des Browsers ---
+
+// Kleiner Speicher im Browser; kann fehlen oder gesperrt sein (z. B. privates Fenster), dann eben ohne.
+const store = key => ({
+  get() { try { return localStorage.getItem(key); } catch { return null; } },
+  set(v) { try { if (v) localStorage.setItem(key, v); else localStorage.removeItem(key); } catch { /* egal */ } },
+});
+// Wahl, die noch nicht in der config.jsonc steht (Speichern fehlgeschlagen) – wird beim nächsten Laden nachgereicht.
+const pendingLang = store('tweakable-dj-language');
+const browserLang = () => (/^de\b/i.test(navigator.language || '') ? 'de' : 'en');
+let lang = TEXT[pendingLang.get()] ? pendingLang.get() : browserLang();
+let T = TEXT[lang];
+
+const two = n => String(n).padStart(2, '0');
+const num = v => Number(v).toLocaleString(T.locale, { maximumFractionDigits: 2 });
+const pct = v => T.pct(v);
+const plural = (n, one, many) => `${num(n)} ${n === 1 ? one : many}`;
+
+// Gleiche Formel wie candidateWeight() in lineup.mjs.
+function adventureHint(a) {
+  const similar = 0.05 + (1 - a);
+  const distant = 0.05 + a;
+  const ratio = similar / distant;
+  const lottery = ratio > 1.05 ? T.adventure.similar(num(ratio.toFixed(1)))
+    : ratio < 0.95 ? T.adventure.distant(num((1 / ratio).toFixed(1)))
+    : T.adventure.equal;
+  return `${lottery} · ${T.adventure.detours(pct(a))}`;
+}
+
+// --- Regler: Aufbau ohne Texte (die stehen in TEXT[lang].items bzw. .groups) ---
+
+const SCHEDULE_KEYS = ['schedule', 'scheduleTime', 'scheduleDay'];
+const GROUPS = [
+  { id: 'playlist', items: [
+    { key: 'playlistName', type: 'text' },
+    { key: 'seed', type: 'seed' },
+    { key: 'size', min: 10, max: 100, step: 5 },
+    { key: 'familiarShare', min: 0, max: 1, step: 0.05 },
+  ]},
+  { id: 'selection', items: [
+    { key: 'adventure', min: 0, max: 1, step: 0.05 },
+    { key: 'seedsPerRun', min: 5, max: 50, step: 1 },
+    { key: 'useLastfmTopTracks', type: 'toggle' },
+  ]},
+  { id: 'current', items: [
+    { key: 'currentDays', min: 1, max: 30, step: 1 },
+    { key: 'currentFactor', min: 1, max: 10, step: 0.5 },
+  ]},
+  { id: 'variety', items: [
+    { key: 'maxPerArtist', min: 1, max: 10, step: 1 },
+    { key: 'artistWindow', min: 5, max: 50, step: 1 },
+    { key: 'maxPerWindow', min: 1, max: 10, step: 1 },
+    { key: 'artistGap', min: 0, max: 10, step: 1 },
+  ]},
+  { id: 'repeats', items: [
+    { key: 'excludeRecentDays', min: 0, max: 60, step: 1 },
+    { key: 'noRepeatRuns', min: 0, max: 10, step: 1 },
+  ]},
+  { id: 'blocked', items: [
+    { key: 'blockedArtists', type: 'list' },
+  ]},
+  { id: 'auto', status: true, items: [
+    { key: 'schedule', type: 'choice', options: ['off', 'daily', 'weekly'] },
+    { key: 'scheduleDay', type: 'select', options: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'], show: c => c.schedule === 'weekly' },
+    { key: 'scheduleTime', type: 'time', show: c => c.schedule !== 'off' },
+  ]},
+];
+// Texte eines Reglers in der aktuellen Sprache; Auswahllisten zeigen ohne eigenes fmt den Namen der Option.
+function textOf(item) {
+  const t = T.items[item.key];
+  const fmt = t.fmt ?? (t.options ? v => t.options[v] ?? v : item.type === 'seed' ? seedName : v => v);
+  return { ...t, fmt };
+}
+
+// Voreinstellungen setzen alle Regler dieser Liste: angegebene Werte, alles andere auf den Standard.
+// So führt ein Klick immer zum selben Ergebnis. Name, Quelle, Anzahl Songs und Sperrliste bleiben unberührt.
+const PRESET_KEYS = ['familiarShare', 'adventure', 'seedsPerRun', 'useLastfmTopTracks', 'currentDays', 'currentFactor',
+  'maxPerArtist', 'artistWindow', 'maxPerWindow', 'artistGap', 'excludeRecentDays', 'noRepeatRuns'];
+const PRESETS = [
+  { id: 'discover', values: { familiarShare: 0.1, adventure: 0.6, seedsPerRun: 30, currentFactor: 1.5, maxPerWindow: 2, excludeRecentDays: 30, noRepeatRuns: 5 } },
+  { id: 'familiar', values: { familiarShare: 0.4, adventure: 0.1, seedsPerRun: 15, currentFactor: 2, maxPerWindow: 3, excludeRecentDays: 3, noRepeatRuns: 1 } },
+  { id: 'current', values: { familiarShare: 0.2, adventure: 0.2, currentDays: 7, currentFactor: 6, excludeRecentDays: 0, noRepeatRuns: 2 } },
+  { id: 'standard', values: {} },
+];
+
+// Einrichtungsschritte: wann gilt ein Schritt als erledigt?
+const STEPS = [
+  s => !s.missing.includes('spotify.clientId'),
+  s => !s.missing.includes('lastfm.apiKey') && !s.missing.includes('lastfm.user'),
+  s => s.loggedIn,
+  s => s.loggedIn && s.configExists && !s.missing.includes('seed'), // Liste gibt es erst nach der Anmeldung
+  () => false,
+];
+
+// Fehlercodes aus @@RESULT bzw. automatik.json, bei denen eine neue Anmeldung hilft.
+const LOGIN_CODES = ['login_expired', 'not_logged_in'];
+
+const ITEMS = GROUPS.flatMap(g => g.items);
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}, children = []) => Object.assign(document.createElement(tag), props).appendChildren(children);
+Element.prototype.appendChildren = function (children) { children.forEach(c => c != null && c !== false && this.append(c)); return this; };
+const attr = (node, attrs) => { for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v); return node; };
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+let saved = {};
+let current = {};
+let defaults = {};
+let setup = null;           // Stand der Einrichtung vom Server
+let view = '';              // 'setup' oder 'settings'
+let activeStep = 1;
+let busy = false;
+let loaded = false;         // Einstellungen geladen?
+let loadFailed = false;
+let seedOptions = null;     // Lieblingssongs + Playlists, null = nicht verfügbar
+let seedNote = null;        // { key: 'login' | 'loading' | 'error' | 'raw', msg }
+let loginState = { status: 'idle', message: '' };   // mit key statt message: Text aus T.login
+let loginTimer = null;
+let noticeReason = null;    // 'expired' nach gescheitertem Lauf, 'done' nach erfolgreicher Anmeldung
+let fromSettings = false;   // Assistent über "Zugangsdaten ändern" geöffnet?
+let scheduleInfo = null;    // Stand der Automatik vom Server (GET /api/schedule)
+let scheduleBusy = false;
+let runState = null;        // letzter Lauf: { phase: 'running' | 'done' | 'error', dry, result }
+let configCreated = false;  // Assistent hat gerade die config.jsonc angelegt → Sprache mit hineinschreiben
+const controls = {};
+const loginBoxes = [];
+
+// Jede Anfrage sagt dem Server, in welcher Sprache er antworten soll.
+const api = (path, options = {}) => fetch(path, {
+  ...options,
+  headers: { 'X-Tweakable-DJ': '1', 'X-Lang': lang, 'Content-Type': 'application/json' },
+});
+async function apiJson(path, options) {
+  const res = await api(path, options);
+  const data = await res.json();
+  if (!res.ok) throw Object.assign(new Error(data.error), { data });
+  return data;
+}
+const dirty = () => ITEMS.some(i => !same(current[i.key], saved[i.key]));
+const showError = msg => { $('banner').textContent = msg; $('banner').hidden = !msg; };
+function setMsg(node, kind, ...content) {
+  node.className = `msg ${kind}`;
+  node.replaceChildren(...content);
+}
+
+// --- Sprache umschalten ---
+
+// Feste Texte im HTML und alles Dynamische neu zeichnen, ohne die Seite neu zu laden.
+function renderLang() {
+  document.documentElement.lang = lang;
+  for (const node of document.querySelectorAll('[data-t]')) node.textContent = T.page[node.dataset.t];
+  for (const node of document.querySelectorAll('[data-html]')) node.innerHTML = T.page[node.dataset.html]; // nur feste Texte aus TEXT
+  for (const node of document.querySelectorAll('[data-ph]')) node.placeholder = T.page[node.dataset.ph];
+  for (const b of document.querySelectorAll('.lang button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+  $('w-lastfm-save').textContent = $('w-lastfm-save').dataset.saved ? T.page.next : T.page.saveNext;
+  build();
+  renderHeader();
+  renderUpdate();
+  if (!loaded) return;
+  refresh();
+  renderSetup();
+  renderSeed();
+  renderNotice();
+  renderSummary();
+  if ($('w-client').value.trim()) checkClientId();
+}
+
+function setLang(next, { save = true } = {}) {
+  if (!TEXT[next]) return;
+  if (next !== lang) {
+    lang = next;
+    T = TEXT[lang];
+    renderLang();
+    // Meldungen des Servers zur Automatik in der neuen Sprache holen.
+    if (save && view === 'settings') loadSchedule();
+  }
+  if (save) saveLang();
+}
+
+// Wahl in der config.jsonc speichern (gibt es sie noch nicht, legt der Server sie aus der Vorlage dieser Sprache an).
+// Klappt das nicht, merkt sich der Browser die Wahl und reicht sie beim nächsten Laden nach.
+async function saveLang() {
+  pendingLang.set(lang);
+  try {
+    await apiJson('/api/config', { method: 'POST', body: JSON.stringify({ language: lang }) });
+    saved.language = current.language = lang;
+    pendingLang.set(null);
+    if (setup && !setup.configExists) setup.configExists = true;
+  } catch {
+    // bleibt vorgemerkt
+  }
+}
+
+// Nach dem Laden der Einstellungen: Sprache aus der Config übernehmen bzw. vorgemerkte Wahl nachreichen.
+function adoptLang(data) {
+  const configured = data.values?.language;
+  if (TEXT[configured]) {
+    pendingLang.set(null);
+    return setLang(configured, { save: false });
+  }
+  const pending = pendingLang.get();
+  if (TEXT[pending]) setLang(pending, { save: false });
+  if (TEXT[pending] || (configCreated && data.setup?.configExists)) saveLang();
+}
+
+// --- Regler ---
+
+function build() {
+  $('preset-grid').replaceChildren(...PRESETS.map(p => {
+    const [name, text] = T.presets[p.id];
+    p.button = el('button', { type: 'button', className: 'preset', onclick: () => { Object.assign(current, presetValues(p)); refresh(); } },
+      [el('b', { textContent: name }), el('span', { textContent: text })]);
+    return p.button;
+  }));
+
+  const root = $('groups');
+  root.replaceChildren();
+  for (const group of GROUPS) {
+    const section = el('section', {}, [el('h2', { textContent: T.groups[group.id] })]);
+    for (const item of group.items) {
+      const text = textOf(item);
+      const id = `f-${item.key}`;
+      const out = el('output', { htmlFor: id });
+      const hint = el('p', { className: 'hint' });
+      const help = el('p', { className: 'help', textContent: text.help ?? '' });
+      const reset = el('button', { className: 'reset', type: 'button', onclick: () => set(item.key, defaults[item.key]) });
+      let label = el('label', { htmlFor: id, textContent: text.label });
+      const control = { item, text, out, hint, reset };
+      let input;
+      if (item.type === 'toggle') {
+        input = el('input', { type: 'checkbox', id, onchange: () => set(item.key, input.checked) });
+        section.append(el('div', { className: 'row' }, [
+          el('div', { className: 'row-head' }, [label, el('label', { className: 'switch' }, [input, el('span')])]), help, reset,
+        ]));
+      } else if (item.type === 'text') {
+        input = el('input', { type: 'text', id, maxLength: 200, oninput: () => set(item.key, input.value, false) });
+        section.append(el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, help, reset]));
+      } else if (item.type === 'seed') {
+        input = el('select', { id, onchange: () => set(item.key, input.value) });
+        control.note = el('p', { className: 'msg warn' });
+        section.append(el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, control.note, help, reset]));
+      } else if (item.type === 'choice') {
+        // Knöpfe nebeneinander (Aus / Täglich / Wöchentlich), technisch eine Gruppe von Radio-Buttons
+        label = el('span', { className: 'label', id: `${id}-label`, textContent: text.label });
+        control.radios = item.options.map(value => el('input', { type: 'radio', name: id, value, onchange: () => set(item.key, value) }));
+        input = attr(el('div', { className: 'seg', id }, control.radios.map((r, i) => el('label', {}, [r, el('span', { textContent: text.options[item.options[i]] })]))),
+          { role: 'radiogroup', 'aria-labelledby': `${id}-label` });
+        control.row = el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, hint, help, reset]);
+      } else if (item.type === 'select') {
+        input = el('select', { id, className: 'short', onchange: () => set(item.key, input.value) },
+          item.options.map(value => el('option', { value, textContent: text.options[value] })));
+        control.row = el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, hint, help, reset]);
+      } else if (item.type === 'time') {
+        // Nur vollständige Uhrzeiten übernehmen; ein halb gelöschtes Feld springt beim Verlassen zurück.
+        input = el('input', { type: 'time', id, step: 60, required: true,
+          oninput: () => { if (/^\d\d:\d\d$/.test(input.value)) set(item.key, input.value, false); },
+          onblur: () => { input.value = current[item.key]; } });
+        control.row = el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, hint, help, reset]);
+      } else if (item.type === 'list') {
+        input = el('input', { type: 'text', id, maxLength: 100, placeholder: text.placeholder, autocomplete: 'off' });
+        control.tags = attr(el('ul', { className: 'tags' }), { 'aria-label': text.label });
+        control.note = attr(el('p', { className: 'msg' }), { role: 'status' });
+        const add = () => addToList(item.key, input, control.note);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+        reset.hidden = true;
+        section.append(el('div', { className: 'row' }, [
+          el('div', { className: 'row-head' }, [label]),
+          el('div', { className: 'add-row' }, [input, el('button', { className: 'btn', type: 'button', textContent: T.list.add, onclick: add })]),
+          control.note, help, control.tags,
+        ]));
+      } else {
+        input = el('input', { type: 'range', id, min: item.min, max: item.max, step: item.step, oninput: () => set(item.key, Number(input.value)) });
+        section.append(el('div', { className: 'row' }, [
+          el('div', { className: 'row-head' }, [label, out]),
+          input,
+          el('div', { className: 'scale' }, [el('span', { textContent: text.fmt(item.min) }), el('span', { textContent: text.fmt(item.max) })]),
+          hint, help, reset,
+        ]));
+      }
+      if (control.row) section.append(control.row);
+      control.input = input;
+      controls[item.key] = control;
+    }
+    if (group.status) section.append(scheduleBox());
+    root.append(section);
+  }
+}
+
+function set(key, value, refreshInput = true) {
+  current[key] = value;
+  if (SCHEDULE_KEYS.includes(key)) setMsg($('auto-msg'), '', ''); // alte Meldung passt nicht mehr
+  refresh(refreshInput ? null : key);
+}
+
+function addToList(key, input, note) {
+  const name = input.value.trim().replace(/\s+/g, ' ');
+  if (!name) return;
+  if (current[key].some(a => a.toLowerCase() === name.toLowerCase())) {
+    setMsg(note, 'warn', T.list.duplicate(name));
+  } else {
+    setMsg(note, '', '');
+    set(key, [...current[key], name]);
+  }
+  input.value = '';
+  input.focus();
+}
+
+function renderTags(control, list) {
+  if (same(control.shown, list)) return;
+  control.shown = list;
+  const { item, tags, input } = control;
+  tags.replaceChildren(...(list.length ? list.map(name => el('li', { className: 'tag' }, [
+    el('span', { textContent: name }),
+    attr(el('button', { type: 'button', textContent: '×', title: T.list.remove, onclick: () => { set(item.key, current[item.key].filter(a => a !== name)); input.focus(); } }),
+      { 'aria-label': T.list.removeName(name) }),
+  ])) : [el('li', { className: 'empty', textContent: T.list.empty })]));
+}
+
+const presetValues = p => Object.fromEntries(PRESET_KEYS.map(k => [k, p.values[k] ?? defaults[k]]));
+const matchingPreset = () => PRESETS.find(p => Object.entries(presetValues(p)).every(([k, v]) => current[k] === v));
+
+function refresh(skipInput) {
+  for (const control of Object.values(controls)) {
+    const { item, text, input, out, hint, reset } = control;
+    const v = current[item.key];
+    if (item.key !== skipInput) {
+      if (item.type === 'toggle') input.checked = v;
+      else if (item.type === 'seed') fillSeedSelect(input, v);
+      else if (item.type === 'list') renderTags(control, v ?? []);
+      else if (item.type === 'choice') control.radios.forEach(r => { r.checked = r.value === v; });
+      else input.value = v;
+    }
+    if (control.row) control.row.hidden = Boolean(item.show) && !item.show(current);
+    if (item.type === 'seed') control.note.textContent = seedNoteText();
+    out.textContent = item.type ? '' : text.fmt(v);
+    hint.textContent = text.hint ? text.hint(v, current) : '';
+    if (item.type === 'list') continue;
+    reset.hidden = same(v, defaults[item.key]);
+    const d = defaults[item.key];
+    reset.textContent = T.reset(item.type === 'toggle' ? (d ? T.on : T.off) : item.type === 'text' ? d : text.fmt(d));
+  }
+  const match = matchingPreset();
+  for (const p of PRESETS) p.button.setAttribute('aria-pressed', String(p === match));
+  $('preset-state').textContent = match ? T.presetMatch(T.presets[match.id][0]) : T.presetNone;
+  $('preset-state').className = match ? 'hint' : 'help';
+
+  const isDirty = dirty();
+  $('status').textContent = view === 'setup' ? T.status.setup : busy ? T.status.running : isDirty ? T.status.dirty : T.status.saved;
+  $('status').classList.toggle('dirty', view !== 'setup' && isDirty && !busy);
+  $('save').disabled = busy || !isDirty;
+  $('discard').disabled = busy || !isDirty;
+  $('dry').disabled = busy;
+  $('run').disabled = busy;
+  renderSchedule();
+}
+
+// keepEdits: ungespeicherte Regler-Änderungen behalten (z. B. nach dem Assistenten oder der Anmeldung).
+async function load(keepEdits = false) {
+  const data = await apiJson('/api/config');
+  const edits = keepEdits ? Object.fromEntries(ITEMS.filter(i => !same(current[i.key], saved[i.key])).map(i => [i.key, current[i.key]])) : {};
+  saved = { ...data.values };
+  current = { ...data.values, ...edits };
+  defaults = data.defaults;
+  setup = data.setup;
+  loaded = true;
+  adoptLang(data);
+  refresh();
+  renderSetup();
+  renderNotice();
+}
+
+async function save() {
+  const changes = Object.fromEntries(ITEMS.filter(i => !same(current[i.key], saved[i.key])).map(i => [i.key, current[i.key]]));
+  if (typeof changes.playlistName === 'string' && !changes.playlistName.trim()) throw new Error(T.emptyName);
+  const scheduleChanged = SCHEDULE_KEYS.some(k => k in changes);
+  let res;
+  try {
+    res = await apiJson('/api/config', { method: 'POST', body: JSON.stringify(changes) });
+  } catch (e) {
+    if (scheduleChanged) setMsg($('auto-msg'), 'err', e.message);
+    throw e;
+  }
+  saved = { ...current };
+  if (res.schedule) {
+    scheduleInfo = res.schedule;
+    setMsg($('auto-msg'), 'ok', saved.schedule === 'off' ? T.auto.savedOff : T.auto.savedOn(T.auto.place[scheduleInfo.platform]));
+  }
+  refresh();
+  if ('playlistName' in changes) loadPlaylists();
+}
+
+// --- Automatik ---
+
+const when = iso => T.when(new Date(iso));
+// Lauf an abgelaufener bzw. fehlender Anmeldung gescheitert und seitdem nicht neu angemeldet?
+const loginNeeded = r => r?.ok === false && LOGIN_CODES.includes(r.errorCode) && !(setup?.authorizedAt > Date.parse(r.finishedAt));
+const firstLine = (text, max = 160) => {
+  const line = String(text ?? '').split('\n')[0];
+  return line.length > max ? `${line.slice(0, max - 3)} …` : line;
+};
+
+function scheduleBox() {
+  const fix = el('button', { type: 'button', className: 'btn small', id: 'auto-fix', onclick: fixSchedule });
+  return el('div', { className: 'row', id: 'auto-status' }, [
+    el('p', { className: 'help', id: 'auto-platform' }),
+    attr(el('p', { className: 'msg warn', id: 'auto-pending' }), { role: 'status' }),
+    el('dl', { className: 'facts', id: 'auto-facts' }),
+    el('div', { className: 'auto-problem', id: 'auto-problem', hidden: true }, [el('p', { id: 'auto-problem-text' }), fix]),
+    attr(el('p', { className: 'msg', id: 'auto-msg' }), { role: 'status' }),
+  ]);
+}
+
+// Letzter automatischer Lauf aus automatik.json: Zeit · ✓ 50 Songs bzw. ✗ Grund – aus den Zahlen und errorCode in der
+// Sprache der Seite. Ältere Dateien ohne diese Felder: summary bzw. error, so wie sie dort stehen.
+function lastRunView(r) {
+  const time = `${when(r.finishedAt ?? r.startedAt)} · `;
+  if (r.ok === null) {
+    const running = Date.now() - Date.parse(r.startedAt) < 35 * 60_000; // Windows bricht nach 30 Minuten ab
+    return [time, el('span', { className: running ? '' : 'err', textContent: running ? T.auto.running : T.auto.aborted })];
+  }
+  if (r.ok) {
+    const result = typeof r.songs === 'number' ? T.auto.ok(r.songs, r.dry) : r.summary ? T.auto.okSummary(r.summary, r.dry) : T.auto.ok(null, r.dry);
+    return [time, el('span', { className: 'ok', textContent: result }),
+      ...(r.playlistUrl ? [' · ', el('a', { href: r.playlistUrl, target: '_blank', rel: 'noopener', textContent: T.auto.open })] : [])];
+  }
+  if (LOGIN_CODES.includes(r.errorCode)) {
+    const again = el('button', { type: 'button', className: 'link', textContent: T.auto.loginAgain, onclick: () => { startLogin(); scrollTo(0, 0); } });
+    return [time, el('span', { className: 'err', textContent: T.auto.failed(T.errors[r.errorCode]) }), ' ', loginNeeded(r) ? again : T.auto.loginRenewed];
+  }
+  const reason = T.errors[r.errorCode] ?? firstLine(r.error);
+  return [time, el('span', { className: 'err', textContent: T.auto.failed(reason) }),
+    el('span', { className: 'help', textContent: ` ${T.auto.logHint}` })];
+}
+
+// Erklärung und Button zu info.problem; ein Eintrag unter dem alten Namen ("Mein DJ") hat einen eigenen Text.
+function problemText(info, on) {
+  if (info.legacy && info.problem === 'leftover' && info.legacyNames?.length) return [T.auto.legacy(info.legacyNames, on), T.auto.legacyButton(on)];
+  return T.auto.problems[info.problem] ?? [T.auto.invalid(info.message), null];
+}
+
+function renderSchedule() {
+  const box = $('auto-status');
+  if (!box || !controls.schedule) return;
+  const info = scheduleInfo;
+  const pending = SCHEDULE_KEYS.some(k => !same(current[k], saved[k]));
+  const unsupported = Boolean(info && !info.supported);
+  const place = T.auto.place[info?.platform];
+  // Wo die Automatik nicht geht, bleibt nur "Aus".
+  controls.schedule.radios.forEach(r => { r.disabled = scheduleBusy || (unsupported && r.value !== 'off'); });
+
+  const platform = $('auto-platform');
+  platform.textContent = unsupported ? info.message : current.schedule !== 'off' ? T.auto.platform[info?.platform] ?? '' : '';
+  platform.className = unsupported ? 'msg warn' : 'help';
+  $('auto-pending').textContent = pending && !unsupported ? (current.schedule === 'off' ? T.auto.pendingOff : T.auto.pendingOn(place)) : '';
+
+  const facts = [];
+  if (info?.nextRun && !pending) facts.push([T.auto.next, [when(info.nextRun)]]);
+  if (info?.lastRun?.startedAt) facts.push([T.auto.last, lastRunView(info.lastRun)]);
+  $('auto-facts').replaceChildren(...facts.flatMap(([k, v]) => [el('dt', { textContent: k }), el('dd', {}, v)]));
+  $('auto-facts').hidden = !facts.length;
+
+  const problem = info?.supported && !info.matches && !pending ? info.problem : null;
+  $('auto-problem').hidden = !problem;
+  if (problem) {
+    const [text, button] = problemText(info, saved.schedule !== 'off');
+    $('auto-problem-text').textContent = text + (problem === 'disabled' && info.platform === 'darwin' ? T.auto.disabledMac : '');
+    $('auto-fix').textContent = button ?? '';
+    $('auto-fix').hidden = !button;
+    $('auto-fix').disabled = scheduleBusy;
+  }
+  box.hidden = ![...box.children].some(c => !c.hidden && c.textContent.trim());
+}
+
+async function loadSchedule() {
+  try {
+    scheduleInfo = await apiJson('/api/schedule');
+  } catch (e) {
+    scheduleInfo = null;
+    setMsg($('auto-msg'), 'err', T.auto.statusError(e.message));
+  }
+  renderSchedule();
+  renderNotice();
+}
+
+// "Automatik speichern" bzw. "Eintrag entfernen": gespeicherte Einstellung neu eintragen.
+async function fixSchedule() {
+  scheduleBusy = true;
+  renderSchedule();
+  try {
+    scheduleInfo = await apiJson('/api/schedule', { method: 'POST' });
+    setMsg($('auto-msg'), 'ok', scheduleInfo.installed ? T.auto.savedOn(T.auto.place[scheduleInfo.platform]) : T.auto.removed);
+  } catch (e) {
+    setMsg($('auto-msg'), 'err', e.message);
+  } finally {
+    scheduleBusy = false;
+    renderSchedule();
+  }
+}
+
+// --- Probelauf und Neuerstellung ---
+
+// Ergebnis des Laufs: letzte Zeile "@@RESULT {json}" der Ausgabe (fehlt z. B. bei einem älteren Server → null).
+function runResult(text) {
+  const line = text.replace(/\r/g, '').split('\n').reverse().find(l => l.startsWith('@@RESULT '));
+  try {
+    return line ? JSON.parse(line.slice('@@RESULT '.length)) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Ausgabe ohne Steuerzeilen (@@…); Fehler, Warnungen und aktuelles Hören hervorheben.
+function renderLog(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const last = lines.length - 1; // noch unvollständige Zeile: auch ein angefangenes "@@" nicht zeigen
+  $('log').replaceChildren(...lines.filter((line, i) => !line.startsWith('@@') && !(i === last && line.startsWith('@'))).map(line => {
+    const span = el('span', { textContent: line + '\n' });
+    const start = line.trimStart();
+    if (/^(Fehler|Error):/.test(start)) span.className = 'err';
+    else if (start.startsWith('⚠')) span.className = 'warn';
+    else if (line.includes(' · aktuell') || line.includes(' · current')) span.className = 'now';
+    return span;
+  }));
+}
+
+function runSummary(r, dry) {
+  if (!r) return T.run.ended(dry);
+  const isDry = r.dry ?? dry;
+  if (r.ok) return typeof r.songs === 'number' ? T.run.ok(r, isDry) + (isDry ? T.run.unchanged : '') : T.run.done(isDry);
+  return T.errors[r.errorCode] ? T.run.failedWith(T.errors[r.errorCode]) : T.run.failed;
+}
+
+function renderSummary() {
+  if (!runState) return;
+  const { phase, dry, result } = runState;
+  $('summary').textContent = phase === 'running' ? T.run.running(dry) : phase === 'error' ? T.run.failedShort : runSummary(result, dry);
+  const link = phase === 'done' && result?.ok && !result.dry && /^https:\/\/open\.spotify\.com\//.test(result.playlistUrl ?? '');
+  $('open').hidden = !link;
+  if (link) $('open').href = result.playlistUrl;
+}
+
+async function run(dry) {
+  showError('');
+  try {
+    if (dirty()) await save();
+  } catch (e) {
+    return showError(e.message);
+  }
+  busy = true;
+  refresh();
+  $('out').hidden = false;
+  runState = { phase: 'running', dry, result: null };
+  renderSummary();
+  let text = '';
+  try {
+    const res = await api(`/api/run${dry ? '?dry=1' : ''}`, { method: 'POST' });
+    if (!res.ok) throw new Error((await res.json()).error);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+      renderLog(text);
+      $('log').scrollTop = $('log').scrollHeight;
+    }
+    text += decoder.decode();
+    renderLog(text);
+    const result = runResult(text);
+    runState = { phase: 'done', dry, result };
+    if (LOGIN_CODES.includes(result?.errorCode)) showNotice('expired');
+  } catch (e) {
+    runState = { phase: 'error', dry, result: null };
+    showError(e.message);
+  } finally {
+    busy = false;
+    renderSummary();
+    refresh();
+  }
+}
+
+// --- Quelle der Favoriten ---
+
+function seedLabel(o) {
+  const count = o.tracks != null ? ` · ${T.seed.songs(o.tracks)}` : '';
+  return o.value === 'liked' ? `${T.seed.likedLong}${count}` : `${o.name}${o.collaborative ? T.seed.collaborative : ''}${count}`;
+}
+const seedName = v => (v === 'liked' ? T.seed.liked : seedOptions?.find(o => o.value === v)?.name ?? T.seed.playlist);
+const seedNoteText = () => (!seedNote ? '' : seedNote.key === 'error' ? T.seed.error(seedNote.msg) : seedNote.key === 'raw' ? seedNote.msg : T.seed[seedNote.key]);
+
+function fillSeedSelect(select, value) {
+  const options = seedOptions ?? [{ value: 'liked', tracks: null }];
+  const known = !value || options.some(o => o.value === value);
+  // Eingestellte Playlist, die (noch) nicht in der Liste steht: z. B. während die Liste lädt oder bei einer fremden Playlist.
+  const other = seedOptions ? T.seed.other : T.seed.configured;
+  select.replaceChildren(
+    ...options.map(o => el('option', { value: o.value, textContent: seedLabel(o) })),
+    ...(known ? [] : [el('option', { value, textContent: other, title: value })]),
+  );
+  select.value = value ?? 'liked';
+}
+
+async function loadPlaylists() {
+  if (!setup?.loggedIn) {
+    seedOptions = null;
+    seedNote = { key: 'login' };
+    return renderSeed();
+  }
+  seedNote = { key: 'loading' };
+  renderSeed();
+  try {
+    seedOptions = (await apiJson('/api/playlists')).options;
+    seedNote = null;
+  } catch (e) {
+    seedOptions = null;
+    seedNote = { key: 'error', msg: e.message };
+    if (e.data?.login && setup.loggedIn) showNotice('expired');
+  }
+  renderSeed();
+}
+
+function renderSeed() {
+  refresh();
+  if (setup) fillSeedSelect($('w-seed'), $('w-seed').value || current.seed || 'liked');
+  $('w-seed-note').textContent = seedNoteText();
+}
+
+// --- Anmeldung bei Spotify (Assistent und Hinweis) ---
+
+function loginBox(parent, label) {
+  const start = el('button', { type: 'button', className: 'btn primary', onclick: startLogin });
+  const cancel = el('button', { type: 'button', className: 'btn', onclick: cancelLogin });
+  const link = el('a', { target: '_blank', rel: 'noopener' });
+  const msg = attr(el('p', { className: 'msg' }), { role: 'status' });
+  const help = el('p', { className: 'help' });
+  parent.replaceChildren(el('div', { className: 'login-box' }, [el('div', { className: 'actions' }, [start, cancel]), msg, help]));
+  loginBoxes.push({ start, cancel, link, msg, help, label });
+}
+
+function renderLogin() {
+  const s = loginState;
+  const pending = s.status === 'pending';
+  for (const b of loginBoxes) {
+    b.start.textContent = b.label();
+    b.start.disabled = pending;
+    b.cancel.textContent = T.login.cancel;
+    b.cancel.hidden = !pending;
+    b.link.textContent = T.login.openPage;
+    b.help.textContent = T.login.help;
+    b.help.hidden = !pending;
+    if (pending) {
+      if (s.authUrl) b.link.href = s.authUrl;
+      setMsg(b.msg, '', T.login.pending, ...(s.authUrl ? [T.login.noTab, b.link] : []));
+    } else {
+      setMsg(b.msg, s.status === 'ok' ? 'ok' : s.status === 'error' ? 'err' : '', s.key ? T.login[s.key] : s.message ?? '');
+    }
+  }
+}
+
+function setLogin(state) {
+  const wasPending = loginState.status === 'pending';
+  loginState = state;
+  renderLogin();
+  clearTimeout(loginTimer);
+  if (state.status === 'pending') loginTimer = setTimeout(pollLogin, 1500);
+  if (state.status === 'ok' && wasPending) loggedIn();
+}
+
+async function pollLogin() {
+  try {
+    setLogin(await apiJson('/api/login'));
+  } catch {
+    loginTimer = setTimeout(pollLogin, 3000); // Server kurz nicht erreichbar? Weiter versuchen.
+  }
+}
+
+async function startLogin() {
+  showError('');
+  try {
+    setLogin(await apiJson('/api/login', { method: 'POST' }));
+  } catch (e) {
+    setLogin({ status: 'error', message: e.message });
+  }
+}
+
+async function cancelLogin() {
+  try {
+    setLogin(await apiJson('/api/login', { method: 'DELETE' }));
+  } catch (e) {
+    setLogin({ status: 'error', message: e.message });
+  }
+}
+
+async function loggedIn() {
+  if (!$('notice').hidden) noticeReason = 'done';
+  try {
+    await load(true);
+  } catch (e) {
+    showError(e.message);
+  }
+  loadPlaylists();
+  if (view === 'setup' && activeStep === 3) openStep(4, true);
+}
+
+function showNotice(reason) {
+  noticeReason = reason;
+  // Alte Meldung ("Angemeldet ✓" von früher) passt nicht mehr zum neuen Hinweis.
+  if (loginState.status !== 'pending') setLogin({ status: 'idle', message: '' });
+  renderNotice();
+}
+
+function renderNotice() {
+  const age = setup?.authAgeDays;
+  const reason = noticeReason ?? (loginNeeded(scheduleInfo?.lastRun) ? 'auto' : age != null && age >= 170 ? 'age' : null);
+  $('notice').hidden = view !== 'settings' || !reason;
+  $('notice-login').hidden = reason === 'done';
+  const left = 180 - (age ?? 0);
+  $('notice-text').textContent = reason === 'done' ? T.notice.done
+    : reason === 'auto' ? T.auto.notice
+    : reason === 'expired' ? T.notice.expired
+    : left > 0 ? T.notice.left(left)
+    : T.notice.probably;
+}
+
+// --- Hinweis auf eine neue Version ---
+
+// Ergebnis von GET /api/update. Ausgeblendet wird je Version: Eine neuere zeigt den Hinweis wieder.
+let updateInfo = null;
+const dismissedUpdate = store('tweakable-dj-update-dismissed');
+const githubLink = u => typeof u === 'string' && /^https:\/\/github\.com\//.test(u);
+
+function renderUpdate() {
+  const u = updateInfo;
+  // Abgeschaltet, Fehler, aktuell oder schon weggeklickt: nichts anzeigen.
+  const show = Boolean(u?.enabled && u.updateAvailable && !u.error && u.latest && githubLink(u.url) && dismissedUpdate.get() !== u.latest);
+  $('update').hidden = !show;
+  if (show) {
+    $('update-text').textContent = T.update.text(u.latest, u.current);
+    $('update-link').textContent = T.update.link;
+    $('update-link').href = u.url;
+  }
+  $('update-close').title = T.update.close;
+  $('update-close').setAttribute('aria-label', T.update.close);
+  // Eigene Version dezent unten auf der Seite, sobald sie bekannt ist.
+  const version = typeof u?.current === 'string' ? u.current.replace(/^v/i, '') : '';
+  $('version').hidden = !version;
+  $('version').textContent = version ? `v${version}` : '';
+}
+
+// Einmal nach dem Laden, ohne dass die Seite darauf wartet. Klappt die Abfrage nicht, bleibt der Hinweis eben weg.
+async function loadUpdate() {
+  try {
+    updateInfo = await apiJson('/api/update');
+  } catch {
+    updateInfo = null;
+  }
+  renderUpdate();
+}
+
+function dismissUpdate() {
+  dismissedUpdate.set(updateInfo?.latest);
+  renderUpdate();
+}
+
+// --- Einrichtungs-Assistent ---
+
+const stepEls = [...document.querySelectorAll('.step')];
+const firstOpenStep = () => (STEPS.findIndex(done => !done(setup)) + 1) || 1;
+
+function renderHeader() {
+  $('sub').textContent = view ? T.sub[view] : '';
+  document.title = T.title(view);
+  if (!loaded) $('status').textContent = loadFailed ? T.status.error : T.status.loading;
+}
+
+function showView(name) {
+  view = name;
+  $('setup').hidden = name !== 'setup';
+  $('settings').hidden = name !== 'settings';
+  $('bar').hidden = name !== 'settings';
+  $('main').classList.toggle('no-bar', name !== 'settings');
+  $('open-setup').hidden = name !== 'settings';
+  renderHeader();
+  refresh();
+  renderNotice();
+}
+
+function openSetup(step, manual = false) {
+  fromSettings = manual;
+  $('w-client').value = setup.credentials.clientId;
+  $('w-key').value = setup.credentials.apiKey;
+  $('w-user').value = setup.credentials.user;
+  fillSeedSelect($('w-seed'), saved.seed);
+  checkClientId();
+  setMsg($('w-lastfm-msg'), '', '');
+  showView('setup');
+  openStep(step ?? firstOpenStep());
+}
+
+function openStep(n, focus = false) {
+  activeStep = n;
+  renderSetup();
+  const head = stepEls[n - 1].querySelector('.step-head');
+  if (focus) head.focus();
+  stepEls[n - 1].scrollIntoView({ block: 'nearest' });
+}
+
+function renderSetup() {
+  if (!setup) return;
+  stepEls.forEach((li, i) => {
+    const done = STEPS[i](setup);
+    const active = activeStep === i + 1;
+    li.classList.toggle('done', done);
+    li.classList.toggle('active', active);
+    li.querySelector('.step-head').setAttribute('aria-expanded', String(active));
+    li.querySelector('.step-body').hidden = !active;
+    li.querySelector('.step-state').textContent = done ? T.setup.done : '';
+  });
+  $('redirect-uri').textContent = setup.redirectUri;
+  $('w-login-state').textContent = setup.loggedIn ? T.setup.loggedIn(setup.authAgeDays) : T.setup.notLoggedIn;
+  $('w-login-next').disabled = !setup.loggedIn;
+  const open = STEPS.slice(0, 4).map((done, i) => (done(setup) ? 0 : i + 1)).filter(Boolean);
+  $('w-done-text').textContent = open.length ? T.setup.open(open) : T.setup.allDone;
+  $('w-finish').disabled = setup.needsSetup;
+  $('w-close').hidden = setup.needsSetup || !fromSettings;
+  renderLogin();
+}
+
+async function saveSetup(values) {
+  // Legt der Assistent gerade die config.jsonc an, kommt die Sprache der Seite gleich mit hinein (siehe adoptLang).
+  configCreated = !setup?.configExists;
+  try {
+    await apiJson('/api/setup', { method: 'POST', body: JSON.stringify(values) });
+    await load(true);
+  } finally {
+    configCreated = false;
+  }
+}
+
+// Formatprüfung beim Tippen: 32 Zeichen aus 0–9 und a–f. true = passt.
+function checkClientId() {
+  const id = $('w-client').value.trim();
+  const msg = $('w-client-msg');
+  const ok = /^[0-9a-f]{32}$/i.test(id);
+  const bad = /[^0-9a-f]/i.test(id);
+  if (!id) setMsg(msg, '', '');
+  else if (ok) setMsg(msg, 'ok', T.setup.formatOk);
+  else if (bad) setMsg(msg, 'err', T.setup.badChars);
+  else setMsg(msg, id.length > 32 ? 'err' : '', T.setup.length(id.length));
+  return ok;
+}
+
+async function saveClientId() {
+  if (!checkClientId()) {
+    if (!$('w-client').value.trim()) setMsg($('w-client-msg'), 'err', T.setup.pasteId);
+    return $('w-client').focus();
+  }
+  const id = $('w-client').value.trim();
+  const changed = setup.loggedIn && setup.credentials.clientId && setup.credentials.clientId.toLowerCase() !== id.toLowerCase();
+  try {
+    await saveSetup({ clientId: id });
+    if (changed) {
+      setLogin({ status: 'idle', message: '', key: 'newClientId' });
+      openStep(3, true);
+    } else {
+      openStep(2, true);
+    }
+  } catch (e) {
+    setMsg($('w-client-msg'), 'err', e.message);
+  }
+}
+
+const lastfmInput = () => ({ apiKey: $('w-key').value.trim(), user: $('w-user').value.trim() });
+
+async function checkLastfm() {
+  const input = lastfmInput();
+  const box = $('w-lastfm-msg');
+  setMsg(box, '', T.setup.checking);
+  const r = await apiJson('/api/lastfm', { method: 'POST', body: JSON.stringify(input) });
+  if (!r.ok) setMsg(box, 'err', r.message);
+  else if (r.scrobbles === 0) {
+    setMsg(box, 'warn', r.message, T.setup.connect,
+      el('a', { href: LASTFM_APPS, target: '_blank', rel: 'noopener', textContent: T.setup.connectLink }),
+      T.setup.connectRest);
+  } else setMsg(box, 'ok', r.message);
+  return r;
+}
+
+async function saveLastfm() {
+  const input = lastfmInput();
+  try {
+    // Gespeichert und mit Hinweis stehen geblieben? Dann nur weiter.
+    if ($('w-lastfm-save').dataset.saved === JSON.stringify(input)) return openStep(3, true);
+    const r = await checkLastfm();
+    if (!r.ok && (r.kind === 'key' || r.kind === 'user')) return;
+    await saveSetup(input);
+    if (r.ok && r.scrobbles !== 0) return openStep(3, true);
+    // Mit Hinweis (keine Scrobbles oder nicht prüfbar) stehen bleiben, damit man ihn lesen kann.
+    $('w-lastfm-msg').prepend(r.ok ? T.setup.saved : T.setup.savedUnchecked);
+    $('w-lastfm-save').dataset.saved = JSON.stringify(input);
+    $('w-lastfm-save').textContent = T.page.next;
+  } catch (e) {
+    setMsg($('w-lastfm-msg'), 'err', e.message);
+  }
+}
+
+function resetLastfmButton() {
+  delete $('w-lastfm-save').dataset.saved;
+  $('w-lastfm-save').textContent = T.page.saveNext;
+}
+
+async function saveSeed() {
+  try {
+    await saveSetup({ seed: $('w-seed').value });
+    current.seed = saved.seed;
+    refresh();
+    openStep(5, true);
+  } catch (e) {
+    seedNote = { key: 'raw', msg: e.message };
+    $('w-seed-note').textContent = e.message;
+  }
+}
+
+let copyTimer = null;
+async function copyRedirectUri() {
+  const text = $('redirect-uri').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const range = document.createRange();
+    range.selectNodeContents($('redirect-uri'));
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    document.execCommand('copy');
+  }
+  $('copy-uri').textContent = T.page.copied;
+  clearTimeout(copyTimer);
+  copyTimer = setTimeout(() => { $('copy-uri').textContent = T.page.copy; }, 2000);
+}
+
+function wireSetup() {
+  stepEls.forEach((li, i) => { li.querySelector('.step-head').onclick = () => openStep(i + 1); });
+  $('copy-uri').onclick = copyRedirectUri;
+  $('w-client').oninput = checkClientId;
+  $('w-client').onkeydown = e => { if (e.key === 'Enter') saveClientId(); };
+  $('w-client-save').onclick = saveClientId;
+  $('w-key').oninput = $('w-user').oninput = resetLastfmButton;
+  $('w-lastfm-check').onclick = () => checkLastfm().catch(e => setMsg($('w-lastfm-msg'), 'err', e.message));
+  $('w-lastfm-save').onclick = saveLastfm;
+  loginBox($('w-login'), () => (setup?.loggedIn ? T.login.again : T.login.start));
+  loginBox($('notice-login'), () => T.login.start);
+  $('w-login-next').onclick = () => openStep(4, true);
+  $('w-seed-save').onclick = saveSeed;
+  $('w-finish').onclick = () => { showView('settings'); scrollTo(0, 0); };
+  $('w-close').onclick = () => { showView('settings'); scrollTo(0, 0); };
+  $('open-setup').onclick = () => openSetup(1, true);
+}
+
+for (const b of document.querySelectorAll('.lang button')) b.onclick = () => setLang(b.dataset.lang);
+$('save').onclick = () => save().catch(e => showError(e.message));
+$('discard').onclick = () => { current = { ...saved }; refresh(); };
+$('dry').onclick = () => run(true);
+$('run').onclick = () => run(false);
+$('update-close').onclick = dismissUpdate;
+window.addEventListener('beforeunload', e => { if (dirty()) e.preventDefault(); });
+// Zurück auf der Seite (z. B. am nächsten Morgen): Stand der Automatik und letzten Lauf neu holen.
+document.addEventListener('visibilitychange', () => { if (!document.hidden && view === 'settings') loadSchedule(); });
+
+wireSetup();
+renderLang();
+load().then(async () => {
+  if (setup.needsSetup || ['#einrichtung', '#setup'].includes(location.hash)) openSetup(undefined, !setup.needsSetup);
+  else showView('settings');
+  loadPlaylists();
+  loadSchedule();
+  // Läuft noch eine Anmeldung (z. B. nach Neuladen der Seite)? Dann weiter verfolgen.
+  const state = await apiJson('/api/login').catch(() => null);
+  if (state?.status === 'pending') setLogin(state);
+}).catch(e => {
+  loadFailed = true;
+  showError(T.setup.loadFailed(e.message));
+  renderHeader();
+});
+loadUpdate(); // parallel zum Laden der Einstellungen
+</script>
+</body>
+</html>

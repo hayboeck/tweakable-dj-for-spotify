@@ -1,0 +1,23 @@
+# Persönliche Daten – dürfen nie hochgeladen werden
+# deine Einstellungen mit Client ID und Last.fm-Schlüssel
+config.jsonc
+# deine Spotify-Anmeldung
+tokens.json
+# dein Verlauf und Such-Cache
+state.json
+
+# Automatisch angelegt
+# Zwischenspeicher für Last.fm-Antworten (7 Tage gültig)
+lastfm-cache.json
+# Ergebnis des letzten automatischen Laufs (das Protokoll automatik.log fällt unter *.log)
+automatik.json
+# Letzte Prüfung auf neue Versionen (update.mjs)
+update-check.json
+
+# System- und Editor-Dateien
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+node_modules/
+*.log

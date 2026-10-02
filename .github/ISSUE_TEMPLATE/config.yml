@@ -1,0 +1,2 @@
+# Nur die Formulare „Fehler melden“ und „Idee oder Wunsch“ anbieten, keine leeren Issues.
+blank_issues_enabled: false

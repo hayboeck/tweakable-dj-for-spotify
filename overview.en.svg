@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 660" width="980" height="660" font-family="Segoe UI, system-ui, -apple-system, sans-serif" role="img" aria-labelledby="t">
+  <title id="t">Tweakable DJ – how it all fits together</title>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5d6470"/>
+    </marker>
+    <style>
+      .box { fill: #ffffff; stroke-width: 2; }
+      .chip { fill: #f5f6f8; stroke: #d5d9e0; stroke-width: 1; }
+      .file { fill: #fffbea; stroke: #d6c27a; stroke-width: 1.5; }
+      .title { font-size: 17px; font-weight: 700; fill: #16181d; }
+      .name { font-size: 13.5px; font-weight: 700; fill: #16181d; }
+      .text { font-size: 13.5px; fill: #3b414b; }
+      .small { font-size: 12.5px; fill: #5d6470; }
+      .label { font-size: 13px; fill: #3b414b; }
+      .zone { font-size: 12px; font-weight: 700; letter-spacing: .08em; fill: #5d6470; }
+      .line { fill: none; stroke: #5d6470; stroke-width: 1.8; }
+    </style>
+  </defs>
+
+  <!-- Background, so the picture stays readable in light and dark views -->
+  <rect x="0" y="0" width="980" height="660" rx="16" fill="#ffffff" stroke="#e1e4e9"/>
+  <text x="30" y="40" class="title" font-size="20">Tweakable DJ – how it all fits together</text>
+
+  <!-- Zones -->
+  <rect x="20" y="60" width="940" height="200" rx="12" fill="#f4f7fe" stroke="#c7d4f0" stroke-dasharray="6 5"/>
+  <text x="36" y="82" class="zone">INTERNET</text>
+  <rect x="20" y="310" width="940" height="330" rx="12" fill="#f3faf5" stroke="#bcdcc8" stroke-dasharray="6 5"/>
+  <text x="36" y="332" class="zone">YOUR PC · FOLDER tweakable-dj</text>
+
+  <!-- You -->
+  <rect x="40" y="100" width="170" height="130" rx="10" class="box" stroke="#9aa1ad"/>
+  <text x="125" y="135" class="title" text-anchor="middle">You</text>
+  <text x="125" y="162" class="text" text-anchor="middle">listen in the</text>
+  <text x="125" y="181" class="text" text-anchor="middle">Spotify app and</text>
+  <text x="125" y="200" class="text" text-anchor="middle">save songs with ♥</text>
+
+  <!-- Spotify -->
+  <rect x="300" y="95" width="260" height="140" rx="10" class="box" stroke="#1b8f4d"/>
+  <text x="430" y="125" class="title" text-anchor="middle">Spotify</text>
+  <text x="322" y="156" class="text">• your Liked Songs</text>
+  <text x="322" y="179" class="text">• playlist “Tweakable DJ”</text>
+  <text x="322" y="202" class="text">• song search</text>
+
+  <!-- Last.fm -->
+  <rect x="680" y="95" width="260" height="140" rx="10" class="box" stroke="#c0392b"/>
+  <text x="810" y="125" class="title" text-anchor="middle">Last.fm</text>
+  <text x="702" y="156" class="text">• listening history (scrobbles)</text>
+  <text x="702" y="179" class="text">• similar songs</text>
+  <text x="702" y="202" class="text">• similar artists</text>
+
+  <!-- You <-> Spotify -->
+  <line x1="212" y1="150" x2="298" y2="150" class="line" marker-end="url(#arr)"/>
+  <text x="255" y="142" class="label" text-anchor="middle">listen, ♥</text>
+  <line x1="298" y1="190" x2="212" y2="190" class="line" marker-end="url(#arr)"/>
+  <text x="255" y="209" class="label" text-anchor="middle">plays</text>
+
+  <!-- Spotify -> Last.fm (scrobbling) -->
+  <line x1="562" y1="165" x2="678" y2="165" class="line" marker-end="url(#arr)"/>
+  <text x="620" y="141" class="label" text-anchor="middle">reports every</text>
+  <text x="620" y="156" class="label" text-anchor="middle">song played</text>
+  <text x="620" y="185" class="small" text-anchor="middle">(scrobbling)</text>
+
+  <!-- Interface -->
+  <rect x="40" y="360" width="200" height="150" rx="10" class="box" stroke="#5b6cff"/>
+  <text x="140" y="390" class="title" text-anchor="middle">Interface</text>
+  <text x="140" y="415" class="text" text-anchor="middle">in the browser</text>
+  <text x="140" y="434" class="small" text-anchor="middle">127.0.0.1:8899</text>
+  <text x="140" y="461" class="text" text-anchor="middle">setup, controls,</text>
+  <text x="140" y="480" class="text" text-anchor="middle">test run, rebuild</text>
+  <text x="128" y="532" class="small" text-anchor="middle">ui.html · ui.mjs</text>
+  <text x="128" y="550" class="small" text-anchor="middle">Start: Tweakable DJ.cmd (Windows),</text>
+  <text x="128" y="568" class="small" text-anchor="middle">Tweakable DJ.command, start.sh</text>
+
+  <!-- Tweakable DJ -->
+  <rect x="330" y="350" width="300" height="210" rx="10" class="box" stroke="#16181d"/>
+  <text x="480" y="378" class="title" text-anchor="middle">Tweakable DJ</text>
+  <text x="480" y="398" class="small" text-anchor="middle">dj.mjs · runs the DJ</text>
+  <rect x="348" y="413" width="130" height="58" rx="7" class="chip"/>
+  <text x="413" y="437" class="name" text-anchor="middle">spotify.mjs</text>
+  <text x="413" y="457" class="small" text-anchor="middle">Spotify connection</text>
+  <rect x="488" y="413" width="130" height="58" rx="7" class="chip"/>
+  <text x="553" y="437" class="name" text-anchor="middle">lastfm.mjs</text>
+  <text x="553" y="457" class="small" text-anchor="middle">Last.fm connection</text>
+  <rect x="348" y="483" width="130" height="58" rx="7" class="chip"/>
+  <text x="413" y="507" class="name" text-anchor="middle"><tspan font-weight="400">③</tspan> lineup.mjs</text>
+  <text x="413" y="527" class="small" text-anchor="middle">selection &amp; rules</text>
+  <rect x="488" y="483" width="130" height="58" rx="7" class="chip"/>
+  <text x="553" y="507" class="name" text-anchor="middle">config.mjs</text>
+  <text x="553" y="527" class="small" text-anchor="middle">reads settings</text>
+
+  <!-- Files -->
+  <rect x="720" y="360" width="220" height="56" rx="7" class="file"/>
+  <text x="738" y="384" class="name">state.json</text>
+  <text x="738" y="403" class="small">memory: recent runs</text>
+  <rect x="720" y="432" width="220" height="56" rx="7" class="file"/>
+  <text x="738" y="456" class="name">tokens.json</text>
+  <text x="738" y="475" class="small">Spotify login (secret)</text>
+  <rect x="720" y="504" width="220" height="56" rx="7" class="file"/>
+  <text x="738" y="528" class="name">config.jsonc</text>
+  <text x="738" y="547" class="small">your settings</text>
+
+  <!-- Spotify <-> Tweakable DJ -->
+  <line x1="360" y1="237" x2="360" y2="348" class="line" marker-end="url(#arr)"/>
+  <text x="352" y="289" class="label" text-anchor="end">① read Liked Songs</text>
+  <line x1="440" y1="348" x2="440" y2="237" class="line" marker-end="url(#arr)"/>
+  <text x="448" y="281" class="label">④ find songs, fill</text>
+  <text x="448" y="297" class="label">“Tweakable DJ”</text>
+
+  <!-- Last.fm -> Tweakable DJ -->
+  <path d="M700,237 V290 H605 V348" class="line" marker-end="url(#arr)"/>
+  <text x="710" y="268" class="label">② listening history</text>
+  <text x="710" y="284" class="label">+ similar songs</text>
+
+  <!-- Interface <-> Tweakable DJ -->
+  <line x1="242" y1="410" x2="328" y2="410" class="line" marker-end="url(#arr)"/>
+  <text x="285" y="402" class="label" text-anchor="middle">starts</text>
+  <line x1="328" y1="460" x2="242" y2="460" class="line" marker-end="url(#arr)"/>
+  <text x="285" y="478" class="label" text-anchor="middle">output</text>
+
+  <!-- Interface -> config.jsonc -->
+  <path d="M234,512 V605 H830 V562" class="line" marker-end="url(#arr)"/>
+  <text x="525" y="596" class="label" text-anchor="middle">saves setup and control settings</text>
+
+  <!-- Tweakable DJ <-> files -->
+  <line x1="632" y1="388" x2="718" y2="388" class="line" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="675" y="380" class="small" text-anchor="middle">remembers</text>
+  <line x1="632" y1="460" x2="718" y2="460" class="line" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="675" y="452" class="small" text-anchor="middle">login</text>
+  <line x1="718" y1="532" x2="632" y2="532" class="line" marker-end="url(#arr)"/>
+  <text x="675" y="524" class="small" text-anchor="middle">reads</text>
+</svg>

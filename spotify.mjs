@@ -1,0 +1,257 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import http from 'node:http';
+import { exec } from 'node:child_process';
+import { resolveLang, t, tError } from './i18n.mjs';
+import { sameTrack } from './lineup.mjs';
+
+const API = 'https://api.spotify.com/v1';
+const TOKEN_URL = 'https://accounts.spotify.com/api/token';
+export const REDIRECT_URI = 'http://127.0.0.1:8888/callback';
+const SCOPES = [
+  'playlist-read-private',
+  'playlist-read-collaborative',
+  'playlist-modify-private',
+  'playlist-modify-public',
+  'user-library-read',
+].join(' ');
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// authorized_at = Zeitpunkt der Anmeldung. Spotify verlangt nach 180 Tagen eine neue,
+// das Erneuern des Access-Tokens verlängert das nicht – deshalb beim Erneuern übernehmen.
+function storeTokens(file, data, previous = {}, authorizedAt = previous.authorized_at) {
+  const tokens = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token ?? previous.refresh_token,
+    expires_at: Date.now() + data.expires_in * 1000,
+    authorized_at: authorizedAt,
+  };
+  // Nur für den eigenen Benutzer lesbar (Mac/Linux; gilt beim Anlegen der Datei)
+  fs.writeFileSync(file, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+  return tokens;
+}
+
+function callbackPage(res, status, lang, title, text) {
+  res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', Connection: 'close' });
+  res.end(`<!doctype html><html lang="${lang}"><meta charset="utf-8"><title>Tweakable DJ</title>
+<body style="font:16px/1.5 system-ui,sans-serif;margin:48px auto;max-width:560px;padding:0 16px"><h1>${title}</h1><p>${text}</p>`);
+}
+
+export function openBrowser(url) {
+  const cmd = process.platform === 'win32' ? `start "" "${url}"`
+    : process.platform === 'darwin' ? `open "${url}"`
+    : `xdg-open "${url}"`;
+  exec(cmd, () => {});
+}
+
+// Einmalige Anmeldung per PKCE (kein Client Secret nötig). Wartet höchstens timeoutMs auf die Zustimmung;
+// signal bricht ab, onUrl bekommt die Adresse der Anmeldeseite (für die Oberfläche), lang = Sprache der Meldungen.
+export async function login(clientId, tokenFile, { signal, timeoutMs = 5 * 60_000, onUrl, lang = resolveLang() } = {}) {
+  const verifier = crypto.randomBytes(48).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  const state = crypto.randomBytes(12).toString('base64url');
+  const authUrl = `https://accounts.spotify.com/authorize?${new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    redirect_uri: REDIRECT_URI,
+    code_challenge_method: 'S256',
+    code_challenge: challenge,
+    scope: SCOPES,
+    state,
+  })}`;
+  const page = (res, status, key) => callbackPage(res, status, lang, t(lang, `login.${key}Title`), t(lang, `login.${key}Text`));
+
+  const code = await new Promise((resolve, reject) => {
+    let finished = false;
+    const server = http.createServer((req, res) => {
+      const url = new URL(req.url, REDIRECT_URI);
+      if (url.pathname !== '/callback') {
+        res.writeHead(404, { Connection: 'close' }).end();
+        return;
+      }
+      // Fremde oder veraltete Aufrufe (anderer state) ignorieren und weiter auf die richtige Antwort warten.
+      if (finished || url.searchParams.get('state') !== state) {
+        page(res, 400, 'stale');
+        return;
+      }
+      const error = url.searchParams.get('error');
+      const code = url.searchParams.get('code');
+      if (error || !code) {
+        page(res, 200, 'failed');
+        finish(error === 'access_denied' ? tError(lang, 'login.denied') : tError(lang, 'login.failed', { detail: error ?? t(lang, 'login.noCode') }));
+        return;
+      }
+      page(res, 200, 'ok');
+      finish(null, code);
+    });
+    // Aufräumen in jedem Fall: Zeitlimit, Abbruch, Fehler oder Erfolg – danach ist Port 8888 wieder frei.
+    const finish = (err, value) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      server.close();
+      if (err) reject(err);
+      else resolve(value);
+    };
+    const onAbort = () => finish(tError(lang, 'login.aborted'));
+    const minutes = Math.round(timeoutMs / 60_000);
+    const timer = setTimeout(() => finish(tError(lang, 'login.timeout', { minutes })), timeoutMs);
+    if (signal?.aborted) return onAbort();
+    signal?.addEventListener('abort', onAbort);
+    server.on('error', e => finish(e.code === 'EADDRINUSE' ? tError(lang, 'login.portBusy') : e));
+    server.listen(8888, '127.0.0.1', () => {
+      console.log(`${t(lang, 'login.browser')}\n`);
+      console.log(authUrl + '\n');
+      onUrl?.(authUrl);
+      openBrowser(authUrl);
+    });
+  });
+
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: REDIRECT_URI,
+      client_id: clientId,
+      code_verifier: verifier,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw tError(lang, 'login.tokenFailed', { detail: data.error_description ?? data.error });
+  storeTokens(tokenFile, data, {}, Date.now());
+}
+
+// Fehler der API haben die Form "Spotify <METHODE> <pfad>: <status> <text>" und tragen status (z. B. 403);
+// abgelaufene oder fehlende Anmeldung haben errorCode 'login_expired' bzw. 'not_logged_in'.
+export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}) {
+  let tokens = fs.existsSync(tokenFile) ? JSON.parse(fs.readFileSync(tokenFile, 'utf8')) : null;
+  const again = () => t(lang, 'spotify.loginAgain');
+
+  async function accessToken() {
+    if (!tokens) throw tError(lang, 'spotify.notLoggedIn', { again: again() }, { errorCode: 'not_logged_in' });
+    if (Date.now() < tokens.expires_at - 60_000) return tokens.access_token;
+    const res = await fetch(TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: clientId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw tError(lang, 'spotify.expired', { detail: data.error_description ?? data.error, again: again() }, { errorCode: 'login_expired' });
+    }
+    tokens = storeTokens(tokenFile, data, tokens);
+    return tokens.access_token;
+  }
+
+  async function api(method, path, body) {
+    const url = path.startsWith('http') ? path : API + path;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${await accessToken()}`,
+          ...(body && { 'Content-Type': 'application/json' }),
+        },
+        body: body && JSON.stringify(body),
+      });
+      if (res.status === 429) {
+        const wait = Number(res.headers.get('retry-after') || 2);
+        if (wait > 120) throw tError(lang, 'spotify.rateLimit', { minutes: Math.ceil(wait / 60) });
+        await sleep(wait * 1000);
+        continue;
+      }
+      if (res.status === 401 && attempt === 0) {
+        tokens.expires_at = 0;
+        continue;
+      }
+      const text = await res.text();
+      if (!res.ok) throw Object.assign(new Error(`Spotify ${method} ${path}: ${res.status} ${text}`), { status: res.status });
+      return text ? JSON.parse(text) : null;
+    }
+    throw tError(lang, 'spotify.tooManyAttempts', { method, path });
+  }
+
+  async function* pages(path) {
+    let next = path;
+    while (next) {
+      const d = await api('GET', next);
+      yield* d.items ?? [];
+      next = d.next;
+    }
+  }
+
+  // artist = Hauptinterpret; artists = alle Beteiligten (für die Sperrliste).
+  const toTrack = t => ({ uri: t.uri, name: t.name, artist: t.artists?.[0]?.name, artists: (t.artists ?? []).map(a => a.name).filter(Boolean) });
+  const isPlayable = t => t && t.type === 'track' && !t.is_local && t.uri?.startsWith('spotify:track:');
+
+  return {
+    me: () => api('GET', '/me'),
+
+    async playlistTracks(id) {
+      const out = [];
+      // Seit Feb 2026 heißt das Feld pro Eintrag "item" (früher "track").
+      for await (const entry of pages(`/playlists/${id}/items?limit=50`)) {
+        const t = entry.item ?? entry.track;
+        if (isPlayable(t)) out.push(toTrack(t));
+      }
+      return out;
+    },
+
+    async likedTracks(max = 1000) {
+      const out = [];
+      for await (const entry of pages('/me/tracks?limit=50')) {
+        if (isPlayable(entry.track)) out.push(toTrack(entry.track));
+        if (out.length >= max) break;
+      }
+      return out;
+    },
+
+    likedCount: async () => (await api('GET', '/me/tracks?limit=1'))?.total ?? null,
+
+    // Eigene und gemeinsame Playlists – nur deren Inhalte gibt Spotify seit Feb 2026 heraus.
+    async ownPlaylists(userId) {
+      const out = [];
+      for await (const p of pages('/me/playlists?limit=50')) {
+        if (!p?.id || !(p.owner?.id === userId || p.collaborative)) continue;
+        out.push({ id: p.id, name: p.name, tracks: p.items?.total ?? p.tracks?.total ?? null, collaborative: Boolean(p.collaborative) });
+      }
+      return out;
+    },
+
+    async findPlaylist(name, userId) {
+      for await (const p of pages('/me/playlists?limit=50')) {
+        if (p?.name === name && p.owner?.id === userId) return p.id;
+      }
+      return null;
+    },
+
+    async createPlaylist(name, description) {
+      const p = await api('POST', '/me/playlists', { name, description, public: false });
+      return p.id;
+    },
+
+    async replacePlaylist(id, uris) {
+      await api('PUT', `/playlists/${id}/items`, { uris: uris.slice(0, 100) });
+      for (let i = 100; i < uris.length; i += 100) {
+        await api('POST', `/playlists/${id}/items`, { uris: uris.slice(i, i + 100) });
+      }
+    },
+
+    setDescription: (id, description) => api('PUT', `/playlists/${id}`, { description }),
+
+    async searchTrack(artist, name) {
+      const clean = s => String(s).replace(/"/g, '');
+      const queries = [`track:"${clean(name)}" artist:"${clean(artist)}"`, `${clean(artist)} ${clean(name)}`];
+      for (const q of queries) {
+        const d = await api('GET', `/search?${new URLSearchParams({ q, type: 'track', limit: '10' })}`);
+        const hit = (d?.tracks?.items ?? []).find(t => t && sameTrack(t, artist, name));
+        if (hit) return hit.uri;
+      }
+      return null;
+    },
+  };
+}
