@@ -2,10 +2,13 @@
 # Auslöser: ein hochgeladener Versions-Tag, z. B. (vorher "version" in package.json auf 1.0.0 setzen)
 #   git tag v1.0.0
 #   git push origin v1.0.0
-# Ergebnis: tweakable-dj-v<Version>.zip mit dem Ordner tweakable-dj.
+# Ergebnis: tweakable-dj-v<Version>.zip mit dem Ordner tweakable-dj, dazu manifest.json als eigene Datei am Release.
 # In die ZIP-Datei kommen nur Dateien, die im Repository sind (git archive), auch die Screenshots in docs/.
 # Persönliche Dateien (config.jsonc, tokens.json, state.json, lastfm-cache.json) sind per
 # .gitignore nie dabei; der Ablauf prüft das zur Sicherheit noch einmal.
+# manifest.json (Version, jede Datei mit Pfad, Größe, SHA-256 und Ausführbar-Bit) liegt auch in der ZIP-Datei. Sie ist
+# die Erlaubnisliste für „Jetzt aktualisieren“ (install-update.mjs): Das Update lädt manifest.json und die ZIP-Datei,
+# prüft jede Datei und schreibt nur, was dort steht.
 # Tags mit Bindestrich (z. B. v1.1.0-beta.1) werden als Vorabversion markiert.
 
 name: Release
@@ -55,7 +58,7 @@ jobs:
           # dürfen nie in die ZIP-Datei.
           verboten=$(cd "build/${ordner}" && find . \( -name config.jsonc -o -name tokens.json -o -name state.json \
             -o -name lastfm-cache.json -o -name 'automatik.*' -o -name update-check.json -o -name '*.log' \
-            -o -path ./tests -o -path ./.github \) -print)
+            -o -path ./tests -o -path ./.github -o -path ./.update -o -name manifest.json \) -print)
           if [ -n "$verboten" ]; then
             echo "::error::Diese Dateien dürfen nicht veröffentlicht werden: ${verboten}"
             exit 1
@@ -82,6 +85,17 @@ jobs:
           # beim Einchecken unter Windows verloren gegangen ist.
           chmod +x "build/${ordner}/start.sh" "build/${ordner}/Tweakable DJ.command"
 
+          # manifest.json: Erlaubnisliste für „Jetzt aktualisieren“, mit SHA-256 genau der Bytes, die in die ZIP-Datei
+          # kommen (also nach chmod und mit den Zeilenenden aus .gitattributes). Das Skript bricht ab, falls eine
+          # persönliche Datei oder ein unzulässiger Pfad dabei wäre.
+          node .github/release-manifest.mjs "build/${ordner}" "${GITHUB_REF_NAME#v}"
+          cp "build/${ordner}/manifest.json" manifest.json
+          node -e '
+            const m = require("./manifest.json");
+            for (const f of ["start.sh", "Tweakable DJ.command"]) {
+              if (!m.files.some(x => x.path === f && x.executable)) throw new Error(f + " ist in manifest.json nicht ausführbar");
+            }'
+
           # zip speichert die Unix-Rechte mit, entpackt auf Mac und Linux bleiben sie erhalten.
           (cd build && zip -r -X -9 "../${zip_datei}" "${ordner}")
           unzip -Z "${zip_datei}"
@@ -95,12 +109,12 @@ jobs:
           set -eu
           tag="$GITHUB_REF_NAME"
           if gh release view "$tag" >/dev/null 2>&1; then
-            # Release gibt es schon (z. B. Ablauf erneut gestartet): nur die ZIP-Datei ersetzen.
-            gh release upload "$tag" "$ZIP_DATEI" --clobber
+            # Release gibt es schon (z. B. Ablauf erneut gestartet): nur ZIP-Datei und manifest.json ersetzen.
+            gh release upload "$tag" "$ZIP_DATEI" manifest.json --clobber
           else
             vorab=""
             case "$tag" in *-*) vorab="--prerelease" ;; esac
-            gh release create "$tag" "$ZIP_DATEI" \
+            gh release create "$tag" "$ZIP_DATEI" manifest.json \
               --title "Tweakable DJ for Spotify $tag" \
               --generate-notes \
               --verify-tag \

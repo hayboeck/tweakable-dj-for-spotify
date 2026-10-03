@@ -10,7 +10,7 @@ Die Oberfläche gibt es auf Deutsch und Englisch, umschaltbar oben rechts (DE | 
 
 <p align="center"><img src="docs/screenshot-main.de.png" width="600" alt="Die Oberfläche von Tweakable DJ: Voreinstellungen wie Entdecken und Meine aktuelle Phase, die Einstellungen der Playlist mit Reglern und die Buttons Probelauf und Playlist neu erstellen"></p>
 
-Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt (mehr dazu in [Abschnitt 10](#10-datenquellen-marken-und-lizenz)).
+Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt (mehr dazu in [Abschnitt 11](#11-datenquellen-marken-und-lizenz)).
 
 > **Das brauchst du**
 >
@@ -31,9 +31,10 @@ Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt 
 5. [Regeln und Einstellungen](#5-regeln-und-einstellungen)
 6. [Bedienung](#6-bedienung)
 7. [Einrichtung (einmalig)](#7-einrichtung-einmalig)
-8. [Probleme und Lösungen](#8-probleme-und-lösungen)
-9. [Grenzen](#9-grenzen)
-10. [Datenquellen, Marken und Lizenz](#10-datenquellen-marken-und-lizenz)
+8. [Aktualisieren](#8-aktualisieren)
+9. [Probleme und Lösungen](#9-probleme-und-lösungen)
+10. [Grenzen](#10-grenzen)
+11. [Datenquellen, Marken und Lizenz](#11-datenquellen-marken-und-lizenz)
 
 ---
 
@@ -93,14 +94,16 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `ui.html` | Die Oberfläche selbst (Einrichtungs-Assistent, Regler, Buttons, Ausgabe), mit allen Texten auf Deutsch und Englisch |
 | `schedule.mjs` | Die Automatik: trägt Tweakable DJ in den Zeitplaner deines Systems ein (Windows-Aufgabenplanung, macOS launchd, Linux cron) und liest den Stand aus |
 | `update.mjs` | Prüft höchstens einmal am Tag, ob es auf GitHub eine neue Version gibt (siehe [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen)) |
+| `install-update.mjs` | Installiert eine neue Version, wenn du auf *Jetzt aktualisieren* klickst (siehe [Aktualisieren](#8-aktualisieren)) |
+| `manifest.json` | Liste aller Programmdateien dieser Version mit Prüfsummen. *Jetzt aktualisieren* ersetzt nur Dateien, die dort stehen. Nur in der ZIP-Datei, nicht im GitHub-Repository. |
 | `package.json` | Kurzbefehle für Entwickler: `npm start` (Oberfläche) und `npm test` (Tests). Tweakable DJ braucht keine zusätzlichen Pakete. |
 | `tests/` | Automatische Tests für die Regeln, die Übersetzungen, die Oberfläche und einen Probelauf, bei dem Spotify und Last.fm nur simuliert werden. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 | `config.example.de.jsonc` | Leere Vorlage der Einstellungen mit deutschen Erklärungen. Daraus wird bei der Einrichtung auf Deutsch deine `config.jsonc`. |
 | `config.example.jsonc` | Dieselbe Vorlage mit englischen Erklärungen (für die Einrichtung auf Englisch) |
 | `overview.de.svg`, `overview.en.svg` | Die Grafik in Abschnitt 2, auf Deutsch und Englisch |
 | `docs/` | Bildschirmfotos der Oberfläche für diese Anleitung, auf Deutsch und Englisch |
-| `LICENSE` | Die Lizenz (MIT), siehe Abschnitt 10 |
-| `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, die Dateien der Automatik und das Ergebnis der Prüfung auf neue Versionen nie mit hochgeladen werden |
+| `LICENSE` | Die Lizenz (MIT), siehe Abschnitt 11 |
+| `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, die Dateien der Automatik, das Ergebnis der Prüfung auf neue Versionen und `.update/` nie mit hochgeladen werden |
 | `.gitattributes` | Einheitliche Zeilenenden für Windows, Mac und Linux; kennzeichnet Bilder als binär. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 | `.github/` | Vorlagen für Fehlermeldungen und Ideen, automatische Abläufe auf GitHub (z. B. die ZIP-Datei für neue Versionen). Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 
@@ -114,6 +117,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `automatik.json` | Ergebnis des letzten automatischen Laufs (Zeit, ✓ oder Fehlergrund). Die Oberfläche zeigt es unter *Automatisch neu erstellen* an. |
 | `automatik.log` | Die komplette Ausgabe des letzten automatischen Laufs, für die Fehlersuche |
 | `update-check.json` | Ergebnis der letzten [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen) (Zeit und neueste Version). Löschen schadet nicht. |
+| `.update/` | Legt *Jetzt aktualisieren* an: die Sicherung der Programmdateien der vorigen Version (`backup-<Version>`). Löschen schadet nicht. |
 
 `config.jsonc` enthält deine Client ID und deinen Last.fm-Schlüssel. Beides ist nicht sehr heikel, sollte aber trotzdem nicht öffentlich geteilt werden.
 
@@ -229,7 +233,7 @@ Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-e
   - Windows: Der Lauf wird beim nächsten Einschalten nachgeholt.
   - Mac: Der Lauf wird nach dem Aufwachen aus dem Ruhezustand nachgeholt, nach dem Ausschalten nicht.
   - Linux: Der Lauf entfällt.
-- **Neue Version**: Gibt es eine neuere Version von Tweakable DJ, erscheint oben ein Hinweis mit Link zum Download. Mit × blendest du ihn aus; er kommt erst bei der nächsten Version wieder. Ganz unten auf der Seite steht, welche Version du hast (z. B. *v0.1.0*). Mehr unter [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen).
+- **Neue Version**: Gibt es eine neuere Version von Tweakable DJ, erscheint oben ein Hinweis mit Link zum Download und der Schaltfläche **Jetzt aktualisieren** (siehe [Aktualisieren](#8-aktualisieren)). Mit × blendest du ihn aus; er kommt erst bei der nächsten Version wieder. Ganz unten auf der Seite steht, welche Version du hast (z. B. *v0.1.0*). Mehr unter [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen).
 
 Beide Lauf-Buttons speichern vorher automatisch. Die Oberfläche ist nur auf deinem PC erreichbar, andere Geräte im Netzwerk und fremde Webseiten haben keinen Zugriff.
 
@@ -260,7 +264,7 @@ Beispiel unter macOS und Linux: `TWEAKABLE_DJ_LANG=en node dj.mjs --dry`. In der
 
 ### Prüfung auf neue Versionen
 
-Wenn du die Oberfläche öffnest, schaut Tweakable DJ **höchstens einmal am Tag** nach, ob eine neue Version erschienen ist. Dafür geht eine einzige Anfrage an die GitHub-Releases-API (`api.github.com`), die nach dem neuesten Release von Tweakable DJ fragt. **Persönliche Daten werden nicht gesendet**: keine Einstellungen, Zugangsdaten, Songs oder Kennungen. Die Antwort wird in `update-check.json` gemerkt; klappt die Prüfung nicht (z. B. offline), versucht sie es frühestens eine Stunde später wieder. Nur die Oberfläche prüft, nicht die Läufe im Terminal und nicht die Automatik. Sie zeigt nur einen Hinweis an und lädt oder installiert nie selbst etwas.
+Wenn du die Oberfläche öffnest, schaut Tweakable DJ **höchstens einmal am Tag** nach, ob eine neue Version erschienen ist. Dafür geht eine einzige Anfrage an die GitHub-Releases-API (`api.github.com`), die nach dem neuesten Release von Tweakable DJ fragt. **Persönliche Daten werden nicht gesendet**: keine Einstellungen, Zugangsdaten, Songs oder Kennungen. Die Antwort wird in `update-check.json` gemerkt; klappt die Prüfung nicht (z. B. offline), versucht sie es frühestens eine Stunde später wieder. Nur die Oberfläche prüft, nicht die Läufe im Terminal und nicht die Automatik. Sie zeigt nur einen Hinweis an und lädt oder installiert nie von selbst etwas; aktualisiert wird nur, wenn du auf *Jetzt aktualisieren* klickst (siehe [Aktualisieren](#8-aktualisieren)).
 
 Abschalten lässt sich die Prüfung mit der Umgebungsvariablen `TWEAKABLE_DJ_NO_UPDATE_CHECK=1` vor dem Start:
 
@@ -309,7 +313,33 @@ Diese Schritte machst du einmal, bevor du Tweakable DJ zum ersten Mal benutzt, u
 
 ---
 
-## 8. Probleme und Lösungen
+## 8. Aktualisieren
+
+Gibt es eine neue Version, erscheint oben in der Oberfläche ein Hinweis. Bei beiden Wegen bleiben **deine persönlichen Dateien genau so, wie sie sind**: `config.jsonc` (Einstellungen, Client ID, Last.fm-Schlüssel und -Benutzername), `tokens.json` (Spotify-Anmeldung), `state.json` (Verlauf), `lastfm-cache.json` und die Dateien der Automatik. Sie sind nicht in der ZIP-Datei, und ein Update schreibt sie nie.
+
+**Mit der Schaltfläche**
+
+1. Im Hinweis auf **Jetzt aktualisieren** klicken. Tweakable DJ zeigt, welche Version du bekommst, mit Link zu den Versionshinweisen.
+2. Auf **Aktualisieren** klicken. Tweakable DJ lädt die neue Version von GitHub, prüft jede Datei anhand ihrer Prüfsumme (SHA-256), sichert die Dateien, die es ersetzt, nach `.update/backup-<alte Version>` und kopiert dann die neuen hinein.
+3. Tweakable DJ startet von selbst neu, und die Seite lädt sich mit der neuen Version neu. Hast du es mit `node ui.mjs` im Terminal statt mit einer Startdatei gestartet, starte es selbst noch einmal; die Seite lädt sich dann von selbst neu.
+
+Das Update schreibt nur die Programmdateien, die im Release stehen (`manifest.json`), und löscht nie etwas. Passt eine Datei nicht zu ihrer Prüfsumme, ändert es gar nichts; geht beim Kopieren etwas schief, holt es automatisch die alte Version zurück. Während eines Probelaufs, einer Neuerstellung, eines automatischen Laufs oder einer Spotify-Anmeldung startet es nicht. Die Automatik läuft danach weiter, weil der Ordner derselbe bleibt.
+
+**Von Hand**
+
+1. Die ZIP-Datei `tweakable-dj-v….zip` der neuen Version unter *Releases* auf GitHub herunterladen (wie in der [Einrichtung](#7-einrichtung-einmalig), Schritt 1) und das Fenster von Tweakable DJ schließen.
+2. Die ZIP-Datei **über deinen bisherigen Ordner `tweakable-dj`** entpacken und die Dateien ersetzen:
+   - Windows: Rechtsklick auf die ZIP-Datei → *Alle extrahieren*, als Ziel den Ordner wählen, **in dem** dein Ordner `tweakable-dj` liegt (z. B. *Dokumente*), und *Dateien im Ziel ersetzen* bestätigen.
+   - Mac und Linux: im Terminal `unzip -o ~/Downloads/tweakable-dj-v….zip -d <Ordner, in dem tweakable-dj liegt>`. Den neuen Ordner im Finder nicht auf den alten ziehen: Der Finder ersetzt dann den ganzen Ordner, samt deinen persönlichen Dateien.
+3. Tweakable DJ wie gewohnt starten. (Mac: Beim ersten Start ist eventuell wieder Rechtsklick → *Öffnen* nötig.)
+
+Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie sie sind; die Automatik läuft weiter, weil der Ordner derselbe bleibt. **Nicht in einen neuen Ordner entpacken** und dann diesen verwenden: Dort fehlen deine Einstellungen und die Anmeldung, und die Automatik zeigt weiter auf den alten Ordner. Willst du doch in einen neuen Ordner umziehen, kopiere `config.jsonc`, `tokens.json`, `state.json` und `lastfm-cache.json` aus dem alten in den neuen Ordner, starte Tweakable DJ von dort und klicke einmal *Automatik speichern*.
+
+**Mit git**: Hast du das Repository geklont, im Ordner `git pull` ausführen. Deine persönlichen Dateien stehen in `.gitignore`, git fasst sie also nicht an. In einem git-Ordner bietet die Oberfläche *Jetzt aktualisieren* nicht an.
+
+---
+
+## 9. Probleme und Lösungen
 
 | Meldung / Problem | Lösung |
 |---|---|
@@ -325,6 +355,7 @@ Diese Schritte machst du einmal, bevor du Tweakable DJ zum ersten Mal benutzt, u
 | „config.jsonc ist fehlerhaft“ | Meist fehlt ein Komma am Zeilenende oder es ist eines zu viel (nach dem letzten Eintrag darf keines stehen) |
 | „Die Seed-Playlist ist leer oder nicht lesbar“ | Spotify gibt nur Playlists heraus, die dir gehören oder bei denen du mitarbeitest. In der Oberfläche unter *Quelle deiner Favoriten* eine Playlist aus der Liste wählen, dort stehen nur lesbare. |
 | „Es läuft bereits ein Durchgang“ | Warten, bis der laufende Probelauf oder die Neuerstellung fertig ist (ca. 1 Minute) |
+| „Update fehlgeschlagen: …“ | Die Meldung sagt, ob nichts geändert oder die alte Version wiederhergestellt wurde. Später noch einmal versuchen oder von Hand aktualisieren ([Aktualisieren](#8-aktualisieren)). |
 | Oberfläche öffnet sich nicht / Seite nicht erreichbar | Das Konsolen- bzw. Terminalfenster von Tweakable DJ wurde geschlossen: Tweakable DJ noch einmal starten |
 | „Node.js wurde nicht gefunden“, „Node.js ist nicht installiert“ oder „Der Befehl "node" ist entweder falsch geschrieben oder konnte nicht gefunden werden“ | Node.js installieren ([Einrichtung](#7-einrichtung-einmalig), Schritt 2) und Tweakable DJ neu starten. Klappt es dann immer noch nicht, einmal ab- und wieder anmelden. |
 | „Node.js ist zu alt“ oder „Tweakable DJ braucht Node.js 18 oder neuer“ | Die neueste Version von <https://nodejs.org> installieren |
@@ -343,7 +374,7 @@ Diese Schritte machst du einmal, bevor du Tweakable DJ zum ersten Mal benutzt, u
 
 ---
 
-## 9. Grenzen
+## 10. Grenzen
 
 - **Kein Endlos-Modus:** Die Playlist hat eine feste Länge. Ist sie durchgespielt, übernimmt Spotifys Autoplay (falls eingeschaltet), das deine Regeln nicht kennt. Für neue Songs „Playlist neu erstellen“ klicken.
 - **Die Automatik braucht deinen Rechner:** Tweakable DJ läuft auf deinem PC oder Mac, nicht im Internet. Zur eingestellten Zeit muss der Rechner an sein. Verpasste Läufe holt Windows beim nächsten Einschalten nach, der Mac nur nach dem Ruhezustand, Linux gar nicht. Auf einem echten Mac ist die Automatik noch nicht getestet.
@@ -353,7 +384,7 @@ Diese Schritte machst du einmal, bevor du Tweakable DJ zum ersten Mal benutzt, u
 
 ---
 
-## 10. Datenquellen, Marken und Lizenz
+## 11. Datenquellen, Marken und Lizenz
 
 **Spotify**
 

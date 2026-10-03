@@ -64,12 +64,24 @@
   .banner { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--danger); color: var(--danger); }
   .notice { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--warn); }
   .notice > p { margin: 0; font-weight: 600; }
-  /* Hinweis auf eine neue Version: Rahmen in der Akzentfarbe, mit × zum Ausblenden (wie bei der Sperrliste). */
-  .update { display: flex; align-items: center; gap: 8px; padding: 8px 6px 8px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--accent); }
-  .update p { margin: 0; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  /* Hinweis auf eine neue Version: Rahmen in der Akzentfarbe, mit × zum Ausblenden (wie bei der Sperrliste).
+     Text | „Jetzt aktualisieren“ | ×; auf schmalen Bildschirmen rutscht die Schaltfläche unter den Text.
+     Darunter (über die ganze Breite) Rückfrage, Fortschritt und Ergebnis des Updates. */
+  .update { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; padding: 8px 6px 8px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--accent); }
+  .update > p { margin: 0; min-width: 0; overflow-wrap: anywhere; }
   .update a { font-weight: 600; white-space: nowrap; }
-  .update button { flex: none; font: inherit; font-size: 17px; line-height: 1; width: 28px; height: 28px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
-  .update button:hover { background: var(--border); color: var(--text); }
+  .update .close { flex: none; font: inherit; font-size: 17px; line-height: 1; width: 28px; height: 28px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
+  .update .close:hover { background: var(--border); color: var(--text); }
+  .update-panel { grid-column: 1 / -1; padding-right: 8px; }
+  .update-panel p { margin: 0 0 8px; }
+  .update-panel .actions { margin-top: 0; }
+  .update-panel .msg { margin: 0 0 4px; }
+  .update-panel a { white-space: normal; }
+  @media (max-width: 520px) {
+    .update { grid-template-columns: 1fr auto; }
+    .update > #update-install { grid-column: 1; grid-row: 2; justify-self: start; }
+    .update > .close { grid-column: 2; grid-row: 1; }
+  }
   button.link { font: inherit; font-size: 13.5px; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
 
   section { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 6px 18px; margin-bottom: 16px; box-shadow: var(--shadow); }
@@ -214,10 +226,22 @@
     <p id="notice-text"></p>
     <div id="notice-login"></div>
   </div>
-  <!-- Neue Version auf GitHub (GET /api/update), ausblendbar je Version -->
-  <div id="update" class="update" role="status" hidden>
-    <p><span id="update-text"></span> – <a id="update-link" target="_blank" rel="noopener"></a></p>
-    <button type="button" id="update-close">×</button>
+  <!-- Neue Version auf GitHub (GET /api/update), ausblendbar je Version; „Jetzt aktualisieren“ mit Rückfrage (POST /api/update/install) -->
+  <div id="update" class="update" hidden>
+    <p role="status"><span id="update-text"></span> – <a id="update-link" target="_blank" rel="noopener"></a></p>
+    <button type="button" class="btn small primary" id="update-install"></button>
+    <button type="button" class="close" id="update-close">×</button>
+    <div class="update-panel" id="update-confirm" hidden>
+      <p id="update-confirm-text"></p>
+      <p><a id="update-notes" target="_blank" rel="noopener"></a></p>
+      <div class="actions">
+        <button type="button" class="btn primary" id="update-go"></button>
+        <button type="button" class="btn" id="update-cancel"></button>
+      </div>
+    </div>
+    <div class="update-panel" id="update-state" role="status" aria-live="polite" hidden>
+      <p class="msg" id="update-msg"></p>
+    </div>
   </div>
 
   <!-- Einrichtungs-Assistent -->
@@ -350,7 +374,7 @@ const TEXT = {
     pct: v => `${Math.round(v * 100)} %`,
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Einrichtung' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Einrichtung in 5 Schritten', settings: 'Einstellungen für deine Playlist' },
-    status: { loading: 'Lädt …', setup: 'Einrichtung', running: 'Läuft …', dirty: 'Ungespeicherte Änderungen', saved: 'Gespeichert', error: 'Fehler' },
+    status: { loading: 'Lädt …', setup: 'Einrichtung', running: 'Läuft …', updating: 'Update läuft …', dirty: 'Ungespeicherte Änderungen', saved: 'Gespeichert', error: 'Fehler' },
     // "Mo 06.10., 07:00"
     when: d => `${['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][d.getDay()]} ${two(d.getDate())}.${two(d.getMonth() + 1)}., ${two(d.getHours())}:${two(d.getMinutes())}`,
     page: {
@@ -537,6 +561,16 @@ const TEXT = {
       text: (latest, current) => (current ? `Neue Version ${latest} verfügbar (du hast ${current})` : `Neue Version ${latest} verfügbar`),
       link: 'Download ↗',
       close: 'Hinweis ausblenden',
+      install: 'Jetzt aktualisieren',
+      confirm: (from, to) => `Tweakable DJ wird von v${from} auf v${to} aktualisiert. Deine Einstellungen, die Spotify-Anmeldung, Last.fm-Zugangsdaten und der Verlauf bleiben erhalten.`,
+      notes: 'Was ist neu? Versionshinweise ↗',
+      go: 'Aktualisieren',
+      cancel: 'Abbrechen',
+      starting: 'Update startet …',
+      done: to => `Version ${to} ist installiert ✓ Tweakable DJ startet neu, die Seite lädt gleich von selbst neu …`,
+      manual: to => `Update auf Version ${to} installiert ✓ Bitte Tweakable DJ neu starten (Fenster schließen und wieder öffnen). Die Seite lädt dann von selbst neu.`,
+      slow: 'Tweakable DJ antwortet noch nicht. Ist das Fenster von Tweakable DJ noch offen? Sonst starte Tweakable DJ neu – die Seite lädt dann von selbst neu.',
+      failed: 'Das Update hat nicht geklappt.',
     },
     // Automatik (platform wie in Node: win32, darwin, linux)
     auto: {
@@ -585,7 +619,7 @@ const TEXT = {
     pct: v => `${Math.round(v * 100)}%`,
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Setup' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Setup in 5 steps', settings: 'Settings for your playlist' },
-    status: { loading: 'Loading …', setup: 'Setup', running: 'Running …', dirty: 'Unsaved changes', saved: 'Saved', error: 'Error' },
+    status: { loading: 'Loading …', setup: 'Setup', running: 'Running …', updating: 'Updating …', dirty: 'Unsaved changes', saved: 'Saved', error: 'Error' },
     // "Mon 6 Oct, 07:00"
     when: d => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]} ${d.getDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]}, ${two(d.getHours())}:${two(d.getMinutes())}`,
     page: {
@@ -770,6 +804,16 @@ const TEXT = {
       text: (latest, current) => (current ? `New version ${latest} available (you have ${current})` : `New version ${latest} available`),
       link: 'download ↗',
       close: 'Dismiss notice',
+      install: 'Update now',
+      confirm: (from, to) => `Tweakable DJ will be updated from v${from} to v${to}. Your settings, Spotify login, Last.fm credentials and history are kept.`,
+      notes: 'What’s new? Release notes ↗',
+      go: 'Update',
+      cancel: 'Cancel',
+      starting: 'Starting update …',
+      done: to => `Version ${to} is installed ✓ Tweakable DJ is restarting; this page will reload by itself in a moment …`,
+      manual: to => `Update to version ${to} installed ✓ Please start Tweakable DJ again (close the window and open it again). This page will then reload by itself.`,
+      slow: 'Tweakable DJ isn’t responding yet. Is the Tweakable DJ window still open? If not, start Tweakable DJ again – this page will then reload by itself.',
+      failed: 'The update didn’t work.',
     },
     auto: {
       platform: {
@@ -1157,12 +1201,15 @@ function refresh(skipInput) {
   $('preset-state').className = match ? 'hint' : 'help';
 
   const isDirty = dirty();
-  $('status').textContent = view === 'setup' ? T.status.setup : busy ? T.status.running : isDirty ? T.status.dirty : T.status.saved;
-  $('status').classList.toggle('dirty', view !== 'setup' && isDirty && !busy);
-  $('save').disabled = busy || !isDirty;
-  $('discard').disabled = busy || !isDirty;
-  $('dry').disabled = busy;
-  $('run').disabled = busy;
+  const working = busy || updating(); // Lauf oder Update: dann weder speichern noch einen Lauf starten
+  $('status').textContent = view === 'setup' ? T.status.setup : busy ? T.status.running : updating() ? T.status.updating
+    : isDirty ? T.status.dirty : T.status.saved;
+  $('status').classList.toggle('dirty', view !== 'setup' && isDirty && !working);
+  $('save').disabled = working || !isDirty;
+  $('discard').disabled = working || !isDirty;
+  $('dry').disabled = working;
+  $('run').disabled = working;
+  $('update-install').disabled = working;
   renderSchedule();
 }
 
@@ -1540,23 +1587,113 @@ function renderNotice() {
 let updateInfo = null;
 const dismissedUpdate = store('tweakable-dj-update-dismissed');
 const githubLink = u => typeof u === 'string' && /^https:\/\/github\.com\//.test(u);
+const bare = v => String(v ?? '').replace(/^v/i, '');
+
+// „Jetzt aktualisieren“: phase '' (nichts), 'confirm' (Rückfrage), 'running', 'done' (Neustart läuft), 'manual'
+// (ohne Startdatei gestartet: bitte selbst neu starten), 'slow' (Neustart dauert), 'error'.
+// text: letzte Zeile des Fortschritts bzw. Fehlermeldung des Servers; to: neue Version.
+let upd = { phase: '', text: '', to: '' };
+let reloading = false; // Seite lädt nach dem Update neu: dann nicht wegen ungespeicherter Änderungen nachfragen
+const updating = () => upd.phase === 'running';
 
 function renderUpdate() {
   const u = updateInfo;
-  // Abgeschaltet, Fehler, aktuell oder schon weggeklickt: nichts anzeigen.
-  const show = Boolean(u?.enabled && u.updateAvailable && !u.error && u.latest && githubLink(u.url) && dismissedUpdate.get() !== u.latest);
+  const phase = upd.phase;
+  // Abgeschaltet, Fehler, aktuell oder schon weggeklickt: nichts anzeigen (außer ein Update ist schon angestoßen).
+  const available = Boolean(u?.enabled && u.updateAvailable && !u.error && u.latest && githubLink(u.url));
+  const show = Boolean(phase) || (available && dismissedUpdate.get() !== u.latest);
   $('update').hidden = !show;
-  if (show) {
+  if (show && u?.latest) {
     $('update-text').textContent = T.update.text(u.latest, u.current);
     $('update-link').textContent = T.update.link;
-    $('update-link').href = u.url;
+    $('update-link').href = githubLink(u.url) ? u.url : '';
   }
+  $('update-install').textContent = T.update.install;
+  $('update-install').hidden = !(u?.installable && available && ['', 'error'].includes(phase));
+  $('update-close').hidden = !['', 'confirm', 'error'].includes(phase);
   $('update-close').title = T.update.close;
   $('update-close').setAttribute('aria-label', T.update.close);
+  // Rückfrage mit Link auf die Versionshinweise (Release-Seite)
+  $('update-confirm').hidden = phase !== 'confirm';
+  if (phase === 'confirm') {
+    $('update-confirm-text').textContent = T.update.confirm(bare(u.current), bare(u.latest));
+    $('update-notes').textContent = T.update.notes;
+    $('update-notes').href = u.url;
+    $('update-go').textContent = T.update.go;
+    $('update-cancel').textContent = T.update.cancel;
+  }
+  // Fortschritt bzw. Ergebnis
+  $('update-state').hidden = !['running', 'done', 'manual', 'slow', 'error'].includes(phase);
+  const msg = phase === 'running' ? upd.text || T.update.starting
+    : phase === 'done' ? T.update.done(upd.to)
+    : phase === 'manual' ? T.update.manual(upd.to)
+    : phase === 'slow' ? T.update.slow
+    : phase === 'error' ? upd.text || T.update.failed : '';
+  setMsg($('update-msg'), { done: 'ok', manual: 'ok', slow: 'warn', error: 'err' }[phase] ?? '', msg);
   // Eigene Version dezent unten auf der Seite, sobald sie bekannt ist.
-  const version = typeof u?.current === 'string' ? u.current.replace(/^v/i, '') : '';
+  const version = typeof u?.current === 'string' ? bare(u.current) : '';
   $('version').hidden = !version;
   $('version').textContent = version ? `v${version}` : '';
+}
+
+function setUpdate(state) {
+  upd = { text: '', to: upd.to, ...state };
+  renderUpdate();
+  if (loaded) refresh();
+}
+
+// Update auf Klick nach der Rückfrage: ungespeicherte Änderungen zuerst speichern (wie vor einem Lauf), dann den
+// Fortschritt des Servers zeigen. Danach beendet sich der Server; die Seite wartet auf den neuen und lädt sich neu.
+async function installUpdate() {
+  const to = updateInfo?.latest;
+  showError('');
+  try {
+    if (loaded && dirty()) await save();
+  } catch (e) {
+    return setUpdate({ phase: 'error', text: e.message, to });
+  }
+  setUpdate({ phase: 'running', to });
+  let result;
+  try {
+    const res = await api('/api/update/install', { method: 'POST', body: JSON.stringify({ version: to }) });
+    if (!res.ok) throw new Error((await res.json()).error);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let text = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+      // letzte vollständige Zeile ohne Steuerzeilen (@@…)
+      const lines = text.replace(/\r/g, '').split('\n').slice(0, -1).filter(l => l.trim() && !l.startsWith('@@'));
+      if (lines.length) setUpdate({ phase: 'running', text: lines[lines.length - 1], to });
+    }
+    result = runResult(text + decoder.decode());
+  } catch (e) {
+    return setUpdate({ phase: 'error', text: e.message, to });
+  }
+  if (!result?.ok) return setUpdate({ phase: 'error', text: result?.error, to });
+  setUpdate({ phase: result.restart ? 'done' : 'manual', to: result.to });
+  waitForRestart(result.to);
+}
+
+// Warten, bis der neu gestartete Server mit der neuen Version antwortet, dann die Seite neu laden. Ohne Startdatei
+// (phase 'manual') fragt die Seite weiter, bis jemand Tweakable DJ wieder startet.
+async function waitForRestart(to) {
+  const started = Date.now();
+  for (;;) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      if ((await apiJson('/api/version')).version === to) {
+        reloading = true;
+        location.reload();
+        return;
+      }
+    } catch {
+      // Server startet gerade neu
+    }
+    if (upd.phase === 'done' && Date.now() - started > 45_000) setUpdate({ phase: 'slow', to });
+  }
 }
 
 // Einmal nach dem Laden, ohne dass die Seite darauf wartet. Klappt die Abfrage nicht, bleibt der Hinweis eben weg.
@@ -1571,7 +1708,7 @@ async function loadUpdate() {
 
 function dismissUpdate() {
   dismissedUpdate.set(updateInfo?.latest);
-  renderUpdate();
+  setUpdate({ phase: '' });
 }
 
 // --- Einrichtungs-Assistent ---
@@ -1774,7 +1911,16 @@ $('discard').onclick = () => { current = { ...saved }; refresh(); };
 $('dry').onclick = () => run(true);
 $('run').onclick = () => run(false);
 $('update-close').onclick = dismissUpdate;
-window.addEventListener('beforeunload', e => { if (dirty()) e.preventDefault(); });
+$('update-install').onclick = () => {
+  setUpdate({ phase: 'confirm' });
+  $('update-go').focus();
+};
+$('update-cancel').onclick = () => {
+  setUpdate({ phase: '' });
+  $('update-install').focus();
+};
+$('update-go').onclick = installUpdate;
+window.addEventListener('beforeunload', e => { if (dirty() && !reloading) e.preventDefault(); });
 // Zurück auf der Seite (z. B. am nächsten Morgen): Stand der Automatik und letzten Lauf neu holen.
 document.addEventListener('visibilitychange', () => { if (!document.hidden && view === 'settings') loadSchedule(); });
 

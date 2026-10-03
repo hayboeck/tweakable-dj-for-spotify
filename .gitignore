@@ -13,6 +13,8 @@ lastfm-cache.json
 automatik.json
 # Letzte Prüfung auf neue Versionen (update.mjs)
 update-check.json
+# Arbeitsordner von „Jetzt aktualisieren“ (install-update.mjs): Zwischenablage und Sicherung der alten Programmdateien
+.update/
 
 # System- und Editor-Dateien
 .DS_Store

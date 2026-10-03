@@ -1,4 +1,4 @@
-// Simulierte Spotify-, Last.fm- und GitHub-APIs für tests/probelauf.test.mjs und tests/ui.test.mjs.
+// Simulierte Spotify-, Last.fm- und GitHub-APIs für tests/probelauf.test.mjs, tests/ui.test.mjs und tests/install-update.test.mjs.
 // Laden mit: node --import <file-URL dieser Datei> dj.mjs --dry
 // Ersetzt globalThis.fetch; unbekannte Adressen und Schreibzugriffe auf Spotify werfen einen Fehler,
 // echte Netzwerkzugriffe gibt es also nie.
@@ -9,7 +9,12 @@
 //   MOCK_NO_LIKED=1     keine Lieblingssongs auf Spotify
 //   MOCK_NODE_VERSION   täuscht eine andere Node-Version vor
 //   MOCK_GITHUB         JSON-Datei mit der Antwort von GitHub auf die Frage nach dem neuesten Release (update.mjs):
-//                       { "status": 200, "body": { "tag_name": "v0.2.0", … } } oder { "offline": true } (= Netzfehler).
+//                       { "status": 200, "body": { "tag_name": "v0.2.0", "assets": […], … } } oder { "offline": true }
+//                       (= Netzfehler). Dazu für „Jetzt aktualisieren“ (install-update.mjs) die Dateien des Releases:
+//                       "downloads": { "manifest.json": "<Pfad>", "tweakable-dj-v0.2.0.zip": "<Pfad>" }. Wie bei GitHub
+//                       leitet https://github.com/<owner>/<repo>/releases/download/<tag>/<name> (302) zum Speicher
+//                       release-assets.githubusercontent.com weiter; "redirect": "<URL>" ersetzt dieses Ziel (z. B. ein
+//                       fremder Host, den das Update ablehnen muss). tests/mock-release.mjs baut solche Releases.
 //                       Wird bei jeder Anfrage neu gelesen; ohne Datei ist GitHub ebenfalls nicht erreichbar.
 
 import fs from 'node:fs';
@@ -199,9 +204,9 @@ function lastfmApi(url) {
   }
 }
 
-// --- GitHub (neuestes Release) ---
+// --- GitHub (neuestes Release und dessen Dateien) ---
 
-function githubRelease(url) {
+function githubReply(url) {
   let reply = null;
   try {
     reply = JSON.parse(fs.readFileSync(process.env.MOCK_GITHUB, 'utf8'));
@@ -212,7 +217,29 @@ function githubRelease(url) {
     log({ host: url.host, path: url.pathname, offline: true });
     throw new TypeError('fetch failed', { cause: Object.assign(new Error('Mock: GitHub nicht erreichbar'), { code: 'ENOTFOUND' }) });
   }
+  return reply;
+}
+
+function githubRelease(url) {
+  const reply = githubReply(url);
   return json(reply.body ?? {}, reply.status ?? 200);
+}
+
+const ASSET_STORE = 'https://release-assets.githubusercontent.com/github-production-release-asset/mock';
+const assetName = url => decodeURIComponent(url.pathname.split('/').pop());
+
+// Download-Link einer Release-Datei: Weiterleitung zum Speicher (wie bei GitHub), unbekannte Datei = 404.
+function githubDownload(url) {
+  const reply = githubReply(url);
+  const name = assetName(url);
+  if (!reply.downloads?.[name]) return new Response('Not Found', { status: 404 });
+  return new Response(null, { status: 302, headers: { location: `${reply.redirect ?? ASSET_STORE}/${encodeURIComponent(name)}?sig=mock` } });
+}
+
+function githubAsset(url) {
+  const file = githubReply(url).downloads?.[assetName(url)];
+  if (!file) return new Response('Not Found', { status: 404 });
+  return new Response(fs.readFileSync(file), { status: 200, headers: { 'content-type': 'application/octet-stream' } });
 }
 
 globalThis.fetch = async (input, init) => {
@@ -223,6 +250,8 @@ globalThis.fetch = async (input, init) => {
   else if (url.origin === 'https://api.spotify.com') res = spotifyApi(url, init, headers);
   else if (url.origin === 'https://ws.audioscrobbler.com' && url.pathname === '/2.0/') res = lastfmApi(url);
   else if (url.origin === 'https://api.github.com' && /^\/repos\/[^/]+\/[^/]+\/releases\/latest$/.test(url.pathname)) res = githubRelease(url);
+  else if (url.origin === 'https://github.com' && /^\/[^/]+\/[^/]+\/releases\/download\/[^/]+\/[^/]+$/.test(url.pathname)) res = githubDownload(url);
+  else if (['https://release-assets.githubusercontent.com', 'https://objects.githubusercontent.com'].includes(url.origin)) res = githubAsset(url);
   else {
     log({ unknown: url.href });
     throw new Error(`Mock: unerwartete Adresse ${url.href}`);

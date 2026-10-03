@@ -245,7 +245,9 @@ test('GET /api/update: Platzhalter OWNER in package.json → abgeschaltet, keine
   const before = githubRequests().length;
   const { status, data } = await api('/api/update', { lang: 'de' });
   assert.equal(status, 200);
-  assert.deepEqual(data, { enabled: false, current: '0.1.0', latest: null, updateAvailable: false, url: null, checkedAt: null, error: null });
+  assert.deepEqual(data, {
+    enabled: false, current: '0.1.0', latest: null, updateAvailable: false, url: null, checkedAt: null, error: null, installable: false,
+  });
   assert.equal(githubRequests().length, before);
   assert.equal(fs.existsSync(path.join(dir, 'update-check.json')), false);
 });
@@ -257,7 +259,7 @@ test('GET /api/update: neuere Version → updateAvailable, Link aufs Release; zw
   assert.equal(status, 200);
   assert.deepEqual({ ...data, checkedAt: typeof data.checkedAt }, {
     enabled: true, current: '0.1.0', latest: '0.2.0', updateAvailable: true,
-    url: 'https://github.com/beispiel/tweakable-dj-for-spotify/releases/tag/v0.2.0', checkedAt: 'string', error: null,
+    url: 'https://github.com/beispiel/tweakable-dj-for-spotify/releases/tag/v0.2.0', checkedAt: 'string', error: null, installable: true,
   });
   assert.deepEqual(githubRequests().slice(before).map(e => e.path), ['/repos/beispiel/tweakable-dj-for-spotify/releases/latest']);
   assert.deepEqual((await api('/api/update', { lang: 'en' })).data, data);
@@ -277,6 +279,91 @@ test('GET /api/update: GitHub nicht erreichbar → trotzdem 200, mit error und o
     assert.equal(data.error, reply?.status ? 'GitHub: HTTP 500' : 'GitHub: ENOTFOUND');
   }
   fs.rmSync(path.join(dir, 'update-check.json'), { force: true });
+});
+
+// --- „Jetzt aktualisieren“ (POST /api/update/install): hier nur die Fälle, in denen das Update nicht läuft – ein
+// erfolgreiches beendet den Server (ganzer Ablauf in tests/install-update.test.mjs) ---
+
+const install = (lang, headers) => api('/api/update/install', { lang, method: 'POST', body: { version: '0.2.0' }, headers });
+
+test('POST /api/update/install: ohne X-Tweakable-DJ bzw. mit fremdem Host 403, nichts gefragt', async () => {
+  updateCase('beispiel', RELEASE('v0.2.0'));
+  const before = githubRequests().length;
+  assert.deepEqual(await install('en', { 'X-Tweakable-DJ': '0' }), {
+    status: 403, data: { error: 'Not allowed' }, text: JSON.stringify({ error: 'Not allowed' }),
+  });
+  assert.deepEqual((await install('de', { 'X-Tweakable-DJ': '0' })).data, { error: 'Nicht erlaubt' });
+  const res = await fetch(`${base}/api/update/install`, { method: 'POST', headers: { 'X-Lang': 'en', 'Content-Type': 'application/json' } });
+  assert.deepEqual([res.status, await res.json()], [403, { error: 'Not allowed' }]);
+  // Host-Prüfung: Anfrage an localhost statt 127.0.0.1 (z. B. von einer fremden Seite per DNS-Rebinding)
+  const port = Number(new URL(base).port);
+  const status = await new Promise((resolve, reject) => {
+    const s = net.connect(port, '127.0.0.1', () => s.write(`POST /api/update/install HTTP/1.1\r\nHost: localhost:${port}\r\n`
+      + 'X-Tweakable-DJ: 1\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}'));
+    let reply = '';
+    s.on('data', chunk => (reply += chunk));
+    s.on('close', () => resolve(reply.split('\r\n')[0]));
+    s.on('error', reject);
+  });
+  assert.equal(status, 'HTTP/1.1 403 Forbidden');
+  assert.equal(githubRequests().length, before, 'keine Anfrage an GitHub');
+});
+
+test('POST /api/update/install: gleiche oder ältere Version → abgelehnt, nichts geändert', async () => {
+  for (const tag of ['v0.1.0', 'v0.0.9']) {
+    updateCase('beispiel', RELEASE(tag));
+    const files = Object.fromEntries(fs.readdirSync(dir).filter(f => fs.statSync(path.join(dir, f)).isFile())
+      .map(f => [f, fs.readFileSync(path.join(dir, f), 'base64')]));
+    const de = await install('de');
+    assert.equal(de.status, 200);
+    const r = resultLine(de.text);
+    assert.deepEqual([r.ok, r.outcome], [false, 'unchanged']);
+    assert.equal(r.error, `Update fehlgeschlagen: Version ${tag.slice(1)} ist nicht neuer als deine (0.1.0). Es wurde nichts geändert.`);
+    assert.match(de.text, /^Frage GitHub nach der neuesten Version …$/m);
+    const after = Object.fromEntries(fs.readdirSync(dir).filter(f => fs.statSync(path.join(dir, f)).isFile())
+      .map(f => [f, fs.readFileSync(path.join(dir, f), 'base64')]));
+    delete after['mock-anfragen.jsonl'];
+    delete files['mock-anfragen.jsonl'];
+    assert.deepEqual(after, files);
+    assert.equal(fs.existsSync(path.join(dir, '.update')), false, 'nicht einmal .update angelegt');
+  }
+  updateCase('beispiel', RELEASE('v0.1.0'));
+  assert.match(resultLine((await install('en')).text).error, /^Update failed: Version 0\.1\.0 isn’t newer than yours \(0\.1\.0\)\. Nothing was changed\.$/);
+});
+
+test('POST /api/update/install: nicht während eines Laufs oder eines automatischen Laufs (409)', async () => {
+  updateCase('beispiel', RELEASE('v0.2.0'));
+  // Lauf aus der Oberfläche: erst die erste Ausgabe abwarten, dann ist er sicher gestartet.
+  const run = await fetch(`${base}/api/run?dry=1`, { method: 'POST', headers: { 'X-Tweakable-DJ': '1', 'X-Lang': 'de' } });
+  const reader = run.body.getReader();
+  await reader.read();
+  try {
+    assert.deepEqual(await install('de'), {
+      status: 409, data: { error: 'Gerade läuft ein Durchgang. Warte, bis er fertig ist, und aktualisiere dann.' },
+      text: JSON.stringify({ error: 'Gerade läuft ein Durchgang. Warte, bis er fertig ist, und aktualisiere dann.' }),
+    });
+    assert.equal((await install('en')).data.error, 'A run is in progress. Wait until it’s finished, then update.');
+  } finally {
+    while (!(await reader.read()).done) {
+      // Lauf zu Ende lesen
+    }
+  }
+  // Automatischer Lauf: automatik.json mit startedAt (vor 5 Minuten) und ohne finishedAt
+  const auto = path.join(dir, 'automatik.json');
+  fs.writeFileSync(auto, JSON.stringify({ startedAt: new Date(Date.now() - 5 * 60_000).toISOString(), finishedAt: null, ok: null }));
+  try {
+    const de = await install('de');
+    assert.equal(de.status, 409);
+    assert.match(de.data.error, /^Gerade läuft ein automatischer Lauf \(seit \d\d:\d\d Uhr\)\. Warte, bis er fertig ist, und aktualisiere dann\.$/);
+    assert.match((await install('en')).data.error, /^An automatic run is in progress \(since .+\)\. Wait until it’s finished, then update\.$/);
+    // Abgestürzter Lauf (älter als 30 Minuten) hält das Update nicht auf: dann kommt es bis zur Versionsprüfung.
+    fs.writeFileSync(auto, JSON.stringify({ startedAt: new Date(Date.now() - 31 * 60_000).toISOString(), finishedAt: null, ok: null }));
+    updateCase('beispiel', RELEASE('v0.1.0'));
+    assert.equal(resultLine((await install('en')).text).outcome, 'unchanged');
+  } finally {
+    fs.rmSync(auto, { force: true });
+    fs.rmSync(path.join(dir, 'update-check.json'), { force: true });
+  }
 });
 
 // Beide Texttabellen in ui.html haben dieselben Schlüssel (auch verschachtelt), damit beim Umschalten nichts fehlt.

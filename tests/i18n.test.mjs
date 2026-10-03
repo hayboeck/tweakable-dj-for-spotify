@@ -8,7 +8,7 @@ import { LANGS, MESSAGES, locale, resolveLang, systemLang, t, tError } from '../
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // Texte in Anführungszeichen, die wie Schlüssel aussehen, aber Dateinamen bzw. Stellen in der config.jsonc sind
-const NOT_KEYS = ['config.jsonc', 'ui.html', 'spotify.clientId', 'lastfm.apiKey', 'lastfm.user'];
+const NOT_KEYS = ['config.jsonc', 'ui.html', 'ui.mjs', 'spotify.clientId', 'lastfm.apiKey', 'lastfm.user'];
 const placeholders =text => [...text.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort();
 
 test('Jeder Text gibt es auf Deutsch und Englisch, mit denselben Platzhaltern', () => {
@@ -30,7 +30,7 @@ test('Alle Schlüssel, die die Programmdateien verwenden, gibt es', () => {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
     for (const m of src.matchAll(/\b(?:t|tError)\([^,()]+,\s*'([\w.]+)'/g)) used.add(m[1]);
     // Schlüssel, die aus Teilen zusammengesetzt oder in Tabellen stehen
-    for (const m of src.matchAll(/'((?:config|login|run|ui|schedule|spotify|lastfm|node)\.[a-zA-Z]+)'/g)) {
+    for (const m of src.matchAll(/'((?:config|login|run|ui|schedule|spotify|lastfm|node|update)\.[a-zA-Z]+)'/g)) {
       if (!NOT_KEYS.includes(m[1])) used.add(m[1]);
     }
   }

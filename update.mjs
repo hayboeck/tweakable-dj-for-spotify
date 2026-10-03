@@ -4,7 +4,8 @@
 // oder dort noch der Platzhalter OWNER steht.
 //
 // Eingebunden in ui.mjs (GET /api/update). ui.html fragt einmal nach dem Laden und zeigt bei updateAvailable
-// „Neue Version {latest} verfügbar (du hast {current}) – Download“ mit Link auf url.
+// „Neue Version {latest} verfügbar (du hast {current}) – Download“ mit Link auf url. Installieren kann man sie dort mit
+// „Jetzt aktualisieren“ (install-update.mjs, nur auf Klick).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,7 +81,8 @@ export function repoSlug(pkgFile = PKG) {
   return `${m[1]}/${m[2]}`;
 }
 
-const switchedOff = env => /^(1|true|yes|ja|on)$/i.test(String(env?.TWEAKABLE_DJ_NO_UPDATE_CHECK ?? '').trim());
+// TWEAKABLE_DJ_NO_UPDATE_CHECK=1 (auch true, yes, ja, on): keine Prüfung und kein Update (install-update.mjs).
+export const switchedOff = env => /^(1|true|yes|ja|on)$/i.test(String(env?.TWEAKABLE_DJ_NO_UPDATE_CHECK ?? '').trim());
 const str = s => (typeof s === 'string' ? s : null);
 // Nur Links auf github.com übernehmen (landen in der Oberfläche als href).
 const githubUrl = u => (typeof u === 'string' && /^https:\/\/github\.com\//.test(u) ? u : null);

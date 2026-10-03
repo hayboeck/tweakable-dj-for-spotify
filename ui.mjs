@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // Oberfläche für Tweakable DJ: Einrichtung, Regler für alle Einstellungen, Probelauf und Neuerstellung im Browser.
 //   node ui.mjs                startet die Oberfläche auf http://127.0.0.1:8899 (anderer Port: TWEAKABLE_DJ_PORT)
-//   node ui.mjs --no-browser   dasselbe, ohne den Browser zu öffnen
+//   node ui.mjs --no-browser   dasselbe, ohne den Browser zu öffnen (so auch beim Neustart nach einem Update)
 // Sprache der Antworten: Header "X-Lang: de|en" der Anfrage, sonst "language" aus config.jsonc, sonst die Systemsprache.
+// Nach „Jetzt aktualisieren“ (POST /api/update/install) beendet sich der Server mit Exit-Code 75, wenn ihn eine Startdatei
+// gestartet hat (TWEAKABLE_DJ_LAUNCHER=1); die startet ihn dann mit den neuen Dateien neu. Sonst endet er mit 0 und bittet
+// darum, Tweakable DJ neu zu starten.
 
 import fs from 'node:fs';
 import http from 'node:http';
@@ -14,7 +17,8 @@ import {
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
 import { createSpotify, login, openBrowser, REDIRECT_URI } from './spotify.mjs';
-import { checkForUpdate } from './update.mjs';
+import { autoRunMessage, installBlocker, installUpdate } from './install-update.mjs';
+import { checkForUpdate, currentVersion } from './update.mjs';
 
 // Sprache für Konsole und Anfragen ohne X-Lang.
 const defaultLang = () => resolveLang(configLanguage());
@@ -37,8 +41,14 @@ const LOGIN_TIMEOUT = 5 * 60_000;
 const DAY = 86_400_000;
 const LOGIN_CODES = ['login_expired', 'not_logged_in'];
 const noBrowser = process.argv.includes('--no-browser');
+// Version beim Start: Nach einem Update meldet erst der neu gestartete Server die neue (GET /api/version).
+const VERSION = currentVersion();
+// Von Tweakable DJ.cmd, Tweakable DJ.command bzw. start.sh gestartet? Die starten nach Exit-Code 75 neu.
+const LAUNCHER = process.env.TWEAKABLE_DJ_LAUNCHER === '1';
+const RESTART_CODE = 75;
 let running = null;
 let loginJob = null;
+let installing = false;
 
 function readBody(req, lang) {
   return new Promise((resolve, reject) => {
@@ -188,6 +198,22 @@ function updateStatus() {
   return updateJob;
 }
 
+// Warum gerade kein Update geht (übersetzt), sonst null: Lauf aus der Oberfläche oder Anmeldung bei Spotify.
+// Einen automatischen Lauf prüft installUpdate() selbst (automatik.json), auch noch einmal kurz vor dem Ersetzen.
+const sessionBusy = lang => (running ? t(lang, 'update.runBusy') : loginJob?.status === 'pending' ? t(lang, 'update.loginBusy') : null);
+
+// Nach einem Update: Server beenden, damit die neuen Dateien gelten. Mit Startdatei (Exit-Code 75) startet sie ihn
+// gleich wieder, ohne Browser (die Seite ist ja offen und lädt sich dann selbst neu); sonst bitte von Hand neu starten.
+let restarting = false;
+function restartAfterUpdate(version) {
+  if (restarting) return;
+  restarting = true;
+  console.log(`\n${t(defaultLang(), LAUNCHER ? 'update.restarting' : 'update.startAgain', { version })}`);
+  server.close();
+  server.closeAllConnections?.();
+  setTimeout(() => process.exit(LAUNCHER ? RESTART_CODE : 0), 200);
+}
+
 // Ergebnis für die Oberfläche, falls dj.mjs ohne eigene "@@RESULT"-Zeile endet (z. B. abgestürzt).
 const fallbackResult = (lang, dry, code) => ({
   ok: false, dry, songs: null, fresh: null, freshCurrent: null, familiar: null, playlistName: null, playlistUrl: null,
@@ -254,11 +280,46 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Neue Version auf GitHub? Antwortet immer mit 200 (bei Problemen enabled: false bzw. mit error).
-    if (route === 'GET /api/update') return send(200, await updateStatus());
+    // installable: „Jetzt aktualisieren“ geht in diesem Ordner (nicht bei einem git-Checkout).
+    if (route === 'GET /api/update') return send(200, { ...await updateStatus(), installable: !installBlocker(HERE) });
+
+    // Version dieses Servers; die Seite wartet nach einem Update darauf, dass der neue Server antwortet.
+    if (route === 'GET /api/version') return send(200, { version: VERSION });
+
+    // „Jetzt aktualisieren“: Body { version } = in der Seite bestätigte Version. Fortschritt als Text, am Ende eine Zeile
+    // "@@RESULT {…}" wie bei /api/run: { ok: true, from, to, changed, same, restart } bzw. { ok: false, outcome, error }
+    // mit outcome 'unchanged', 'restored' oder 'restoreFailed'. Danach beendet sich der Server (restartAfterUpdate).
+    if (route === 'POST /api/update/install') {
+      const { version } = await readJson(req, lang);
+      const reason = installing ? t(lang, 'update.inProgress') : sessionBusy(lang) ?? autoRunMessage(HERE, lang);
+      if (reason) return send(409, { error: reason });
+      installing = true;
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+      let result;
+      try {
+        const r = await installUpdate({
+          lang, expected: typeof version === 'string' ? version : null, onStep: line => res.write(`${line}\n`), busy: () => sessionBusy(lang),
+        });
+        res.write(`${t(lang, 'update.done', { version: r.to })}\n`);
+        result = { ok: true, from: r.from, to: r.to, changed: r.changed.length, same: r.same, restart: LAUNCHER };
+      } catch (e) {
+        installing = false;
+        result = { ok: false, outcome: e.outcome ?? 'unchanged', error: e.message };
+        res.write(`${e.message}\n`);
+      }
+      // Nach einem Update beenden, sobald die Antwort draußen ist – spätestens nach 2 s, auch wenn die Seite schon zu ist.
+      if (result.ok) {
+        res.once('close', () => restartAfterUpdate(result.to));
+        setTimeout(() => restartAfterUpdate(result.to), 2000);
+      }
+      res.end(`@@RESULT ${JSON.stringify(result)}\n`);
+      return;
+    }
 
     if (route === 'GET /api/login') return send(200, loginView());
 
     if (route === 'POST /api/login') {
+      if (installing) return send(409, { error: t(lang, 'update.inProgress') });
       // Läuft schon eine Anmeldung, nur deren Stand melden – kein zweiter Server auf Port 8888.
       if (loginJob?.status === 'pending') return send(200, loginView());
       const cfg = currentConfig(lang);
@@ -293,7 +354,7 @@ const server = http.createServer(async (req, res) => {
 
     // Lauf starten: Ausgabe von dj.mjs als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".
     if (route === 'POST /api/run') {
-      if (running) return send(409, { error: t(lang, 'ui.busy') });
+      if (running || installing) return send(409, { error: t(lang, running ? 'ui.busy' : 'update.inProgress') });
       const dry = url.searchParams.get('dry') === '1';
       const args = ['dj.mjs', ...(dry ? ['--dry'] : [])];
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });

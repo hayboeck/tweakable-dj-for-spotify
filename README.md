@@ -10,7 +10,7 @@ The interface is available in English and German; switch at the top right (DE | 
 
 <p align="center"><img src="docs/screenshot-main.en.png" width="600" alt="The Tweakable DJ interface: presets such as Discover and My current phase, the playlist settings with sliders, and the buttons Test run and Rebuild playlist"></p>
 
-Tweakable DJ is an independent project and not an official Spotify product (more in [section 10](#10-data-sources-trademarks-and-license)).
+Tweakable DJ is an independent project and not an official Spotify product (more in [section 11](#11-data-sources-trademarks-and-license)).
 
 > **What you need**
 >
@@ -31,9 +31,10 @@ Tweakable DJ is an independent project and not an official Spotify product (more
 5. [Rules and settings](#5-rules-and-settings)
 6. [Using Tweakable DJ](#6-using-tweakable-dj)
 7. [Setup (one time)](#7-setup-one-time)
-8. [Troubleshooting](#8-troubleshooting)
-9. [Limitations](#9-limitations)
-10. [Data sources, trademarks and license](#10-data-sources-trademarks-and-license)
+8. [Updating](#8-updating)
+9. [Troubleshooting](#9-troubleshooting)
+10. [Limitations](#10-limitations)
+11. [Data sources, trademarks and license](#11-data-sources-trademarks-and-license)
 
 ---
 
@@ -93,14 +94,16 @@ The numbers show the order of a run:
 | `ui.html` | The interface itself (setup wizard, controls, buttons, output), with all texts in English and German |
 | `schedule.mjs` | Automatic runs: adds Tweakable DJ to your system’s scheduler (Windows Task Scheduler, macOS launchd, Linux cron) and reads its status |
 | `update.mjs` | Checks at most once a day whether a new version is available on GitHub (see [Update check](#update-check)) |
+| `install-update.mjs` | Installs a new version when you click *Update now* (see [Updating](#8-updating)) |
+| `manifest.json` | List of all program files of this version with their checksums. *Update now* only replaces files listed there. Only in the ZIP file, not in the GitHub repository. |
 | `package.json` | Shortcuts for developers: `npm start` (interface) and `npm test` (tests). Tweakable DJ needs no additional packages. |
 | `tests/` | Automated tests for the rules, the translations, the interface and a test run in which Spotify and Last.fm are only simulated. Only in the GitHub repository, not in the ZIP file. |
 | `config.example.jsonc` | Empty settings template with English explanations. It becomes your `config.jsonc` when you set up in English. |
 | `config.example.de.jsonc` | The same template with German explanations (for setting up in German) |
 | `overview.en.svg`, `overview.de.svg` | The diagram in section 2, in English and German |
 | `docs/` | Screenshots of the interface for this guide, in English and German |
-| `LICENSE` | The license (MIT), see section 10 |
-| `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, the files of automatic runs and the result of the update check are never uploaded |
+| `LICENSE` | The license (MIT), see section 11 |
+| `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, the files of automatic runs, the result of the update check and `.update/` are never uploaded |
 | `.gitattributes` | Consistent line endings for Windows, Mac and Linux; marks images as binary. Only in the GitHub repository, not in the ZIP file. |
 | `.github/` | Templates for bug reports and ideas, automated workflows on GitHub (e.g. the ZIP file for new versions). Only in the GitHub repository, not in the ZIP file. |
 
@@ -114,6 +117,7 @@ The numbers show the order of a run:
 | `automatik.json` | Result of the last automatic run (time, ✓ or the reason it failed). The interface shows it under *Rebuild automatically*. |
 | `automatik.log` | The complete output of the last automatic run, for troubleshooting |
 | `update-check.json` | Result of the last [update check](#update-check) (time and newest version). Deleting it does no harm. |
+| `.update/` | Created by *Update now*: the backup of the program files of the previous version (`backup-<version>`). Deleting it does no harm. |
 
 `config.jsonc` contains your Client ID and your Last.fm key. Neither is very sensitive, but you still shouldn’t share them publicly.
 
@@ -229,7 +233,7 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
   - Windows: the run is made up the next time you turn it on.
   - Mac: the run is made up after waking from sleep, but not after being switched off.
   - Linux: the run is skipped.
-- **New version**: if a newer version of Tweakable DJ has been released, a notice with a download link appears at the top. Close it with ×; it only comes back for the next version. The bottom of the page shows which version you have (e.g. *v0.1.0*). More in [Update check](#update-check).
+- **New version**: if a newer version of Tweakable DJ has been released, a notice appears at the top with a download link and the button **Update now** (see [Updating](#8-updating)). Close it with ×; it only comes back for the next version. The bottom of the page shows which version you have (e.g. *v0.1.0*). More in [Update check](#update-check).
 
 Both run buttons save first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
 
@@ -260,7 +264,7 @@ Example on macOS and Linux: `TWEAKABLE_DJ_LANG=de node dj.mjs --dry`. In the Win
 
 ### Update check
 
-When you open the interface, Tweakable DJ checks **at most once a day** whether a new version has been released. For this, it sends a single request to the GitHub Releases API (`api.github.com`) that asks for the newest release of Tweakable DJ. **No personal data is sent**: no settings, credentials, songs or IDs. The answer is stored in `update-check.json`; if the check fails (e.g. offline), it tries again an hour later at the earliest. Only the interface checks, not runs in the terminal or automatic runs. It only shows a notice and never downloads or installs anything by itself.
+When you open the interface, Tweakable DJ checks **at most once a day** whether a new version has been released. For this, it sends a single request to the GitHub Releases API (`api.github.com`) that asks for the newest release of Tweakable DJ. **No personal data is sent**: no settings, credentials, songs or IDs. The answer is stored in `update-check.json`; if the check fails (e.g. offline), it tries again an hour later at the earliest. Only the interface checks, not runs in the terminal or automatic runs. It only shows a notice and never downloads or installs anything by itself; an update only happens when you click *Update now* (see [Updating](#8-updating)).
 
 To turn the check off, set the environment variable `TWEAKABLE_DJ_NO_UPDATE_CHECK=1` before starting:
 
@@ -309,7 +313,33 @@ You do these steps once before using Tweakable DJ for the first time, and again 
 
 ---
 
-## 8. Troubleshooting
+## 8. Updating
+
+When a new version is out, a notice appears at the top of the interface. Either way of updating keeps **your personal files exactly as they are**: `config.jsonc` (settings, Client ID, Last.fm key and username), `tokens.json` (Spotify login), `state.json` (history), `lastfm-cache.json` and the files of automatic runs. They aren’t in the ZIP file, and an update never writes them.
+
+**With the button**
+
+1. Click **Update now** in the notice. Tweakable DJ shows which version you’ll get, with a link to the release notes.
+2. Click **Update**. Tweakable DJ downloads the new version from GitHub, checks every file against its checksum (SHA-256), backs up the files it replaces to `.update/backup-<old version>` and copies the new files in.
+3. Tweakable DJ restarts by itself, and the page reloads with the new version. If you started it with `node ui.mjs` in a terminal instead of a start file, start it again yourself; the page then reloads by itself.
+
+The update only writes the program files listed in the release (`manifest.json`) and never deletes anything. If a file doesn’t match its checksum, it changes nothing; if copying fails, it restores the old version automatically. It doesn’t start while a test run, a rebuild, an automatic run or a Spotify login is in progress. Automatic runs keep working, because the folder stays the same.
+
+**By hand**
+
+1. Download `tweakable-dj-v….zip` of the new version from *Releases* on GitHub (as in [setup](#7-setup-one-time), step 1) and close the Tweakable DJ window.
+2. Unzip it **over your existing `tweakable-dj` folder** and replace the files:
+   - Windows: right-click the ZIP file → *Extract All*, choose the folder that **contains** your `tweakable-dj` folder (e.g. *Documents*) as the destination and confirm *Replace the files in the destination*.
+   - Mac and Linux: in a terminal, `unzip -o ~/Downloads/tweakable-dj-v….zip -d <folder that contains tweakable-dj>`. Don’t drag the new folder onto the old one in the Finder: the Finder replaces the whole folder, including your personal files.
+3. Start Tweakable DJ as usual. (Mac: the first start may again need right-click → *Open*.)
+
+Your personal files aren’t in the ZIP file, so they stay as they are, and automatic runs keep working because the folder stays the same. **Don’t unzip into a new folder** and use that one instead: it would have neither your settings nor your login, and automatic runs would still point to the old folder. If you do want to move to a new folder, copy `config.jsonc`, `tokens.json`, `state.json` and `lastfm-cache.json` from the old folder into the new one, start Tweakable DJ there and click *Save automatic runs* once.
+
+**With git**: if you cloned the repository, run `git pull` in the folder. Your personal files are in `.gitignore`, so git doesn’t touch them. In a git folder, the interface doesn’t offer *Update now*.
+
+---
+
+## 9. Troubleshooting
 
 | Message / problem | Solution |
 |---|---|
@@ -325,6 +355,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
 | “config.jsonc is invalid” | Usually a comma is missing at the end of a line, or there is one too many (there must be none after the last entry) |
 | “The seed playlist is empty or can’t be read” | Spotify only returns playlists you own or collaborate on. In the interface, choose a playlist from the list under *Source of your favorites*; only readable ones are listed there. |
 | “A run is already in progress” | Wait until the current test run or rebuild is finished (about 1 minute) |
+| “Update failed: …” | The message says whether nothing was changed or the old version was restored. Try again later, or update by hand ([Updating](#8-updating)). |
 | The interface doesn’t open / page can’t be reached | The console or terminal window of Tweakable DJ was closed: start Tweakable DJ again |
 | “Node.js was not found”, “Node.js is not installed” or “'node' is not recognized as an internal or external command” | Install Node.js ([setup](#7-setup-one-time), step 2) and restart Tweakable DJ. If it still doesn’t work, log out and back in once. |
 | “Node.js is too old” or “Tweakable DJ needs Node.js 18 or newer” | Install the newest version from <https://nodejs.org> |
@@ -343,7 +374,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
 
 ---
 
-## 9. Limitations
+## 10. Limitations
 
 - **No endless mode:** the playlist has a fixed length. When it has finished, Spotify’s autoplay takes over (if enabled), which doesn’t know your rules. For new songs, click “Rebuild playlist”.
 - **Automatic runs need your computer:** Tweakable DJ runs on your PC or Mac, not on the internet. The computer must be on at the set time. Missed runs are made up by Windows the next time it starts, by the Mac only after sleep, and not at all by Linux. Automatic runs haven’t been tested on a real Mac yet.
@@ -353,7 +384,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
 
 ---
 
-## 10. Data sources, trademarks and license
+## 11. Data sources, trademarks and license
 
 **Spotify**
 
