@@ -170,7 +170,7 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
       });
       if (res.status === 429) {
         const wait = Number(res.headers.get('retry-after') || 2);
-        if (wait > 120) throw tError(lang, 'spotify.rateLimit', { minutes: Math.ceil(wait / 60) });
+        if (wait > 120) throw tError(lang, 'spotify.rateLimit', { minutes: Math.ceil(wait / 60) }, { rateLimit: true });
         await sleep(wait * 1000);
         continue;
       }
@@ -197,6 +197,18 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
   // artist = Hauptinterpret; artists = alle Beteiligten (für die Sperrliste).
   const toTrack = t => ({ uri: t.uri, name: t.name, artist: t.artists?.[0]?.name, artists: (t.artists ?? []).map(a => a.name).filter(Boolean) });
   const isPlayable = t => t && t.type === 'track' && !t.is_local && t.uri?.startsWith('spotify:track:');
+
+  // Song zu Künstler und Titel als { uri, name, artist, artists } wie bei den Lieblingssongs, null = nicht gefunden.
+  async function findTrack(artist, name) {
+    const clean = s => String(s).replace(/"/g, '');
+    const queries = [`track:"${clean(name)}" artist:"${clean(artist)}"`, `${clean(artist)} ${clean(name)}`];
+    for (const q of queries) {
+      const d = await api('GET', `/search?${new URLSearchParams({ q, type: 'track', limit: '10' })}`);
+      const hit = (d?.tracks?.items ?? []).find(t => t && sameTrack(t, artist, name));
+      if (hit) return toTrack(hit);
+    }
+    return null;
+  }
 
   return {
     me: () => api('GET', '/me'),
@@ -267,15 +279,9 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
 
     setDescription: (id, description) => api('PUT', `/playlists/${id}`, { description }),
 
-    async searchTrack(artist, name) {
-      const clean = s => String(s).replace(/"/g, '');
-      const queries = [`track:"${clean(name)}" artist:"${clean(artist)}"`, `${clean(artist)} ${clean(name)}`];
-      for (const q of queries) {
-        const d = await api('GET', `/search?${new URLSearchParams({ q, type: 'track', limit: '10' })}`);
-        const hit = (d?.tracks?.items ?? []).find(t => t && sameTrack(t, artist, name));
-        if (hit) return hit.uri;
-      }
-      return null;
-    },
+    findTrack,
+
+    // Nur die URI des Songs, null = nicht gefunden.
+    searchTrack: async (artist, name) => (await findTrack(artist, name))?.uri ?? null,
   };
 }

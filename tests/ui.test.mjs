@@ -50,6 +50,7 @@ before(async () => {
   const env = {
     ...process.env, TWEAKABLE_DJ_PORT: String(port), TWEAKABLE_DJ_LANG: 'de', NODE_OPTIONS: `--import=${MOCK}`,
     MOCK_LOG: path.join(dir, 'mock-anfragen.jsonl'), MOCK_GITHUB: path.join(dir, 'github-antwort.json'),
+    MOCK_SPOTIFY_STORE: path.join(dir, 'store.json'), // Playlists des Testbenutzers: Übernehmen und Import dürfen schreiben
   };
   delete env.TWEAKABLE_DJ_NO_UPDATE_CHECK; // die Prüfung auf neue Versionen soll hier laufen (gegen den simulierten GitHub)
   server = spawn(process.execPath, ['ui.mjs', '--no-browser'], { cwd: dir, env });
@@ -78,12 +79,12 @@ after(async () => {
   fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 });
 
-// Anfrage wie von ui.html: X-Tweakable-DJ: 1 und (falls angegeben) X-Lang.
-async function api(route, { lang, method = 'GET', body, headers = {} } = {}) {
+// Anfrage wie von ui.html: X-Tweakable-DJ: 1 und (falls angegeben) X-Lang; body als JSON, raw als Text.
+async function api(route, { lang, method = 'GET', body, raw, headers = {} } = {}) {
   const res = await fetch(base + route, {
     method,
     headers: { 'X-Tweakable-DJ': '1', 'Content-Type': 'application/json', ...(lang && { 'X-Lang': lang }), ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: raw ?? (body === undefined ? undefined : JSON.stringify(body)),
   });
   const text = await res.text();
   let data = text;
@@ -405,6 +406,193 @@ test('POST /api/update/install: nicht während eines Laufs oder eines automatisc
     fs.rmSync(auto, { force: true });
     fs.rmSync(path.join(dir, 'update-check.json'), { force: true });
   }
+});
+
+// --- Probelauf übernehmen, Textdatei speichern und importieren (Playlists in MOCK_SPOTIFY_STORE = store.json) ---
+
+const store = () => JSON.parse(fs.readFileSync(path.join(dir, 'store.json'), 'utf8'));
+const spotifyRequests = () => {
+  const file = path.join(dir, 'mock-anfragen.jsonl');
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(e => e.host === 'api.spotify.com') : [];
+};
+// Inhalt einer Textdatei an POST /api/import/preview (wie ui.html: als Text, nicht als JSON)
+const preview = (text, { lang = 'de', headers = {} } = {}) => api('/api/import/preview', {
+  lang, method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8', ...headers }, raw: text,
+});
+
+test('Neue Schnittstellen: ohne X-Tweakable-DJ bzw. mit fremdem Host 403, nichts gefragt', async () => {
+  const before = spotifyRequests().length;
+  const routes = [['GET', '/api/trial'], ['POST', '/api/apply'], ['GET', '/api/export'], ['GET', '/api/export?trial=0123456789ab'],
+    ['POST', '/api/import/preview'], ['POST', '/api/import']];
+  for (const [method, route] of routes) {
+    const r = await api(route, { lang: 'en', method, headers: { 'X-Tweakable-DJ': '0' }, body: method === 'POST' ? {} : undefined });
+    assert.deepEqual([r.status, r.data], [403, { error: 'Not allowed' }], `${method} ${route}`);
+    const plain = await fetch(base + route, { method, headers: { 'X-Lang': 'de' } });
+    assert.deepEqual([plain.status, await plain.json()], [403, { error: 'Nicht erlaubt' }], `${method} ${route} ohne Header`);
+  }
+  const port = Number(new URL(base).port);
+  const status = await new Promise((resolve, reject) => {
+    const s = net.connect(port, '127.0.0.1', () => s.write(`POST /api/import HTTP/1.1\r\nHost: localhost:${port}\r\n`
+      + 'X-Tweakable-DJ: 1\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}'));
+    let reply = '';
+    s.on('data', chunk => (reply += chunk));
+    s.on('close', () => resolve(reply.split('\r\n')[0]));
+    s.on('error', reject);
+  });
+  assert.equal(status, 'HTTP/1.1 403 Forbidden');
+  assert.equal(spotifyRequests().length, before, 'keine Anfrage an Spotify');
+});
+
+test('„Diese Liste übernehmen“: Playlist = Liste des Probelaufs; abgelaufen nach Änderung der Einstellungen bzw. nach dem Übernehmen', async () => {
+  const dry = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
+  const { trialId } = resultLine(dry.text);
+  assert.match(trialId, /^[0-9a-f]{12}$/);
+  const trial = JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8'));
+  assert.equal(trial.id, trialId);
+  const ok = (await api(`/api/trial?id=${trialId}`, { lang: 'de' })).data;
+  assert.deepEqual([ok.ok, ok.reason, ok.message, ok.trial.id, ok.trial.songs, ok.trial.playlistName], [true, null, '', trialId, 20, 'Test-DJ']);
+  assert.equal(Date.parse(ok.trial.expiresAt) - Date.parse(ok.trial.createdAt), 24 * 3600_000);
+
+  // Falsche oder fremde Kennung
+  assert.deepEqual(await api('/api/apply', { lang: 'en', method: 'POST', body: { id: '../x' } }),
+    { status: 400, data: { error: 'Invalid request' }, text: JSON.stringify({ error: 'Invalid request' }) });
+  const other = await api('/api/apply', { lang: 'de', method: 'POST', body: { id: '0123456789ab' } });
+  assert.deepEqual([other.status, other.data.reason], [409, 'replaced']);
+  assert.match(other.data.error, /^Seitdem gab es einen neueren Probelauf/);
+  // Einstellung geändert und gespeichert: abgelaufen; zurückgestellt gilt er wieder
+  assert.equal((await api('/api/config', { method: 'POST', body: { size: 25 } })).status, 200);
+  const changed = (await api(`/api/trial?id=${trialId}`, { lang: 'en' })).data;
+  assert.deepEqual([changed.ok, changed.reason, changed.message], [false, 'settings', 'The settings have changed since the test run. Start a new test run.']);
+  const refused = await api('/api/apply', { lang: 'de', method: 'POST', body: { id: trialId } });
+  assert.deepEqual([refused.status, refused.data], [409, { error: 'Die Einstellungen haben sich seit dem Probelauf geändert. Starte einen neuen Probelauf.', reason: 'settings' }]);
+  // (Die Automatik zählt nicht – hier nicht geprüft, weil das den Zeitplaner des Systems fragen würde; siehe tests/trial.test.mjs.)
+  assert.equal((await api('/api/config', { method: 'POST', body: { size: 20 } })).status, 200);
+  assert.equal((await api(`/api/trial?id=${trialId}`)).data.ok, true, 'zurückgestellt: gilt wieder');
+
+  // Noch nicht übernommen: als Textdatei speichern
+  const text = (await api(`/api/export?trial=${trialId}`, { lang: 'de' })).data;
+  assert.match(text.filename, /^tweakable-dj-\d{4}-\d\d-\d\d-probelauf\.txt$/);
+  const lines = text.text.split('\n');
+  assert.match(lines[0], /^# Test-DJ – exportiert am /);
+  assert.match(lines[1], /^# Probelauf vom .+ – noch nicht in der Playlist$/);
+  assert.deepEqual(lines.slice(3, -1).map(l => `spotify:track:${l.split('/track/')[1]}`), trial.tracks.map(t => t.uri));
+  assert.equal(text.songs, 20);
+  assert.equal((await api('/api/export?trial=0123456789ab', { lang: 'en' })).data.reason, 'replaced');
+
+  // Übernehmen: Ausgabe wie ein Lauf, die Playlist enthält genau die Songs des Probelaufs
+  const applied = await api('/api/apply', { lang: 'de', method: 'POST', body: { id: trialId } });
+  assert.equal(applied.status, 200);
+  assert.match(applied.text, /^Übernehme den Probelauf vom .+ \(20 Songs\), ohne neu zu losen …$/m);
+  const r = resultLine(applied.text);
+  assert.deepEqual([r.ok, r.dry, r.songs, r.errorCode], [true, false, 20, null]);
+  const playlist = store().playlists.find(p => p.name === 'Test-DJ');
+  assert.deepEqual(playlist.uris, trial.tracks.map(t => t.uri));
+  assert.equal(r.playlistUrl, `https://open.spotify.com/playlist/${playlist.id}`);
+  assert.equal(playlist.description, trial.description);
+  const history = JSON.parse(fs.readFileSync(path.join(dir, 'state.json'), 'utf8')).history;
+  assert.equal(history.at(-1).length, 20, 'als Lauf gemerkt');
+  const gone = (await api(`/api/trial?id=${trialId}`, { lang: 'en' })).data;
+  assert.deepEqual([gone.ok, gone.reason, gone.trial], [false, 'missing', null]);
+  assert.equal((await api('/api/apply', { method: 'POST', body: { id: trialId } })).status, 409);
+
+  // Playlist, wie sie jetzt in Spotify ist, als Textdatei
+  const exported = await api('/api/export', { lang: 'en' });
+  assert.equal(exported.status, 200, exported.text);
+  assert.match(exported.data.filename, /^tweakable-dj-\d{4}-\d\d-\d\d\.txt$/);
+  const exportedLines = exported.data.text.split('\n');
+  assert.match(exportedLines[0], new RegExp(`^# Test-DJ – exported on .+ · https://open\\.spotify\\.com/playlist/${playlist.id}$`));
+  assert.equal(exportedLines[1], '# 20 songs · one line per song: artist – title, tab, Spotify link');
+  assert.deepEqual(exportedLines.slice(2, -1).map(l => `spotify:track:${l.split('/track/')[1]}`), playlist.uris);
+  assert.deepEqual([exported.data.songs, exported.data.playlistUrl], [20, r.playlistUrl]);
+});
+
+test('Textdatei importieren: Vorschau mit Fortschritt und nicht gefundenen Zeilen, Schreiben ohne Verlauf; Grenzen', async () => {
+  const before = store().playlists.find(p => p.name === 'Test-DJ');
+  const exported = (await api('/api/export', { lang: 'de' })).data.text;
+  const text = `${exported}\n# eigene Zeilen\nNordlicht – Polarnacht\nHafenlicht – Nicht auf Spotify 3\nhttps://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M\n`;
+  const stateBefore = fs.readFileSync(path.join(dir, 'state.json'), 'utf8');
+  const de = await preview(text);
+  assert.equal(de.status, 200, de.text);
+  assert.match(de.text, /^Suche 23 Songs aus der Datei …$/m);
+  assert.match(de.text, /^ {2}2 von 2 Suchen auf Spotify …$/m);
+  assert.match(de.text, /^21 von 23 Songs gefunden$/m);
+  const r = resultLine(de.text);
+  assert.deepEqual([r.ok, r.total, r.found, r.playlistName], [true, 23, 21, 'Test-DJ']);
+  assert.deepEqual(r.uris.slice(0, 20), before.uris, 'exportierte Zeilen 1:1');
+  assert.deepEqual(r.notFound, [
+    { line: 26, text: 'Hafenlicht – Nicht auf Spotify 3', reason: 'notFound' },
+    { line: 27, text: 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M', reason: 'link' },
+  ]);
+  assert.deepEqual(store().playlists.find(p => p.name === 'Test-DJ').uris, before.uris, 'Vorschau schreibt nichts');
+  const en = await preview(text, { lang: 'en' });
+  assert.match(en.text, /^21 of 23 songs found$/m);
+
+  // Schreiben nach der Rückfrage
+  const written = await api('/api/import', { lang: 'de', method: 'POST', body: { uris: r.uris } });
+  assert.deepEqual(written.data, { ok: true, songs: 21, playlistName: 'Test-DJ', playlistUrl: `https://open.spotify.com/playlist/${before.id}`, created: false });
+  const after = store().playlists.find(p => p.name === 'Test-DJ');
+  assert.deepEqual(after.uris, r.uris);
+  assert.match(after.description, /^Tweakable DJ · aus einer Textdatei, .+ · 21 Songs$/);
+  assert.equal(fs.readFileSync(path.join(dir, 'state.json'), 'utf8'), stateBefore, 'kein Eintrag im Verlauf');
+
+  // Grenzen: leere Datei, zu viele Songs, mehr als 1 MB, ungültige Liste
+  const status = async (res, code, error) => assert.deepEqual([(await res).status, (await res).data.error], [code, error]);
+  await status(preview('# nur ein Kommentar\n\n'), 400, 'Die Datei enthält keine Songs. Leere Zeilen und Kommentarzeilen zählen nicht.');
+  await status(preview(Array.from({ length: 501 }, (_, i) => `A – T${i}`).join('\n'), { lang: 'en' }), 400,
+    'The file contains 501 songs; the playlist holds at most 500.');
+  await status(preview('x'.repeat(1_000_001)), 400, 'Die Datei ist zu groß (höchstens 1 MB).');
+  await status(api('/api/import', { lang: 'en', method: 'POST', body: { uris: ['spotify:album:aaaaaaaaaaaaaaaaaaaaaa'] } }), 400,
+    'Invalid list: expected 1 to 500 Spotify songs (spotify:track:…).');
+  await status(api('/api/import', { lang: 'de', method: 'POST', body: {} }), 400, 'Ungültige Liste: erwartet sind 1 bis 500 Spotify-Songs (spotify:track:…).');
+  assert.deepEqual(store().playlists.find(p => p.name === 'Test-DJ').uris, r.uris, 'nichts verändert');
+});
+
+test('Sperre: kein Import während eines Laufs; kein Lauf, Übernehmen, Anmelden, Update oder zweiter Import während eines Imports', async () => {
+  // Lauf läuft: erst die erste Ausgabe abwarten, dann ist er sicher gestartet.
+  const run = await fetch(`${base}/api/run?dry=1`, { method: 'POST', headers: { 'X-Tweakable-DJ': '1', 'X-Lang': 'de' } });
+  const runReader = run.body.getReader();
+  await runReader.read();
+  try {
+    const p = await preview('A – B');
+    assert.deepEqual([p.status, p.data.error], [409, 'Es läuft bereits ein Durchgang.']);
+    const w = await api('/api/import', { lang: 'en', method: 'POST', body: { uris: ['spotify:track:aaaaaaaaaaaaaaaaaaaaaa'] } });
+    assert.deepEqual([w.status, w.data.error], [409, 'A run is already in progress.']);
+  } finally {
+    while (!(await runReader.read()).done) {
+      // Lauf zu Ende lesen
+    }
+  }
+  // Import läuft (jede Suche nach "Langsam …" dauert 700 ms)
+  const slow = Array.from({ length: 9 }, (_, i) => `Bergfunk – Langsam ${i + 1}`).join('\n');
+  const imp = await fetch(`${base}/api/import/preview`, { method: 'POST', headers: { 'X-Tweakable-DJ': '1', 'X-Lang': 'de', 'Content-Type': 'text/plain' }, body: slow });
+  const reader = imp.body.getReader();
+  await reader.read();
+  let rest = '';
+  try {
+    const busy = 'Gerade läuft ein Import aus einer Textdatei. Warte, bis er fertig ist.';
+    assert.deepEqual([(await api('/api/run?dry=1', { lang: 'de', method: 'POST' })).status, (await api('/api/run', { lang: 'de', method: 'POST' })).data.error], [409, busy]);
+    assert.deepEqual((await api('/api/apply', { lang: 'de', method: 'POST', body: { id: '0123456789ab' } })).data, { error: busy });
+    assert.deepEqual((await api('/api/login', { lang: 'en', method: 'POST' })).data, { error: 'An import from a text file is in progress. Wait until it’s finished.' });
+    assert.deepEqual((await preview('A – B')).data, { error: busy });
+    assert.equal((await api('/api/import', { lang: 'de', method: 'POST', body: { uris: ['spotify:track:aaaaaaaaaaaaaaaaaaaaaa'] } })).status, 409);
+    assert.equal((await api('/api/config')).data.importing, true);
+    updateCase('beispiel', RELEASE('v0.2.0'));
+    assert.deepEqual(await install('de'), {
+      status: 409, data: { error: 'Gerade läuft ein Import aus einer Textdatei. Warte, bis er fertig ist, und aktualisiere dann.' },
+      text: JSON.stringify({ error: 'Gerade läuft ein Import aus einer Textdatei. Warte, bis er fertig ist, und aktualisiere dann.' }),
+    });
+  } finally {
+    const decoder = new TextDecoder();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      rest += decoder.decode(value, { stream: true });
+    }
+    fs.rmSync(path.join(dir, 'update-check.json'), { force: true });
+  }
+  assert.deepEqual([resultLine(rest).ok, resultLine(rest).found], [true, 9]);
+  assert.equal((await api('/api/config')).data.importing, false, 'danach wieder frei');
+  assert.equal((await preview('Nordlicht – Polarnacht')).status, 200);
 });
 
 // Beide Texttabellen in ui.html haben dieselben Schlüssel (auch verschachtelt), damit beim Umschalten nichts fehlt.

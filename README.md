@@ -45,7 +45,7 @@ First time here? Download Tweakable DJ, install Node.js and start it as describe
 
 1. Start Tweakable DJ: double-click **`Tweakable DJ.cmd`** (Windows) or **`Tweakable DJ.command`** (Mac); on Linux, run `./start.sh` in a terminal. The interface with its controls opens in your browser.
 2. Pick a **preset** (e.g. “Discover”) or adjust the controls yourself, then click **Test run**. The DJ shows which songs it would pick and doesn’t change anything.
-3. If you like the selection, click **Rebuild playlist**. After about a minute, “Tweakable DJ” in Spotify has been refilled.
+3. If you like the selection, click **Use this list** below it: exactly these songs go into “Tweakable DJ”, in this order. (**Rebuild playlist**, on the other hand, draws again and takes about a minute.)
 4. Listen to “Tweakable DJ” in Spotify, ideally without shuffle, because the DJ has already mixed the order.
 
 The console or terminal window that opens must stay open while you use the interface.
@@ -80,6 +80,7 @@ The numbers show the order of a run:
 | `config.jsonc` | All settings, each with an explanation on the same line. Also your credentials. Created during setup. | yes: via the interface or directly in an editor |
 | `README.md` | This guide | read |
 | `README.de.md` | This guide in German | read |
+| `CHANGELOG.md` | What changed in each version (English and German) | read |
 
 **Program** (only change it if you know what you’re doing)
 
@@ -87,6 +88,8 @@ The numbers show the order of a run:
 |---|---|
 | `dj.mjs` | The DJ itself: controls a run from start to finish (steps in section 4) |
 | `lineup.mjs` | The selection and ordering rules: the draw, “3 in 20”, gaps, comparing song titles |
+| `trial.mjs` | Remembers the last test run for *Use this list* and checks whether it is still valid |
+| `playlist.mjs` | Writes and reads the playlist; format and import of the [text file](#text-file-save-and-import) |
 | `spotify.mjs` | Connection to Spotify: login, reading Liked Songs, finding songs, writing the playlist |
 | `lastfm.mjs` | Connection to Last.fm: similar songs and artists, your listening history |
 | `config.mjs` | Reads and writes `config.jsonc` without destroying the comments |
@@ -98,13 +101,13 @@ The numbers show the order of a run:
 | `install-update.mjs` | Installs a new version when you click *Update now* (see [Updating](#8-updating)) |
 | `manifest.json` | List of all program files of this version with their checksums. *Update now* only replaces files listed there. Only in the ZIP file, not in the GitHub repository. |
 | `package.json` | Shortcuts for developers: `npm start` (interface) and `npm test` (tests). Tweakable DJ needs no additional packages. |
-| `tests/` | Automated tests for the rules, the settings, the translations, automatic runs, the update check and *Update now*, the interface and a test run in which Spotify, Last.fm and GitHub are only simulated. Only in the GitHub repository, not in the ZIP file. |
+| `tests/` | Automated tests for the rules, the settings, the translations, automatic runs, the update check and *Update now*, the interface, the text file and test runs including applying them, in which Spotify, Last.fm and GitHub are only simulated. Only in the GitHub repository, not in the ZIP file. |
 | `config.example.jsonc` | Empty settings template with English explanations. It becomes your `config.jsonc` when you set up in English. |
 | `config.example.de.jsonc` | The same template with German explanations (for setting up in German) |
 | `overview.en.svg`, `overview.de.svg` | The diagram in section 2, in English and German |
 | `docs/` | Screenshots of the interface for this guide, in English and German |
 | `LICENSE` | The license (MIT), see section 12 |
-| `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, the files of automatic runs, the result of the update check and `.update/` are never uploaded |
+| `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, the files of automatic runs, the result of the update check and `.update/` are never uploaded |
 | `.gitattributes` | Consistent line endings for Windows, Mac and Linux; marks images as binary. Only in the GitHub repository, not in the ZIP file. |
 | `.github/` | Templates for bug reports and ideas, automated workflows on GitHub (e.g. the ZIP file for new versions). Only in the GitHub repository, not in the ZIP file. |
 
@@ -115,6 +118,7 @@ The numbers show the order of a run:
 | `tokens.json` | Your Spotify login and when you logged in. **Don’t share it** – it would give someone access to your playlists. |
 | `state.json` | The DJ’s memory: which songs were in the last runs and which Spotify searches are already done. Deleting it resets both. That does no harm; the next run just takes a little longer. |
 | `lastfm-cache.json` | Cached answers from Last.fm (similar songs and artists), each valid for 7 days. Makes runs faster. Deleting it does no harm. |
+| `probelauf.json` | Result of the last test run (songs, time, fingerprint of the settings) for *Use this list* or `node dj.mjs --apply`. A real run and applying it delete the file. Deleting it does no harm. |
 | `automatik.json` | Result of the last automatic run (time, ✓ or the reason it failed). The interface shows it under *Rebuild automatically*. |
 | `automatik.log` | The complete output of the last automatic run, for troubleshooting |
 | `update-check.json` | Result of the last [update check](#update-check) (time and newest version). Deleting it does no harm. |
@@ -245,8 +249,11 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
 - **Source of your favorites**: a list with your Liked Songs and your playlists. Only playlists you own or collaborate on are offered, because Spotify only shares the contents of those.
 - **Block list**: enter an artist name and click *Add*. Remove it again with ×.
 - **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*.
-- **Test run**: shows the selection without changing the playlist.
-- **Rebuild playlist**: refills “Tweakable DJ” and then shows a link to Spotify.
+- **Test run**: shows the selection without changing the playlist. Below it:
+  - **Use this list**: writes exactly these songs, in this order, to “Tweakable DJ” without drawing again, including the description. It counts like a run (the songs are then remembered for *Block previous runs*). The button is valid for 24 hours and only as long as the settings stay as they were for the test run; after that, after a rebuild (also by automatic runs) or if `probelauf.json` is missing, it is disabled and says why. Then just start a new test run. Setting the controls back makes it available again.
+  - **Save as text file**: downloads the list of the test run, even if it isn’t in the playlist (yet).
+- **Rebuild playlist**: draws again, refills “Tweakable DJ” and then shows a link to Spotify.
+- **Text file**: *Save as text file* downloads “Tweakable DJ” as it currently is in Spotify. *Import text file …* fills it with your own list: first a preview (“38 of 40 found” and the lines that don’t match), then *Write to playlist “Tweakable DJ” (replaces its contents)*. More under [Text file](#text-file-save-and-import).
 - **Change credentials** (top right): opens the setup wizard with your previous entries.
 - **Log in with Spotify**: appears when your Spotify login expires soon or has expired. Spotify requires a new login every 6 months. It also appears if *Followed artists* isn’t at “no preference” and your login is from before that setting existed.
 - **Rebuild automatically**: *Off*, *Daily* or *Weekly*, plus the time and, if needed, the day of the week. When you click *Save*, Tweakable DJ adds itself to your system’s scheduler and then rebuilds the playlist by itself, even when the interface is closed. Below, you see the next run and the result of the last automatic run (✓ with the number of songs or ✗ with the reason). What happens if your computer is off at the set time:
@@ -255,7 +262,7 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
   - Linux: the run is skipped.
 - **New version**: if a newer version of Tweakable DJ has been released, a notice appears at the top with a download link and the button **Update now** (see [Updating](#8-updating)). Close it with ×; it only comes back for the next version. The bottom of the page shows which version you have (e.g. *v0.1.0*). More in [Update check](#update-check).
 
-Both run buttons save first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
+*Test run* and *Rebuild playlist* save first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
 
 <p align="center"><img src="docs/screenshot-run.en.png" width="640" alt="Result of a test run: Tweakable DJ with 50 songs, 40 of them new and 34 found via current listening, 10 favorites, followed by the steps of the run (including the followed artists) and the list of picked songs"></p>
 
@@ -265,7 +272,10 @@ In the `tweakable-dj` folder ([how to open a terminal there](#open-a-terminal-in
 
 ```
 node dj.mjs          # refill the playlist
-node dj.mjs --dry    # test run: only show, don't change the playlist
+node dj.mjs --dry    # test run: only show, don't change the playlist (remembers the list in probelauf.json)
+node dj.mjs --apply  # write the last test run to the playlist exactly as it is, without drawing again (--dry: only check)
+node dj.mjs export [file.txt]   # save the playlist as a text file (default: tweakable-dj-<date>.txt)
+node dj.mjs import <file.txt>   # write the songs from a text file to the playlist (--dry: only show)
 node dj.mjs login    # log in to Spotify (again)
 node dj.mjs --auto   # like an automatic run: also writes automatik.log and automatik.json
 node ui.mjs          # start the interface (also: npm start)
@@ -284,6 +294,28 @@ The output uses the language from `config.jsonc` (`language`), otherwise your sy
 Example on macOS and Linux: `TWEAKABLE_DJ_LANG=de node dj.mjs --dry`. In the Windows command prompt: first `set TWEAKABLE_DJ_LANG=de`, then `node dj.mjs --dry`.
 
 You don’t need to set the other variables yourself: the start files set `TWEAKABLE_DJ_LAUNCHER=1` (then the interface restarts by itself after *Update now*), and the tests use `TWEAKABLE_DJ_TASK_NAME` and `TWEAKABLE_DJ_TASK_ARGS` so they never touch the real scheduler entry.
+
+### Text file: save and import
+
+*Save as text file* (or `node dj.mjs export`) writes a UTF-8 file with one line per song:
+
+```
+# Tweakable DJ – exported on 10/5/2026, 02:03 PM · https://open.spotify.com/playlist/…
+# 50 songs · one line per song: artist – title, tab, Spotify link
+Main artist, Guest – Title	https://open.spotify.com/track/…
+```
+
+- Lines starting with `#` are comments. The artists are listed as Spotify names them: the main artist first, guests after it, separated by commas.
+- A tab separates the title from the link: it never appears in names or titles (two spaces can), and spreadsheet programs turn it into two columns.
+
+*Import text file …* (or `node dj.mjs import <file.txt>`) reads such a file, but also a list of your own:
+
+- Empty lines and lines starting with `#` don’t count. (Exception: `#` directly before a name on a line with a link to a song, so artists like “#1 Dads” aren’t lost.)
+- A link or URI to a song (`https://open.spotify.com/track/…`, also with `?si=…`, or `spotify:track:…`) is used directly, whatever else is on the line. That way a saved file comes back exactly the same.
+- Otherwise the line must read `artist – title` (separator `–`, `—` or ` - ` with spaces). Tweakable DJ looks these songs up on Spotify, just like during a run.
+- At most 500 songs and 1 MB. The preview shows how many were found and which lines don’t match; nothing is written until you confirm. With many songs the search takes a while; the progress is shown below the buttons.
+- An import replaces the contents of the playlist and sets its description, **but doesn’t count as a DJ run**: it writes nothing to the history (`state.json`), so its songs aren’t blocked by *Block previous runs*. It’s your list, not the DJ’s selection.
+- No import starts during a run, an update or a Spotify login, and vice versa.
 
 ### Update check
 
@@ -338,7 +370,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
 
 ## 8. Updating
 
-When a new version is out, a notice appears at the top of the interface. Either way of updating keeps **your personal files exactly as they are**: `config.jsonc` (settings, Client ID, Last.fm key and username), `tokens.json` (Spotify login), `state.json` (history), `lastfm-cache.json` and the files of automatic runs. They aren’t in the ZIP file, and an update never writes them.
+When a new version is out, a notice appears at the top of the interface. What changed is listed in [CHANGELOG.md](CHANGELOG.md). Either way of updating keeps **your personal files exactly as they are**: `config.jsonc` (settings, Client ID, Last.fm key and username), `tokens.json` (Spotify login), `state.json` (history), `lastfm-cache.json`, `probelauf.json` (last test run) and the files of automatic runs. They aren’t in the ZIP file, and an update never writes them.
 
 **With the button**
 
@@ -346,7 +378,7 @@ When a new version is out, a notice appears at the top of the interface. Either 
 2. Click **Update**. Tweakable DJ downloads the new version from GitHub, checks every file against its checksum (SHA-256), backs up the files it replaces to `.update/backup-<old version>` and copies the new files in.
 3. Tweakable DJ restarts by itself, and the page reloads with the new version. If you started it with `node ui.mjs` in a terminal instead of a start file, start it again yourself; the page then reloads by itself.
 
-The update only writes the program files listed in the release (`manifest.json`) and deletes nothing outside `.update/` (there it only keeps the backup of the latest update). If a file doesn’t match its checksum, it changes nothing; if copying fails, it restores the old version automatically. It doesn’t start while a test run, a rebuild, an automatic run or a Spotify login is in progress. Automatic runs keep working, because the folder stays the same.
+The update only writes the program files listed in the release (`manifest.json`) and deletes nothing outside `.update/` (there it only keeps the backup of the latest update). If a file doesn’t match its checksum, it changes nothing; if copying fails, it restores the old version automatically. It doesn’t start while a test run, a rebuild, an automatic run, an import from a text file or a Spotify login is in progress. Automatic runs keep working, because the folder stays the same.
 
 **By hand**
 
@@ -401,6 +433,8 @@ There is only ever one entry: it always has the same name, whichever folder it c
 | “… in config.jsonc must be a whole number from … to …” | A value in `config.jsonc` was changed by hand and is outside the allowed range ([Rules and settings](#5-rules-and-settings)). Correct it there, or set the control in the interface and save. |
 | “The source of your favorites (playlist) is empty or can’t be read” | Spotify only returns playlists you own or collaborate on. In the interface, choose a playlist from the list under *Source of your favorites*; only readable ones are listed there. |
 | “A run is already in progress” | Wait until the current test run or rebuild is finished (about 1 minute) |
+| *Use this list* is disabled, or “There’s no test run to apply” | A test run is valid for 24 hours and only with the same settings; a rebuild (also by automatic runs) ends it. The reason is shown below the button. Start a new test run. |
+| Import: “Line …: not found on Spotify” | Check the spelling of artist and title, or paste the link to the song instead of its name (in Spotify: Share → Copy link) |
 | “Update failed: …” | The message says whether nothing was changed or the old version was restored. Try again later, or update by hand ([Updating](#8-updating)). |
 | The interface doesn’t open / page can’t be reached | The console or terminal window of Tweakable DJ was closed: start Tweakable DJ again |
 | “Node.js was not found”, “Node.js is not installed” or “'node' is not recognized as an internal or external command” | Install Node.js ([setup](#7-setup-one-time), step 2) and restart Tweakable DJ. If it still doesn’t work, log out and back in once. |

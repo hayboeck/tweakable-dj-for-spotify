@@ -2,7 +2,12 @@
 // Tweakable DJ: befüllt eine Spotify-Playlist mit Favoriten + neuen, ähnlichen Songs (via Last.fm).
 //   node dj.mjs login   einmalig bei Spotify anmelden
 //   node dj.mjs         Playlist neu befüllen
-//   node dj.mjs --dry   nur anzeigen, nichts an Spotify schicken
+//   node dj.mjs --dry   nur anzeigen, nichts an Spotify schicken; das Ergebnis kommt in probelauf.json
+//   node dj.mjs --apply diesen Probelauf genau so in die Playlist schreiben, ohne neu zu losen (höchstens 24 Stunden alt,
+//                       mit denselben Einstellungen; mit --dry nur prüfen und anzeigen)
+//   node dj.mjs export [datei.txt]   Playlist als Textdatei speichern (ohne Angabe: tweakable-dj-<Datum>.txt hier im Ordner)
+//   node dj.mjs import <datei.txt>   Songs aus einer Textdatei in die Playlist schreiben (mit --dry nur anzeigen);
+//                       zählt nicht als Lauf des DJ, der Verlauf in state.json bleibt unverändert
 //   node dj.mjs --auto  Lauf aus dem Zeitplaner: Ausgabe zusätzlich in automatik.log, Ergebnis in automatik.json
 // Sprache der Ausgabe: TWEAKABLE_DJ_LANG (de/en), sonst "language" in config.jsonc, sonst die Systemsprache.
 // Letzte Zeile auf stdout (nicht im Terminal): "@@RESULT " + JSON mit dem Ergebnis für die Oberfläche.
@@ -10,16 +15,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { HERE, configLanguage, loadConfig } from './config.mjs';
-import { locale, resolveLang, t } from './i18n.mjs';
+import { resolveLang, t, tError } from './i18n.mjs';
 import { createLastfm } from './lastfm.mjs';
 import { recordAutoRun } from './schedule.mjs';
 import { createSpotify, FOLLOW_SCOPE, isScopeError, login, REDIRECT_URI } from './spotify.mjs';
+import {
+  dateTime, exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, mapLimit, parseImport, readPlaylist, resolveImport,
+  writePlaylist,
+} from './playlist.mjs';
+import { readTrial, removeTrial, saveTrial, trialProblem } from './trial.mjs';
 import {
   arrange, artistBlocker, candidateWeight, followedFactor, followedMatcher, norm, shuffle, trackKey, weightedOrder, windowViolations,
 } from './lineup.mjs';
 
 const lang = resolveLang(process.env.TWEAKABLE_DJ_LANG, configLanguage());
 const dry = process.argv.includes('--dry');
+const apply = process.argv.includes('--apply');
+// Befehl (login, export, import) und dessen Datei; sonst ein Lauf.
+const [command, fileArg] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 
 // Automatischer Lauf (--auto, auch zusammen mit --dry): Ausgabe und Ergebnis mitschreiben.
 const auto = process.argv.includes('--auto') ? recordAutoRun(HERE, lang) : null;
@@ -32,9 +45,11 @@ const readJson = (file, fallback) => (fs.existsSync(file) ? JSON.parse(fs.readFi
 
 // Ergebnis des Laufs: wird in main() nach und nach gefüllt.
 // missingScope: Berechtigung, die der Spotify-Anmeldung fehlte (z. B. 'user-follow-read'), sonst null.
-const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, playlistName: null, playlistUrl: null, missingScope: null, summary: null };
+// trialId: Kennung des gespeicherten Probelaufs (probelauf.json), sonst null.
+const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, playlistName: null, playlistUrl: null, missingScope: null, trialId: null, summary: null };
 
-// Fehlerart für die Oberfläche: login_expired, not_logged_in, forbidden, lastfm_key, setup_incomplete, node_version, other.
+// Fehlerart für die Oberfläche: login_expired, not_logged_in, forbidden, lastfm_key, setup_incomplete, node_version,
+// trial_expired (Probelauf lässt sich nicht mehr übernehmen), other.
 const errorCodeOf = e => e.errorCode ?? (e.status === 403 ? 'forbidden' : 'other');
 
 // Ergebnis melden: automatik.json (bei --auto) und als letzte Zeile "@@RESULT {…}" für die Oberfläche.
@@ -43,19 +58,16 @@ function report(values) {
   const out = {
     ok: r.ok, dry: r.dry, songs: r.songs, fresh: r.fresh, freshCurrent: r.freshCurrent, familiar: r.familiar,
     playlistName: r.playlistName, playlistUrl: r.playlistUrl, errorCode: r.errorCode ?? null, error: r.error ?? null,
-    missingScope: r.missingScope ?? null,
+    missingScope: r.missingScope ?? null, trialId: r.trialId ?? null,
   };
   auto?.finish({ ...out, summary: summary ?? null });
   if (!process.stdout.isTTY) process.stdout.write(`@@RESULT ${JSON.stringify(out)}\n`);
 }
 
-async function mapLimit(items, limit, fn) {
-  let next = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) await fn(items[next++]);
-  });
-  await Promise.all(workers);
-}
+const warn = msg => console.warn(`  ⚠ ${msg}`);
+// Nicht wiederholen: nur die letzten noRepeatRuns Läufe merken (0 = keinen).
+const lastRuns = (cfg, history) => (cfg.noRepeatRuns > 0 ? history.slice(-cfg.noRepeatRuns) : []);
+const lineupLine = (track, i) => `${String(i + 1).padStart(3)}. ${track.artist} – ${track.name}  (${track.kind})`;
 
 async function loadSeeds(spotify, seed) {
   if (seed === 'liked') return spotify.likedTracks();
@@ -69,16 +81,18 @@ async function main() {
   const cfg = loadConfig(lang);
   result.playlistName = cfg.playlistName;
 
-  if (process.argv[2] === 'login') {
+  if (command === 'login') {
     await login(cfg.spotify.clientId, TOKENS, { lang });
     console.log(t(lang, 'run.loggedIn'));
     return {};
   }
 
   const spotify = createSpotify(cfg.spotify.clientId, TOKENS, { lang });
+  if (command === 'export') return exportPlaylist(cfg, spotify);
+  if (command === 'import') return importFile(cfg, spotify);
+  if (apply) return applyTrial(cfg, spotify);
   const lastfm = createLastfm(cfg.lastfm.apiKey, LASTFM_CACHE, { lang });
   const state = readJson(STATE, { history: [], cache: {} });
-  const warn = msg => console.warn(`  ⚠ ${msg}`);
   // Für .catch(): Fehler melden und mit `fallback` weitermachen – außer bei ungültigem Last.fm-API-Key.
   const warnOr = fallback => e => {
     if (e.fatal) throw e;
@@ -133,8 +147,7 @@ async function main() {
   const favoritePool = favorites.filter(notFollowedOut);
 
   // Nicht wiederholen: kürzlich gehört (Last.fm) + in den letzten Läufen schon drin gewesen.
-  const lastRuns = history => (cfg.noRepeatRuns > 0 ? history.slice(-cfg.noRepeatRuns) : []);
-  const blocked = new Set(lastRuns(state.history).flat());
+  const blocked = new Set(lastRuns(cfg, state.history).flat());
   // "Aktuell" = in den letzten currentDays gehört (Song oder Künstler).
   const currentKeys = new Set();
   const currentArtists = new Set();
@@ -245,6 +258,9 @@ async function main() {
   }
 
   console.log(t(lang, 'run.searchingSpotify'));
+  // Alle Künstler laut Spotify zu den Songs, die dieser Lauf gesucht hat (für probelauf.json und den Export);
+  // Songs aus dem Such-Cache in state.json kennen nur den Künstler von Last.fm.
+  const spotifyArtists = new Map();
   const fresh = [];
   const ordered = weightedOrder(
     [...candidates.values()],
@@ -256,7 +272,9 @@ async function main() {
     if (!fits(track)) continue;
     if (!(c.key in state.cache)) {
       try {
-        state.cache[c.key] = await spotify.searchTrack(c.artist, c.name);
+        const hit = await spotify.findTrack(c.artist, c.name);
+        state.cache[c.key] = hit?.uri ?? null;
+        if (hit) spotifyArtists.set(hit.uri, hit.artists);
       } catch (e) {
         // Fehler nicht als "nicht gefunden" merken, beim nächsten Lauf wird neu gesucht. Bei 403 abbrechen.
         if (e.status === 403) throw e;
@@ -265,6 +283,7 @@ async function main() {
       }
     }
     track.uri = state.cache[c.key];
+    track.artists = spotifyArtists.get(track.uri);
     if (track.uri && fits(track)) take(fresh, track);
   }
 
@@ -284,32 +303,110 @@ async function main() {
   if (windowViolations(lineup, cfg.artistWindow, cfg.maxPerWindow)) {
     warn(t(lang, 'run.windowRule', { max: cfg.maxPerWindow, window: cfg.artistWindow }));
   }
-  lineup.forEach((track, i) => console.log(`${String(i + 1).padStart(3)}. ${track.artist} – ${track.name}  (${track.kind})`));
+  lineup.forEach((track, i) => console.log(lineupLine(track, i)));
+  const description = t(lang, 'run.description', { ...dateTime(lang, new Date()), fresh: fresh.length, familiar: familiar.length });
 
   if (dry) {
     fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
     console.log(`\n${t(lang, 'run.dry')}`);
-    return { ...counts, summary };
+    // Für „Diese Liste übernehmen“ bzw. --apply merken; klappt das nicht, ist der Probelauf trotzdem gültig.
+    let trial = null;
+    try {
+      trial = saveTrial(HERE, { cfg, lang, tracks: lineup, counts, summary, description });
+      console.log(t(lang, 'run.trialSaved'));
+    } catch (e) {
+      warn(t(lang, 'run.trialNotSaved', { message: e.message }));
+    }
+    return { ...counts, summary, trialId: trial?.id ?? null };
   }
 
-  const me = await spotify.me();
-  let playlistId = await spotify.findPlaylist(cfg.playlistName, me.id);
-  if (!playlistId) {
-    playlistId = await spotify.createPlaylist(cfg.playlistName, t(lang, 'run.newPlaylist'));
-    console.log(`\n${t(lang, 'run.created', { name: cfg.playlistName })}`);
-  }
-  await spotify.replacePlaylist(playlistId, lineup.map(track => track.uri));
-  const now = new Date();
-  const date = now.toLocaleDateString(locale(lang));
-  const time = now.toLocaleTimeString(locale(lang), { hour: '2-digit', minute: '2-digit' });
-  await spotify.setDescription(playlistId, t(lang, 'run.description', { date, time, fresh: fresh.length, familiar: familiar.length }))
-    .catch(e => warn(t(lang, 'run.descriptionFailed', { message: e.message })));
-
-  state.history = lastRuns([...state.history, lineup.map(track => trackKey(track.artist, track.name))]);
+  // Such-Cache jetzt speichern, dann bleibt er auch bei Fehlern beim Schreiben erhalten.
   fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
-  const playlistUrl = `https://open.spotify.com/playlist/${playlistId}`;
-  console.log(`\n${t(lang, 'run.done', { url: playlistUrl })}`);
+  const playlistUrl = await toSpotify(cfg, spotify, lineup, description);
   return { ...counts, summary, playlistUrl };
+}
+
+// Songs eines Laufs (bzw. eines übernommenen Probelaufs) in die Playlist schreiben und als Lauf merken (state.history, für
+// „Vorige Läufe sperren“). Ein älterer Probelauf passt danach nicht mehr zum Verlauf: probelauf.json kommt weg.
+async function toSpotify(cfg, spotify, lineup, description) {
+  const { url, created } = await writePlaylist(spotify, { name: cfg.playlistName, uris: lineup.map(track => track.uri), description, lang, warn });
+  if (created) console.log(`\n${t(lang, 'run.created', { name: cfg.playlistName })}`);
+  const state = readJson(STATE, { history: [], cache: {} });
+  state.history = lastRuns(cfg, [...state.history, lineup.map(track => trackKey(track.artist, track.name))]);
+  fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
+  try {
+    removeTrial(HERE);
+  } catch (e) {
+    warn(e.message);
+  }
+  console.log(`\n${t(lang, 'run.done', { url })}`);
+  return url;
+}
+
+// --apply: den gespeicherten Probelauf genau so übernehmen – dieselben Songs in derselben Reihenfolge, ohne neu zu losen.
+// --trial=<Kennung> (von der Oberfläche): nur genau diesen Probelauf, nicht einen neueren aus einem anderen Fenster.
+async function applyTrial(cfg, spotify) {
+  const trial = readTrial(HERE);
+  const id = process.argv.find(a => a.startsWith('--trial='))?.slice('--trial='.length) || null;
+  const problem = trialProblem(trial, { cfg, id });
+  if (problem) throw tError(lang, `trial.${problem}`, {}, { errorCode: 'trial_expired' });
+  console.log(t(lang, 'apply.start', { ...dateTime(lang, new Date(trial.createdAt)), count: trial.tracks.length }));
+  console.log(`\n${trial.summary}\n`);
+  trial.tracks.forEach((track, i) => console.log(lineupLine(track, i)));
+  const counts = { songs: trial.songs, fresh: trial.fresh, freshCurrent: trial.freshCurrent, familiar: trial.familiar };
+  if (dry) {
+    console.log(`\n${t(lang, 'run.dry')}`);
+    return { ...counts, summary: trial.summary, trialId: trial.id };
+  }
+  const playlistUrl = await toSpotify(cfg, spotify, trial.tracks, trial.description);
+  return { ...counts, summary: trial.summary, playlistUrl };
+}
+
+// export [datei.txt]: die Playlist so, wie sie gerade in Spotify ist, als Textdatei (Format in playlist.mjs).
+async function exportPlaylist(cfg, spotify) {
+  const now = new Date();
+  const file = path.resolve(fileArg ?? exportFileName(lang, now));
+  // Nur .txt: So überschreibt ein Tippfehler nie config.jsonc oder eine Programmdatei.
+  if (!/\.txt$/i.test(file)) throw tError(lang, 'export.txtOnly', { file });
+  const list = await readPlaylist(spotify, cfg.playlistName);
+  if (!list) throw tError(lang, 'export.noPlaylist', { name: cfg.playlistName });
+  fs.writeFileSync(file, formatExport({ name: cfg.playlistName, url: list.url, tracks: list.tracks, lang, now }));
+  console.log(t(lang, 'export.saved', { file, count: list.tracks.length }));
+  return { songs: list.tracks.length, playlistUrl: list.url };
+}
+
+// import <datei.txt>: Songs aus einer Textdatei suchen und in die Playlist schreiben (mit --dry nur anzeigen).
+// Kein Lauf des DJ: state.json (Verlauf und Such-Cache) bleibt unverändert, ein Probelauf gilt weiter.
+async function importFile(cfg, spotify) {
+  if (!fileArg) throw tError(lang, 'import.usage');
+  let text;
+  try {
+    if (fs.statSync(fileArg).size > IMPORT_MAX_BYTES) throw tError(lang, 'import.tooLarge');
+    text = fs.readFileSync(fileArg, 'utf8');
+  } catch (e) {
+    throw e.code === 'ENOENT' ? tError(lang, 'import.fileMissing', { file: path.resolve(fileArg) }) : e;
+  }
+  const entries = parseImport(text, lang);
+  console.log(t(lang, 'import.reading', { count: entries.length }));
+  // Fortschritt alle 25 Songs und am Ende
+  const onProgress = (done, total) => (done % 25 === 0 || done === total) && console.log(t(lang, 'import.searching', { done, total }));
+  const { uris, notFound } = await resolveImport(spotify, entries, { onProgress });
+  console.log(`\n${t(lang, 'import.found', { found: uris.length, total: entries.length })}`);
+  if (notFound.length) {
+    console.log(t(lang, 'import.notFound'));
+    for (const n of notFound) console.log(t(lang, 'import.notFoundLine', { line: n.line, text: n.text, reason: t(lang, `import.reason.${n.reason}`) }));
+  }
+  if (!uris.length) throw tError(lang, 'import.noneFound');
+  if (dry) {
+    console.log(`\n${t(lang, 'run.dry')}`);
+    return { songs: uris.length };
+  }
+  const { url, created } = await writePlaylist(spotify, {
+    name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang, warn,
+  });
+  if (created) console.log(`\n${t(lang, 'run.created', { name: cfg.playlistName })}`);
+  console.log(`\n${t(lang, 'import.done', { name: cfg.playlistName, count: uris.length, url })}`);
+  return { songs: uris.length, playlistUrl: url };
 }
 
 function fail(e) {

@@ -198,6 +198,15 @@
   .out-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 8px; }
   .summary { font-weight: 600; }
   .open { font-weight: 600; color: var(--accent); }
+  /* Probelauf übernehmen (unter der Ausgabe) und Textdatei */
+  #trial { margin: -4px 0 16px; }
+  #trial .actions, #files .actions { margin-top: 0; }
+  #files .row > .help { margin: 0 0 10px; }
+  .import-preview { margin-top: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
+  .import-preview > p { margin: 0 0 8px; }
+  .import-missing { margin: 0 0 10px; padding-left: 20px; max-height: 220px; overflow: auto; font-size: 13.5px; overflow-wrap: anywhere; }
+  .import-missing li { margin-bottom: 2px; }
+  .import-missing .why { color: var(--muted); }
   pre { margin: 0 0 16px; padding: 12px; max-height: 480px; overflow: auto; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); font: 12.5px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
   pre .now { color: var(--accent); }
   pre .warn { color: var(--warn); }
@@ -342,12 +351,43 @@
       <p class="hint" id="preset-state" role="status"></p>
     </section>
     <div id="groups"></div>
+    <!-- Playlist als Textdatei speichern (GET /api/export) bzw. aus einer Textdatei befüllen: Vorschau (POST /api/import/preview),
+         nach der Rückfrage schreiben (POST /api/import) -->
+    <section id="files" aria-labelledby="files-title">
+      <h2 id="files-title" data-t="files"></h2>
+      <div class="row">
+        <p class="help" id="files-help"></p>
+        <div class="actions">
+          <button type="button" class="btn" id="export" data-t="saveText"></button>
+          <button type="button" class="btn" id="import" data-t="importFile"></button>
+          <input type="file" id="import-file" accept=".txt,text/plain" hidden>
+        </div>
+        <p class="msg" id="files-msg" role="status" aria-live="polite"></p>
+        <div class="import-preview" id="import-preview" hidden>
+          <p class="summary" id="import-found"></p>
+          <p class="help" id="import-missing-head"></p>
+          <ul class="import-missing" id="import-missing"></ul>
+          <div class="actions">
+            <button type="button" class="btn primary" id="import-go"></button>
+            <button type="button" class="btn" id="import-cancel"></button>
+          </div>
+        </div>
+      </div>
+    </section>
     <section id="out" hidden>
       <div class="out-head">
         <span id="summary" class="summary"></span>
         <a id="open" class="open" target="_blank" rel="noopener" data-t="open" hidden></a>
       </div>
       <pre id="log"></pre>
+      <!-- Nach einem Probelauf: genau diese Liste übernehmen (POST /api/apply) oder als Textdatei speichern -->
+      <div id="trial" hidden>
+        <div class="actions">
+          <button type="button" class="btn primary" id="trial-apply" data-t="trialApply"></button>
+          <button type="button" class="btn" id="trial-export" data-t="saveText"></button>
+        </div>
+        <p class="msg" id="trial-msg" role="status"></p>
+      </div>
     </section>
   </div>
 
@@ -380,7 +420,7 @@ const TEXT = {
     pct: v => `${Math.round(v * 100)} %`,
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Einrichtung' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Einrichtung in 5 Schritten', settings: 'Einstellungen für deine Playlist' },
-    status: { loading: 'Lädt …', setup: 'Einrichtung', running: 'Läuft …', updating: 'Update läuft …', dirty: 'Ungespeicherte Änderungen', saved: 'Gespeichert', error: 'Fehler' },
+    status: { loading: 'Lädt …', setup: 'Einrichtung', running: 'Läuft …', updating: 'Update läuft …', importing: 'Import läuft …', dirty: 'Ungespeicherte Änderungen', saved: 'Gespeichert', error: 'Fehler' },
     // "Mo 06.10., 07:00"
     when: d => `${['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][d.getDay()]} ${two(d.getDate())}.${two(d.getMonth() + 1)}., ${two(d.getHours())}:${two(d.getMinutes())}`,
     page: {
@@ -426,6 +466,10 @@ const TEXT = {
       save: 'Speichern',
       dry: 'Probelauf',
       run: 'Playlist neu erstellen',
+      trialApply: 'Diese Liste übernehmen',
+      saveText: 'Als Textdatei speichern',
+      files: 'Textdatei',
+      importFile: 'Textdatei importieren …',
     },
     adventure: {
       similar: x => `Ähnliche Songs haben ein ${x}× größeres Los`,
@@ -524,14 +568,40 @@ const TEXT = {
       lastfm_key: 'Der Last.fm-API-Key ist ungültig oder gesperrt',
       setup_incomplete: 'Einrichtung nicht abgeschlossen',
       node_version: 'Node.js ist zu alt',
+      trial_expired: 'Probelauf nicht mehr übernehmbar',
     },
     run: {
-      running: dry => (dry ? 'Probelauf läuft … (ca. 1 Minute)' : 'Playlist wird neu erstellt … (ca. 1 Minute)'),
+      running: kind => (kind === 'dry' ? 'Probelauf läuft … (ca. 1 Minute)' : kind === 'apply' ? 'Liste wird übernommen …' : 'Playlist wird neu erstellt … (ca. 1 Minute)'),
       ok: (r, dry) => `${dry ? 'Probelauf' : 'Fertig'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${plural(r.songs, 'Song', 'Songs')} (${num(r.fresh)} neu, davon ${num(r.freshCurrent)} über aktuelles Hören; ${plural(r.familiar, 'Favorit', 'Favoriten')})`,
       unchanged: ' · Playlist nicht verändert',
       failedWith: reason => `Fehlgeschlagen: ${reason} – siehe Ausgabe`,
       failed: 'Fehlgeschlagen – siehe Ausgabe',
       failedShort: 'Fehlgeschlagen',
+    },
+    // „Diese Liste übernehmen“ nach einem Probelauf; Gründe vom Server (z. B. Playlist inzwischen neu erstellt) kommen als Text.
+    trial: {
+      help: (name, until) => `Schreibt genau diese Songs in dieser Reihenfolge in „${name}“, ohne neu zu losen. Geht bis ${until} Uhr, solange die Einstellungen bleiben, wie sie beim Probelauf waren.`,
+      dirty: 'Nicht mehr übernehmbar: Du hast seit dem Probelauf Einstellungen geändert. Stelle sie zurück oder starte einen neuen Probelauf.',
+      old: 'Nicht mehr übernehmbar: Der Probelauf ist älter als 24 Stunden. Starte einen neuen Probelauf.',
+    },
+    // Als Textdatei speichern und Textdatei importieren
+    files: {
+      help: name => `Speichert „${name}“, wie die Playlist gerade in Spotify ist, als Textdatei – oder schreibt eine eigene Liste hinein: eine Zeile pro Song, „Künstler – Titel“ oder ein Link zu Spotify. Ein Import ersetzt den Inhalt der Playlist, zählt aber nicht als Lauf des DJ (keine Sperre bei „Vorige Läufe sperren“).`,
+      loading: 'Lese die Playlist aus Spotify …',
+      saved: (file, n) => `${file} heruntergeladen (${plural(n, 'Song', 'Songs')}).`,
+      tooLarge: 'Die Datei ist größer als 1 MB. Mehr als 500 Songs passen ohnehin nicht in die Playlist.',
+      reading: file => `Lese ${file} …`,
+      found: (found, total) => `${num(found)} von ${num(total)} gefunden`,
+      missingHead: n => (n === 1 ? 'Diese Zeile kommt nicht in die Playlist:' : `Diese ${num(n)} Zeilen kommen nicht in die Playlist:`),
+      line: n => `Zeile ${num(n)}: `,
+      reasons: { notFound: 'auf Spotify nicht gefunden', format: 'weder Link noch „Künstler – Titel“', link: 'Link zu keinem Song', error: 'Suche fehlgeschlagen' },
+      write: name => `In Playlist „${name}“ schreiben (ersetzt den Inhalt)`,
+      cancel: 'Abbrechen',
+      none: 'Kein einziger Song gefunden – es gibt nichts zu schreiben.',
+      writing: name => `Schreibe in „${name}“ …`,
+      done: (name, n) => `„${name}“ enthält jetzt ${plural(n, 'Song', 'Songs')} aus der Datei ✓ `,
+      open: 'In Spotify öffnen ↗',
+      failed: 'Der Import hat nicht geklappt.',
     },
     seed: {
       liked: 'Lieblingssongs',
@@ -644,7 +714,7 @@ const TEXT = {
     pct: v => `${Math.round(v * 100)}%`,
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Setup' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Setup in 5 steps', settings: 'Settings for your playlist' },
-    status: { loading: 'Loading …', setup: 'Setup', running: 'Running …', updating: 'Updating …', dirty: 'Unsaved changes', saved: 'Saved', error: 'Error' },
+    status: { loading: 'Loading …', setup: 'Setup', running: 'Running …', updating: 'Updating …', importing: 'Importing …', dirty: 'Unsaved changes', saved: 'Saved', error: 'Error' },
     // "Mon, Oct 6, 07:00" (amerikanische Reihenfolge wie en-US; Uhrzeit mit 24 Stunden wie bei der Automatik)
     when: d => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]}, ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]} ${d.getDate()}, ${two(d.getHours())}:${two(d.getMinutes())}`,
     page: {
@@ -690,6 +760,10 @@ const TEXT = {
       save: 'Save',
       dry: 'Test run',
       run: 'Rebuild playlist',
+      trialApply: 'Use this list',
+      saveText: 'Save as text file',
+      files: 'Text file',
+      importFile: 'Import text file …',
     },
     adventure: {
       similar: x => `Similar songs are ${x}× as likely to be drawn`,
@@ -787,14 +861,38 @@ const TEXT = {
       lastfm_key: 'The Last.fm API key is invalid or suspended',
       setup_incomplete: 'Setup not finished',
       node_version: 'Node.js is too old',
+      trial_expired: 'Test run can no longer be applied',
     },
     run: {
-      running: dry => (dry ? 'Test run in progress … (about 1 minute)' : 'Rebuilding the playlist … (about 1 minute)'),
+      running: kind => (kind === 'dry' ? 'Test run in progress … (about 1 minute)' : kind === 'apply' ? 'Applying the list …' : 'Rebuilding the playlist … (about 1 minute)'),
       ok: (r, dry) => `${dry ? 'Test run' : 'Done'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${plural(r.songs, 'song', 'songs')} (${num(r.fresh)} new, ${num(r.freshCurrent)} of them via current listening; ${plural(r.familiar, 'favorite', 'favorites')})`,
       unchanged: ' · playlist not changed',
       failedWith: reason => `Failed: ${reason} – see output`,
       failed: 'Failed – see output',
       failedShort: 'Failed',
+    },
+    trial: {
+      help: (name, until) => `Writes exactly these songs, in this order, to “${name}” without drawing again. Works until ${until} as long as the settings stay as they were for the test run.`,
+      dirty: 'Can no longer be applied: you’ve changed settings since the test run. Change them back or start a new test run.',
+      old: 'Can no longer be applied: the test run is more than 24 hours old. Start a new test run.',
+    },
+    files: {
+      help: name => `Saves “${name}” as it currently is in Spotify as a text file – or fills it with your own list: one line per song, “artist – title” or a Spotify link. An import replaces the contents of the playlist but doesn’t count as a DJ run (nothing gets blocked by “Block previous runs”).`,
+      loading: 'Reading the playlist from Spotify …',
+      saved: (file, n) => `Downloaded ${file} (${plural(n, 'song', 'songs')}).`,
+      tooLarge: 'The file is larger than 1 MB. The playlist can’t hold more than 500 songs anyway.',
+      reading: file => `Reading ${file} …`,
+      found: (found, total) => `${num(found)} of ${num(total)} found`,
+      missingHead: n => (n === 1 ? 'This line won’t be in the playlist:' : `These ${num(n)} lines won’t be in the playlist:`),
+      line: n => `Line ${num(n)}: `,
+      reasons: { notFound: 'not found on Spotify', format: 'neither a link nor “artist – title”', link: 'link to something other than a song', error: 'search failed' },
+      write: name => `Write to playlist “${name}” (replaces its contents)`,
+      cancel: 'Cancel',
+      none: 'Not a single song found – there’s nothing to write.',
+      writing: name => `Writing to “${name}” …`,
+      done: (name, n) => `“${name}” now contains ${plural(n, 'song', 'songs')} from the file ✓ `,
+      open: 'Open in Spotify ↗',
+      failed: 'The import didn’t work.',
     },
     seed: {
       liked: 'Liked Songs',
@@ -1048,13 +1146,18 @@ let variety = { keys: [], levels: [] };   // Stufen von „Abwechslung bei Küns
 let varietyControl = null;  // Hauptregler samt Details-Bereich
 let varietyOverwritten = false;   // eigene Werte gerade mit dem Hauptregler überschrieben → Hinweis
 let scopeFailed = false;    // letzter Lauf: Anmeldung ohne Berechtigung für gefolgte Künstler (missingScope)
+// Probelauf zum Übernehmen: { id, expiresAt, settings (Einstellungen beim Probelauf), serverReason, message } oder null
+let trial = null;
+let trialTimer = null;
+let importRunning = false;  // Import aus einer Textdatei läuft (Suche oder Schreiben)
+let importState = null;     // { phase: 'busy' | 'preview' | 'done' | 'error', text, result, file, written }
 const controls = {};
 const loginBoxes = [];
 
 // Jede Anfrage sagt dem Server, in welcher Sprache er antworten soll.
 const api = (path, options = {}) => fetch(path, {
   ...options,
-  headers: { 'X-Tweakable-DJ': '1', 'X-Lang': lang, 'Content-Type': 'application/json' },
+  headers: { 'X-Tweakable-DJ': '1', 'X-Lang': lang, 'Content-Type': 'application/json', ...options.headers },
 });
 async function apiJson(path, options) {
   const res = await api(path, options);
@@ -1088,6 +1191,8 @@ function renderLang() {
   renderSeed();
   renderNotice();
   renderSummary();
+  renderImport();
+  if (trial) refreshTrial(); // Meldung des Servers in der neuen Sprache
   if ($('w-client').value.trim()) checkClientId();
 }
 
@@ -1391,17 +1496,24 @@ function refresh(skipInput) {
   $('preset-state').className = match ? 'hint' : 'help';
 
   const isDirty = dirty();
-  const working = busy || updating(); // Lauf oder Update: dann weder speichern noch einen Lauf starten
+  const working = isWorking(); // Lauf, Import oder Update: dann weder speichern noch etwas Neues starten
   $('status').textContent = view === 'setup' ? T.status.setup : busy ? T.status.running : updating() ? T.status.updating
-    : isDirty ? T.status.dirty : T.status.saved;
+    : importRunning ? T.status.importing : isDirty ? T.status.dirty : T.status.saved;
   $('status').classList.toggle('dirty', view !== 'setup' && isDirty && !working);
   $('save').disabled = working || !isDirty;
   $('discard').disabled = working || !isDirty;
   $('dry').disabled = working;
   $('run').disabled = working;
   $('update-install').disabled = working;
+  $('export').disabled = working;
+  $('import').disabled = working;
+  $('import-go').disabled = working;
+  $('files-help').textContent = T.files.help(saved.playlistName ?? '');
   renderSchedule();
+  renderTrial();
 }
+
+const isWorking = () => busy || updating() || importRunning;
 
 // keepEdits: ungespeicherte Regler-Änderungen behalten (z. B. nach dem Assistenten oder der Anmeldung).
 async function load(keepEdits = false) {
@@ -1442,6 +1554,7 @@ async function save() {
   }
   refresh();
   if ('playlistName' in changes) loadPlaylists();
+  if (trial) refreshTrial();
 }
 
 // --- Automatik ---
@@ -1603,28 +1716,38 @@ function runSummary(r) {
 
 function renderSummary() {
   if (!runState) return;
-  const { phase, dry, result } = runState;
-  $('summary').textContent = phase === 'running' ? T.run.running(dry) : phase === 'error' ? T.run.failedShort : runSummary(result);
+  const { phase, kind, result } = runState;
+  $('summary').textContent = phase === 'running' ? T.run.running(kind) : phase === 'error' ? T.run.failedShort : runSummary(result);
   const link = phase === 'done' && result?.ok && !result.dry && /^https:\/\/open\.spotify\.com\//.test(result.playlistUrl ?? '');
   $('open').hidden = !link;
   if (link) $('open').href = result.playlistUrl;
+  renderTrial();
 }
 
-async function run(dry) {
+// kind: 'dry' (Probelauf), 'run' (Playlist neu erstellen) oder 'apply' (Probelauf übernehmen). Vor einem Probelauf bzw. einer
+// Neuerstellung werden ungespeicherte Änderungen gespeichert; danach gilt ein früherer Probelauf nicht mehr.
+async function run(kind) {
+  const dry = kind === 'dry';
   showError('');
-  try {
-    if (dirty()) await save();
-  } catch (e) {
-    return showError(e.message);
+  if (kind !== 'apply') {
+    try {
+      if (dirty()) await save();
+    } catch (e) {
+      return showError(e.message);
+    }
+    trial = null;
   }
+  const settings = { ...current }; // Einstellungen dieses Probelaufs
   busy = true;
   refresh();
   $('out').hidden = false;
-  runState = { phase: 'running', dry, result: null };
+  runState = { phase: 'running', kind, dry, result: null };
   renderSummary();
   let text = '';
   try {
-    const res = await api(`/api/run${dry ? '?dry=1' : ''}`, { method: 'POST' });
+    const res = kind === 'apply'
+      ? await api('/api/apply', { method: 'POST', body: JSON.stringify({ id: trial.id }) })
+      : await api(`/api/run${dry ? '?dry=1' : ''}`, { method: 'POST' });
     if (!res.ok) throw new Error((await res.json()).error);
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -1638,17 +1761,210 @@ async function run(dry) {
     text += decoder.decode();
     renderLog(text);
     const result = runResult(text);
-    runState = { phase: 'done', dry, result };
+    runState = { phase: 'done', kind, dry, result };
     if (LOGIN_CODES.includes(result?.errorCode)) showNotice('expired');
+    if (dry && result?.ok && result.trialId) {
+      trial = { id: result.trialId, settings, expiresAt: new Date(Date.now() + 24 * 3600_000).toISOString(), serverReason: null, message: '' };
+      refreshTrial();
+    } else if (kind === 'apply' && result?.errorCode === 'trial_expired') {
+      Object.assign(trial, { serverReason: 'server', message: result.error });
+    } else if (kind === 'apply' && result?.ok) {
+      trial = null; // steht jetzt in der Playlist
+    }
     scopeFailed = result?.missingScope === FOLLOW_SCOPE;
     // Der Lauf hat das Token eventuell erneuert und dabei die erteilten Berechtigungen gespeichert (setup.missingScopes).
     apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); }).catch(() => {});
   } catch (e) {
-    runState = { phase: 'error', dry, result: null };
+    runState = { phase: 'error', kind, dry, result: null };
     showError(e.message);
   } finally {
     busy = false;
     renderSummary();
+    refresh();
+  }
+}
+
+// --- Probelauf übernehmen ---
+
+// Einstellungen, die die Auswahl bestimmen (die Automatik nicht): Weichen sie vom Probelauf ab, passt seine Liste nicht mehr.
+const trialChanged = () => ITEMS.some(i => !SCHEDULE_KEYS.includes(i.key) && !same(current[i.key], trial.settings[i.key]));
+
+// Warum sich der Probelauf nicht mehr übernehmen lässt: 'dirty' (Einstellungen geändert), 'old' (älter als 24 Stunden),
+// sonst ein Grund vom Server (dann steht der Text in trial.message); null = geht.
+function trialReason() {
+  if (!trial) return null;
+  if (trial.serverReason && trial.serverReason !== 'settings') return trial.serverReason;
+  if (trialChanged() || trial.serverReason === 'settings') return 'dirty';
+  if (Date.now() >= Date.parse(trial.expiresAt)) return 'old';
+  return null;
+}
+
+function renderTrial() {
+  const show = Boolean(trial) && runState?.phase === 'done' && (runState.kind === 'dry' || runState.kind === 'apply');
+  $('trial').hidden = !show;
+  clearTimeout(trialTimer);
+  if (!show) return;
+  const reason = trialReason();
+  const working = isWorking();
+  $('trial-apply').disabled = working || Boolean(reason);
+  // Speichern geht, solange probelauf.json zu diesem Probelauf gehört (auch mit geänderten Einstellungen).
+  $('trial-export').disabled = working || ['missing', 'replaced', 'invalid', 'server'].includes(trial.serverReason);
+  const msg = $('trial-msg');
+  if (reason) setMsg(msg, 'warn', T.trial[reason] ?? trial.message);
+  else if (trial.exported) setMsg(msg, 'ok', trial.exported);
+  else setMsg(msg, '', T.trial.help(saved.playlistName ?? '', when(trial.expiresAt)));
+  // Nach Ablauf der 24 Stunden von selbst sperren
+  const left = Date.parse(trial.expiresAt) - Date.now();
+  if (!reason && left > 0) trialTimer = setTimeout(renderTrial, Math.min(left + 500, 2 ** 31 - 1));
+}
+
+// Beim Server nachfragen (GET /api/trial), ob der Probelauf noch gilt: z. B. nach dem Speichern, nach der Rückkehr auf die
+// Seite oder in der Zwischenzeit ein Lauf von der Automatik oder im Terminal.
+async function refreshTrial() {
+  const id = trial?.id;
+  if (!id) return;
+  try {
+    const data = await apiJson(`/api/trial?id=${encodeURIComponent(id)}`);
+    if (trial?.id !== id) return;
+    trial.serverReason = data.reason;
+    trial.message = data.message;
+    if (data.trial?.id === id) trial.expiresAt = data.trial.expiresAt;
+  } catch {
+    // Server nicht erreichbar: beim Klick prüft er ohnehin noch einmal
+  }
+  renderTrial();
+}
+
+async function applyTrial() {
+  delete trial.exported;
+  await refreshTrial();
+  if (!trialReason()) run('apply');
+}
+
+// Datei im Browser herunterladen (UTF-8)
+function download(text, filename) {
+  const href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+  const a = el('a', { href, download: filename });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 10_000);
+}
+
+async function exportTrial() {
+  try {
+    const r = await apiJson(`/api/export?trial=${encodeURIComponent(trial.id)}`);
+    download(r.text, r.filename);
+    trial.exported = T.files.saved(r.filename, r.songs);
+  } catch (e) {
+    if (e.data?.reason) Object.assign(trial, { serverReason: e.data.reason, message: e.message });
+    else showError(e.message);
+  }
+  renderTrial();
+}
+
+// --- Textdatei: Playlist speichern und importieren ---
+
+// Playlist, wie sie gerade in Spotify ist (GET /api/export)
+async function exportPlaylist() {
+  setImport(null);
+  setMsg($('files-msg'), '', T.files.loading);
+  $('export').disabled = true;
+  try {
+    const r = await apiJson('/api/export');
+    download(r.text, r.filename);
+    setMsg($('files-msg'), 'ok', T.files.saved(r.filename, r.songs));
+  } catch (e) {
+    setMsg($('files-msg'), 'err', e.message);
+    if (e.data?.login && setup?.loggedIn) showNotice('expired');
+  } finally {
+    refresh();
+  }
+}
+
+function setImport(state) {
+  importState = state;
+  renderImport();
+}
+
+function renderImport() {
+  const s = importState;
+  const preview = s?.phase === 'preview' ? s.result : null;
+  $('import-preview').hidden = !preview;
+  if (!s) return setMsg($('files-msg'), '', '');
+  if (s.phase === 'busy') setMsg($('files-msg'), '', s.text);
+  else if (s.phase === 'error') setMsg($('files-msg'), 'err', s.text);
+  else if (s.phase === 'done') {
+    const link = /^https:\/\/open\.spotify\.com\//.test(s.written.playlistUrl ?? '')
+      ? el('a', { href: s.written.playlistUrl, target: '_blank', rel: 'noopener', textContent: T.files.open }) : '';
+    setMsg($('files-msg'), 'ok', T.files.done(s.written.playlistName, s.written.songs), link);
+  } else setMsg($('files-msg'), s.error ? 'err' : '', s.error ?? '');
+  if (!preview) return;
+  $('import-found').textContent = T.files.found(preview.found, preview.total);
+  const missing = preview.notFound;
+  $('import-missing-head').textContent = missing.length ? T.files.missingHead(missing.length) : '';
+  $('import-missing-head').hidden = !missing.length;
+  $('import-missing').hidden = !missing.length;
+  $('import-missing').replaceChildren(...missing.map(n => el('li', {}, [
+    T.files.line(n.line), el('span', { textContent: n.text }), el('span', { className: 'why', textContent: ` – ${T.files.reasons[n.reason] ?? n.reason}` }),
+  ])));
+  $('import-go').hidden = !preview.found;
+  $('import-go').textContent = T.files.write(preview.playlistName);
+  $('import-cancel').textContent = T.files.cancel;
+  if (!preview.found) setMsg($('files-msg'), 'warn', T.files.none);
+}
+
+// Schritt 1: Datei lesen, an den Server schicken und den Fortschritt der Suche zeigen; danach die Vorschau.
+async function importPreview(file) {
+  showError('');
+  if (file.size > 1_000_000) return setImport({ phase: 'error', text: T.files.tooLarge });
+  importRunning = true;
+  refresh();
+  setImport({ phase: 'busy', text: T.files.reading(file.name) });
+  try {
+    const res = await api('/api/import/preview', { method: 'POST', body: await file.text(), headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+    if (!res.ok) throw new Error((await res.json()).error);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let text = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+      // letzte vollständige Zeile ohne Steuerzeilen (@@…)
+      const lines = text.replace(/\r/g, '').split('\n').slice(0, -1).filter(l => l.trim() && !l.startsWith('@@'));
+      if (lines.length) setImport({ phase: 'busy', text: lines[lines.length - 1].trim() });
+    }
+    const result = runResult(text + decoder.decode());
+    if (!result?.ok) {
+      if (LOGIN_CODES.includes(result?.errorCode)) showNotice('expired');
+      throw new Error(result?.error ?? T.files.failed);
+    }
+    setImport({ phase: 'preview', result, file: file.name });
+  } catch (e) {
+    setImport({ phase: 'error', text: e.message });
+  } finally {
+    importRunning = false;
+    refresh();
+  }
+}
+
+// Schritt 2 (nach der Rückfrage): gefundene Songs in die Playlist schreiben.
+async function importWrite() {
+  const s = importState;
+  if (s?.phase !== 'preview' || !s.result.found) return;
+  importRunning = true;
+  refresh();
+  setMsg($('files-msg'), '', T.files.writing(s.result.playlistName));
+  $('import-preview').hidden = true;
+  try {
+    const written = await apiJson('/api/import', { method: 'POST', body: JSON.stringify({ uris: s.result.uris }) });
+    setImport({ phase: 'done', written });
+  } catch (e) {
+    if (e.data?.login && setup?.loggedIn) showNotice('expired');
+    setImport({ ...s, error: e.message });
+  } finally {
+    importRunning = false;
     refresh();
   }
 }
@@ -2135,8 +2451,19 @@ function wireSetup() {
 for (const b of document.querySelectorAll('.lang button')) b.onclick = () => setLang(b.dataset.lang);
 $('save').onclick = () => save().catch(e => showError(e.message));
 $('discard').onclick = () => { current = { ...saved }; refresh(); };
-$('dry').onclick = () => run(true);
-$('run').onclick = () => run(false);
+$('dry').onclick = () => run('dry');
+$('run').onclick = () => run('run');
+$('trial-apply').onclick = applyTrial;
+$('trial-export').onclick = exportTrial;
+$('export').onclick = exportPlaylist;
+$('import').onclick = () => $('import-file').click();
+$('import-file').onchange = () => {
+  const file = $('import-file').files[0];
+  $('import-file').value = ''; // dieselbe Datei noch einmal wählen löst wieder change aus
+  if (file) importPreview(file);
+};
+$('import-go').onclick = importWrite;
+$('import-cancel').onclick = () => setImport(null);
 $('update-close').onclick = dismissUpdate;
 $('update-install').onclick = () => {
   setUpdate({ phase: 'confirm' });
@@ -2149,7 +2476,11 @@ $('update-cancel').onclick = () => {
 $('update-go').onclick = installUpdate;
 window.addEventListener('beforeunload', e => { if (dirty() && !reloading) e.preventDefault(); });
 // Zurück auf der Seite (z. B. am nächsten Morgen): Stand der Automatik und letzten Lauf neu holen.
-document.addEventListener('visibilitychange', () => { if (!document.hidden && view === 'settings') loadSchedule(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || view !== 'settings') return;
+  loadSchedule();
+  if (trial) refreshTrial();
+});
 
 wireSetup();
 renderLang();

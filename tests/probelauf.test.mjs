@@ -11,7 +11,7 @@ import { norm, windowViolations } from '../lineup.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MOCK = pathToFileURL(path.join(ROOT, 'tests', 'mock-apis.mjs')).href;
-const RESULT_KEYS = ['ok', 'dry', 'songs', 'fresh', 'freshCurrent', 'familiar', 'playlistName', 'playlistUrl', 'errorCode', 'error', 'missingScope'];
+const RESULT_KEYS = ['ok', 'dry', 'songs', 'fresh', 'freshCurrent', 'familiar', 'playlistName', 'playlistUrl', 'errorCode', 'error', 'missingScope', 'trialId'];
 
 const CONFIG = {
   spotify: { clientId: 'test-client-id' },

@@ -9,6 +9,8 @@ state.json
 # Automatisch angelegt
 # Zwischenspeicher für Last.fm-Antworten (7 Tage gültig)
 lastfm-cache.json
+# Ergebnis des letzten Probelaufs, für „Diese Liste übernehmen“ bzw. node dj.mjs --apply (Songs, Zeitpunkt, Fingerabdruck der Einstellungen)
+probelauf.json
 # Ergebnis des letzten automatischen Laufs (das Protokoll automatik.log fällt unter *.log)
 automatik.json
 # Letzte Prüfung auf neue Versionen (update.mjs)

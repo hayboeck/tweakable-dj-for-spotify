@@ -10,7 +10,8 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { checkManifest, installBlocker, installUpdate, isPersonal, pathProblem, readZip } from '../install-update.mjs';
+import { checkManifest, installBlocker, installUpdate, isPersonal, PERSONAL_FILES, pathProblem, readZip } from '../install-update.mjs';
+import { buildManifest } from '../.github/release-manifest.mjs';
 import { currentVersion } from '../update.mjs';
 import { OWNER_REPO, buildZip, makeRelease, programFiles } from './mock-release.mjs';
 
@@ -36,6 +37,7 @@ const PERSONAL = {
   'tokens.json': '{"access_token":"a","refresh_token":"geheim","expires_at":0,"authorized_at":1759300000000}',
   'state.json': `${JSON.stringify({ history: [['spotify:track:1', 'spotify:track:2']], searches: { 'a|b': null } }, null, 2)}\n`,
   'lastfm-cache.json': '{"similar|a|b":{"t":1759300000000,"v":[]}}',
+  'probelauf.json': '{"format":1,"id":"0123456789ab","tracks":[]}\n',
   'automatik.json': JSON.stringify({ startedAt: '2026-10-01T05:00:00.000Z', finishedAt: '2026-10-01T05:01:00.000Z', ok: true }),
   'automatik.log': 'Lade Lieblingssongs …\n',
   'update-check.json': '{"repo":"x"}\n',
@@ -107,8 +109,9 @@ test('pathProblem: persönliche Dateien, Pfade außerhalb, Backslash, Laufwerk, 
   for (const p of ['ui.mjs', 'docs/screenshot-main.de.png', 'Tweakable DJ.cmd', '.gitignore', 'README.de.md', 'a/b/c.txt']) {
     assert.equal(pathProblem(p), null, p);
   }
-  for (const p of ['config.jsonc', 'Config.JSONC', 'tokens.json', 'state.json', 'lastfm-cache.json', 'automatik.json',
-    'automatik.log', 'automatik.irgendwas', 'update-check.json', 'fehler.log', 'docs/config.jsonc', 'state.json/x']) {
+  for (const p of ['config.jsonc', 'Config.JSONC', 'tokens.json', 'state.json', 'lastfm-cache.json', 'probelauf.json', 'Probelauf.JSON',
+    'docs/probelauf.json', 'automatik.json', 'automatik.log', 'automatik.irgendwas', 'update-check.json', 'fehler.log', 'docs/config.jsonc',
+    'state.json/x']) {
     assert.equal(pathProblem(p), 'update.reasonPersonal', p);
   }
   for (const p of ['../x', 'docs/../../x', './ui.mjs', '/etc/passwd', 'C:/Windows/x', 'c:x', '..\\x', 'docs\\..\\..\\x',
@@ -120,6 +123,40 @@ test('pathProblem: persönliche Dateien, Pfade außerhalb, Backslash, Laufwerk, 
     assert.equal(pathProblem(p), 'update.reasonName', JSON.stringify(p));
   }
   assert.ok(isPersonal('AUTOMATIK.LOG') && isPersonal('x.log') && !isPersonal('ui.mjs'));
+});
+
+// probelauf.json (Ergebnis des letzten Probelaufs) und die anderen persönlichen Dateien: nie im Repository (.gitignore),
+// nie in der ZIP-Datei (Sicherheitsnetz in release.yml und release-manifest.mjs), nie von einem Update geschrieben.
+test('Persönliche Dateien: .gitignore, Sicherheitsnetz in release.yml, release-manifest.mjs und Update lehnen sie ab', () => {
+  assert.ok(PERSONAL_FILES.includes('probelauf.json'));
+  // .gitignore: jede Datei steht dort (oder ein Muster wie *.log)
+  const ignored = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8').split(/\r?\n/).filter(l => l.trim() && !l.startsWith('#'));
+  const glob = p => new RegExp(`^${p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`);
+  for (const f of PERSONAL_FILES) assert.ok(ignored.some(p => glob(p).test(f)), `${f} fehlt in .gitignore`);
+
+  // release.yml: Das find-Kommando des Sicherheitsnetzes erfasst jede persönliche Datei (-name mit Platzhaltern wie bei find)
+  const yml = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'release.yml'), 'utf8');
+  const findCmd = yml.match(/find \. (\\\([\s\S]*?\\\)) -print/)?.[1].replace(/\\\n\s*/g, ' ');
+  assert.ok(findCmd, 'find-Kommando in release.yml nicht gefunden');
+  const names = [...findCmd.matchAll(/-name '?([^'\s]+)'?/g)].map(m => m[1]);
+  for (const f of [...PERSONAL_FILES, 'docs/probelauf.json']) {
+    assert.ok(names.some(n => glob(n).test(path.posix.basename(f))), `${f} fehlt im Sicherheitsnetz von release.yml`);
+  }
+  // … und zwar wirklich: dasselbe Kommando auf einen Ordner mit probelauf.json (wo es eine sh mit find gibt)
+  const dir = path.join(tmp, `netz-${++caseNo}`);
+  fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+  for (const f of ['ui.mjs', 'probelauf.json', 'docs/probelauf.json', 'README.md']) fs.writeFileSync(path.join(dir, f), 'x');
+  const sh = spawnSync('sh', ['-c', `find . ${findCmd} -print`], { cwd: dir, encoding: 'utf8' });
+  if (!sh.error && sh.status === 0) assert.deepEqual(sh.stdout.split('\n').filter(Boolean).sort(), ['./docs/probelauf.json', './probelauf.json']);
+
+  // release-manifest.mjs bricht ab, statt ein Release mit probelauf.json zu bauen
+  fs.writeFileSync(path.join(dir, 'package.json'), '{"version":"0.2.0"}');
+  assert.throws(() => buildManifest(dir, '0.2.0'), /“(docs\/)?probelauf\.json” \(personal file\)/);
+  // Das Update schreibt sie nie
+  const file = (p, extra) => ({ path: p, size: 1, sha256: 'a'.repeat(64), ...extra });
+  assert.throws(() => checkManifest({ version: '0.2.0', files: [file('package.json'), file('probelauf.json')] }, '0.2.0', 'en'),
+    /^Error: manifest\.json lists “probelauf\.json” \(personal file\)\. An update never writes such a file\.$/);
+  assert.equal(pathProblem('probelauf.json'), 'update.reasonPersonal');
 });
 
 test('checkManifest: Version, Pflichtdateien, doppelte Pfade (auch in anderer Schreibweise), Größe, SHA-256', () => {
@@ -232,7 +269,8 @@ test('SHA-256 bzw. Größe stimmt nicht → nichts geändert', async () => {
 test('manifest.json mit persönlicher Datei, ../, absolutem Pfad oder Backslash → Abbruch, nichts geändert', async () => {
   const cases = [
     ['config.jsonc', 'persönliche Datei'], ['tokens.json', 'persönliche Datei'], ['STATE.JSON', 'persönliche Datei'],
-    ['lastfm-cache.json', 'persönliche Datei'], ['automatik.json', 'persönliche Datei'], ['docs/x.log', 'persönliche Datei'],
+    ['lastfm-cache.json', 'persönliche Datei'], ['probelauf.json', 'persönliche Datei'], ['automatik.json', 'persönliche Datei'],
+    ['docs/x.log', 'persönliche Datei'],
     ['../x', 'außerhalb des Ordners'], ['docs/../../x', 'außerhalb des Ordners'], ['/tmp/x', 'außerhalb des Ordners'],
     ['C:/x', 'außerhalb des Ordners'], ['C:\\x', 'außerhalb des Ordners'], ['..\\x', 'außerhalb des Ordners'],
     ['docs\\x.png', 'außerhalb des Ordners'], ['.update/backup-0.1.0/ui.mjs', 'unzulässiger Name'],

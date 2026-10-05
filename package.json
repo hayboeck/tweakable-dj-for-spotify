@@ -1,6 +1,6 @@
 {
   "name": "tweakable-dj",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Fills a Spotify playlist with your favorite songs and new, similar songs (via Last.fm). English and German.",
   "license": "MIT",
@@ -15,6 +15,6 @@
   },
   "scripts": {
     "start": "node ui.mjs",
-    "test": "node --test tests/i18n.test.mjs tests/lineup.test.mjs tests/lastfm.test.mjs tests/config.test.mjs tests/schedule.test.mjs tests/probelauf.test.mjs tests/ui.test.mjs tests/update.test.mjs tests/install-update.test.mjs"
+    "test": "node --test tests/i18n.test.mjs tests/lineup.test.mjs tests/lastfm.test.mjs tests/config.test.mjs tests/schedule.test.mjs tests/probelauf.test.mjs tests/trial.test.mjs tests/playlist.test.mjs tests/ui.test.mjs tests/update.test.mjs tests/install-update.test.mjs"
   }
 }

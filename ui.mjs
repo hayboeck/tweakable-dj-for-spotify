@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Oberfläche für Tweakable DJ: Einrichtung, Regler für alle Einstellungen, Probelauf und Neuerstellung im Browser.
+// Oberfläche für Tweakable DJ: Einrichtung, Regler für alle Einstellungen, Probelauf, Übernehmen des Probelaufs,
+// Neuerstellung sowie Export und Import als Textdatei im Browser.
 //   node ui.mjs                startet die Oberfläche auf http://127.0.0.1:8899 (anderer Port: TWEAKABLE_DJ_PORT)
 //   node ui.mjs --no-browser   dasselbe, ohne den Browser zu öffnen (so auch beim Neustart nach einem Update)
 // Sprache der Antworten: Header "X-Lang: de|en" der Anfrage, sonst "language" aus config.jsonc, sonst die Systemsprache.
@@ -19,6 +20,10 @@ import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
 import { createSpotify, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
 import { autoRunMessage, installBlocker, installUpdate } from './install-update.mjs';
+import {
+  exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, parseImport, readPlaylist, resolveImport, validUris, writePlaylist,
+} from './playlist.mjs';
+import { readTrial, trialInfo, trialProblem } from './trial.mjs';
 import { checkForUpdate, currentVersion } from './update.mjs';
 
 // Sprache für Konsole und Anfragen ohne X-Lang.
@@ -47,20 +52,24 @@ const VERSION = currentVersion();
 // Von Tweakable DJ.cmd, Tweakable DJ.command bzw. start.sh gestartet? Die starten nach Exit-Code 75 neu.
 const LAUNCHER = process.env.TWEAKABLE_DJ_LAUNCHER === '1';
 const RESTART_CODE = 75;
-let running = null;
+let running = null;           // gestarteter Lauf von dj.mjs (Probelauf, Neuerstellung oder Übernehmen)
 let loginJob = null;
 let installing = false;
+let importing = false;        // Import aus einer Textdatei (Suche oder Schreiben)
 
-function readBody(req, lang) {
+// Body der Anfrage als Text, höchstens max Bytes; tooLarge = Schlüssel der Meldung, wenn er größer ist.
+function readBody(req, lang, max = 100_000, tooLarge = 'ui.tooLarge') {
   return new Promise((resolve, reject) => {
-    let data = '';
-    req.setEncoding('utf8'); // Umlaute bleiben heil, auch wenn sie auf zwei Teile verteilt ankommen
+    const chunks = [];
+    let size = 0;
     req.on('data', chunk => {
-      if (data.length > 100_000) return; // schon zu groß: Rest nur noch verwerfen, nicht sammeln
-      data += chunk;
-      if (data.length > 100_000) reject(new Error(t(lang, 'ui.tooLarge')));
+      if (size > max) return; // schon zu groß: Rest nur noch verwerfen, nicht sammeln
+      size += chunk.length;
+      if (size > max) reject(new Error(t(lang, tooLarge)));
+      else chunks.push(chunk);
     });
-    req.on('end', () => resolve(data));
+    // Erst am Ende umwandeln, dann bleiben Umlaute heil, auch wenn sie auf zwei Teile verteilt ankommen.
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
 }
@@ -205,7 +214,14 @@ function updateStatus() {
 
 // Warum gerade kein Update geht (übersetzt), sonst null: Lauf aus der Oberfläche oder Anmeldung bei Spotify.
 // Einen automatischen Lauf prüft installUpdate() selbst (automatik.json), auch noch einmal kurz vor dem Ersetzen.
-const sessionBusy = lang => (running ? t(lang, 'update.runBusy') : loginJob?.status === 'pending' ? t(lang, 'update.loginBusy') : null);
+const sessionBusy = lang => (running ? t(lang, 'update.runBusy') : importing ? t(lang, 'update.importBusy')
+  : loginJob?.status === 'pending' ? t(lang, 'update.loginBusy') : null);
+// Warum gerade kein Lauf geht bzw. kein Import, sonst null. Ein Import wartet zusätzlich auf eine laufende Anmeldung
+// (beide schreiben tokens.json), umgekehrt startet keine Anmeldung während eines Imports.
+const runBusy = lang => (running ? t(lang, 'ui.busy') : importing ? t(lang, 'ui.importBusy') : installing ? t(lang, 'update.inProgress') : null);
+const importBusy = lang => runBusy(lang) ?? (loginJob?.status === 'pending' ? t(lang, 'ui.loginBusy') : null);
+// Ohne Client ID oder Anmeldung geht nichts, was Spotify fragt.
+const loginMissing = cfg => missingCredentials(cfg).includes('spotify.clientId') || !readTokens();
 
 // Nach einem Update: Server beenden, damit die neuen Dateien gelten. Mit Startdatei (Exit-Code 75) startet sie ihn
 // gleich wieder, ohne Browser (die Seite ist ja offen und lädt sich dann selbst neu); sonst bitte von Hand neu starten.
@@ -222,8 +238,24 @@ function restartAfterUpdate(version) {
 // Ergebnis für die Oberfläche, falls dj.mjs ohne eigene "@@RESULT"-Zeile endet (z. B. abgestürzt).
 const fallbackResult = (lang, dry, code) => ({
   ok: false, dry, songs: null, fresh: null, freshCurrent: null, familiar: null, playlistName: null, playlistUrl: null,
-  errorCode: 'other', error: t(lang, 'ui.exited', { code }), missingScope: null,
+  errorCode: 'other', error: t(lang, 'ui.exited', { code }), missingScope: null, trialId: null,
 });
+
+// Startet dj.mjs mit args und schickt seine Ausgabe als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".
+function streamRun(res, args, lang, dry) {
+  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+  running = spawn(process.execPath, args, { cwd: HERE, env: { ...process.env, TWEAKABLE_DJ_LANG: lang } });
+  let out = '';
+  running.stdout.on('data', chunk => (out += chunk));
+  running.stdout.pipe(res, { end: false });
+  running.stderr.pipe(res, { end: false });
+  running.on('close', code => {
+    running = null;
+    if (code === 0) return res.end('');
+    const result = /^@@RESULT /m.test(out) ? '' : `@@RESULT ${JSON.stringify(fallbackResult(lang, dry, code))}\n`;
+    res.end(`${result}\n${t(lang, 'ui.exited', { code })}`);
+  });
+}
 
 const server = http.createServer(async (req, res) => {
   // X-Frame-Options: Seite nicht in fremde Seiten einbetten lassen (sonst Klicks unterschiebbar).
@@ -256,7 +288,7 @@ const server = http.createServer(async (req, res) => {
       const cfg = currentConfig(lang);
       const values = Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, cfg[k]]));
       return send(200, {
-        values, defaults: DEFAULTS, limits: LIMITS, variety: { keys: VARIETY_KEYS, levels: VARIETY_LEVELS }, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running),
+        values, defaults: DEFAULTS, limits: LIMITS, variety: { keys: VARIETY_KEYS, levels: VARIETY_LEVELS }, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running), importing,
         setup: setupStatus(cfg),
       });
     }
@@ -329,6 +361,7 @@ const server = http.createServer(async (req, res) => {
 
     if (route === 'POST /api/login') {
       if (installing) return send(409, { error: t(lang, 'update.inProgress') });
+      if (importing) return send(409, { error: t(lang, 'ui.importBusy') });
       // Läuft schon eine Anmeldung, nur deren Stand melden – kein zweiter Server auf Port 8888.
       if (loginJob?.status === 'pending') return send(200, loginView());
       const cfg = currentConfig(lang);
@@ -348,9 +381,7 @@ const server = http.createServer(async (req, res) => {
     // Auswahl für die Quelle: Lieblingssongs + eigene bzw. gemeinsame Playlists (ohne die DJ-Playlist selbst).
     if (route === 'GET /api/playlists') {
       const cfg = currentConfig(lang);
-      if (missingCredentials(cfg).includes('spotify.clientId') || !readTokens()) {
-        return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
-      }
+      if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
       const spotify = createSpotify(cfg.spotify.clientId, TOKENS, { lang });
       const me = await spotify.me();
       const [liked, lists] = await Promise.all([spotify.likedCount().catch(() => null), spotify.ownPlaylists(me.id)]);
@@ -363,22 +394,105 @@ const server = http.createServer(async (req, res) => {
 
     // Lauf starten: Ausgabe von dj.mjs als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".
     if (route === 'POST /api/run') {
-      if (running || installing) return send(409, { error: t(lang, running ? 'ui.busy' : 'update.inProgress') });
+      const busy = runBusy(lang);
+      if (busy) return send(409, { error: busy });
       const dry = url.searchParams.get('dry') === '1';
-      const args = ['dj.mjs', ...(dry ? ['--dry'] : [])];
-      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
-      running = spawn(process.execPath, args, { cwd: HERE, env: { ...process.env, TWEAKABLE_DJ_LANG: lang } });
-      let out = '';
-      running.stdout.on('data', chunk => (out += chunk));
-      running.stdout.pipe(res, { end: false });
-      running.stderr.pipe(res, { end: false });
-      running.on('close', code => {
-        running = null;
-        if (code === 0) return res.end('');
-        const result = /^@@RESULT /m.test(out) ? '' : `@@RESULT ${JSON.stringify(fallbackResult(lang, dry, code))}\n`;
-        res.end(`${result}\n${t(lang, 'ui.exited', { code })}`);
-      });
-      return;
+      return streamRun(res, ['dj.mjs', ...(dry ? ['--dry'] : [])], lang, dry);
+    }
+
+    // Stand des letzten Probelaufs (probelauf.json): Lässt er sich übernehmen? ?id= = Kennung aus @@RESULT (trialId).
+    // { ok, reason ('missing', 'invalid', 'replaced', 'old', 'settings' oder null), message, trial: { id, createdAt, expiresAt, songs, playlistName } }
+    if (route === 'GET /api/trial') {
+      const trial = readTrial(HERE);
+      const reason = trialProblem(trial, { cfg: currentConfig(lang), id: url.searchParams.get('id') });
+      return send(200, { ok: !reason, reason, message: reason ? t(lang, `trial.${reason}`) : '', trial: trialInfo(trial) });
+    }
+
+    // „Diese Liste übernehmen“: Body { id } = Kennung des Probelaufs, den die Seite zeigt. Prüft wie dj.mjs --apply, ob er
+    // noch gilt (409 mit reason, sonst), und schreibt ihn dann mit dj.mjs --apply – Ausgabe und @@RESULT wie bei /api/run.
+    if (route === 'POST /api/apply') {
+      const busy = runBusy(lang);
+      if (busy) return send(409, { error: busy });
+      const { id } = await readJson(req, lang);
+      if (typeof id !== 'string' || !/^[0-9a-f]{12}$/.test(id)) return send(400, { error: t(lang, 'ui.badRequest') });
+      const reason = trialProblem(readTrial(HERE), { cfg: currentConfig(lang), id });
+      if (reason) return send(409, { error: t(lang, `trial.${reason}`), reason });
+      return streamRun(res, ['dj.mjs', '--apply', `--trial=${id}`], lang, false);
+    }
+
+    // „Als Textdatei speichern“: { text, filename, songs } für den Download im Browser. Ohne ?trial= die Playlist, wie sie
+    // gerade in Spotify ist; mit ?trial=<Kennung> der Probelauf, der noch nicht übernommen ist (aus probelauf.json).
+    if (route === 'GET /api/export') {
+      const now = new Date();
+      const id = url.searchParams.get('trial');
+      if (id) {
+        const trial = readTrial(HERE);
+        const reason = trial === null || trial.invalid ? trialProblem(trial, { cfg: {} }) : trial.id !== id ? 'replaced' : null;
+        if (reason) return send(409, { error: t(lang, `trial.${reason}`), reason });
+        const text = formatExport({ name: trial.playlistName, tracks: trial.tracks, lang, now, trialAt: new Date(trial.createdAt) });
+        return send(200, { text, filename: exportFileName(lang, now, true), songs: trial.tracks.length });
+      }
+      const cfg = currentConfig(lang);
+      if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
+      const list = await readPlaylist(createSpotify(cfg.spotify.clientId, TOKENS, { lang }), cfg.playlistName);
+      if (!list) return send(409, { error: t(lang, 'export.noPlaylist', { name: cfg.playlistName }) });
+      const text = formatExport({ name: cfg.playlistName, url: list.url, tracks: list.tracks, lang, now });
+      return send(200, { text, filename: exportFileName(lang, now), songs: list.tracks.length, playlistUrl: list.url });
+    }
+
+    // Textdatei importieren, Schritt 1 (Vorschau): Body = Inhalt der Datei (Text, höchstens 1 MB). Sucht die Songs auf
+    // Spotify, Fortschritt als Text, am Ende "@@RESULT { ok, total, found, uris, notFound: [{ line, text, reason }],
+    // playlistName }" bzw. { ok: false, error, errorCode }. Schreibt nichts.
+    if (route === 'POST /api/import/preview') {
+      const busy = importBusy(lang);
+      if (busy) return send(409, { error: busy });
+      importing = true;
+      try {
+        const cfg = currentConfig(lang);
+        if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
+        const entries = parseImport(await readBody(req, lang, IMPORT_MAX_BYTES, 'import.tooLarge'), lang);
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+        // Seite geschlossen oder Import abgebrochen: nicht weitersuchen.
+        const controller = new AbortController();
+        res.on('close', () => controller.abort());
+        let result;
+        try {
+          res.write(`${t(lang, 'import.reading', { count: entries.length })}\n`);
+          const { uris, notFound } = await resolveImport(createSpotify(cfg.spotify.clientId, TOKENS, { lang }), entries, {
+            signal: controller.signal, onProgress: (done, total) => res.write(`${t(lang, 'import.searching', { done, total })}\n`),
+          });
+          res.write(`${t(lang, 'import.found', { found: uris.length, total: entries.length })}\n`);
+          result = { ok: true, total: entries.length, found: uris.length, uris, notFound, playlistName: cfg.playlistName };
+        } catch (e) {
+          res.write(`${t(lang, 'run.error', { message: e.message })}\n`);
+          result = { ok: false, error: e.message, errorCode: e.errorCode ?? (e.status === 403 ? 'forbidden' : 'other') };
+        }
+        res.end(`@@RESULT ${JSON.stringify(result)}\n`);
+        return;
+      } finally {
+        importing = false;
+      }
+    }
+
+    // Textdatei importieren, Schritt 2 (nach der Rückfrage): Body { uris } aus der Vorschau. Ersetzt den Inhalt der Playlist
+    // und setzt die Beschreibung; zählt nicht als Lauf (state.json bleibt, wie es ist). → { ok, songs, playlistName, playlistUrl, created }
+    if (route === 'POST /api/import') {
+      const busy = importBusy(lang);
+      if (busy) return send(409, { error: busy });
+      importing = true;
+      try {
+        const { uris } = await readJson(req, lang);
+        if (!validUris(uris)) return send(400, { error: t(lang, 'import.badList') });
+        const cfg = currentConfig(lang);
+        if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
+        const spotify = createSpotify(cfg.spotify.clientId, TOKENS, { lang });
+        const { url: playlistUrl, created } = await writePlaylist(spotify, {
+          name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang,
+        });
+        return send(200, { ok: true, songs: uris.length, playlistName: cfg.playlistName, playlistUrl, created });
+      } finally {
+        importing = false;
+      }
     }
 
     send(404, { error: t(lang, 'ui.notFound') });

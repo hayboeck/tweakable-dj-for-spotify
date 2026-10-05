@@ -31,11 +31,14 @@ test('Alle Schlüssel, die die Programmdateien verwenden, gibt es', () => {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
     for (const m of src.matchAll(/\b(?:t|tError)\([^,()]+,\s*'([\w.]+)'/g)) used.add(m[1]);
     // Schlüssel, die aus Teilen zusammengesetzt oder in Tabellen stehen
-    for (const m of src.matchAll(/'((?:config|login|run|ui|schedule|spotify|lastfm|node|update)\.[a-zA-Z]+)'/g)) {
+    for (const m of src.matchAll(/'((?:config|login|run|ui|schedule|spotify|lastfm|node|update|apply|trial|export|import)\.[a-zA-Z]+)'/g)) {
       if (!NOT_KEYS.includes(m[1])) used.add(m[1]);
     }
   }
   for (const key of ['stale', 'failed', 'ok']) used.add(`login.${key}Title`).add(`login.${key}Text`);
+  // Gründe aus trialProblem() (trial.mjs) und resolveImport() (playlist.mjs), zusammengesetzt als trial.<Grund> bzw. import.reason.<Grund>
+  for (const key of ['missing', 'invalid', 'replaced', 'old', 'settings']) used.add(`trial.${key}`);
+  for (const key of ['notFound', 'format', 'link', 'error']) used.add(`import.reason.${key}`);
   assert.ok(used.size > 80, `nur ${used.size} Schlüssel gefunden`);
   const missing = [...used].filter(k => !(k in MESSAGES.de) || !(k in MESSAGES.en));
   assert.deepEqual(missing, []);
@@ -107,4 +110,32 @@ test('resolveLang: gültiger Wert, sonst Hinweis, sonst Systemsprache', () => {
   assert.equal(resolveLang(undefined, 'de'), 'de');
   assert.equal(resolveLang('fr', 'xx'), systemLang());
   assert.equal(resolveLang(), systemLang());
+});
+
+// Tausender überall im Format der Sprache: Konsole (i18n.mjs), Oberfläche (ui.html, gleiche Locale) und READMEs.
+// Deutsch wie de-AT: 1 000 mit geschütztem Leerzeichen (U+00A0), Englisch: 1,000.
+test('Zahlen: Tausender in Ausgabe, Oberfläche und READMEs im selben Format', () => {
+  const NBSP = String.fromCharCode(0xa0);
+  const de = (1000).toLocaleString('de-AT');
+  assert.equal(de, `1${NBSP}000`);
+  assert.equal(t('de', 'run.scrobbles', { total: 1000, current: 1000, days: 7, artists: 1200 }),
+    `  ${de} Scrobbles, davon ${de} in den letzten 7 Tagen (1${NBSP}200 Künstler)`);
+  assert.equal(t('en', 'run.scrobbles', { total: 1000, current: 1000, days: 7, artists: 1200 }),
+    '  1,000 scrobbles, 1,000 of them in the last 7 days (1,200 artists)');
+  assert.equal(t('en', 'run.candidates', { count: 1500, hits: 1200, total: 2000 }), '  1,500 candidates (1,200 of 2,000 Last.fm requests from the cache)');
+  assert.equal(t('de', 'run.startingPoints', { current: 1000, total: 1000, factor: 1.5 }),
+    `  ${de} von ${de} Ausgangspunkten aus deinem aktuellen Hören (Faktor 1,5)`);
+  assert.equal(t('de', 'run.summary', { name: 'DJ', songs: 1000, fresh: 1000, freshCurrent: 1000, familiar: 0 }),
+    `DJ: ${de} Songs (${de} neu, davon ${de} über aktuelles Hören; 0 Favoriten)`);
+  // Werte ohne Einzahl/Mehrzahl, die keine Mengen sind, bleiben, wie sie sind (z. B. Fehlercodes)
+  assert.equal(t('de', 'ui.exited', { code: 2147942402 }), '(beendet mit Fehlercode 2147942402)');
+  const html = fs.readFileSync(path.join(ROOT, 'ui.html'), 'utf8');
+  assert.match(html, /\n {2}de: \{\n {4}locale: 'de-AT',/);
+  assert.match(html, /\n {2}en: \{\n {4}locale: 'en-US',/);
+  const readmeDe = fs.readFileSync(path.join(ROOT, 'README.de.md'), 'utf8');
+  const readmeEn = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+  assert.doesNotMatch(readmeDe, /\b\d{1,3}(?:[.,]| (?=\d{3}\b))\d{3}\b/, 'README.de: Tausender mit Punkt, Komma oder normalem Leerzeichen');
+  assert.ok(readmeDe.includes(`die ${de} neuesten Scrobbles`) && readmeDe.includes(`die ${de}, die du zuletzt gespeichert hast`));
+  assert.doesNotMatch(readmeEn, new RegExp(`\\b\\d{1,3}(?:\\.|[ ${NBSP}](?=\\d{3}\\b))\\d{3}\\b`), 'README.md: Tausender mit Punkt oder Leerzeichen');
+  assert.ok(readmeEn.includes('the 1,000 newest scrobbles'));
 });

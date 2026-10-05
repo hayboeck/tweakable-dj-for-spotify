@@ -13,7 +13,7 @@
 //
 // Persönliche Dateien bleiben immer unverändert: Geschrieben werden nur Dateien aus manifest.json (Erlaubnisliste),
 // gelöscht wird nichts. Nennt manifest.json eine persönliche Datei (config.jsonc, tokens.json, state.json,
-// lastfm-cache.json, automatik.*, update-check.json, *.log) oder einen Pfad außerhalb des Ordners, oder führt der Weg
+// lastfm-cache.json, probelauf.json, automatik.*, update-check.json, *.log) oder einen Pfad außerhalb des Ordners, oder führt der Weg
 // zu einer Datei durch einen symbolischen Link, bricht das ganze Update ab, bevor etwas geschrieben ist.
 //
 // manifest.json entsteht beim Veröffentlichen (.github/release-manifest.mjs, aufgerufen von .github/workflows/release.yml):
@@ -43,8 +43,8 @@ const AUTO_RUN_MAX = 30 * 60_000;
 
 // Persönliche und automatisch angelegte Dateien: Die schreibt ein Update nie, egal in welcher Ordnertiefe und in welcher
 // Groß-/Kleinschreibung (Windows und macOS unterscheiden die nicht).
-export const PERSONAL_FILES = ['config.jsonc', 'tokens.json', 'state.json', 'lastfm-cache.json', 'automatik.json', 'automatik.log',
-  'update-check.json'];
+export const PERSONAL_FILES = ['config.jsonc', 'tokens.json', 'state.json', 'lastfm-cache.json', 'probelauf.json', 'automatik.json',
+  'automatik.log', 'update-check.json'];
 export function isPersonal(name) {
   const n = String(name).toLowerCase();
   return PERSONAL_FILES.includes(n) || n.startsWith('automatik.') || n.endsWith('.log');

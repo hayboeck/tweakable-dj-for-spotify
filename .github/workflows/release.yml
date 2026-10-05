@@ -4,7 +4,7 @@
 #   git push origin v1.0.0
 # Ergebnis: tweakable-dj-v<Version>.zip mit dem Ordner tweakable-dj, dazu manifest.json als eigene Datei am Release.
 # In die ZIP-Datei kommen nur Dateien, die im Repository sind (git archive), auch die Screenshots in docs/.
-# Persönliche Dateien (config.jsonc, tokens.json, state.json, lastfm-cache.json) sind per
+# Persönliche Dateien (config.jsonc, tokens.json, state.json, lastfm-cache.json, probelauf.json) sind per
 # .gitignore nie dabei; der Ablauf prüft das zur Sicherheit noch einmal.
 # manifest.json (Version, jede Datei mit Pfad, Größe, SHA-256 und Ausführbar-Bit) liegt auch in der ZIP-Datei. Sie ist
 # die Erlaubnisliste für „Jetzt aktualisieren“ (install-update.mjs): Das Update lädt manifest.json und die ZIP-Datei,
@@ -57,7 +57,7 @@ jobs:
           # Sicherheitsnetz: persönliche und automatisch angelegte Dateien, Tests und .github
           # dürfen nie in die ZIP-Datei.
           verboten=$(cd "build/${ordner}" && find . \( -name config.jsonc -o -name tokens.json -o -name state.json \
-            -o -name lastfm-cache.json -o -name 'automatik.*' -o -name update-check.json -o -name '*.log' \
+            -o -name lastfm-cache.json -o -name probelauf.json -o -name 'automatik.*' -o -name update-check.json -o -name '*.log' \
             -o -path ./tests -o -path ./.github -o -path ./.update -o -name manifest.json \) -print)
           if [ -n "$verboten" ]; then
             echo "::error::Diese Dateien dürfen nicht veröffentlicht werden: ${verboten}"

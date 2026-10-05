@@ -3,6 +3,8 @@
 # Windows: lts/* = jeweils die neueste LTS, also das, was nodejs.org Windows-Nutzern gerade anbietet (Pfade mit
 # Leerzeichen und Umlaut, Zeilenenden, Aufgabenplanung). Ein Windows-Lauf genügt: Unterschiede zwischen den
 # Node-Versionen prüfen schon die Linux-Läufe, und Windows-Minuten zählen bei privaten Repositories doppelt.
+# macOS: ebenfalls lts/* (Startdateien mit sh, Pfade unter /var, das auf /private/var zeigt, Groß-/Kleinschreibung); ein
+# Lauf genügt aus demselben Grund, macOS-Minuten zählen bei privaten Repositories zehnfach.
 name: Tests
 
 on:
@@ -23,6 +25,8 @@ jobs:
         node: [18, 20, 22, 24, 26]
         include:
           - os: windows-latest
+            node: "lts/*"
+          - os: macos-latest
             node: "lts/*"
     steps:
       - uses: actions/checkout@v5

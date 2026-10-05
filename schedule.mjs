@@ -433,7 +433,7 @@ export function recordAutoRun(dir = HERE, lang = resolveLang()) {
   const result = {
     startedAt: new Date().toISOString(), finishedAt: null, ok: null, dry: process.argv.includes('--dry'),
     songs: null, fresh: null, freshCurrent: null, familiar: null, playlistName: null, playlistUrl: null,
-    errorCode: null, error: null, missingScope: null, summary: null,
+    errorCode: null, error: null, missingScope: null, trialId: null, summary: null,
   };
   const save = () => {
     try {

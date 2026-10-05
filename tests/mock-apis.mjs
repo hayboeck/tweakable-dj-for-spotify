@@ -1,10 +1,14 @@
-// Simulierte Spotify-, Last.fm- und GitHub-APIs für tests/probelauf.test.mjs, tests/ui.test.mjs und tests/install-update.test.mjs.
-// Laden mit: node --import <file-URL dieser Datei> dj.mjs --dry
-// Ersetzt globalThis.fetch; unbekannte Adressen und Schreibzugriffe auf Spotify werfen einen Fehler,
-// echte Netzwerkzugriffe gibt es also nie.
+// Simulierte Spotify-, Last.fm- und GitHub-APIs für die Tests, die dj.mjs bzw. ui.mjs starten (probelauf, trial, playlist,
+// ui, install-update). Laden mit: node --import <file-URL dieser Datei> dj.mjs --dry
+// Ersetzt globalThis.fetch; unbekannte Adressen werfen einen Fehler, echte Netzwerkzugriffe gibt es also nie. Schreibzugriffe
+// auf Spotify werfen ebenfalls, außer mit MOCK_SPOTIFY_STORE.
 //
 // Umgebungsvariablen:
-//   MOCK_LOG            Datei, in die jede Anfrage als JSON-Zeile geschrieben wird
+//   MOCK_LOG            Datei, in die jede Anfrage als JSON-Zeile geschrieben wird (verb = HTTP-Methode, method = Last.fm-Methode)
+//   MOCK_SPOTIFY_STORE  JSON-Datei mit den Playlists des Testbenutzers { playlists: [{ id, name, description, uris }], tracks }:
+//                       Damit darf geschrieben werden (Playlist anlegen, Inhalt ersetzen bzw. ergänzen, Beschreibung), und
+//                       die Playlists stehen in /me/playlists. tracks merkt sich Titel und Künstler jedes Songs, den der Mock
+//                       herausgegeben hat, damit eine Playlist ihn später vollständig zurückgibt. Ohne Datei: kein Schreiben.
 //   MOCK_SPOTIFY_403=1  jede Spotify-API-Anfrage liefert 403
 //   MOCK_NO_LIKED=1     keine Lieblingssongs auf Spotify
 //   MOCK_NO_FOLLOW_SCOPE=1  Anmeldung ohne user-follow-read (ältere Anmeldung): /me/following liefert 403
@@ -57,13 +61,59 @@ const LIKED = [
 const POOL = ['Aurora Nord', 'Blaue Stunde', 'Chromwerk', 'Dünenfeuer', 'Elbsand', 'Flussglas',
   'Gleisdreieck', 'Hafenlicht', 'Inselkind', 'Juniregen', 'Kaltfront', 'Leuchtturm'];
 
+// IDs mit 22 Zeichen wie bei Spotify (dann erkennt sie auch der Import aus einer Textdatei)
 const spotifyTrack = (artist, name) => ({
   type: 'track',
-  uri: `spotify:track:mock${hash(`${artist}|${name}`).toString(36)}`,
+  uri: `spotify:track:${`mock${hash(`${artist}|${name}`).toString(36)}`.padEnd(22, '0')}`,
   name,
   artists: artist.split(' / ').map(n => ({ name: n })),
   is_local: false,
 });
+
+// --- Playlists des Testbenutzers (MOCK_SPOTIFY_STORE) ---
+
+const STORE = process.env.MOCK_SPOTIFY_STORE;
+const readStore = () => {
+  try {
+    return JSON.parse(fs.readFileSync(STORE, 'utf8'));
+  } catch {
+    return { playlists: [], tracks: {} };
+  }
+};
+const writeStore = store => fs.writeFileSync(STORE, JSON.stringify(store, null, 2));
+function remember(tracks) {
+  if (!STORE) return;
+  const store = readStore();
+  store.tracks ??= {};
+  for (const t of tracks) if (t?.uri) store.tracks[t.uri] = { name: t.name, artists: t.artists.map(a => a.name) };
+  writeStore(store);
+}
+const fromStore = (store, uri) => {
+  const t = store.tracks?.[uri];
+  return { type: 'track', uri, name: t?.name ?? 'Unbekannt', artists: (t?.artists ?? []).map(name => ({ name })), is_local: false };
+};
+
+function storeWrite(url, method, body) {
+  const store = readStore();
+  const p = url.pathname;
+  if (method === 'POST' && p === '/v1/me/playlists') {
+    const playlist = { id: `mockliste${store.playlists.length + 1}`, name: body.name, description: body.description ?? '', public: body.public, uris: [] };
+    store.playlists.push(playlist);
+    writeStore(store);
+    return json({ id: playlist.id, name: playlist.name }, 201);
+  }
+  const items = p.match(/^\/v1\/playlists\/([^/]+)\/items$/);
+  const details = p.match(/^\/v1\/playlists\/([^/]+)$/);
+  const playlist = store.playlists.find(x => x.id === (items ?? details)?.[1]);
+  if (!playlist) return json({ error: { status: 404, message: 'Not found.' } }, 404);
+  if (items && body.uris?.length > 100) return json({ error: { status: 400, message: 'Too many ids requested' } }, 400);
+  if (items && method === 'PUT') playlist.uris = [...body.uris];
+  else if (items && method === 'POST') playlist.uris.push(...body.uris);
+  else if (details && method === 'PUT') playlist.description = body.description;
+  else throw new Error(`Mock: unbekannter Schreibzugriff ${method} ${p}`);
+  writeStore(store);
+  return json({ snapshot_id: `snap${Date.now()}` }, items ? 201 : 200);
+}
 const likedItems = () => [
   ...LIKED.map(([a, n]) => spotifyTrack(a, n)),
   { type: 'track', uri: 'spotify:local:Lokal:Datei', name: 'Lokale Datei', artists: [{ name: 'Lokal' }], is_local: true },
@@ -95,7 +145,7 @@ const searchHits = new Map(); // "Künstler Titel" aus der ersten Suche → für
 
 function spotifyApi(url, init, headers) {
   const method = (init?.method ?? 'GET').toUpperCase();
-  if (method !== 'GET') throw new Error(`Mock: Schreibzugriff auf Spotify im Probelauf (${method} ${url.pathname})`);
+  if (method !== 'GET' && !STORE) throw new Error(`Mock: Schreibzugriff auf Spotify im Probelauf (${method} ${url.pathname})`);
   if (process.env.MOCK_SPOTIFY_403 === '1') {
     return json({ error: { status: 403, message: 'Check settings on developer.spotify.com/dashboard, the user may not be registered.' } }, 403);
   }
@@ -104,9 +154,13 @@ function spotifyApi(url, init, headers) {
   }
   const p = url.pathname;
   const q = url.searchParams;
+  if (method !== 'GET') return storeWrite(url, method, JSON.parse(String(init?.body ?? '{}')));
 
   if (p === '/v1/me') return json({ id: 'testuser', display_name: 'Test' });
-  if (p === '/v1/me/playlists') return json({ items: [], next: null });
+  if (p === '/v1/me/playlists') {
+    const lists = STORE ? readStore().playlists : [];
+    return json({ items: lists.map(x => ({ id: x.id, name: x.name, owner: { id: 'testuser' }, collaborative: false, items: { total: x.uris.length } })), next: null });
+  }
 
   if (p === '/v1/me/following') {
     if (process.env.MOCK_NO_FOLLOW_SCOPE === '1') return json({ error: { status: 403, message: 'Insufficient client scope' } }, 403);
@@ -121,6 +175,7 @@ function spotifyApi(url, init, headers) {
   if (p === '/v1/me/tracks') {
     // zwei Seiten, "next" als volle URL wie bei Spotify
     const items = (process.env.MOCK_NO_LIKED === '1' ? [] : likedItems()).map(track => ({ added_at: '2026-01-01T00:00:00Z', track }));
+    remember(items.map(i => i.track).filter(t => !t.is_local));
     const offset = Number(q.get('offset') ?? 0);
     const page = offset === 0 ? items.slice(0, 6) : items.slice(6);
     const next = offset === 0 ? 'https://api.spotify.com/v1/me/tracks?offset=6&limit=50' : null;
@@ -128,6 +183,15 @@ function spotifyApi(url, init, headers) {
   }
 
   const playlist = p.match(/^\/v1\/playlists\/([^/]+)\/items$/);
+  const stored = STORE && playlist && readStore().playlists.find(x => x.id === playlist[1]);
+  if (stored) {
+    // Seiten zu 50 wie bei Spotify, "next" als volle URL
+    const store = readStore();
+    const offset = Number(q.get('offset') ?? 0);
+    const page = stored.uris.slice(offset, offset + 50).map(uri => ({ item: fromStore(store, uri) }));
+    const next = offset + 50 < stored.uris.length ? `https://api.spotify.com/v1/playlists/${stored.id}/items?offset=${offset + 50}&limit=50` : null;
+    return json({ items: page, next, total: stored.uris.length });
+  }
   if (playlist) {
     if (playlist[1] !== 'TestListe42') return json({ error: { status: 404, message: 'Not found.' } }, 404);
     // Seit Feb. 2026 heißt das Feld "item"; dazu ein gelöschter Eintrag und eine Podcast-Folge
@@ -143,11 +207,22 @@ function spotifyApi(url, init, headers) {
     if (!exact) return json({ tracks: { items: searchHits.has(query) ? [searchHits.get(query)] : [] } });
     const [, name, artist] = exact;
     if (name.startsWith('Nicht auf Spotify')) return json({ tracks: { items: [] } });
+    // Künstler mit Gast ("Hauptkünstler, Gast") findet die genaue Suche nicht, nur die Suche nach dem Hauptkünstler
+    if (artist.includes(', ')) return json({ tracks: { items: [] } });
     const hit = spotifyTrack(artist, name.endsWith('Echo 3') ? `${name} - Remastered 2011` : name);
+    remember([hit]);
     // "Echo 5": zuerst nur eine Coverversion, der richtige Treffer kommt erst bei der zweiten Suche
     if (name.endsWith('Echo 5')) {
       searchHits.set(`${artist} ${name}`, hit);
       return json({ tracks: { items: [spotifyTrack('Coverband', name)] } });
+    }
+    // "Langsam …": Spotify antwortet erst nach 700 ms (damit ein Import eine Weile läuft)
+    if (name.startsWith('Langsam')) return new Promise(resolve => setTimeout(() => resolve(json({ tracks: { items: [hit] } })), 700));
+    // "Duett": der Song hat bei Spotify einen Gastkünstler
+    if (name.startsWith('Duett')) {
+      const duet = { ...hit, artists: [...hit.artists, { name: 'Gaststar' }] };
+      remember([duet]);
+      return json({ tracks: { items: [duet] } });
     }
     return json({ tracks: { items: [spotifyTrack('Coverband', name), hit] } });
   }
@@ -264,7 +339,7 @@ globalThis.fetch = async (input, init) => {
   const headers = new Headers(init?.headers);
   let res;
   if (url.origin === 'https://accounts.spotify.com' && url.pathname === '/api/token') res = spotifyToken(init);
-  else if (url.origin === 'https://api.spotify.com') res = spotifyApi(url, init, headers);
+  else if (url.origin === 'https://api.spotify.com') res = await spotifyApi(url, init, headers);
   else if (url.origin === 'https://ws.audioscrobbler.com' && url.pathname === '/2.0/') res = lastfmApi(url);
   else if (url.origin === 'https://api.github.com' && /^\/repos\/[^/]+\/[^/]+\/releases\/latest$/.test(url.pathname)) res = githubRelease(url);
   else if (url.origin === 'https://github.com' && /^\/[^/]+\/[^/]+\/releases\/download\/[^/]+\/[^/]+$/.test(url.pathname)) res = githubDownload(url);
@@ -276,6 +351,7 @@ globalThis.fetch = async (input, init) => {
   log({
     host: url.host,
     path: url.pathname + url.search,
+    verb: (init?.method ?? 'GET').toUpperCase(),
     method: url.searchParams.get('method') ?? undefined,
     status: res.status,
   });
