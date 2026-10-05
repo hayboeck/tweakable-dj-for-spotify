@@ -8,7 +8,7 @@ Der KI-DJ von Spotify spricht zwischen den Songs, und seine Stimme lässt sich n
 Wie viel Abwechslung, wie viele Favoriten und wie oft derselbe Künstler vorkommt, stellst du selbst ein.
 Die Oberfläche gibt es auf Deutsch und Englisch, umschaltbar oben rechts (DE | EN).
 
-<p align="center"><img src="docs/screenshot-main.de.png" width="600" alt="Die Oberfläche von Tweakable DJ: Voreinstellungen wie Entdecken und Meine aktuelle Phase, die Einstellungen der Playlist mit Reglern und die Buttons Probelauf und Playlist neu erstellen"></p>
+<p align="center"><img src="docs/screenshot-main.de.png" width="440" alt="Die Oberfläche von Tweakable DJ: Voreinstellungen wie Entdecken und Meine aktuelle Phase, die Einstellungen der Playlist, die Regler Gefolgte Künstler und Abwechslung bei Künstlern (mit Details für Fortgeschrittene) und die Buttons Probelauf und Playlist neu erstellen"></p>
 
 Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt (mehr dazu in [Abschnitt 12](#12-datenquellen-marken-und-lizenz)).
 
@@ -257,7 +257,7 @@ Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-e
 
 Beide Lauf-Buttons speichern vorher automatisch. Die Oberfläche ist nur auf deinem PC erreichbar, andere Geräte im Netzwerk und fremde Webseiten haben keinen Zugriff.
 
-<p align="center"><img src="docs/screenshot-run.de.png" width="640" alt="Ergebnis eines Probelaufs: Tweakable DJ mit 50 Songs, davon 40 neu und 31 über aktuelles Hören gefunden, 10 Favoriten, darunter die Schritte des Laufs und die Liste der ausgewählten Songs"></p>
+<p align="center"><img src="docs/screenshot-run.de.png" width="640" alt="Ergebnis eines Probelaufs: Tweakable DJ mit 50 Songs, davon 40 neu und 35 über aktuelles Hören gefunden, 10 Favoriten, darunter die Schritte des Laufs (samt gefolgten Künstlern) und die Liste der ausgewählten Songs"></p>
 
 ### Im Terminal
 

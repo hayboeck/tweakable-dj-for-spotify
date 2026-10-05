@@ -8,7 +8,7 @@ Spotify’s own AI DJ talks between the songs, and its voice can’t be turned o
 You decide how much variety you want, how many favorites, and how often the same artist comes up.
 The interface is available in English and German; switch at the top right (DE | EN).
 
-<p align="center"><img src="docs/screenshot-main.en.png" width="600" alt="The Tweakable DJ interface: presets such as Discover and My current phase, the playlist settings with sliders, and the buttons Test run and Rebuild playlist"></p>
+<p align="center"><img src="docs/screenshot-main.en.png" width="440" alt="The Tweakable DJ interface: presets such as Discover and My current phase, the playlist settings, the sliders Followed artists and Artist variety (with Details for experts), and the buttons Test run and Rebuild playlist"></p>
 
 Tweakable DJ is an independent project and not an official Spotify product (more in [section 12](#12-data-sources-trademarks-and-license)).
 
@@ -257,7 +257,7 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
 
 Both run buttons save first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
 
-<p align="center"><img src="docs/screenshot-run.en.png" width="640" alt="Result of a test run: Tweakable DJ with 50 songs, 40 of them new and 31 found via current listening, 10 favorites, followed by the steps of the run and the list of picked songs"></p>
+<p align="center"><img src="docs/screenshot-run.en.png" width="640" alt="Result of a test run: Tweakable DJ with 50 songs, 40 of them new and 34 found via current listening, 10 favorites, followed by the steps of the run (including the followed artists) and the list of picked songs"></p>
 
 ### In the terminal
 
