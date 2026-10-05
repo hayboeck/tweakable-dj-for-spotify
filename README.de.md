@@ -394,6 +394,7 @@ Es gibt immer nur einen Eintrag: Er hat stets denselben Namen, egal aus welchem 
 | Spotify-Seite zeigt „INVALID_CLIENT: Invalid redirect URI“ | Im Dashboard unter *Settings* muss als Redirect URI genau `http://127.0.0.1:8888/callback` stehen (mit *Add* hinzufügen und speichern) |
 | „Port 8888 ist belegt“ | Es läuft schon eine Anmeldung, z. B. in einem Terminal. Diese beenden und noch einmal versuchen. |
 | „Der Last.fm-API-Key ist ungültig“ | Über *Zugangsdaten ändern* den Key neu von Last.fm kopieren: das Feld *API key*, nicht *Shared secret* |
+| „Last.fm hat deinen API-Key gesperrt“ | Last.fm hat den Key blockiert (selten, z. B. nach Missbrauch). Unter [last.fm/api/account/create](https://www.last.fm/api/account/create) einen neuen anlegen und über *Zugangsdaten ändern* eintragen |
 | „Den Last.fm-Benutzer … gibt es nicht“ | Schreibweise des Last.fm-Namens über *Zugangsdaten ändern* prüfen |
 | „Last.fm hat … keine Scrobbles“ | Spotify ist vermutlich nicht mit Last.fm verbunden: unter [last.fm → Einstellungen → Anwendungen](https://www.last.fm/settings/applications) verbinden. Bis dahin greifen die Regeln zum aktuellen Hören nicht. |
 | „config.jsonc ist fehlerhaft“ | Meist fehlt ein Komma am Zeilenende oder es ist eines zu viel (nach dem letzten Eintrag darf keines stehen) |

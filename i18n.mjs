@@ -96,6 +96,7 @@ export const MESSAGES = {
     'login.browser': 'Browser öffnet sich für die Spotify-Anmeldung. Falls nicht, diesen Link öffnen:',
 
     // --- lastfm.mjs ---
+    'lastfm.suspendedKey': 'Last.fm hat deinen API-Key gesperrt. Lege einen neuen an (https://www.last.fm/api/account/create) und trage ihn in der Oberfläche unter „Zugangsdaten ändern“ bzw. als lastfm.apiKey in config.jsonc ein.',
     'lastfm.badKey': 'Der Last.fm-API-Key ist ungültig. Prüfe lastfm.apiKey in config.jsonc (neuen Key anlegen: https://www.last.fm/api/account/create).',
 
     // --- dj.mjs ---
@@ -272,6 +273,7 @@ export const MESSAGES = {
     'login.browser': 'Your browser opens for the Spotify login. If it doesn’t, open this link:',
 
     // --- lastfm.mjs ---
+    'lastfm.suspendedKey': 'Last.fm has suspended your API key. Create a new one (https://www.last.fm/api/account/create) and enter it in the interface under “Change credentials” or as lastfm.apiKey in config.jsonc.',
     'lastfm.badKey': 'The Last.fm API key is invalid. Check lastfm.apiKey in config.jsonc (create a new key: https://www.last.fm/api/account/create).',
 
     // --- dj.mjs ---

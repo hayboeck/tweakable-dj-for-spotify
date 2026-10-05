@@ -20,8 +20,8 @@ const REPLIES = {
 globalThis.fetch = async url => {
   const q = new URL(url).searchParams;
   calls.push(q.get('method'));
-  const body = q.get('api_key') === 'key'
-    ? REPLIES[q.get('method')](q)
+  const body = q.get('api_key') === 'key' ? REPLIES[q.get('method')](q)
+    : q.get('api_key') === 'gesperrt' ? { error: 26, message: 'Suspended API key - Access for your account has been suspended, please contact Last.fm' }
     : { error: 10, message: 'Invalid API key - You must be granted a valid key by last.fm' };
   return new Response(JSON.stringify(body), { status: body.error === 10 ? 403 : 200 });
 };
@@ -119,6 +119,15 @@ test('Ungültiger API-Key: klare Meldung in der gewählten Sprache, als fatal ma
     e => bad(e) && /^Der Last\.fm-API-Key ist ungültig/.test(e.message));
   await assert.rejects(createLastfm('falsch', undefined, { lang: 'en' }).similarTracks('A', 'B'),
     e => bad(e) && /^The Last\.fm API key is invalid/.test(e.message));
+});
+
+test('Gesperrter API-Key (Fehler 26): eigene Meldung, ebenfalls fatal', async () => {
+  const bad = e => e.fatal === true && e.errorCode === 'lastfm_key';
+  await assert.rejects(createLastfm('gesperrt', undefined, { lang: 'de' }).similarTracks('A', 'B'),
+    e => bad(e) && /^Last.fm hat deinen API-Key gesperrt/.test(e.message));
+  await assert.rejects(createLastfm('gesperrt', undefined, { lang: 'en' }).userInfo('hoerer'),
+    e => bad(e) && /^Last.fm has suspended your API key/.test(e.message));
+  assert.equal(calls.filter(m => m === 'track.getSimilar').length >= 1, true);
 });
 
 test('Ohne Cache-Datei: saveCache() schreibt nichts', async () => {

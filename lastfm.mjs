@@ -36,9 +36,10 @@ export function createLastfm(apiKey, cacheFile, { lang } = {}) {
       }
       // 6 = Titel/Künstler/Nutzer unbekannt
       if (data.error === 6) return null;
-      if (data.error === 10) {
-        // fatal: weitere Abfragen sind sinnlos, dj.mjs bricht dann ab statt nur zu warnen.
-        throw tError(lang, 'lastfm.badKey', {}, { fatal: true, errorCode: 'lastfm_key' });
+      // 10 = Key ungültig, 26 = Key von Last.fm gesperrt. fatal: weitere Abfragen sind sinnlos,
+      // dj.mjs bricht dann ab statt nur zu warnen.
+      if (data.error === 10 || data.error === 26) {
+        throw tError(lang, data.error === 26 ? 'lastfm.suspendedKey' : 'lastfm.badKey', {}, { fatal: true, errorCode: 'lastfm_key' });
       }
       if (data.error) throw new Error(`Last.fm ${method}: ${data.message}`);
       if (!res.ok) throw new Error(`Last.fm ${method}: HTTP ${res.status}`);

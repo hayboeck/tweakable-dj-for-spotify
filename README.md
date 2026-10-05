@@ -394,6 +394,7 @@ There is only ever one entry: it always has the same name, whichever folder it c
 | Spotify page shows “INVALID_CLIENT: Invalid redirect URI” | In the dashboard under *Settings*, the redirect URI must be exactly `http://127.0.0.1:8888/callback` (add it with *Add* and save) |
 | “Port 8888 is in use” | A login is already running, e.g. in a terminal. Stop it and try again. |
 | “The Last.fm API key is invalid” | Copy the key from Last.fm again via *Change credentials*: the *API key* field, not *Shared secret* |
+| “Last.fm has suspended your API key” | Last.fm has blocked the key (rare, e.g. after misuse). Create a new key at [last.fm/api/account/create](https://www.last.fm/api/account/create) and enter it via *Change credentials* |
 | “The Last.fm user … doesn’t exist” | Check the spelling of your Last.fm username via *Change credentials* |
 | “Last.fm has no scrobbles from …” | Spotify is probably not connected to Last.fm: connect it under [last.fm → Settings → Applications](https://www.last.fm/settings/applications). Until then, the rules for current listening don’t apply. |
 | “config.jsonc is invalid” | Usually a comma is missing at the end of a line, or there is one too many (there must be none after the last entry) |
