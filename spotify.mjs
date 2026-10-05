@@ -8,24 +8,34 @@ import { sameTrack } from './lineup.mjs';
 const API = 'https://api.spotify.com/v1';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 export const REDIRECT_URI = 'http://127.0.0.1:8888/callback';
-const SCOPES = [
+// Berechtigungen, um die die Anmeldung bittet. user-follow-read (gefolgte Künstler) kam später dazu:
+// Ältere Anmeldungen haben sie nicht, dann muss man sich einmal neu anmelden (siehe FOLLOW_SCOPE).
+export const SCOPE_LIST = [
   'playlist-read-private',
   'playlist-read-collaborative',
   'playlist-modify-private',
   'playlist-modify-public',
   'user-library-read',
-].join(' ');
+  'user-follow-read',
+];
+const SCOPES = SCOPE_LIST.join(' ');
+export const FOLLOW_SCOPE = 'user-follow-read';
+
+// Fehlt der Anmeldung eine Berechtigung? Spotify antwortet dann mit 401/403 bzw. "Insufficient client scope".
+export const isScopeError = e => [401, 403].includes(e?.status) || /insufficient[\s_-]*(client[\s_-]*)?scope/i.test(String(e?.message ?? ''));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // authorized_at = Zeitpunkt der Anmeldung. Spotify verlangt nach 180 Tagen eine neue,
 // das Erneuern des Access-Tokens verlängert das nicht – deshalb beim Erneuern übernehmen.
+// scope = erteilte Berechtigungen (mit Leerzeichen getrennt); fehlt sie in der Antwort, gilt die bisherige.
 function storeTokens(file, data, previous = {}, authorizedAt = previous.authorized_at) {
   const tokens = {
     access_token: data.access_token,
     refresh_token: data.refresh_token ?? previous.refresh_token,
     expires_at: Date.now() + data.expires_in * 1000,
     authorized_at: authorizedAt,
+    scope: data.scope ?? previous.scope,
   };
   // Nur für den eigenen Benutzer lesbar (Mac/Linux; gilt beim Anlegen der Datei)
   fs.writeFileSync(file, JSON.stringify(tokens, null, 2), { mode: 0o600 });
@@ -206,6 +216,20 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
       for await (const entry of pages('/me/tracks?limit=50')) {
         if (isPlayable(entry.track)) out.push(toTrack(entry.track));
         if (out.length >= max) break;
+      }
+      return out;
+    },
+
+    // Namen der Künstler, denen man auf Spotify folgt (Seiten zu 50, weiter über "next" mit dem Cursor after).
+    // Braucht user-follow-read; ohne diese Berechtigung wirft es (isScopeError).
+    async followedArtists() {
+      const out = [];
+      let next = '/me/following?type=artist&limit=50';
+      // Höchstens 200 Seiten (10 000 Künstler), falls Spotify immer wieder dieselbe Seite liefert.
+      for (let page = 0; next && page < 200; page++) {
+        const d = await api('GET', next);
+        for (const a of d?.artists?.items ?? []) if (a?.name) out.push(a.name);
+        next = d?.artists?.next ?? null;
       }
       return out;
     },

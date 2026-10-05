@@ -6,7 +6,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { checkValue, checkValues, DEFAULTS, LIMITS, missingCredentials, stripComments } from '../config.mjs';
+import {
+  checkValue, checkValues, DEFAULTS, LIMITS, missingCredentials, stripComments, VARIETY_KEYS, VARIETY_LEVELS, varietyLevel,
+} from '../config.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const TEMPLATES = { en: 'config.example.jsonc', de: 'config.example.de.jsonc' };
@@ -97,11 +99,14 @@ test('Zahlenwerte: Grenzen aus LIMITS, ganze Zahlen, Meldung mit Schlüssel, Ber
   }
   // Bewusst so: 0 = aus bei Abstand, Sperren und Zeitraum „aktuell“, 1 = aus beim Faktor; Anteile von 0 bis 1
   assert.deepEqual(Object.fromEntries(Object.entries(LIMITS).map(([k, l]) => [k, l.min])), {
-    size: 1, familiarShare: 0, adventure: 0, seedsPerRun: 1, currentDays: 0, currentFactor: 1, maxPerArtist: 1, artistWindow: 1,
+    size: 1, familiarShare: 0, adventure: 0, seedsPerRun: 1, followedArtists: -1, currentDays: 0, currentFactor: 1, maxPerArtist: 1, artistWindow: 1,
     maxPerWindow: 1, artistGap: 0, excludeRecentDays: 0, noRepeatRuns: 0,
   });
   assert.deepEqual([LIMITS.familiarShare.max, LIMITS.adventure.max, LIMITS.size.max], [1, 1, 500]);
-  assert.deepEqual(Object.keys(LIMITS).filter(k => !LIMITS[k].int), ['familiarShare', 'adventure', 'currentFactor']);
+  assert.deepEqual(Object.keys(LIMITS).filter(k => !LIMITS[k].int), ['familiarShare', 'adventure', 'followedArtists', 'currentFactor']);
+  // Gefolgte Künstler: −1 bis +1, 0 = egal (Standard), Kommazahlen erlaubt
+  assert.deepEqual([DEFAULTS.followedArtists, LIMITS.followedArtists.min, LIMITS.followedArtists.max], [0, -1, 1]);
+  assert.equal(checkValue('followedArtists', -0.25), -0.25);
   assert.equal(checkValue('currentFactor', 2.5), 2.5);
   // Wortlaut in beiden Sprachen
   assert.throws(() => checkValue('size', 0, 'en'), /^Error: size in config\.jsonc must be a whole number from 1 to 500 \(currently 0\)\.$/);
@@ -109,6 +114,32 @@ test('Zahlenwerte: Grenzen aus LIMITS, ganze Zahlen, Meldung mit Schlüssel, Ber
   assert.throws(() => checkValue('familiarShare', 15, 'de'), /^Error: familiarShare in config\.jsonc muss eine Zahl von 0 bis 1 sein \(derzeit 15\)\.$/);
   assert.throws(() => checkValue('maxPerWindow', 2.5, 'en'), /^Error: maxPerWindow in config\.jsonc must be a whole number from 1 to 100 \(currently 2\.5\)\.$/);
   assert.throws(() => checkValues({ size: 40, artistWindow: 0 }, 'en'), /^Error: artistWindow in config\.jsonc must be a whole number from 1 to 100/);
+});
+
+test('Abwechslung bei Künstlern: Stufen setzen die vier Werte, mittel = Standard, sonst eigene Einstellung', () => {
+  assert.deepEqual(VARIETY_KEYS, ['maxPerArtist', 'artistWindow', 'maxPerWindow', 'artistGap']);
+  assert.deepEqual(VARIETY_LEVELS.map(l => l.id), ['low', 'medium', 'high', 'veryHigh']);
+  // Jede Stufe setzt genau die vier Werte, alle im erlaubten Bereich
+  for (const { id, values } of VARIETY_LEVELS) {
+    assert.deepEqual(Object.keys(values), VARIETY_KEYS, id);
+    for (const [k, v] of Object.entries(values)) assert.equal(checkValue(k, v), v, `${id}: ${k}`);
+    assert.equal(varietyLevel({ ...DEFAULTS, ...values }), id);
+  }
+  // Mittlere Stufe = heutige Standardwerte: für Leute mit Standardwerten ändert sich nichts
+  assert.deepEqual(VARIETY_LEVELS[1].values, { maxPerArtist: 2, artistWindow: 20, maxPerWindow: 3, artistGap: 4 });
+  assert.deepEqual(VARIETY_LEVELS[1].values, Object.fromEntries(VARIETY_KEYS.map(k => [k, DEFAULTS[k]])));
+  assert.equal(varietyLevel(DEFAULTS), 'medium');
+  // Je höher die Stufe, desto strenger (oder gleich) jede einzelne Regel
+  for (let i = 1; i < VARIETY_LEVELS.length; i++) {
+    const [a, b] = [VARIETY_LEVELS[i - 1].values, VARIETY_LEVELS[i].values];
+    assert.ok(b.maxPerArtist <= a.maxPerArtist && b.artistGap >= a.artistGap, VARIETY_LEVELS[i].id);
+    assert.ok(b.maxPerWindow / b.artistWindow <= a.maxPerWindow / a.artistWindow, VARIETY_LEVELS[i].id);
+    assert.notDeepEqual(a, b);
+  }
+  // Eigene Werte (z. B. maxPerArtist 3, Rest Standard) passen zu keiner Stufe; andere Einstellungen spielen keine Rolle
+  assert.equal(varietyLevel({ ...DEFAULTS, maxPerArtist: 3 }), null);
+  assert.equal(varietyLevel({ ...DEFAULTS, artistGap: 0 }), null);
+  assert.equal(varietyLevel({ ...DEFAULTS, size: 100, adventure: 1 }), 'medium');
 });
 
 test('Vorlagen und READMEs nennen die erlaubten Bereiche aus LIMITS', () => {

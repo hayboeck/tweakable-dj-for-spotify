@@ -137,6 +137,27 @@ test('GET /api/config: language, lang und systemLang', async () => {
   assert.equal((await api('/api/config')).data.lang, 'de');
 });
 
+test('GET /api/config: Stufen für „Abwechslung bei Künstlern“, gefolgte Künstler und fehlende Berechtigungen', async () => {
+  const { data } = await api('/api/config', { lang: 'en' });
+  assert.deepEqual(data.variety.keys, ['maxPerArtist', 'artistWindow', 'maxPerWindow', 'artistGap']);
+  assert.deepEqual(data.variety.levels.map(l => l.id), ['low', 'medium', 'high', 'veryHigh']);
+  assert.deepEqual(data.variety.levels[1].values, Object.fromEntries(data.variety.keys.map(k => [k, data.defaults[k]])));
+  assert.deepEqual([data.defaults.followedArtists, data.limits.followedArtists.min, data.limits.followedArtists.max], [0, -1, 1]);
+  // tokens.json ohne scope (ältere Version): unbekannt
+  assert.equal(data.setup.missingScopes, null);
+  const all = 'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-read';
+  const tokens = scope => fs.writeFileSync(path.join(dir, 'tokens.json'),
+    JSON.stringify({ access_token: 'abgelaufen', refresh_token: 'fake-refresh-token', expires_at: 0, authorized_at: Date.now(), scope }));
+  try {
+    tokens(all);
+    assert.deepEqual((await api('/api/config')).data.setup.missingScopes, ['user-follow-read']);
+    tokens(`${all} user-follow-read`);
+    assert.deepEqual((await api('/api/config')).data.setup.missingScopes, []);
+  } finally {
+    writeTokens('fake-refresh-token');
+  }
+});
+
 test('POST /api/lastfm und /api/setup: Meldungen in der Sprache der Anfrage', async () => {
   const check = async lang => (await api('/api/lastfm', { lang, method: 'POST', body: { apiKey: 'zu-kurz' } })).data;
   assert.deepEqual(await check('en'), { ok: false, kind: 'key', message: 'An API key has exactly 32 characters from 0–9 and a–f.' });

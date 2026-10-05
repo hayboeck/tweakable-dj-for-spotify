@@ -137,8 +137,8 @@ Listening now ───┘        (draw)              (Last.fm)              (dr
 1. **Set exclusions:** Whatever you played in the last 14 days, whatever was in the last 3 runs, and everything by artists on your block list stays out.
 2. **Draw starting points:** 20 songs are drawn from your Liked Songs, your Last.fm top songs and what you’re listening to right now. If you’ve just been playing a song or its artist, it is 3× as likely to be drawn.
 3. **Collect candidates:** For each starting point, Last.fm provides the 30 most similar songs. Sometimes the DJ also takes a detour to a related artist a bit further away. Known Liked Songs and excluded songs are dropped. The DJ remembers Last.fm’s answers for 7 days, so the next run is faster.
-4. **Pick favorites:** 15% of the playlist comes from your Liked Songs. Artists you’re listening to right now are preferred.
-5. **Draw new songs:** The candidates go into a lottery drum. “Adventure” sets how strongly similar songs are preferred; the factor sets how much current listening counts. Every drawn song has to pass the artist limits and is looked up on Spotify. It only goes in if title and artist match.
+4. **Pick favorites:** 15% of the playlist comes from your Liked Songs. Artists you’re listening to right now are preferred (and artists you follow on Spotify, if you set *Followed artists* that way).
+5. **Draw new songs:** The candidates go into a lottery drum. “Adventure” sets how strongly similar songs are preferred; the factor sets how much current listening counts, and “Followed artists” how much artists you follow count. Every drawn song has to pass the artist limits and is looked up on Spotify. It only goes in if title and artist match.
 6. **Set the order:** The DJ tries up to 200 orders and takes the one that best follows the rules.
 7. **Fill the playlist:** The contents of “Tweakable DJ” are replaced, and the new songs are remembered as “already played”.
 
@@ -165,6 +165,9 @@ Every rule can be changed in `config.jsonc` or in the interface. The setting’s
 | Adventure (`adventure`): 0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant songs. Also sets for how many starting points the DJ wanders off to related artists. | 0.4 | 0–1 |
 | Starting points per run (`seedsPerRun`) | 20 | 1–200 |
 | Also use your Last.fm top songs of the last 3 months as starting points (`useLastfmTopTracks`) | on | `true` or `false` |
+| Followed artists (`followedArtists`): artists you follow on Spotify. -1 = none of them (like the block list, also as a guest via “feat.”), below 0 = less often, 0 = no preference (the list isn’t even fetched), above 0 = more often, 1 = strongly preferred, but not exclusively. Applies to new songs and favorites, not to the starting points. | 0 (no preference) | -1–1 |
+
+How *Followed artists* works: a song by an artist you follow gets a factor on its lottery ticket of 10 to the power of the setting, so 0.5 = 3.2× as likely, 1 = 10× as likely, -0.5 = ⅓ as likely; at -1, such songs are left out entirely. The factor is multiplied with the other weights (adventure, factor for current listening), and the limits per artist still apply, so the playlist doesn’t fill up with followed artists only. Names are compared like everywhere else (upper/lower case, accents and a leading “The” don’t matter), but only whole names count: following “Queen” doesn’t include “Queen Latifah”. If you logged in to Spotify before this setting existed, log in again once (the interface shows a notice). Until then, a run shows a warning and continues as if the setting were 0.
 
 **What you’re listening to now counts more**
 
@@ -188,6 +191,19 @@ In the output, such songs are marked with “· current” (in German “· aktu
 | Songs that can’t be found unambiguously on Spotify (title and artist must match). Additions like “Remastered” or “feat.” are ignored in the comparison. | always | |
 
 **How often the same artist comes up**
+
+In the interface, a single slider **Artist variety** sets the four rules below together. *Medium* is the default, so nothing changes if you never touch it:
+
+| Step | Songs per artist | Same artist in a row of songs | Gap between songs by the same artist |
+|---|---|---|---|
+| low | at most 4 | at most 4 in 15 | at least 2 songs |
+| medium (default) | at most 2 | at most 3 in 20 | at least 4 songs |
+| high (= preset *Discover*) | at most 2 | at most 2 in 20 | at least 4 songs |
+| very high | 1 | at most 2 in 20 | at least 8 songs |
+
+Every step works with 50 songs and a typical library. If the source of your favorites has only a few artists, “very high” may find fewer songs or break a rule; the DJ then shows a warning (⚠). If your four values don’t match any step (e.g. changed by hand in `config.jsonc`), the slider shows *Custom*. Moving it overwrites all four values; *Discard* brings back the saved ones.
+
+**For experts:** the four individual values. In the interface they are under *Details for experts*; in `config.jsonc` they stay as they are.
 
 | Rule | Default | Allowed |
 |---|---|---|
@@ -223,15 +239,16 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
   - *My current phase*: closely follows what you’re listening to right now
   - *Default*: the basic settings
 
-  Name, source, number of songs and block list stay as they are. If your settings match a preset exactly, it is highlighted.
+  Name, source, number of songs, followed artists and block list stay as they are. If your settings match a preset exactly, it is highlighted.
 - **Controls**: each setting has a control, an explanation and a green hint showing what the value does right now. If a value differs from the default, clicking “Default: …” resets it. A value from `config.jsonc` outside the allowed range is marked in red ([Rules and settings](#5-rules-and-settings)).
+- **Artist variety**: one slider with four steps (*low* to *very high*) sets all four artist rules at once. The individual values are under *Details for experts*; if they don’t match any step, the slider shows *Custom* and the details open.
 - **Source of your favorites**: a list with your Liked Songs and your playlists. Only playlists you own or collaborate on are offered, because Spotify only shares the contents of those.
 - **Block list**: enter an artist name and click *Add*. Remove it again with ×.
 - **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*.
 - **Test run**: shows the selection without changing the playlist.
 - **Rebuild playlist**: refills “Tweakable DJ” and then shows a link to Spotify.
 - **Change credentials** (top right): opens the setup wizard with your previous entries.
-- **Log in with Spotify**: appears when your Spotify login expires soon or has expired. Spotify requires a new login every 6 months.
+- **Log in with Spotify**: appears when your Spotify login expires soon or has expired. Spotify requires a new login every 6 months. It also appears if *Followed artists* isn’t at “no preference” and your login is from before that setting existed.
 - **Rebuild automatically**: *Off*, *Daily* or *Weekly*, plus the time and, if needed, the day of the week. When you click *Save*, Tweakable DJ adds itself to your system’s scheduler and then rebuilds the playlist by itself, even when the interface is closed. Below, you see the next run and the result of the last automatic run (✓ with the number of songs or ✗ with the reason). What happens if your computer is off at the set time:
   - Windows: the run is made up the next time you turn it on.
   - Mac: the run is made up after waking from sleep, but not after being switched off.
@@ -371,6 +388,7 @@ There is only ever one entry: it always has the same name, whichever folder it c
 |---|---|
 | “Spotify login expired” | Spotify requires a new login every 6 months: click *Log in with Spotify* in the interface (or run `node dj.mjs login`). The interface reminds you about 10 days in advance. |
 | “Not logged in to Spotify yet” | `tokens.json` is missing: click *Log in with Spotify* in the interface (or run `node dj.mjs login`) |
+| ⚠ “For "Followed artists", please log in to Spotify again once” | Your Spotify login is from before this setting existed and isn’t allowed to read the artists you follow. Click *Log in with Spotify* in the interface (or run `node dj.mjs login`). Until then, followed artists don’t count; the run itself works as usual. |
 | “Spotify denies access (403)” | The owner of the Spotify app needs Premium (required in development mode). If someone else uses your app, their account must be added in the [Spotify dashboard](https://developer.spotify.com/dashboard) under *User Management*. |
 | Spotify page shows “INVALID_CLIENT: Invalid client” | The Client ID is wrong: copy it again from the dashboard via *Change credentials* |
 | Spotify page shows “INVALID_CLIENT: Invalid redirect URI” | In the dashboard under *Settings*, the redirect URI must be exactly `http://127.0.0.1:8888/callback` (add it with *Add* and save) |
@@ -388,8 +406,8 @@ There is only ever one entry: it always has the same name, whichever folder it c
 | “Node.js is too old” or “Tweakable DJ needs Node.js 18 or newer” | Install the newest version from <https://nodejs.org> |
 | Mac: “… can’t be opened because it is from an unidentified developer” | The first time, start it with right-click → *Open* ([setup](#7-setup-one-time), step 3) |
 | Mac/Linux: “permission denied” | Run `chmod +x "Tweakable DJ.command" start.sh` once in the `tweakable-dj` folder ([setup](#7-setup-one-time), step 3) |
-| Warning ⚠ “The rule … couldn’t be kept everywhere” | The rules are too strict for the songs found, e.g. “1 in 20” with 50 songs. Relax one rule. |
-| Many songs via the same artist | For some artists and genres, Last.fm returns many more similar songs than for others. Reduce “Songs per artist in the window”. |
+| Warning ⚠ “The rule … couldn’t be kept everywhere” | The rules are too strict for the songs found, e.g. “1 in 20” with 50 songs. Set *Artist variety* one step lower, or relax one rule under *Details for experts*. |
+| Many songs via the same artist | For some artists and genres, Last.fm returns many more similar songs than for others. Set *Artist variety* higher, or reduce “Songs per artist in the window” under *Details for experts*. |
 | Current listening barely counts | Check whether Last.fm records your listening (last.fm → your profile). Increase the factor. |
 | A particular song is never found | If Spotify can’t find a song, the DJ remembers that in `state.json` (search errors, e.g. without internet, are not remembered). Delete `state.json` to search again. |
 | Similar songs should come fresh from Last.fm | Delete `lastfm-cache.json`. Otherwise the DJ keeps using Last.fm’s answers for up to 7 days. |

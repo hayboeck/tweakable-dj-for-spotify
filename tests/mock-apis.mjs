@@ -7,6 +7,8 @@
 //   MOCK_LOG            Datei, in die jede Anfrage als JSON-Zeile geschrieben wird
 //   MOCK_SPOTIFY_403=1  jede Spotify-API-Anfrage liefert 403
 //   MOCK_NO_LIKED=1     keine Lieblingssongs auf Spotify
+//   MOCK_NO_FOLLOW_SCOPE=1  Anmeldung ohne user-follow-read (ältere Anmeldung): /me/following liefert 403
+//                       "Insufficient client scope", das erneuerte Token nennt die Berechtigung nicht
 //   MOCK_NODE_VERSION   täuscht eine andere Node-Version vor
 //   MOCK_GITHUB         JSON-Datei mit der Antwort von GitHub auf die Frage nach dem neuesten Release (update.mjs):
 //                       { "status": 200, "body": { "tag_name": "v0.2.0", "assets": […], … } } oder { "offline": true }
@@ -81,6 +83,10 @@ const RECENT_PAGES = [
   ],
 ];
 const USERS = { testhoerer: 1234, stillerhoerer: 0 };
+// Künstler, denen der Testbenutzer auf Spotify folgt (zwei Seiten): ein Favorit, zwei Künstler, die Last.fm vorschlägt,
+// und "THE STADTKIND" (= Stadtkind über norm()).
+const FOLLOWED = ['Nordlicht', 'Aurora Nord', 'Chromwerk', 'THE STADTKIND'];
+const SCOPES = 'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-read';
 
 // --- Spotify ---
 
@@ -101,6 +107,16 @@ function spotifyApi(url, init, headers) {
 
   if (p === '/v1/me') return json({ id: 'testuser', display_name: 'Test' });
   if (p === '/v1/me/playlists') return json({ items: [], next: null });
+
+  if (p === '/v1/me/following') {
+    if (process.env.MOCK_NO_FOLLOW_SCOPE === '1') return json({ error: { status: 403, message: 'Insufficient client scope' } }, 403);
+    if (q.get('type') !== 'artist') return json({ error: { status: 400, message: 'type must be artist' } }, 400);
+    // Cursor-Paging wie bei Spotify: zwei Seiten, "next" mit after = ID des letzten Künstlers
+    const page = q.get('after') ? FOLLOWED.slice(2) : FOLLOWED.slice(0, 2);
+    const items = page.map(name => ({ type: 'artist', id: `id${hash(name).toString(36)}`, name }));
+    const next = q.get('after') ? null : `https://api.spotify.com/v1/me/following?type=artist&limit=50&after=${items.at(-1).id}`;
+    return json({ artists: { items, next, cursors: { after: next ? items.at(-1).id : null }, limit: 50, total: FOLLOWED.length } });
+  }
 
   if (p === '/v1/me/tracks') {
     // zwei Seiten, "next" als volle URL wie bei Spotify
@@ -142,7 +158,8 @@ function spotifyApi(url, init, headers) {
 function spotifyToken(init) {
   const body = new URLSearchParams(String(init?.body ?? ''));
   if (body.get('grant_type') === 'refresh_token' && body.get('refresh_token') === REFRESH_TOKEN && body.get('client_id') === CLIENT_ID) {
-    return json({ access_token: ACCESS_TOKEN, token_type: 'Bearer', expires_in: 3600 });
+    const scope = process.env.MOCK_NO_FOLLOW_SCOPE === '1' ? SCOPES : `${SCOPES} user-follow-read`;
+    return json({ access_token: ACCESS_TOKEN, token_type: 'Bearer', expires_in: 3600, scope });
   }
   return json({ error: 'invalid_grant', error_description: 'Invalid refresh token' }, 400);
 }

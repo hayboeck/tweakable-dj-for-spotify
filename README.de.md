@@ -137,8 +137,8 @@ Aktuell gehört ──┘        (Los)               (Last.fm)              (Los
 1. **Ausschlüsse festlegen:** Was du in den letzten 14 Tagen gehört hast, was in den letzten 3 Läufen schon drin war und alles von Künstlern auf deiner Sperrliste kommt nicht hinein.
 2. **Ausgangspunkte ziehen:** Aus deinen Lieblingssongs, deinen Last.fm-Top-Songs und dem, was du gerade hörst, werden 20 Songs gezogen. Hast du einen Song oder dessen Künstler gerade gehört, hat er ein 3× größeres Los.
 3. **Kandidaten sammeln:** Last.fm liefert zu jedem Ausgangspunkt die 30 ähnlichsten Songs. Manchmal macht der DJ zusätzlich einen Abstecher zu einem verwandten Künstler, der etwas weiter weg ist. Bekannte Lieblingssongs und ausgeschlossene Songs fliegen raus. Antworten von Last.fm merkt sich der DJ 7 Tage lang, dann geht der nächste Lauf schneller.
-4. **Favoriten auswählen:** 15 % der Playlist kommen aus deinen Lieblingssongs. Künstler, die du gerade hörst, werden bevorzugt.
-5. **Neue Songs auslosen:** Die Kandidaten kommen in eine Lostrommel. Wie stark ähnliche Songs bevorzugt werden, bestimmt „Abenteuer“, wie stark aktuelles Hören zählt, bestimmt der Faktor. Jeder gezogene Song muss durch die Künstler-Limits und wird auf Spotify gesucht. Nur wenn Titel und Interpret passen, kommt er hinein.
+4. **Favoriten auswählen:** 15 % der Playlist kommen aus deinen Lieblingssongs. Künstler, die du gerade hörst, werden bevorzugt (und Künstler, denen du auf Spotify folgst, wenn du *Gefolgte Künstler* so eingestellt hast).
+5. **Neue Songs auslosen:** Die Kandidaten kommen in eine Lostrommel. Wie stark ähnliche Songs bevorzugt werden, bestimmt „Abenteuer“, wie stark aktuelles Hören zählt, bestimmt der Faktor, und wie stark Künstler zählen, denen du folgst, bestimmt „Gefolgte Künstler“. Jeder gezogene Song muss durch die Künstler-Limits und wird auf Spotify gesucht. Nur wenn Titel und Interpret passen, kommt er hinein.
 6. **Reihenfolge festlegen:** Der DJ probiert bis zu 200 Reihenfolgen durch und nimmt die, die die Regeln am besten einhält.
 7. **Playlist befüllen:** Der Inhalt von „Tweakable DJ“ wird ersetzt, und die neuen Songs werden als „schon gespielt“ gemerkt.
 
@@ -165,6 +165,9 @@ Jede Regel lässt sich in `config.jsonc` oder in der Oberfläche ändern. Der Na
 | Abenteuer (`adventure`): 0 = ähnliche Songs bevorzugen, 0,5 = egal, 1 = entfernte Songs bevorzugen. Bestimmt auch, bei wie vielen Ausgangspunkten der DJ zu verwandten Künstlern abschweift. | 0,4 | 0–1 |
 | Ausgangspunkte pro Lauf (`seedsPerRun`) | 20 | 1–200 |
 | Last.fm-Top-Songs der letzten 3 Monate zusätzlich als Ausgangspunkte (`useLastfmTopTracks`) | an | `true` oder `false` |
+| Gefolgte Künstler (`followedArtists`): Künstler, denen du auf Spotify folgst. -1 = keine davon (wie die Sperrliste, auch als Gast über „feat.“), unter 0 = seltener, 0 = egal (die Liste wird gar nicht abgefragt), über 0 = öfter, 1 = stark bevorzugt, aber nicht ausschließlich. Gilt für neue Songs und Favoriten, nicht für die Ausgangspunkte. | 0 (egal) | -1–1 |
+
+So wirkt *Gefolgte Künstler*: Ein Song eines Künstlers, dem du folgst, bekommt bei der Auslosung einen Faktor von 10 hoch Einstellung, also 0,5 = 3,2× so großes Los, 1 = 10× so großes Los, -0,5 = ⅓ so großes Los; bei -1 fallen solche Songs ganz weg. Der Faktor wird mit den übrigen Gewichten (Abenteuer, Faktor für aktuelles Hören) multipliziert, und die Grenzen pro Künstler gelten weiter, deshalb besteht die Playlist nie nur aus gefolgten Künstlern. Namen werden wie überall verglichen (Groß-/Kleinschreibung, Akzente und ein „The“ am Anfang sind egal), es zählen aber nur ganze Namen: Wer „Queen“ folgt, bekommt nicht „Queen Latifah“. Hast du dich bei Spotify angemeldet, bevor es diese Einstellung gab, melde dich einmal neu an (die Oberfläche zeigt dazu einen Hinweis). Bis dahin zeigt ein Lauf eine Warnung und macht weiter, als stünde die Einstellung auf 0.
 
 **Was du gerade hörst, zählt mehr**
 
@@ -188,6 +191,19 @@ In der Ausgabe sind solche Songs mit „· aktuell“ markiert (auf Englisch „
 | Songs, die auf Spotify nicht eindeutig gefunden werden (Titel und Interpret müssen passen). Zusätze wie „Remastered“ oder „feat.“ werden beim Vergleich ignoriert. | immer | |
 
 **Wie oft derselbe Künstler vorkommt**
+
+In der Oberfläche setzt ein einziger Regler **Abwechslung bei Künstlern** die vier Regeln darunter zusammen. *Mittel* ist der Standard, wer ihn nie anfasst, merkt also keinen Unterschied:
+
+| Stufe | Songs pro Interpret | Derselbe Künstler in aufeinanderfolgenden Songs | Abstand gleicher Interpret |
+|---|---|---|---|
+| wenig | höchstens 4 | höchstens 4 aus 15 | mind. 2 Songs |
+| mittel (Standard) | höchstens 2 | höchstens 3 aus 20 | mind. 4 Songs |
+| viel (= Voreinstellung *Entdecken*) | höchstens 2 | höchstens 2 aus 20 | mind. 4 Songs |
+| sehr viel | 1 | höchstens 2 aus 20 | mind. 8 Songs |
+
+Jede Stufe klappt mit 50 Songs und einer üblichen Bibliothek. Hat die Quelle deiner Favoriten nur wenige Künstler, findet „sehr viel“ eventuell weniger Songs oder verletzt eine Regel; dann zeigt der DJ eine Warnung (⚠). Passen deine vier Werte zu keiner Stufe (z. B. von Hand in `config.jsonc` geändert), zeigt der Regler *Eigene Einstellung*. Ziehst du ihn, werden alle vier überschrieben; *Verwerfen* holt die gespeicherten zurück.
+
+**Für Fortgeschrittene:** die vier Einzelwerte. In der Oberfläche stehen sie unter *Details für Fortgeschrittene*, in `config.jsonc` bleiben sie, wie sie sind.
 
 | Regel | Standard | Erlaubt |
 |---|---|---|
@@ -223,15 +239,16 @@ Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-e
   - *Meine aktuelle Phase*: richtet sich stark nach dem, was du gerade hörst
   - *Standard*: die Grundeinstellungen
 
-  Name, Quelle, Anzahl Songs und Sperrliste bleiben dabei, wie sie sind. Passt deine Einstellung genau zu einer Voreinstellung, ist diese markiert.
+  Name, Quelle, Anzahl Songs, gefolgte Künstler und Sperrliste bleiben dabei, wie sie sind. Passt deine Einstellung genau zu einer Voreinstellung, ist diese markiert.
 - **Regler**: Jede Einstellung hat einen Regler, eine Erklärung und einen grünen Hinweis, was der Wert gerade bewirkt. Weicht ein Wert vom Standard ab, bringt „Standard: …“ ihn per Klick zurück. Einen Wert aus `config.jsonc` außerhalb des erlaubten Bereichs markiert die Oberfläche rot ([Regeln und Einstellungen](#5-regeln-und-einstellungen)).
+- **Abwechslung bei Künstlern**: Ein Regler mit vier Stufen (*wenig* bis *sehr viel*) setzt alle vier Künstler-Regeln auf einmal. Die Einzelwerte stehen unter *Details für Fortgeschrittene*; passen sie zu keiner Stufe, zeigt der Regler *Eigene Einstellung*, und die Details sind aufgeklappt.
 - **Quelle deiner Favoriten**: Auswahlliste mit deinen Lieblingssongs und deinen Playlists. Zur Auswahl stehen nur Playlists, die dir gehören oder bei denen du mitarbeitest, weil Spotify nur deren Inhalt herausgibt.
 - **Sperrliste**: Künstlernamen eintragen und auf *Hinzufügen* klicken. Mit × wieder entfernen.
 - **Speichern / Verwerfen**: Änderungen werden erst mit *Speichern* in `config.jsonc` geschrieben.
 - **Probelauf**: Zeigt die Auswahl an, ohne die Playlist zu ändern.
 - **Playlist neu erstellen**: Befüllt „Tweakable DJ“ neu und zeigt danach einen Link zu Spotify.
 - **Zugangsdaten ändern** (oben rechts): Öffnet den Einrichtungs-Assistenten mit deinen bisherigen Angaben.
-- **Mit Spotify anmelden**: Erscheint, wenn die Spotify-Anmeldung bald abläuft oder abgelaufen ist. Spotify verlangt alle 6 Monate eine neue Anmeldung.
+- **Mit Spotify anmelden**: Erscheint, wenn die Spotify-Anmeldung bald abläuft oder abgelaufen ist. Spotify verlangt alle 6 Monate eine neue Anmeldung. Außerdem, wenn *Gefolgte Künstler* nicht auf „egal“ steht und deine Anmeldung älter ist als diese Einstellung.
 - **Automatisch neu erstellen**: *Aus*, *Täglich* oder *Wöchentlich*, dazu Uhrzeit und gegebenenfalls Wochentag. Beim *Speichern* trägt sich Tweakable DJ in den Zeitplaner deines Systems ein und erstellt die Playlist dann von selbst neu, auch wenn die Oberfläche geschlossen ist. Darunter stehen der nächste Lauf und das Ergebnis des letzten automatischen Laufs (✓ mit Anzahl Songs oder ✗ mit Grund). Was passiert, wenn der Rechner zur eingestellten Zeit aus ist:
   - Windows: Der Lauf wird beim nächsten Einschalten nachgeholt.
   - Mac: Der Lauf wird nach dem Aufwachen aus dem Ruhezustand nachgeholt, nach dem Ausschalten nicht.
@@ -371,6 +388,7 @@ Es gibt immer nur einen Eintrag: Er hat stets denselben Namen, egal aus welchem 
 |---|---|
 | „Spotify-Anmeldung abgelaufen“ | Spotify verlangt alle 6 Monate eine neue Anmeldung: in der Oberfläche auf *Mit Spotify anmelden* klicken (oder `node dj.mjs login`). Die Oberfläche erinnert etwa 10 Tage vorher daran. |
 | „Noch nicht bei Spotify angemeldet“ | `tokens.json` fehlt: in der Oberfläche auf *Mit Spotify anmelden* klicken (oder `node dj.mjs login`) |
+| ⚠ „Für "Gefolgte Künstler" bitte einmal neu bei Spotify anmelden“ | Deine Spotify-Anmeldung stammt aus der Zeit vor dieser Einstellung und darf die Künstler, denen du folgst, nicht lesen. In der Oberfläche auf *Mit Spotify anmelden* klicken (oder `node dj.mjs login`). Bis dahin zählen gefolgte Künstler nicht, der Lauf selbst klappt wie gewohnt. |
 | „Spotify verweigert den Zugriff (403)“ | Der Besitzer der Spotify-App braucht Premium (Pflicht im Entwicklermodus). Nutzt jemand anderes deine App, muss sein Konto im [Spotify-Dashboard](https://developer.spotify.com/dashboard) unter *User Management* eingetragen sein. |
 | Spotify-Seite zeigt „INVALID_CLIENT: Invalid client“ | Die Client ID stimmt nicht: über *Zugangsdaten ändern* neu aus dem Dashboard kopieren |
 | Spotify-Seite zeigt „INVALID_CLIENT: Invalid redirect URI“ | Im Dashboard unter *Settings* muss als Redirect URI genau `http://127.0.0.1:8888/callback` stehen (mit *Add* hinzufügen und speichern) |
@@ -388,8 +406,8 @@ Es gibt immer nur einen Eintrag: Er hat stets denselben Namen, egal aus welchem 
 | „Node.js ist zu alt“ oder „Tweakable DJ braucht Node.js 18 oder neuer“ | Die neueste Version von <https://nodejs.org> installieren |
 | Mac: „… kann nicht geöffnet werden, da es von einem nicht verifizierten Entwickler stammt“ | Beim ersten Mal mit Rechtsklick → *Öffnen* starten ([Einrichtung](#7-einrichtung-einmalig), Schritt 3) |
 | Mac/Linux: „keine Berechtigung“, „Permission denied“ oder „Zugriffsrechte fehlen“ | Einmal `chmod +x "Tweakable DJ.command" start.sh` im Ordner `tweakable-dj` ausführen ([Einrichtung](#7-einrichtung-einmalig), Schritt 3) |
-| Warnung ⚠ „Regel … ließ sich nicht überall einhalten“ | Die Regeln sind zu streng für die gefundenen Songs, z. B. „1 aus 20“ bei 50 Songs. Eine Regel lockern. |
-| Viele Songs über denselben Künstler | Last.fm liefert zu manchen Künstlern und Genres viel mehr ähnliche Songs als zu anderen. „Songs pro Künstler im Fenster“ verringern. |
+| Warnung ⚠ „Regel … ließ sich nicht überall einhalten“ | Die Regeln sind zu streng für die gefundenen Songs, z. B. „1 aus 20“ bei 50 Songs. *Abwechslung bei Künstlern* eine Stufe niedriger stellen oder unter *Details für Fortgeschrittene* eine Regel lockern. |
+| Viele Songs über denselben Künstler | Last.fm liefert zu manchen Künstlern und Genres viel mehr ähnliche Songs als zu anderen. *Abwechslung bei Künstlern* höher stellen oder unter *Details für Fortgeschrittene* „Songs pro Künstler im Fenster“ verringern. |
 | Aktuelles Hören wird kaum berücksichtigt | Prüfen, ob Last.fm dein Hören erfasst (last.fm → dein Profil). Faktor erhöhen. |
 | Ein bestimmter Song wird nie gefunden | Findet Spotify einen Song nicht, merkt sich der DJ das in `state.json` (Suchfehler, z. B. ohne Internet, werden nicht gemerkt). `state.json` löschen, dann wird neu gesucht. |
 | Ähnliche Songs sollen frisch von Last.fm kommen | `lastfm-cache.json` löschen. Sonst nutzt der DJ Antworten von Last.fm bis zu 7 Tage lang weiter. |

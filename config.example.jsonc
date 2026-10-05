@@ -15,12 +15,14 @@
   "adventure": 0.4,                   // 0–1: 0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant ones; also the chance of detours to related artists
   "seedsPerRun": 20,                  // Number of starting points drawn per run, for which Last.fm finds similar songs (1–200)
   "useLastfmTopTracks": true,         // Also use your Last.fm top songs of the last 3 months as starting points
+  "followedArtists": 0,               // Artists you follow on Spotify (-1–1): -1 = none of them, 0 = no preference (the list isn't even fetched), 1 = strongly preferred; applies to new songs and favorites
 
   // --- What you're listening to right now ---
   "currentDays": 7,                   // "Current" = played within this many days (according to Last.fm; 0–365, 0 = off)
   "currentFactor": 3,                 // How much more current listening counts: for starting points, in the draw and for favorites (1–100, 1 = off)
 
   // --- Variety ---
+  // In the interface, the slider "Artist variety" sets these four together (low, medium, high, very high; medium = the defaults here).
   "maxPerArtist": 2,                  // At most this many songs per artist in the whole playlist (1–500)
   "artistWindow": 20,                 // Window size for the rule below (1–100): any this many consecutive songs …
   "maxPerWindow": 3,                  // … contain at most this many songs related to the same artist (by them or found via them; 1–100)

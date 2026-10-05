@@ -11,7 +11,7 @@ import { norm, windowViolations } from '../lineup.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MOCK = pathToFileURL(path.join(ROOT, 'tests', 'mock-apis.mjs')).href;
-const RESULT_KEYS = ['ok', 'dry', 'songs', 'fresh', 'freshCurrent', 'familiar', 'playlistName', 'playlistUrl', 'errorCode', 'error'];
+const RESULT_KEYS = ['ok', 'dry', 'songs', 'fresh', 'freshCurrent', 'familiar', 'playlistName', 'playlistUrl', 'errorCode', 'error', 'missingScope'];
 
 const CONFIG = {
   spotify: { clientId: 'test-client-id' },
@@ -442,6 +442,81 @@ test('0 = aus: excludeRecentDays und currentDays 0 sperren bzw. markieren nichts
     assert.equal(lineup.length, 20);
     assert.ok(!lineup.some(t => t.kind.endsWith(' · aktuell')), lineup.map(t => t.kind).join(' | '));
     assert.equal(result.freshCurrent, 0);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+// Gefolgte Künstler im Mock: Nordlicht, Aurora Nord, Chromwerk und "THE STADTKIND" (= Stadtkind über norm()).
+const FOLLOWED = new Set(['nordlicht', 'aurora nord', 'chromwerk', 'stadtkind']);
+const followedIn = lineup => lineup.filter(t => FOLLOWED.has(norm(t.artist))).length;
+const followingRequests = requests => requests.filter(r => r.path?.startsWith('/v1/me/following'));
+
+test('Gefolgte Künstler: 0 = Liste nicht abfragen, −1 = keine, +1 = stark bevorzugt; Cursor-Paging', () => {
+  const dir = setup();
+  const runWith = (followedArtists, env) => {
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, followedArtists }));
+    fs.rmSync(path.join(dir, 'state.json'), { force: true }); // sonst sperren die vorigen Läufe Songs
+    return run(dir, env);
+  };
+  try {
+    // 0 (Standard): keine Abfrage, keine Zeile
+    const neutral = runWith(0);
+    assert.equal(neutral.code, 0, neutral.all);
+    assert.deepEqual(followingRequests(neutral.requests), []);
+    assert.doesNotMatch(neutral.all, /gefolgt/);
+    assert.equal(neutral.result.missingScope, null);
+
+    // −1: harter Filter wie die Sperrliste (auch "THE STADTKIND" = Stadtkind), zwei Seiten über "next"
+    const none = runWith(-1);
+    assert.equal(none.code, 0, none.all);
+    assert.match(none.out, /^ {2}4 gefolgte Künstler$/m);
+    assert.match(none.out, /^ {2}\d+ Songs von gefolgten Künstlern ausgelassen$/m);
+    const pages = followingRequests(none.requests).map(r => r.path);
+    assert.equal(pages.length, 2, pages.join(' '));
+    assert.ok(pages[0].includes('type=artist') && pages[0].includes('limit=50') && pages[1].includes('after='), pages.join(' '));
+    const lineup = parseLineup(none.out);
+    assert.ok(lineup.length >= 10, `nur ${lineup.length} Songs`);
+    assert.equal(followedIn(lineup), 0, lineup.map(t => t.artist).join(', '));
+    assert.ok(lineup.some(t => t.kind.startsWith('Favorit')), 'Favoriten nicht gefolgter Künstler bleiben');
+
+    // +1: deutlich bevorzugt, aber nicht ausschließlich
+    const strong = runWith(1, { TWEAKABLE_DJ_LANG: 'en' });
+    assert.equal(strong.code, 0, strong.all);
+    assert.match(strong.out, /^ {2}4 followed artists$/m);
+    assert.doesNotMatch(strong.out, /by followed artists left out/);
+    const preferred = parseLineup(strong.out);
+    assert.equal(preferred.length, 20);
+    assert.ok(followedIn(preferred) >= 5, `nur ${followedIn(preferred)} von gefolgten Künstlern`);
+    assert.ok(followedIn(preferred) < preferred.length, 'nicht nur gefolgte Künstler');
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('Gefolgte Künstler ohne Berechtigung (ältere Anmeldung): Warnung, Lauf geht weiter wie mit 0, missingScope', () => {
+  const dir = setup({ followedArtists: 1 });
+  try {
+    const de = run(dir, { MOCK_NO_FOLLOW_SCOPE: '1' });
+    assert.equal(de.code, 0, de.all);
+    assert.match(de.all, /^ {2}⚠ Für "Gefolgte Künstler" bitte einmal neu bei Spotify anmelden/m);
+    assert.doesNotMatch(de.all, /Fehler:/);
+    assert.equal(followingRequests(de.requests).length, 1);
+    assert.deepEqual([de.result.ok, de.result.songs, de.result.missingScope], [true, 20, 'user-follow-read']);
+    assert.match(de.out, /^Test-DJ: 20 Songs \(/m);
+    // Das erneuerte Token merkt sich die erteilten Berechtigungen (ohne user-follow-read)
+    const tokens = JSON.parse(fs.readFileSync(path.join(dir, 'tokens.json'), 'utf8'));
+    assert.ok(tokens.scope.includes('user-library-read') && !tokens.scope.includes('user-follow-read'), tokens.scope);
+
+    const en = run(dir, { MOCK_NO_FOLLOW_SCOPE: '1', TWEAKABLE_DJ_LANG: 'en' }, ['--auto']);
+    assert.equal(en.code, 0, en.all);
+    assert.match(en.all, /^ {2}⚠ For "Followed artists", please log in to Spotify again once/m);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'automatik.json'), 'utf8')).missingScope, 'user-follow-read');
+
+    // Mit Berechtigung: kein Hinweis
+    const ok = run(dir);
+    assert.equal(ok.result.missingScope, null);
+    assert.doesNotMatch(ok.all, /neu bei Spotify anmelden/);
   } finally {
     cleanup(dir);
   }

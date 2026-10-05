@@ -30,6 +30,29 @@ export function artistBlocker(names) {
   };
 }
 
+// Einzelne Namen aus einem Künstler-Text, dazu der ganze Text: "A feat. B", "A (feat. B)", "A / B", "A, B & C", "A x B".
+// "Malcolm X" bleibt ganz (x nur mit Leerzeichen auf beiden Seiten).
+const NAME_SEPARATORS = /\s*(?:[/,;&+×()[\]]|\s(?:x|feat\.?|ft\.?|featuring)(?=\s))\s*/i;
+export function artistNames(artist) {
+  const text = String(artist ?? '').trim();
+  const parts = text.split(NAME_SEPARATORS).map(p => p.replace(/^(feat\.?|ft\.?|featuring)\s+/i, '').trim());
+  return [...new Set([text, ...parts])].filter(Boolean);
+}
+
+// Gefolgte Künstler: liefert eine Prüffunktion artists => true, wenn einer davon gefolgt ist (artists = Text oder Liste,
+// z. B. alle Beteiligten eines Spotify-Songs). Vergleich über norm(), aber nur ganze Namen: Wer "Queen" folgt,
+// trifft "Queen" und "A feat. Queen", nicht aber "Queen Latifah".
+export function followedMatcher(names) {
+  const followed = new Set([].concat(names ?? []).map(norm).filter(Boolean));
+  return artists => followed.size > 0 && [].concat(artists ?? []).some(a => artistNames(a).some(n => followed.has(norm(n))));
+}
+
+// Faktor für das Los von Songs gefolgter Künstler (Einstellung followedArtists von −1 bis +1):
+// −1 = 0 (gar nicht, harter Filter), 0 = 1 (egal), +1 = FOLLOWED_MAX-fach; dazwischen exponentiell,
+// also symmetrisch: −0,5 ≈ ⅓ so oft, +0,5 ≈ 3,2× so oft. Wird wie currentFactor mit dem übrigen Gewicht multipliziert.
+export const FOLLOWED_MAX = 10;
+export const followedFactor = setting => (setting <= -1 ? 0 : FOLLOWED_MAX ** setting);
+
 export function shuffle(items, rng = Math.random) {
   const a = [...items];
   for (let i = a.length - 1; i > 0; i--) {

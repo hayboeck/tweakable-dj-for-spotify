@@ -13,8 +13,10 @@ import { HERE, configLanguage, loadConfig } from './config.mjs';
 import { locale, resolveLang, t } from './i18n.mjs';
 import { createLastfm } from './lastfm.mjs';
 import { recordAutoRun } from './schedule.mjs';
-import { createSpotify, login, REDIRECT_URI } from './spotify.mjs';
-import { arrange, artistBlocker, candidateWeight, norm, shuffle, trackKey, weightedOrder, windowViolations } from './lineup.mjs';
+import { createSpotify, FOLLOW_SCOPE, isScopeError, login, REDIRECT_URI } from './spotify.mjs';
+import {
+  arrange, artistBlocker, candidateWeight, followedFactor, followedMatcher, norm, shuffle, trackKey, weightedOrder, windowViolations,
+} from './lineup.mjs';
 
 const lang = resolveLang(process.env.TWEAKABLE_DJ_LANG, configLanguage());
 const dry = process.argv.includes('--dry');
@@ -29,7 +31,8 @@ const LASTFM_CACHE = path.join(HERE, 'lastfm-cache.json');
 const readJson = (file, fallback) => (fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : fallback);
 
 // Ergebnis des Laufs: wird in main() nach und nach gefüllt.
-const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, playlistName: null, playlistUrl: null, summary: null };
+// missingScope: Berechtigung, die der Spotify-Anmeldung fehlte (z. B. 'user-follow-read'), sonst null.
+const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, playlistName: null, playlistUrl: null, missingScope: null, summary: null };
 
 // Fehlerart für die Oberfläche: login_expired, not_logged_in, forbidden, lastfm_key, setup_incomplete, node_version, other.
 const errorCodeOf = e => e.errorCode ?? (e.status === 403 ? 'forbidden' : 'other');
@@ -40,6 +43,7 @@ function report(values) {
   const out = {
     ok: r.ok, dry: r.dry, songs: r.songs, fresh: r.fresh, freshCurrent: r.freshCurrent, familiar: r.familiar,
     playlistName: r.playlistName, playlistUrl: r.playlistUrl, errorCode: r.errorCode ?? null, error: r.error ?? null,
+    missingScope: r.missingScope ?? null,
   };
   auto?.finish({ ...out, summary: summary ?? null });
   if (!process.stdout.isTTY) process.stdout.write(`@@RESULT ${JSON.stringify(out)}\n`);
@@ -98,6 +102,36 @@ async function main() {
   const favorites = seeds.filter(allowed);
   console.log(t(lang, 'run.songs', { count: seeds.length }));
 
+  // Gefolgte Künstler (followedArtists): 0 = egal, dann wird die Liste gar nicht abgefragt. Fehlt der Anmeldung die
+  // Berechtigung (ältere Anmeldungen) oder klappt die Abfrage nicht, geht der Lauf weiter wie mit 0.
+  let followedNames = [];
+  if (cfg.followedArtists !== 0) {
+    try {
+      followedNames = await spotify.followedArtists();
+      console.log(t(lang, 'run.followed', { count: followedNames.length }));
+    } catch (e) {
+      if (isScopeError(e)) {
+        warn(t(lang, 'run.followedScope'));
+        result.missingScope = FOLLOW_SCOPE;
+      } else {
+        warn(t(lang, 'run.followedFailed', { message: e.message }));
+      }
+    }
+  }
+  // Faktor für das Los (lineup.mjs): 0 = Songs gefolgter Künstler ganz weglassen (Haupt- und Gastkünstler).
+  const followedWeight = followedFactor(followedNames.length ? cfg.followedArtists : 0);
+  const isFollowed = followedMatcher(followedNames);
+  const byFollowed = track => isFollowed(track.artists?.length ? track.artists : [track.artist]);
+  const followedOut = new Set();
+  const notFollowedOut = track => {
+    if (followedWeight > 0 || !byFollowed(track)) return true;
+    followedOut.add(trackKey(track.artist, track.name));
+    return false;
+  };
+  const followWeight = track => (byFollowed(track) ? followedWeight : 1);
+  // Favoriten für die Playlist (die Ausgangspunkte bleiben davon unberührt).
+  const favoritePool = favorites.filter(notFollowedOut);
+
   // Nicht wiederholen: kürzlich gehört (Last.fm) + in den letzten Läufen schon drin gewesen.
   const lastRuns = history => (cfg.noRepeatRuns > 0 ? history.slice(-cfg.noRepeatRuns) : []);
   const blocked = new Set(lastRuns(state.history).flat());
@@ -143,14 +177,14 @@ async function main() {
   const addCandidate = (track, match, via) => {
     if (!track.artist || !track.name || !allowed(track)) return;
     const key = trackKey(track.artist, track.name);
-    if (seedKeys.has(key) || blocked.has(key)) return;
+    if (seedKeys.has(key) || blocked.has(key) || !notFollowedOut(track)) return;
     const existing = candidates.get(key);
     if (existing) {
       // Von mehreren Favoriten aus gefunden = wahrscheinlich ein guter Treffer.
       existing.match = Math.min(1, Math.max(existing.match, match) + 0.1);
       existing.viaCurrent ||= isCurrent(via);
     } else {
-      candidates.set(key, { key, artist: track.artist, name: track.name, match, via: via.artist, viaCurrent: isCurrent(via) });
+      candidates.set(key, { key, artist: track.artist, name: track.name, match, via: via.artist, viaCurrent: isCurrent(via), weight: followWeight(track) });
     }
   };
 
@@ -182,6 +216,7 @@ async function main() {
   const { hits, total } = lastfm.cacheStats();
   console.log(t(lang, 'run.candidates', { count: candidates.size, hits, total }));
   if (blockedOut.size) console.log(t(lang, 'run.blocked', { count: blockedOut.size }));
+  if (followedOut.size) console.log(t(lang, 'run.followedOut', { count: followedOut.size }));
 
   // Tags = Interpret + Künstler, über den ein neuer Song gefunden wurde. Beide zählen für die Fensterregel.
   const tagsOf = (artist, via) => [...new Set([norm(artist), ...(via ? [norm(via)] : [])])];
@@ -204,7 +239,7 @@ async function main() {
 
   const familiar = [];
   const familiarTarget = Math.round(cfg.size * cfg.familiarShare);
-  for (const track of weightedOrder(favorites, seedWeight).map(asFavorite)) {
+  for (const track of weightedOrder(favoritePool, f => seedWeight(f) * followWeight(f)).map(asFavorite)) {
     if (familiar.length >= familiarTarget) break;
     if (!blocked.has(trackKey(track.artist, track.name)) && fits(track)) take(familiar, track);
   }
@@ -213,7 +248,7 @@ async function main() {
   const fresh = [];
   const ordered = weightedOrder(
     [...candidates.values()],
-    c => candidateWeight(c.match, cfg.adventure) * (c.viaCurrent ? cfg.currentFactor : 1),
+    c => candidateWeight(c.match, cfg.adventure) * (c.viaCurrent ? cfg.currentFactor : 1) * c.weight,
   );
   for (const c of ordered) {
     if (familiar.length + fresh.length >= cfg.size) break;
@@ -234,7 +269,7 @@ async function main() {
   }
 
   // Zu wenig gefunden? Mit weiteren Favoriten auffüllen (dann auch kürzlich gehörte).
-  for (const track of shuffle(favorites).map(asFavorite)) {
+  for (const track of shuffle(favoritePool).map(asFavorite)) {
     if (familiar.length + fresh.length >= cfg.size) break;
     if (fits(track)) take(familiar, track);
   }

@@ -1,7 +1,11 @@
 // Unit-Tests für die Auswahl- und Sortierregeln (lineup.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { arrange, artistBlocker, candidateWeight, norm, sameTrack, trackKey, weightedOrder, windowViolations } from '../lineup.mjs';
+import {
+  arrange, artistBlocker, artistNames, candidateWeight, followedFactor, followedMatcher, FOLLOWED_MAX, norm, sameTrack, trackKey, weightedOrder,
+  windowViolations,
+} from '../lineup.mjs';
+import { VARIETY_LEVELS } from '../config.mjs';
 
 // Reproduzierbarer Zufall (mulberry32), damit die Tests nicht flattern.
 function seeded(seed) {
@@ -154,4 +158,99 @@ test('artistBlocker: ganze Wörter, auch bei mehreren Künstlern', () => {
 test('artistBlocker: leere Sperrliste sperrt nichts', () => {
   assert.equal(artistBlocker([])('Macloud'), false);
   assert.equal(artistBlocker(['', '  '])('Macloud'), false);
+});
+
+test('artistNames: einzelne Namen aus "feat.", "/", ",", "&", "x" – und der ganze Text', () => {
+  assert.deepEqual(artistNames('A feat. B'), ['A feat. B', 'A', 'B']);
+  assert.deepEqual(artistNames('A (feat. B)'), ['A (feat. B)', 'A', 'B']);
+  assert.deepEqual(artistNames('Miksu / Macloud'), ['Miksu / Macloud', 'Miksu', 'Macloud']);
+  assert.deepEqual(artistNames('A, B & C'), ['A, B & C', 'A', 'B', 'C']);
+  assert.deepEqual(artistNames('A x B'), ['A x B', 'A', 'B']);
+  assert.deepEqual(artistNames('A ft. B'), ['A ft. B', 'A', 'B']);
+  assert.deepEqual(artistNames('Malcolm X'), ['Malcolm X']);
+  assert.deepEqual(artistNames('X Ambassadors'), ['X Ambassadors']);
+  assert.deepEqual(artistNames(''), []);
+  assert.deepEqual(artistNames(undefined), []);
+});
+
+test('followedMatcher: Vergleich über norm(), nur ganze Namen, Haupt- und Gastkünstler', () => {
+  const followed = followedMatcher(['Queen', 'THE Stadtkind', 'Beyoncé', 'Simon & Garfunkel']);
+  for (const artists of ['Queen', 'queen', 'A feat. Queen', 'Miksu / Queen', ['Miksu', 'Queen'], 'Stadtkind', 'The Stadtkind', 'Beyonce',
+    'Simon & Garfunkel']) {
+    assert.equal(followed(artists), true, String(artists));
+  }
+  for (const artists of ['Queen Latifah', 'Queens', 'Karin', 'Simon', ['Miksu', 'Macloud'], '', undefined, []]) {
+    assert.equal(followed(artists), false, String(artists));
+  }
+  assert.equal(followedMatcher([])('Queen'), false, 'leere Liste');
+  assert.equal(followedMatcher(['', '  '])('Queen'), false);
+});
+
+test('followedFactor: −1 = gar nicht, 0 = egal, +1 = FOLLOWED_MAX-fach, dazwischen exponentiell und symmetrisch', () => {
+  assert.equal(FOLLOWED_MAX, 10);
+  assert.equal(followedFactor(-1), 0);
+  assert.equal(followedFactor(0), 1);
+  assert.equal(followedFactor(1), 10);
+  assert.ok(Math.abs(followedFactor(0.5) - Math.sqrt(10)) < 1e-12);
+  assert.ok(Math.abs(followedFactor(-0.5) * followedFactor(0.5) - 1) < 1e-12, 'weniger und mehr spiegelbildlich');
+  // Streng steigend, und kurz vor −1 schon fast 0 (stetiger Übergang zum Filter)
+  const steps = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1].map(followedFactor);
+  steps.slice(1).forEach((f, i) => assert.ok(f > steps[i], `Stufe ${i + 1}`));
+  assert.ok(followedFactor(-0.99) < 0.11);
+});
+
+test('Gefolgte Künstler bei der Auslosung: mehr bzw. weniger oft, bei +1 aber nicht ausschließlich', () => {
+  // 100 Kandidaten, 20 davon von gefolgten Künstlern; gezogen werden 20 (wie candidateWeight × Faktor in dj.mjs).
+  const isFollowed = followedMatcher(Array.from({ length: 20 }, (_, i) => `Gefolgt ${i}`));
+  const pool = Array.from({ length: 100 }, (_, i) => ({ artist: i < 20 ? `Gefolgt ${i}` : `Andere ${i}`, match: (i % 10) / 10 }));
+  const share = setting => {
+    const rng = seeded(42);
+    let hits = 0;
+    for (let round = 0; round < 200; round++) {
+      const drawn = weightedOrder(pool, c => candidateWeight(c.match, 0.4) * (isFollowed(c.artist) ? followedFactor(setting) : 1), rng).slice(0, 20);
+      hits += drawn.filter(c => isFollowed(c.artist)).length;
+    }
+    return hits / (200 * 20);
+  };
+  const shares = [-0.5, 0, 0.5, 1].map(share);
+  assert.ok(Math.abs(shares[1] - 0.2) < 0.03, `egal: ${shares[1]}`);
+  shares.slice(1).forEach((s, i) => assert.ok(s > shares[i] + 0.05, `${shares}`));
+  assert.ok(shares[3] > 0.55 && shares[3] < 0.95, `stark bevorzugt, aber nicht nur: ${shares[3]}`);
+});
+
+test('Abwechslung bei Künstlern: jede Stufe ist mit 50 Songs erfüllbar (Auswahl wie in dj.mjs, Reihenfolge mit arrange)', () => {
+  // Typische Bibliothek: 400 Lieblingssongs von 120 Künstlern (wenige mit vielen Songs), 20 Ausgangspunkte mit je 30 ähnlichen
+  // Songs aus 15 verwandten Künstlern. Auswahl wie in dj.mjs: maxPerArtist pro Interpret, je Tag höchstens
+  // ceil(size × maxPerWindow / artistWindow), 15 % Favoriten, dann neue Songs, dann mit Favoriten auffüllen.
+  const size = 50;
+  for (const { id, values: v } of VARIETY_LEVELS) {
+    for (let seed = 1; seed <= 3; seed++) {
+      const rng = seeded(seed);
+      const artistOf = () => `Fav ${Math.floor(120 * rng() ** 2)}`;
+      const favorites = Array.from({ length: 400 }, (_, i) => ({ artist: artistOf(), name: `Lied ${i}` }));
+      const related = new Map();
+      const candidates = weightedOrder(favorites, () => 1, rng).slice(0, 20).flatMap(seedTrack => {
+        if (!related.has(seedTrack.artist)) related.set(seedTrack.artist, Array.from({ length: 15 }, () => `Neu ${Math.floor(rng() * 400)}`));
+        return Array.from({ length: 30 }, (_, j) => ({ artist: related.get(seedTrack.artist)[Math.floor(rng() * 15)], name: `${seedTrack.name} ${j}`, via: seedTrack.artist }));
+      });
+      const tagLimit = Math.ceil((size * v.maxPerWindow) / v.artistWindow);
+      const perArtist = new Map();
+      const perTag = new Map();
+      const out = [];
+      const add = (t, tags) => {
+        const a = norm(t.artist);
+        if (out.length >= size || (perArtist.get(a) ?? 0) >= v.maxPerArtist || tags.some(g => (perTag.get(g) ?? 0) >= tagLimit)) return;
+        perArtist.set(a, (perArtist.get(a) ?? 0) + 1);
+        tags.forEach(g => perTag.set(g, (perTag.get(g) ?? 0) + 1));
+        out.push({ ...t, tags });
+      };
+      for (const f of weightedOrder(favorites, () => 1, rng)) if (out.length < Math.round(size * 0.15)) add(f, [norm(f.artist)]);
+      for (const c of weightedOrder(candidates, () => 1, rng)) add(c, [...new Set([norm(c.artist), norm(c.via)])]);
+      for (const f of weightedOrder(favorites, () => 1, rng)) add(f, [norm(f.artist)]);
+      const lineup = arrange(out, { gap: v.artistGap, window: v.artistWindow, maxPerWindow: v.maxPerWindow }, rng);
+      assert.equal(lineup.length, size, `${id}, Seed ${seed}: zu wenige Songs`);
+      assert.equal(windowViolations(lineup, v.artistWindow, v.maxPerWindow), 0, `${id}, Seed ${seed}: Fensterregel`);
+      assert.equal(gapViolations(lineup, v.artistGap), 0, `${id}, Seed ${seed}: Mindestabstand`);
+    }
+  }
 });

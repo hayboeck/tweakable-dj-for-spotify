@@ -12,12 +12,12 @@ import http from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import {
-  CONFIG, DEFAULTS, HERE, LIMITS, checkValues, configLanguage, isPlaceholder, missingCredentials, numberProblems, readConfig, saveCredentials,
+  CONFIG, DEFAULTS, HERE, LIMITS, VARIETY_KEYS, VARIETY_LEVELS, checkValues, configLanguage, isPlaceholder, missingCredentials, numberProblems, readConfig, saveCredentials,
   updateConfig,
 } from './config.mjs';
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
-import { createSpotify, login, openBrowser, REDIRECT_URI } from './spotify.mjs';
+import { createSpotify, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
 import { autoRunMessage, installBlocker, installUpdate } from './install-update.mjs';
 import { checkForUpdate, currentVersion } from './update.mjs';
 
@@ -85,6 +85,9 @@ function setupStatus(cfg) {
   const missing = missingCredentials(cfg);
   const loggedIn = Boolean(tokens?.refresh_token);
   const authorizedAt = Number(tokens?.authorized_at) || null;
+  // Fehlende Berechtigungen (z. B. user-follow-read bei älteren Anmeldungen); null = unbekannt, weil tokens.json
+  // aus einer älteren Version noch keine scope enthält – die kommt beim nächsten Erneuern des Tokens dazu.
+  const granted = typeof tokens?.scope === 'string' ? tokens.scope.split(/\s+/) : null;
   const clean = v => (typeof v === 'string' && !isPlaceholder(v) ? v : '');
   return {
     needsSetup: !configExists || missing.length > 0 || !loggedIn,
@@ -93,6 +96,7 @@ function setupStatus(cfg) {
     loggedIn,
     authorizedAt,
     authAgeDays: authorizedAt ? Math.floor((Date.now() - authorizedAt) / DAY) : null,
+    missingScopes: loggedIn && granted ? SCOPE_LIST.filter(s => !granted.includes(s)) : null,
     redirectUri: REDIRECT_URI,
     credentials: { clientId: clean(cfg.spotify?.clientId), apiKey: clean(cfg.lastfm?.apiKey), user: clean(cfg.lastfm?.user) },
   };
@@ -218,7 +222,7 @@ function restartAfterUpdate(version) {
 // Ergebnis für die Oberfläche, falls dj.mjs ohne eigene "@@RESULT"-Zeile endet (z. B. abgestürzt).
 const fallbackResult = (lang, dry, code) => ({
   ok: false, dry, songs: null, fresh: null, freshCurrent: null, familiar: null, playlistName: null, playlistUrl: null,
-  errorCode: 'other', error: t(lang, 'ui.exited', { code }),
+  errorCode: 'other', error: t(lang, 'ui.exited', { code }), missingScope: null,
 });
 
 const server = http.createServer(async (req, res) => {
@@ -247,12 +251,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     // values.language: '' = noch nicht gewählt; systemLang = Sprache, die dann gilt (auch für automatische Läufe).
-    // limits: erlaubte Bereiche und Regler der Zahlenwerte; problems: ungültige Zahlenwerte aus der config.jsonc (Schlüssel → Meldung).
+    // limits: erlaubte Bereiche und Regler der Zahlenwerte; variety: Stufen des Reglers „Abwechslung bei Künstlern“; problems: ungültige Zahlenwerte aus der config.jsonc (Schlüssel → Meldung).
     if (route === 'GET /api/config') {
       const cfg = currentConfig(lang);
       const values = Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, cfg[k]]));
       return send(200, {
-        values, defaults: DEFAULTS, limits: LIMITS, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running),
+        values, defaults: DEFAULTS, limits: LIMITS, variety: { keys: VARIETY_KEYS, levels: VARIETY_LEVELS }, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running),
         setup: setupStatus(cfg),
       });
     }

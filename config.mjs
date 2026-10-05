@@ -31,6 +31,7 @@ export const DEFAULTS = {
   noRepeatRuns: 3,
   seedsPerRun: 20,
   useLastfmTopTracks: true,
+  followedArtists: 0,
   currentDays: 7,
   currentFactor: 3,
   blockedArtists: [],
@@ -44,7 +45,8 @@ export const DEFAULTS = {
 // und beim Lesen der config.jsonc in dj.mjs, dazu der Regler der Oberfläche (slider = üblicher Bereich, step).
 // Abgewiesen wird nur, was kaputt oder sinnlos ist; die Obergrenzen fangen Tippfehler (z. B. 5000 statt 50) ab und halten
 // die Läufe in vernünftiger Zeit. Liegt ein gespeicherter Wert außerhalb von slider, erweitert die Oberfläche den Regler.
-// 0 heißt „aus“ bei currentDays, artistGap, excludeRecentDays und noRepeatRuns; 1 heißt „aus“ bei currentFactor.
+// 0 heißt „aus“ bei currentDays, artistGap, excludeRecentDays und noRepeatRuns; 1 heißt „aus“ bei currentFactor,
+// 0 heißt „egal“ bei followedArtists (−1 = keine gefolgten Künstler, +1 = stark bevorzugt; Formel in lineup.mjs).
 export const LIMITS = {
   // 500: Spotify nimmt 100 Songs pro Anfrage (der DJ schickt sie in Teilen); der erste Lauf sucht dann einige Minuten.
   size: { min: 1, max: 500, int: true, slider: [10, 100], step: 5 },
@@ -52,6 +54,7 @@ export const LIMITS = {
   adventure: { min: 0, max: 1, slider: [0, 1], step: 0.05 },
   // 200: genug Kandidaten auch für 500 Songs; jeder Ausgangspunkt kostet 1–3 Abfragen bei Last.fm (7 Tage im Cache).
   seedsPerRun: { min: 1, max: 200, int: true, slider: [5, 50], step: 1 },
+  followedArtists: { min: -1, max: 1, slider: [-1, 1], step: 0.25 },
   // 365: ein Jahr; mehr ist nicht mehr „aktuell“, und Last.fm liefert ohnehin höchstens 1000 Scrobbles (lastfm.mjs).
   currentDays: { min: 0, max: 365, int: true, slider: [1, 30], step: 1 },
   // 100: Aktuelles gewinnt dann bei der Auslosung praktisch immer; mehr ändert nichts.
@@ -69,6 +72,21 @@ export const LIMITS = {
   // 100: state.json merkt sich je Lauf eine Liste; das sperrt bei täglichen Läufen schon gut drei Monate.
   noRepeatRuns: { min: 0, max: 100, int: true, slider: [0, 10], step: 1 },
 };
+
+// Stufen des Reglers „Abwechslung bei Künstlern“ in der Oberfläche: Jede setzt die vier Werte zusammen, in der
+// config.jsonc stehen weiterhin nur die vier Werte. 'medium' = die Standardwerte (DEFAULTS). Passen die Werte zu keiner
+// Stufe, zeigt die Oberfläche „Eigene Einstellung“. Alle Stufen sind mit 50 Songs erfüllbar (tests/lineup.test.mjs);
+// 'high' entspricht der Voreinstellung „Entdecken“.
+export const VARIETY_KEYS = ['maxPerArtist', 'artistWindow', 'maxPerWindow', 'artistGap'];
+export const VARIETY_LEVELS = [
+  { id: 'low', values: { maxPerArtist: 4, artistWindow: 15, maxPerWindow: 4, artistGap: 2 } },
+  { id: 'medium', values: { maxPerArtist: 2, artistWindow: 20, maxPerWindow: 3, artistGap: 4 } },
+  { id: 'high', values: { maxPerArtist: 2, artistWindow: 20, maxPerWindow: 2, artistGap: 4 } },
+  { id: 'veryHigh', values: { maxPerArtist: 1, artistWindow: 20, maxPerWindow: 2, artistGap: 8 } },
+];
+
+// Stufe, zu der die vier Werte genau passen ('low' … 'veryHigh'), sonst null (= eigene Einstellung).
+export const varietyLevel = cfg => VARIETY_LEVELS.find(l => VARIETY_KEYS.every(k => cfg[k] === l.values[k]))?.id ?? null;
 
 // Automatik: wie oft, um wie viel Uhr (24 h) und an welchem Wochentag (nur bei 'weekly').
 export const SCHEDULES = ['off', 'daily', 'weekly'];

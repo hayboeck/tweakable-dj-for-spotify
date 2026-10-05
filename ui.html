@@ -108,6 +108,12 @@
   .switch input:checked + span::after { transform: translateX(18px); }
   .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+  /* „Details für Fortgeschrittene“ unter einem Hauptregler (Abwechslung bei Künstlern) */
+  details.more { border-top: 1px solid var(--border); padding: 10px 0 4px; }
+  details.more > summary { cursor: pointer; font-weight: 600; color: var(--muted); font-size: 14px; }
+  details.more > summary:hover { color: var(--text); }
+  details.more[open] > summary { margin-bottom: 4px; }
+
   /* Voreinstellungen */
   .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 10px 0 8px; }
   .preset { text-align: left; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
@@ -405,14 +411,14 @@ const TEXT = {
       user: 'Last.fm-Benutzername',
       userHelp: 'Steht in der Adresse deines Profils: last.fm/user/<i>name</i>',
       check: 'Prüfen',
-      s3Text: 'Erlaube Tweakable DJ, deine Lieblingssongs und Playlists zu lesen und die Playlist zu befüllen. Die Anmeldung wird nur auf diesem PC gespeichert.',
+      s3Text: 'Erlaube Tweakable DJ, deine Lieblingssongs, Playlists und gefolgten Künstler zu lesen und die Playlist zu befüllen. Die Anmeldung wird nur auf diesem PC gespeichert.',
       next: 'Weiter',
       s4Text: 'Aus diesen Songs wählt der DJ seine Ausgangspunkte und Favoriten.',
       s4Help: 'Zur Auswahl stehen deine Lieblingssongs und Playlists, die dir gehören oder bei denen du mitarbeitest – nur deren Songs gibt Spotify heraus.',
       finish: 'Zu den Reglern',
       close: '← Zurück zu den Reglern',
       presets: 'Voreinstellungen',
-      presetsHelp: 'Setzen mehrere Regler auf einmal. Name, Quelle, Anzahl Songs und Sperrliste bleiben, wie sie sind. Gespeichert wird erst mit „Speichern“.',
+      presetsHelp: 'Setzen mehrere Regler auf einmal. Name, Quelle, Anzahl Songs, gefolgte Künstler und Sperrliste bleiben, wie sie sind. Gespeichert wird erst mit „Speichern“.',
       open: 'In Spotify öffnen ↗',
       creditLastfm: `Ähnliche Songs und Hörverlauf: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · Nutzung nur nicht kommerziell · kein offizielles Angebot von Last.fm`,
       creditSpotify: 'Kein offizielles Spotify-Produkt · Spotify ist eine Marke von Spotify AB',
@@ -426,6 +432,23 @@ const TEXT = {
       distant: x => `Entfernte Songs haben ein ${x}× größeres Los`,
       equal: 'Ähnlichkeit spielt bei der Auslosung keine Rolle',
       detours: p => `Abstecher bei ${p} der Ausgangspunkte`,
+    },
+    followed: {
+      levels: ['keine gefolgten', 'weniger', 'egal', 'mehr', 'stark bevorzugt'],
+      none: 'Songs von Künstlern, denen du folgst, kommen nicht in die Playlist (auch nicht als Gast)',
+      fewer: x => `Gefolgte Künstler haben ein ${x}× kleineres Los`,
+      more: x => `Gefolgte Künstler haben ein ${x}× größeres Los`,
+      neutral: 'Spielt keine Rolle – die Liste wird gar nicht abgefragt',
+    },
+    variety: {
+      label: 'Abwechslung bei Künstlern',
+      levels: { low: 'wenig', medium: 'mittel', high: 'viel', veryHigh: 'sehr viel' },
+      custom: 'Eigene Einstellung',
+      hint: c => `Höchstens ${plural(c.maxPerArtist, 'Song', 'Songs')} pro Interpret · höchstens ${num(c.maxPerWindow)} aus ${num(c.artistWindow)} · ${c.artistGap ? `mind. ${plural(c.artistGap, 'Song', 'Songs')} Abstand` : 'ohne Mindestabstand'}`,
+      help: 'Wie oft derselbe Künstler vorkommen darf. Jede Stufe setzt die vier Werte unter „Details“ zusammen.',
+      customHint: 'Deine Werte passen zu keiner Stufe (siehe „Details“). Ziehst du den Regler, werden alle vier überschrieben.',
+      overwritten: 'Die vier Werte unter „Details“ wurden überschrieben. „Verwerfen“ holt die gespeicherten zurück.',
+      details: 'Details für Fortgeschrittene',
     },
     groups: {
       playlist: 'Playlist',
@@ -449,6 +472,8 @@ const TEXT = {
       seedsPerRun: { label: 'Ausgangspunkte pro Lauf', fmt: v => num(v),
         help: 'Zu so vielen gezogenen Songs sucht Last.fm ähnliche. Mehr = breiterer Mix, der Lauf dauert etwas länger.' },
       useLastfmTopTracks: { label: 'Last.fm-Top-Songs einbeziehen', help: 'Deine meistgehörten Songs der letzten 3 Monate zusätzlich als Ausgangspunkte verwenden.' },
+      followedArtists: { label: 'Gefolgte Künstler', fmt: v => followedLabel(v), hint: v => followedHint(v),
+        help: 'Künstler, denen du auf Spotify folgst – bei neuen Songs und Favoriten, auch als Gast („feat.“). Ganz rechts kommen sie viel öfter, aber nicht ausschließlich.' },
       currentDays: { label: 'Zeitraum „aktuell“', fmt: v => (v ? plural(v, 'Tag', 'Tage') : 'aus'), help: 'Was du laut Last.fm in diesem Zeitraum gehört hast, zählt als aktuell.' },
       currentFactor: { label: 'Gewicht für aktuelles Hören', fmt: v => (v === 1 ? 'aus' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Aktuell Gehörtes hat ein ${num(v)}× größeres Los`),
@@ -535,6 +560,7 @@ const TEXT = {
       expired: 'Deine Spotify-Anmeldung ist abgelaufen oder fehlt. Melde dich neu an, dann klappt es wieder.',
       left: n => `Deine Spotify-Anmeldung läuft in ${plural(n, 'Tag', 'Tagen')} ab. Spotify verlangt alle 6 Monate eine neue Anmeldung.`,
       probably: 'Deine Spotify-Anmeldung ist wahrscheinlich abgelaufen. Spotify verlangt alle 6 Monate eine neue Anmeldung.',
+      scope: 'Für „Gefolgte Künstler“ bitte einmal neu bei Spotify anmelden. Deine bisherige Anmeldung erlaubt es noch nicht, die Künstler zu lesen, denen du folgst.',
     },
     setup: {
       done: 'erledigt ✓',
@@ -649,14 +675,14 @@ const TEXT = {
       user: 'Last.fm username',
       userHelp: 'It’s in the address of your profile: last.fm/user/<i>name</i>',
       check: 'Check',
-      s3Text: 'Allow Tweakable DJ to read your Liked Songs and playlists and to fill the playlist. The login is stored only on this computer.',
+      s3Text: 'Allow Tweakable DJ to read your Liked Songs, playlists and followed artists and to fill the playlist. The login is stored only on this computer.',
       next: 'Continue',
       s4Text: 'The DJ picks its starting points and favorites from these songs.',
       s4Help: 'You can choose your Liked Songs and playlists you own or collaborate on – Spotify only shares the songs of those.',
       finish: 'Go to the controls',
       close: '← Back to the controls',
       presets: 'Presets',
-      presetsHelp: 'Set several controls at once. Name, source, number of songs and block list stay as they are. Nothing is saved until you click “Save”.',
+      presetsHelp: 'Set several controls at once. Name, source, number of songs, followed artists and block list stay as they are. Nothing is saved until you click “Save”.',
       open: 'Open in Spotify ↗',
       creditLastfm: `Similar songs and listening history: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · non-commercial use only · not affiliated with Last.fm`,
       creditSpotify: 'Not an official Spotify product · Spotify is a trademark of Spotify AB',
@@ -670,6 +696,23 @@ const TEXT = {
       distant: x => `Distant songs are ${x}× as likely to be drawn`,
       equal: 'Similarity makes no difference in the draw',
       detours: p => `detours at ${p} of the starting points`,
+    },
+    followed: {
+      levels: ['none of them', 'fewer', 'no preference', 'more', 'strongly preferred'],
+      none: 'Songs by artists you follow don’t go into the playlist (not even as a guest)',
+      fewer: x => `Followed artists are ${x}× less likely to be drawn`,
+      more: x => `Followed artists are ${x}× as likely to be drawn`,
+      neutral: 'Makes no difference – the list isn’t even fetched',
+    },
+    variety: {
+      label: 'Artist variety',
+      levels: { low: 'low', medium: 'medium', high: 'high', veryHigh: 'very high' },
+      custom: 'Custom',
+      hint: c => `At most ${plural(c.maxPerArtist, 'song', 'songs')} per artist · at most ${num(c.maxPerWindow)} in ${num(c.artistWindow)} · ${c.artistGap ? `at least ${plural(c.artistGap, 'song', 'songs')} apart` : 'no minimum gap'}`,
+      help: 'How often the same artist may come up. Each step sets the four values under “Details” together.',
+      customHint: 'Your values don’t match any step (see “Details”). Moving the slider overwrites all four.',
+      overwritten: 'The four values under “Details” were overwritten. “Discard” brings back the saved ones.',
+      details: 'Details for experts',
     },
     groups: {
       playlist: 'Playlist',
@@ -693,6 +736,8 @@ const TEXT = {
       seedsPerRun: { label: 'Starting points per run', fmt: v => num(v),
         help: 'Last.fm looks for songs similar to this many drawn songs. More = a broader mix; the run takes a little longer.' },
       useLastfmTopTracks: { label: 'Include Last.fm top songs', help: 'Also use your most-played songs of the last 3 months as starting points.' },
+      followedArtists: { label: 'Followed artists', fmt: v => followedLabel(v), hint: v => followedHint(v),
+        help: 'Artists you follow on Spotify – for new songs and favorites, also as a guest (“feat.”). All the way to the right they come up much more often, but not exclusively.' },
       currentDays: { label: 'Period counted as “current”', fmt: v => (v ? plural(v, 'day', 'days') : 'off'), help: 'Whatever Last.fm says you played in this period counts as current.' },
       currentFactor: { label: 'Weight of current listening', fmt: v => (v === 1 ? 'off' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `What you’re listening to now is ${num(v)}× as likely to be drawn`),
@@ -778,6 +823,7 @@ const TEXT = {
       expired: 'Your Spotify login has expired or is missing. Log in again and it will work again.',
       left: n => `Your Spotify login expires in ${plural(n, 'day', 'days')}. Spotify requires a new login every 6 months.`,
       probably: 'Your Spotify login has probably expired. Spotify requires a new login every 6 months.',
+      scope: 'For “Followed artists”, please log in to Spotify again once. Your current login doesn’t allow reading the artists you follow yet.',
     },
     setup: {
       done: 'done ✓',
@@ -887,6 +933,16 @@ function adventureHint(a) {
   return `${lottery} · ${T.adventure.detours(pct(a))}`;
 }
 
+// Gleiche Formel wie followedFactor() in lineup.mjs: −1 = gar nicht, 0 = egal, +1 = 10× so oft, dazwischen exponentiell.
+const FOLLOWED_MAX = 10;
+const followedLabel = v => T.followed.levels[v <= -1 ? 0 : v < 0 ? 1 : v === 0 ? 2 : v < 1 ? 3 : 4];
+function followedHint(v) {
+  if (v <= -1) return T.followed.none;
+  if (v === 0) return T.followed.neutral;
+  const x = num((FOLLOWED_MAX ** Math.abs(v)).toFixed(1));
+  return v < 0 ? T.followed.fewer(x) : T.followed.more(x);
+}
+
 // --- Regler: Aufbau ohne Texte (die stehen in TEXT[lang].items bzw. .groups) ---
 // Einträge ohne type sind Schieberegler; Bereich und Schrittweite kommen vom Server (limits aus GET /api/config).
 
@@ -902,16 +958,18 @@ const GROUPS = [
     { key: 'adventure' },
     { key: 'seedsPerRun' },
     { key: 'useLastfmTopTracks', type: 'toggle' },
+    { key: 'followedArtists' },
   ]},
   { id: 'current', items: [
     { key: 'currentDays' },
     { key: 'currentFactor' },
   ]},
-  { id: 'variety', items: [
-    { key: 'maxPerArtist' },
-    { key: 'artistWindow' },
-    { key: 'maxPerWindow' },
-    { key: 'artistGap' },
+  // Hauptregler „Abwechslung bei Künstlern“ (Stufen vom Server), die vier Werte darunter unter „Details“.
+  { id: 'variety', variety: true, items: [
+    { key: 'maxPerArtist', details: true },
+    { key: 'artistWindow', details: true },
+    { key: 'maxPerWindow', details: true },
+    { key: 'artistGap', details: true },
   ]},
   { id: 'repeats', items: [
     { key: 'excludeRecentDays' },
@@ -955,6 +1013,8 @@ const STEPS = [
 
 // Fehlercodes aus @@RESULT bzw. automatik.json, bei denen eine neue Anmeldung hilft.
 const LOGIN_CODES = ['login_expired', 'not_logged_in'];
+// Berechtigung für „Gefolgte Künstler“; ältere Anmeldungen haben sie nicht.
+const FOLLOW_SCOPE = 'user-follow-read';
 
 const ITEMS = GROUPS.flatMap(g => g.items);
 const $ = id => document.getElementById(id);
@@ -984,6 +1044,10 @@ let scheduleInfo = null;    // Stand der Automatik vom Server (GET /api/schedule
 let scheduleBusy = false;
 let runState = null;        // letzter Lauf: { phase: 'running' | 'done' | 'error', dry, result }
 let configCreated = false;  // Assistent hat gerade die config.jsonc angelegt → Sprache mit hineinschreiben
+let variety = { keys: [], levels: [] };   // Stufen von „Abwechslung bei Künstlern“ (VARIETY_LEVELS in config.mjs)
+let varietyControl = null;  // Hauptregler samt Details-Bereich
+let varietyOverwritten = false;   // eigene Werte gerade mit dem Hauptregler überschrieben → Hinweis
+let scopeFailed = false;    // letzter Lauf: Anmeldung ohne Berechtigung für gefolgte Künstler (missingScope)
 const controls = {};
 const loginBoxes = [];
 
@@ -1088,9 +1152,19 @@ function build() {
 
   const root = $('groups');
   root.replaceChildren();
+  const detailsOpen = varietyControl?.details.open ?? false; // bleibt beim Umschalten der Sprache, wie er war
   for (const group of GROUPS) {
     const section = el('section', {}, [el('h2', { textContent: T.groups[group.id] })]);
+    let details = null;
+    if (group.variety) {
+      varietyControl = varietyBox();
+      details = el('details', { className: 'more', open: detailsOpen }, [el('summary', { textContent: T.variety.details })]);
+      varietyControl.details = details;
+      section.append(varietyControl.row, details);
+    }
     for (const item of group.items) {
+      // Zeilen mit details: true kommen in den Details-Bereich der Gruppe.
+      const parent = item.details && details ? details : section;
       const text = textOf(item);
       const id = `f-${item.key}`;
       const out = el('output', { htmlFor: id });
@@ -1102,16 +1176,16 @@ function build() {
       let input;
       if (item.type === 'toggle') {
         input = el('input', { type: 'checkbox', id, onchange: () => set(item.key, input.checked) });
-        section.append(el('div', { className: 'row' }, [
+        parent.append(el('div', { className: 'row' }, [
           el('div', { className: 'row-head' }, [label, el('label', { className: 'switch' }, [input, el('span')])]), help, reset,
         ]));
       } else if (item.type === 'text') {
         input = el('input', { type: 'text', id, maxLength: 200, oninput: () => set(item.key, input.value, false) });
-        section.append(el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, help, reset]));
+        parent.append(el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, help, reset]));
       } else if (item.type === 'seed') {
         input = el('select', { id, onchange: () => set(item.key, input.value) });
         control.note = el('p', { className: 'msg warn' });
-        section.append(el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, control.note, help, reset]));
+        parent.append(el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, control.note, help, reset]));
       } else if (item.type === 'choice') {
         // Knöpfe nebeneinander (Aus / Täglich / Wöchentlich), technisch eine Gruppe von Radio-Buttons
         label = el('span', { className: 'label', id: `${id}-label`, textContent: text.label });
@@ -1136,7 +1210,7 @@ function build() {
         const add = () => addToList(item.key, input, control.note);
         input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
         reset.hidden = true;
-        section.append(el('div', { className: 'row' }, [
+        parent.append(el('div', { className: 'row' }, [
           el('div', { className: 'row-head' }, [label]),
           el('div', { className: 'add-row' }, [input, el('button', { className: 'btn', type: 'button', textContent: T.list.add, onclick: add })]),
           control.note, help, control.tags,
@@ -1146,20 +1220,92 @@ function build() {
         input = el('input', { type: 'range', id, oninput: () => set(item.key, Number(input.value)) });
         control.scale = [el('span'), el('span')];
         control.problem = attr(el('p', { className: 'msg err' }), { role: 'status' });
-        section.append(el('div', { className: 'row' }, [
+        parent.append(el('div', { className: 'row' }, [
           el('div', { className: 'row-head' }, [label, out]),
           input,
           el('div', { className: 'scale' }, control.scale),
           control.problem, hint, help, reset,
         ]));
       }
-      if (control.row) section.append(control.row);
+      if (control.row) parent.append(control.row);
       control.input = input;
       controls[item.key] = control;
     }
     if (group.status) section.append(scheduleBox());
     root.append(section);
   }
+}
+
+// Hauptregler „Abwechslung bei Künstlern“: Stufen 0 … n−1. Passen die vier Werte zu keiner Stufe („Eigene Einstellung“),
+// steht er zwischen den Stufen (step any), damit jede Stufe per Ziehen oder Klick erreichbar bleibt.
+function varietyBox() {
+  const id = 'f-variety';
+  const input = el('input', { type: 'range', id, min: 0, step: 1, oninput: () => setVariety(Math.round(Number(input.value))) });
+  const out = el('output', { htmlFor: id });
+  const scale = [el('span'), el('span')];
+  const hint = el('p', { className: 'hint' });
+  const note = attr(el('p', { className: 'msg' }), { role: 'status' });
+  const help = el('p', { className: 'help', textContent: T.variety.help });
+  const reset = el('button', { className: 'reset', type: 'button', onclick: () => setVariety(defaultVariety()) });
+  const row = el('div', { className: 'row' }, [
+    el('div', { className: 'row-head' }, [el('label', { htmlFor: id, textContent: T.variety.label }), out]),
+    input, el('div', { className: 'scale' }, scale), note, hint, help, reset,
+  ]);
+  return { row, input, out, scale, hint, note, reset };
+}
+
+// Index der Stufe, zu der die vier Werte genau passen, sonst −1 (= eigene Einstellung).
+const varietyIndex = c => variety.levels.findIndex(l => variety.keys.every(k => c[k] === l.values[k]));
+const defaultVariety = () => Math.max(0, varietyIndex(defaults));
+
+// Position zwischen den Stufen für eigene Werte: Mittel der Positionen der vier Werte (linear zwischen den Stufen).
+function varietyPosition(c) {
+  const last = variety.levels.length - 1;
+  const posOf = key => {
+    const vals = variety.levels.map(l => l.values[key]);
+    const v = c[key];
+    if (!Number.isFinite(v)) return last / 2;
+    const hits = vals.map((x, i) => (x === v ? i : -1)).filter(i => i >= 0);
+    if (hits.length) return hits.reduce((a, b) => a + b) / hits.length;
+    for (let i = 0; i < last; i++) if ((v - vals[i]) * (v - vals[i + 1]) < 0) return i + (v - vals[i]) / (vals[i + 1] - vals[i]);
+    return Math.abs(v - vals[0]) < Math.abs(v - vals[last]) ? 0 : last;
+  };
+  let pos = variety.keys.reduce((sum, k) => sum + posOf(k), 0) / variety.keys.length;
+  if (Number.isInteger(pos)) pos += pos < last ? 0.4 : -0.4; // nicht genau auf einer Stufe stehen
+  return pos;
+}
+
+// Hauptregler bewegt: alle vier Werte auf die Stufe setzen. Waren es eigene Werte, darauf hinweisen.
+function setVariety(index) {
+  const level = variety.levels[index];
+  if (!level) return;
+  if (varietyIndex(current) < 0) varietyOverwritten = true;
+  Object.assign(current, level.values);
+  refresh();
+}
+
+function renderVariety() {
+  const v = varietyControl;
+  if (!v) return;
+  const levels = variety.levels;
+  v.row.hidden = !levels.length;
+  if (!levels.length) return;
+  const i = varietyIndex(current);
+  Object.assign(v.input, { max: levels.length - 1, step: i >= 0 ? 1 : 'any' }); // vor value, sonst wird gerundet
+  v.input.value = i >= 0 ? i : varietyPosition(current);
+  v.out.textContent = i >= 0 ? T.variety.levels[levels[i].id] : T.variety.custom;
+  attr(v.input, { 'aria-valuetext': v.out.textContent });
+  v.scale[0].textContent = T.variety.levels[levels[0].id];
+  v.scale[1].textContent = T.variety.levels[levels.at(-1).id];
+  v.hint.textContent = T.variety.hint(current);
+  // Hinweis „überschrieben“, solange die vier Werte vom Gespeicherten abweichen (nach Speichern oder Verwerfen weg).
+  if (i < 0) varietyOverwritten = false;
+  const overwritten = varietyOverwritten && variety.keys.some(k => current[k] !== saved[k]);
+  v.note.className = i < 0 ? 'msg' : 'msg warn';
+  v.note.textContent = i < 0 ? T.variety.customHint : overwritten ? T.variety.overwritten : '';
+  const d = defaultVariety();
+  v.reset.hidden = i === d;
+  v.reset.textContent = T.reset(T.variety.levels[levels[d].id]);
 }
 
 function set(key, value, refreshInput = true) {
@@ -1237,6 +1383,8 @@ function refresh(skipInput) {
     const d = defaults[item.key];
     reset.textContent = T.reset(item.type === 'toggle' ? (d ? T.on : T.off) : item.type === 'text' ? d : text.fmt(d));
   }
+  renderVariety();
+  if (loaded) renderNotice(); // Hinweis zu „Gefolgte Künstler“ hängt am Regler
   const match = matchingPreset();
   for (const p of PRESETS) p.button.setAttribute('aria-pressed', String(p === match));
   $('preset-state').textContent = match ? T.presetMatch(T.presets[match.id][0]) : T.presetNone;
@@ -1265,9 +1413,12 @@ async function load(keepEdits = false) {
   limits = data.limits;
   problems = data.problems;
   setup = data.setup;
+  variety = data.variety ?? variety;
+  varietyOverwritten = false;
   loaded = true;
   adoptLang(data);
   refresh();
+  if (varietyControl && (varietyIndex(current) < 0 || variety.keys.some(k => problems[k]))) varietyControl.details.open = true;
   renderSetup();
   renderNotice();
 }
@@ -1489,6 +1640,9 @@ async function run(dry) {
     const result = runResult(text);
     runState = { phase: 'done', dry, result };
     if (LOGIN_CODES.includes(result?.errorCode)) showNotice('expired');
+    scopeFailed = result?.missingScope === FOLLOW_SCOPE;
+    // Der Lauf hat das Token eventuell erneuert und dabei die erteilten Berechtigungen gespeichert (setup.missingScopes).
+    apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); }).catch(() => {});
   } catch (e) {
     runState = { phase: 'error', dry, result: null };
     showError(e.message);
@@ -1613,6 +1767,7 @@ async function cancelLogin() {
 
 async function loggedIn() {
   if (!$('notice').hidden) noticeReason = 'done';
+  scopeFailed = false;
   try {
     await load(true);
   } catch (e) {
@@ -1629,15 +1784,26 @@ function showNotice(reason) {
   renderNotice();
 }
 
+// Fehlt der Anmeldung die Berechtigung für gefolgte Künstler? Bekannt aus tokens.json (setup.missingScopes), aus dem
+// letzten Lauf hier oder aus dem letzten automatischen Lauf (seitdem nicht neu angemeldet). Nur wichtig, wenn der Regler
+// nicht auf „egal“ steht – sonst fragt der DJ die Liste gar nicht ab.
+function scopeNeeded() {
+  if (!setup?.loggedIn || !current.followedArtists) return false;
+  const last = scheduleInfo?.lastRun;
+  const autoFailed = last?.missingScope === FOLLOW_SCOPE && !(setup.authorizedAt > Date.parse(last.finishedAt));
+  return Boolean(setup.missingScopes?.includes(FOLLOW_SCOPE) || scopeFailed || autoFailed);
+}
+
 function renderNotice() {
   const age = setup?.authAgeDays;
-  const reason = noticeReason ?? (loginNeeded(scheduleInfo?.lastRun) ? 'auto' : age != null && age >= 170 ? 'age' : null);
+  const reason = noticeReason ?? (loginNeeded(scheduleInfo?.lastRun) ? 'auto' : scopeNeeded() ? 'scope' : age != null && age >= 170 ? 'age' : null);
   $('notice').hidden = view !== 'settings' || !reason;
   $('notice-login').hidden = reason === 'done';
   const left = 180 - (age ?? 0);
   $('notice-text').textContent = reason === 'done' ? T.notice.done
     : reason === 'auto' ? T.auto.notice
     : reason === 'expired' ? T.notice.expired
+    : reason === 'scope' ? T.notice.scope
     : left > 0 ? T.notice.left(left)
     : T.notice.probably;
 }

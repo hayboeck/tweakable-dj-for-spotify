@@ -15,12 +15,14 @@
   "adventure": 0.4,                   // 0–1: 0 = ähnliche Songs bevorzugen, 0.5 = egal, 1 = entfernte bevorzugen; zugleich Chance auf Abstecher zu verwandten Künstlern
   "seedsPerRun": 20,                  // So viele Ausgangspunkte werden pro Lauf gezogen, zu denen Last.fm ähnliche Songs sucht (1–200)
   "useLastfmTopTracks": true,         // Deine Last.fm-Top-Songs der letzten 3 Monate zusätzlich als Ausgangspunkte verwenden
+  "followedArtists": 0,               // Künstler, denen du auf Spotify folgst (-1–1): -1 = keine davon, 0 = egal (die Liste wird gar nicht abgefragt), 1 = stark bevorzugt; gilt für neue Songs und Favoriten
 
   // --- Was du gerade hörst ---
   "currentDays": 7,                   // "Aktuell" = in so vielen Tagen gehört (laut Last.fm; 0–365, 0 = aus)
   "currentFactor": 3,                 // So viel stärker zählt aktuell Gehörtes: bei Ausgangspunkten, bei der Auslosung und bei den Favoriten (1–100, 1 = aus)
 
   // --- Abwechslung ---
+  // In der Oberfläche setzt der Regler "Abwechslung bei Künstlern" diese vier zusammen (wenig, mittel, viel, sehr viel; mittel = die Standardwerte hier).
   "maxPerArtist": 2,                  // Höchstens so viele Songs pro Interpret in der ganzen Playlist (1–500)
   "artistWindow": 20,                 // Fenstergröße für die Regel darunter (1–100): je so viele aufeinanderfolgende Songs …
   "maxPerWindow": 3,                  // … enthalten höchstens so viele Songs zum selben Künstler (von ihm oder über ihn gefunden; 1–100)
