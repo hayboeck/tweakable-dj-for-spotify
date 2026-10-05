@@ -119,8 +119,9 @@ async function main() {
       const current = [];
       for (const r of recent ?? []) {
         const ageDays = (now - r.playedAt) / 86400;
-        if (ageDays <= cfg.excludeRecentDays) blocked.add(trackKey(r.artist, r.name));
-        if (ageDays <= cfg.currentDays) {
+        // 0 = aus, auch für den Song, der gerade läuft (Alter 0)
+        if (cfg.excludeRecentDays > 0 && ageDays <= cfg.excludeRecentDays) blocked.add(trackKey(r.artist, r.name));
+        if (cfg.currentDays > 0 && ageDays <= cfg.currentDays) {
           currentKeys.add(trackKey(r.artist, r.name));
           currentArtists.add(norm(r.artist));
           current.push(r);
@@ -180,7 +181,7 @@ async function main() {
   }
   const { hits, total } = lastfm.cacheStats();
   console.log(t(lang, 'run.candidates', { count: candidates.size, hits, total }));
-  if (blockedOut.size) console.log(t(lang, blockedOut.size === 1 ? 'run.blockedOne' : 'run.blockedMany', { count: blockedOut.size }));
+  if (blockedOut.size) console.log(t(lang, 'run.blocked', { count: blockedOut.size }));
 
   // Tags = Interpret + Künstler, über den ein neuer Song gefunden wurde. Beide zählen für die Fensterregel.
   const tagsOf = (artist, via) => [...new Set([norm(artist), ...(via ? [norm(via)] : [])])];

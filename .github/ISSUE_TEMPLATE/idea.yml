@@ -1,0 +1,41 @@
+name: Idea or request / Idee oder Wunsch
+description: Suggest a new feature or an improvement. / Schlag eine neue Funktion oder eine Verbesserung vor.
+title: "Idea: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your idea! Please check quickly whether there is already an issue for it. If so, please comment there instead. You can write in English or German.
+        Danke für deine Idee! Bitte schau kurz nach, ob es schon ein Issue dazu gibt. Wenn ja, schreib lieber dort einen Kommentar. Du kannst auf Deutsch oder Englisch schreiben.
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like? / Was wünschst du dir?
+      description: |
+        Describe the feature or change the way you would use it.
+        Beschreib die Funktion oder Änderung so, wie du sie benutzen würdest.
+      placeholder: |
+        e.g. “A control that sets how many songs come from recent years.”
+        z. B. „Ein Regler, mit dem ich festlege, wie viele Songs aus den letzten Jahren kommen.“
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: What do you need it for? / Wozu brauchst du das?
+      description: |
+        What doesn’t work today, or is cumbersome? What would get better?
+        Was klappt heute nicht oder ist umständlich? Was würde dadurch besser?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Other solutions / Andere Lösungen
+      description: |
+        Have you tried something else, or is there another way? (optional)
+        Hast du schon etwas anderes probiert, oder gibt es eine andere Möglichkeit? (freiwillig)

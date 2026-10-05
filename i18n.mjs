@@ -1,9 +1,10 @@
 // Sprachen und alle Texte, die die Node-Dateien ausgeben (Konsole, Fehlermeldungen, Antworten an die Oberfläche).
 //   t(lang, 'run.summary', { name: 'Tweakable DJ', songs: 50, … }) → Text mit eingesetzten {Platzhaltern}
+// Einzahl und Mehrzahl: {songs|# Song|# Songs} → "1 Song" bzw. "50 Songs"; # = die Zahl im Format der Sprache (de-AT: 1 234 mit geschütztem Leerzeichen, en-US: 1,234).
 
 export const LANGS = ['de', 'en'];
 
-// Für Zahlen und Datum (z. B. 1.234 bzw. 1,234).
+// Für Zahlen und Datum (z. B. 1 234 bzw. 1,234; 5.10.2026 bzw. 10/5/2026). ui.html verwendet dieselben.
 const LOCALES = { de: 'de-AT', en: 'en-US' };
 
 const valid = v => (typeof v === 'string' && LANGS.includes(v.toLowerCase()) ? v.toLowerCase() : null);
@@ -26,10 +27,17 @@ export const resolveLang = (value, hint) => valid(value) ?? valid(hint) ?? syste
 
 export const locale = lang => LOCALES[valid(lang) ?? 'en'];
 
-// Text in der Sprache lang (unbekannt oder fehlend: Englisch); {name} wird durch params.name ersetzt.
+// Text in der Sprache lang (unbekannt oder fehlend: Englisch); {name} wird durch params.name ersetzt,
+// {name|eins|mehr} durch "eins" (genau 1) bzw. "mehr" (sonst), # darin durch die Zahl.
 export function t(lang, key, params = {}) {
-  const text = MESSAGES[valid(lang) ?? 'en'][key] ?? MESSAGES.en[key] ?? key;
-  return text.replace(/\{(\w+)\}/g, (m, name) => (name in params ? String(params[name]) : m));
+  const l = valid(lang) ?? 'en';
+  const text = MESSAGES[l][key] ?? MESSAGES.en[key] ?? key;
+  return text.replace(/\{(\w+)(?:\|([^|{}]*)\|([^|{}]*))?\}/g, (m, name, one, many) => {
+    if (!(name in params)) return m;
+    if (one === undefined) return String(params[name]);
+    const n = Number(params[name]);
+    return (n === 1 ? one : many).replace(/#/g, n.toLocaleString(LOCALES[l]));
+  });
 }
 
 // Fehler mit übersetzter Meldung und Zusatzangaben, z. B. { errorCode: 'login_expired' }.
@@ -50,7 +58,8 @@ export const MESSAGES = {
     'config.listExpected': '{key}: Liste von Texten erwartet',
     'config.entryTooLong': '{key}: Eintrag zu lang',
     'config.typeExpected': '{key}: {type} erwartet',
-    'config.badNumber': '{key}: ungültige Zahl',
+    'config.badInteger': '{key} in config.jsonc muss eine ganze Zahl von {min} bis {max} sein (derzeit {value}).',
+    'config.badNumber': '{key} in config.jsonc muss eine Zahl von {min} bis {max} sein (derzeit {value}).',
     'config.badText': '{key}: ungültiger Text',
     'config.badSchedule': 'schedule: "off", "daily" oder "weekly" erwartet',
     'config.badTime': 'scheduleTime: Uhrzeit als HH:MM erwartet, z. B. "07:00"',
@@ -93,28 +102,27 @@ export const MESSAGES = {
     'run.loggedIn': 'Angemeldet ✓  Jetzt "node dj.mjs" ausführen.',
     'run.seedEmpty': 'Die Quelle deiner Favoriten (Playlist) ist leer oder nicht lesbar. Spotify gibt Inhalte nur für Playlists heraus, die dir gehören oder bei denen du mitarbeitest.',
     'run.loadingFavorites': 'Lade deine Favoriten …',
-    'run.songs': '  {count} Songs',
+    'run.songs': '  {count|# Song|# Songs}',
     'run.loadingHistory': 'Lade Hörverlauf von Last.fm …',
     'run.userUnknown': 'Den Last.fm-Benutzer "{user}" gibt es nicht. Prüfe lastfm.user in config.jsonc. Ohne Hörverlauf greifen die Regeln zum aktuellen Hören nicht.',
-    'run.noScrobbles': 'Last.fm hat in den letzten {days} Tagen keine Scrobbles von "{user}". Vermutlich ist Spotify nicht mit Last.fm verbunden: https://www.last.fm/settings/applications – ohne Hörverlauf greifen die Regeln zum aktuellen Hören nicht.',
-    'run.scrobbles': '  {total} Scrobbles, davon {current} in den letzten {days} Tagen ({artists} Künstler)',
-    'run.startingPoints': '  {current} von {total} Ausgangspunkten aus deinem aktuellen Hören (Faktor {factor})',
+    'run.noScrobbles': 'Last.fm hat {days|in den letzten 24 Stunden|in den letzten # Tagen} keine Scrobbles von "{user}". Vermutlich ist Spotify nicht mit Last.fm verbunden: https://www.last.fm/settings/applications – ohne Hörverlauf greifen die Regeln zum aktuellen Hören nicht.',
+    'run.scrobbles': '  {total|# Scrobble|# Scrobbles}, davon {current} {days|in den letzten 24 Stunden|in den letzten # Tagen} ({artists} Künstler)',
+    'run.startingPoints': '  {current} von {total|# Ausgangspunkt|# Ausgangspunkten} aus deinem aktuellen Hören (Faktor {factor})',
     'run.searchingSimilar': 'Suche ähnliche Songs …',
     'run.cacheNotSaved': 'Last.fm-Cache nicht gespeichert: {message}',
-    'run.candidates': '  {count} Kandidaten ({hits} von {total} Last.fm-Abfragen aus dem Cache)',
-    'run.blockedOne': '  {count} Song wegen der Sperrliste aussortiert',
-    'run.blockedMany': '  {count} Songs wegen der Sperrliste aussortiert',
+    'run.candidates': '  {count|# Kandidat|# Kandidaten} ({hits} von {total|# Last.fm-Abfrage|# Last.fm-Abfragen} aus dem Cache)',
+    'run.blocked': '  {count|# Song|# Songs} wegen der Sperrliste aussortiert',
     'run.favorite': 'Favorit',
     'run.new': 'neu, über {via}',
     'run.current': ' · aktuell',
     'run.searchingSpotify': 'Suche die Songs auf Spotify …',
     'run.noSongs': 'Kein einziger Song gefunden – die Playlist bleibt, wie sie ist. Ist die Quelle leer (z. B. noch keine Lieblingssongs) oder sperren Sperrliste und Wiederholungsregeln alles?',
-    'run.summary': '{name}: {songs} Songs ({fresh} neu, davon {freshCurrent} über aktuelles Hören; {familiar} Favoriten)',
+    'run.summary': '{name}: {songs|# Song|# Songs} ({fresh} neu, davon {freshCurrent} über aktuelles Hören; {familiar|# Favorit|# Favoriten})',
     'run.windowRule': 'Regel "max. {max} aus {window}" ließ sich nicht überall einhalten.',
     'run.dry': '--dry: Playlist nicht verändert.',
     'run.newPlaylist': 'Wird von Tweakable DJ befüllt.',
     'run.created': 'Playlist "{name}" angelegt.',
-    'run.description': 'Tweakable DJ · {date}, {time} Uhr · {fresh} neue Songs, {familiar} Favoriten',
+    'run.description': 'Tweakable DJ · {date}, {time} Uhr · {fresh|# neuer Song|# neue Songs}, {familiar|# Favorit|# Favoriten}',
     'run.descriptionFailed': 'Beschreibung nicht gesetzt: {message}',
     'run.done': 'Fertig ✓  {url}',
     'run.error': 'Fehler: {message}',
@@ -163,15 +171,15 @@ export const MESSAGES = {
     'ui.lastfmReports': 'Last.fm meldet: {message}',
     'ui.lastfmError': 'Fehler {code}',
     'ui.keyOkNoUser': 'Der API-Key passt ✓ Ohne Benutzernamen kann der DJ deinen Hörverlauf nicht nutzen.',
-    'ui.lastfmOk': 'Passt ✓ „{name}“ hat {scrobbles} Scrobbles.',
+    'ui.lastfmOk': 'Passt ✓ „{name}“ hat {scrobbles|# Scrobble|# Scrobbles}.',
     'ui.noScrobbles': 'Der API-Key passt ✓ Aber „{name}“ hat noch keine Scrobbles – Last.fm weiß also noch nicht, was du hörst.',
 
     // --- install-update.mjs („Jetzt aktualisieren“ in der Oberfläche) ---
     'update.stepCheck': 'Frage GitHub nach der neuesten Version …',
     'update.stepDownload': 'Lade {file} ({size}) …',
-    'update.stepVerify': 'Prüfe {count} Dateien (Größe und SHA-256) …',
-    'update.stepBackup': 'Sichere {count} Programmdateien nach {dir} …',
-    'update.stepCopy': 'Ersetze {count} Dateien ({same} sind unverändert) …',
+    'update.stepVerify': 'Prüfe {count|# Datei|# Dateien} (Größe und SHA-256) …',
+    'update.stepBackup': 'Sichere {count|# Programmdatei|# Programmdateien} nach {dir} …',
+    'update.stepCopy': 'Ersetze {count|# Datei|# Dateien} ({same|# ist|# sind} unverändert) …',
     'update.done': 'Version {version} ist installiert ✓',
     'update.restarting': 'Update auf Version {version} installiert – Tweakable DJ startet neu …',
     'update.startAgain': 'Update auf Version {version} installiert. Bitte Tweakable DJ neu starten.',
@@ -222,7 +230,8 @@ export const MESSAGES = {
     'config.listExpected': '{key}: expected a list of texts',
     'config.entryTooLong': '{key}: entry too long',
     'config.typeExpected': '{key}: expected {type}',
-    'config.badNumber': '{key}: invalid number',
+    'config.badInteger': '{key} in config.jsonc must be a whole number from {min} to {max} (currently {value}).',
+    'config.badNumber': '{key} in config.jsonc must be a number from {min} to {max} (currently {value}).',
     'config.badText': '{key}: invalid text',
     'config.badSchedule': 'schedule: expected "off", "daily" or "weekly"',
     'config.badTime': 'scheduleTime: expected a time as HH:MM, e.g. "07:00"',
@@ -265,28 +274,27 @@ export const MESSAGES = {
     'run.loggedIn': 'Logged in ✓  Now run "node dj.mjs".',
     'run.seedEmpty': 'The source of your favorites (playlist) is empty or can’t be read. Spotify only returns the contents of playlists you own or collaborate on.',
     'run.loadingFavorites': 'Loading your favorites …',
-    'run.songs': '  {count} songs',
+    'run.songs': '  {count|# song|# songs}',
     'run.loadingHistory': 'Loading listening history from Last.fm …',
     'run.userUnknown': 'The Last.fm user "{user}" doesn’t exist. Check lastfm.user in config.jsonc. Without listening history, the rules for current listening don’t apply.',
-    'run.noScrobbles': 'Last.fm has no scrobbles from "{user}" in the last {days} days. Spotify is probably not connected to Last.fm: https://www.last.fm/settings/applications – without listening history, the rules for current listening don’t apply.',
-    'run.scrobbles': '  {total} scrobbles, {current} of them in the last {days} days ({artists} artists)',
-    'run.startingPoints': '  {current} of {total} starting points from your current listening (factor {factor})',
+    'run.noScrobbles': 'Last.fm has no scrobbles from "{user}" {days|in the last 24 hours|in the last # days}. Spotify is probably not connected to Last.fm: https://www.last.fm/settings/applications – without listening history, the rules for current listening don’t apply.',
+    'run.scrobbles': '  {total|# scrobble|# scrobbles}, {current} of them {days|in the last 24 hours|in the last # days} ({artists|# artist|# artists})',
+    'run.startingPoints': '  {current} of {total|# starting point|# starting points} from your current listening (factor {factor})',
     'run.searchingSimilar': 'Finding similar songs …',
     'run.cacheNotSaved': 'Last.fm cache not saved: {message}',
-    'run.candidates': '  {count} candidates ({hits} of {total} Last.fm requests from the cache)',
-    'run.blockedOne': '  {count} song left out because of the block list',
-    'run.blockedMany': '  {count} songs left out because of the block list',
+    'run.candidates': '  {count|# candidate|# candidates} ({hits} of {total|# Last.fm request|# Last.fm requests} from the cache)',
+    'run.blocked': '  {count|# song|# songs} left out because of the block list',
     'run.favorite': 'favorite',
     'run.new': 'new, via {via}',
     'run.current': ' · current',
     'run.searchingSpotify': 'Looking up the songs on Spotify …',
     'run.noSongs': 'Not a single song found – the playlist stays as it is. Is the source empty (e.g. no Liked Songs yet), or do the block list and the no-repeat rules block everything?',
-    'run.summary': '{name}: {songs} songs ({fresh} new, {freshCurrent} of them via current listening; {familiar} favorites)',
+    'run.summary': '{name}: {songs|# song|# songs} ({fresh} new, {freshCurrent} of them via current listening; {familiar|# favorite|# favorites})',
     'run.windowRule': 'The rule "at most {max} in {window}" couldn’t be kept everywhere.',
     'run.dry': '--dry: playlist not changed.',
     'run.newPlaylist': 'Filled by Tweakable DJ.',
     'run.created': 'Created playlist "{name}".',
-    'run.description': 'Tweakable DJ · {date}, {time} · {fresh} new songs, {familiar} favorites',
+    'run.description': 'Tweakable DJ · {date}, {time} · {fresh|# new song|# new songs}, {familiar|# favorite|# favorites}',
     'run.descriptionFailed': 'Description not set: {message}',
     'run.done': 'Done ✓  {url}',
     'run.error': 'Error: {message}',
@@ -335,15 +343,15 @@ export const MESSAGES = {
     'ui.lastfmReports': 'Last.fm reports: {message}',
     'ui.lastfmError': 'error {code}',
     'ui.keyOkNoUser': 'The API key works ✓ Without a username, the DJ can’t use your listening history.',
-    'ui.lastfmOk': 'All good ✓ “{name}” has {scrobbles} scrobbles.',
+    'ui.lastfmOk': 'All good ✓ “{name}” has {scrobbles|# scrobble|# scrobbles}.',
     'ui.noScrobbles': 'The API key works ✓ But “{name}” has no scrobbles yet – so Last.fm doesn’t know yet what you listen to.',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Asking GitHub for the newest version …',
     'update.stepDownload': 'Downloading {file} ({size}) …',
-    'update.stepVerify': 'Checking {count} files (size and SHA-256) …',
-    'update.stepBackup': 'Backing up {count} program files to {dir} …',
-    'update.stepCopy': 'Replacing {count} files ({same} are unchanged) …',
+    'update.stepVerify': 'Checking {count|# file|# files} (size and SHA-256) …',
+    'update.stepBackup': 'Backing up {count|# program file|# program files} to {dir} …',
+    'update.stepCopy': 'Replacing {count|# file|# files} ({same|# is|# are} unchanged) …',
     'update.done': 'Version {version} is installed ✓',
     'update.restarting': 'Update to version {version} installed – Tweakable DJ is restarting …',
     'update.startAgain': 'Update to version {version} installed. Please start Tweakable DJ again.',

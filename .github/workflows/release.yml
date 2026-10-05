@@ -72,14 +72,26 @@ jobs:
             fi
           done
 
-          # Die Screenshots in docs/ kommen mit (zusammen rund 1,3 MB), damit die README in der ZIP-Datei ihre
-          # Bilder zeigt: Jedes dort eingebundene Bild muss vorhanden sein.
-          for f in $(cd "build/${ordner}" && grep -oh 'docs/[A-Za-z0-9._-]*\.png' README.md README.de.md | sort -u); do
-            if [ ! -f "build/${ordner}/${f}" ]; then
-              echo "::error::Bild ${f} aus der README fehlt."
-              exit 1
-            fi
-          done
+          # Die READMEs sollen auch in der ZIP-Datei vollständig sein: Alles, worauf sie relativ verweisen (Screenshots in
+          # docs/, zusammen rund 1,3 MB, overview.*.svg, LICENSE, die README der anderen Sprache …), muss dabei sein.
+          # Links ins Internet und auf Abschnitte (#…) zählen nicht. LICENSE muss immer mit (MIT: Lizenztext in jeder Kopie).
+          (cd "build/${ordner}" && node -e '
+            const fs = require("fs");
+            const missing = new Set(fs.existsSync("LICENSE") ? [] : ["LICENSE"]);
+            for (const readme of ["README.md", "README.de.md"]) {
+              const text = fs.readFileSync(readme, "utf8");
+              // [Text](Ziel) und ![Bild](Ziel), dazu src="Ziel" bzw. href="Ziel" in HTML
+              for (const m of text.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\b(?:src|href)="([^"]+)"/g)) {
+                const target = m[1] ?? m[2];
+                if (/^([a-z][a-z0-9+.-]*:|#|\/\/)/i.test(target)) continue;
+                const file = decodeURIComponent(target.replace(/[?#].*$/, ""));
+                if (!fs.existsSync(file)) missing.add(`${file} (aus ${readme})`);
+              }
+            }
+            if (missing.size) {
+              console.log(`::error::Diese Dateien aus den READMEs fehlen in der ZIP-Datei: ${[...missing].join(", ")}`);
+              process.exit(1);
+            }')
 
           # Startdateien für Mac und Linux ausführbar machen, auch wenn das Bit
           # beim Einchecken unter Windows verloren gegangen ist.

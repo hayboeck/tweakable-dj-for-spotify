@@ -85,9 +85,6 @@ test('repoSlug: alle Schreibweisen von "repository", sonst null', async () => {
     ['gitlab:beispiel/tweakable-dj', null],
     [{ type: 'git', url: 'https://gitlab.com/beispiel/tweakable-dj.git' }, null],
     ['beispiel/../x', null],
-    // Platzhalter aus package.json, solange das Repository noch nicht veröffentlicht ist
-    [{ type: 'git', url: 'git+https://github.com/OWNER/tweakable-dj-for-spotify.git' }, null],
-    ['github:OWNER/tweakable-dj-for-spotify', null],
   ];
   for (const [repository, slug] of cases) {
     await withProject({ ...PKG, repository }, ({ pkgFile }) => assert.equal(repoSlug(pkgFile), slug, JSON.stringify(repository)));
@@ -285,19 +282,6 @@ test('Ohne "repository" oder "version" in package.json: abgeschaltet, keine Abfr
     assert.match(r.error, /version/);
   });
   await withProject(undefined, async opts => assert.equal((await checkForUpdate({ ...opts, fetch })).enabled, false));
-  assert.equal(fetch.calls.length, 0);
-});
-
-test('Platzhalter OWNER in package.json: abgeschaltet, keine Abfrage, keine Datei', async () => {
-  const fetch = fakeFetch(release('v1.3.0'));
-  const pkg = { ...PKG, repository: { type: 'git', url: 'git+https://github.com/OWNER/tweakable-dj-for-spotify.git' } };
-  await withProject(pkg, async (opts, dir) => {
-    const r = await checkForUpdate({ ...opts, fetch, force: true });
-    assert.deepEqual(r, {
-      enabled: false, current: '1.2.0', latest: null, updateAvailable: false, url: null, checkedAt: null, error: null,
-    });
-    assert.deepEqual(fs.readdirSync(dir), ['package.json']);
-  });
   assert.equal(fetch.calls.length, 0);
 });
 

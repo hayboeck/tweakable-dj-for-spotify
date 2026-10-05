@@ -1,2 +1,3 @@
-# Nur die Formulare „Fehler melden“ und „Idee oder Wunsch“ anbieten, keine leeren Issues.
+# Nur die Formulare anbieten, keine leeren Issues: bug.yml „Report a bug / Fehler melden“ und idea.yml „Idea or request /
+# Idee oder Wunsch“. Beide sind zweisprachig (erst Englisch, dann Deutsch), damit es jedes Formular nur einmal gibt.
 blank_issues_enabled: false

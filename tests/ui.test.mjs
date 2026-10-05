@@ -8,6 +8,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { stripComments } from '../config.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MOCK = pathToFileURL(path.join(ROOT, 'tests', 'mock-apis.mjs')).href;
@@ -206,6 +207,37 @@ test('POST /api/config: language speichern; danach gilt sie für Anfragen ohne X
   assert.deepEqual((await api('/api/gibtsnicht')).data, { error: 'Nicht gefunden' }, 'wieder Systemsprache');
 });
 
+test('GET /api/config: limits für die Regler; ungültige Zahlen aus der config.jsonc als problems, nichts abgeschnitten', async () => {
+  const { data } = await api('/api/config', { lang: 'en' });
+  assert.deepEqual(data.limits.size, { min: 1, max: 500, int: true, slider: [10, 100], step: 5 });
+  assert.deepEqual(Object.keys(data.limits).sort(), Object.keys(data.defaults).filter(k => typeof data.defaults[k] === 'number').sort());
+  assert.deepEqual(data.problems, {});
+  // Von Hand geändert: size 0 (ungültig), artistGap 30 (größer als der Regler, aber erlaubt)
+  const file = path.join(dir, 'config.jsonc');
+  const before = fs.readFileSync(file, 'utf8');
+  try {
+    fs.writeFileSync(file, JSON.stringify({ ...CONFIG, size: 0, artistGap: 30 }, null, 2));
+    const en = (await api('/api/config', { lang: 'en' })).data;
+    assert.deepEqual([en.values.size, en.values.artistGap], [0, 30]);
+    assert.deepEqual(en.problems, { size: 'size in config.jsonc must be a whole number from 1 to 500 (currently 0).' });
+    assert.deepEqual((await api('/api/config', { lang: 'de' })).data.problems,
+      { size: 'size in config.jsonc muss eine ganze Zahl von 1 bis 500 sein (derzeit 0).' });
+    // Speichern einer anderen Einstellung lässt beide Werte, wie sie sind
+    assert.deepEqual((await api('/api/config', { lang: 'en', method: 'POST', body: { adventure: 0.5 } })).data, { ok: true });
+    const after = JSON.parse(stripComments(fs.readFileSync(file, 'utf8')));
+    assert.deepEqual([after.size, after.artistGap, after.adventure], [0, 30, 0.5]);
+    // Ungültiger Wert über die API: abgelehnt, mit Schlüssel, Bereich und Datei
+    const bad = await api('/api/config', { lang: 'en', method: 'POST', body: { maxPerWindow: 0 } });
+    assert.deepEqual([bad.status, bad.data.error], [400, 'maxPerWindow in config.jsonc must be a whole number from 1 to 100 (currently 0).']);
+    // Probelauf: Abbruch mit derselben Meldung statt „Kein einziger Song gefunden“
+    const run = await api('/api/run?dry=1', { lang: 'en', method: 'POST' });
+    assert.match(run.text, /^Error: size in config\.jsonc must be a whole number from 1 to 500 \(currently 0\)\.$/m);
+    assert.deepEqual([resultLine(run.text).ok, resultLine(run.text).errorCode], [false, 'other']);
+  } finally {
+    fs.writeFileSync(file, before);
+  }
+});
+
 // --- Hinweis auf neue Versionen (GET /api/update gegen den simulierten GitHub aus tests/mock-apis.mjs) ---
 
 const RELEASE = tag => ({ status: 200, body: { tag_name: tag, html_url: `https://github.com/beispiel/tweakable-dj-for-spotify/releases/tag/${tag}` } });
@@ -238,18 +270,6 @@ test('GET /api/update: nur mit X-Tweakable-DJ, Meldung in der Sprache der Anfrag
   });
   assert.deepEqual((await api('/api/update', { lang: 'de', headers: { 'X-Tweakable-DJ': '0' } })).data, { error: 'Nicht erlaubt' });
   assert.equal(githubRequests().length, before, 'ohne Header keine Abfrage');
-});
-
-test('GET /api/update: Platzhalter OWNER in package.json → abgeschaltet, keine Anfrage an GitHub', async () => {
-  updateCase('OWNER', RELEASE('v0.2.0'));
-  const before = githubRequests().length;
-  const { status, data } = await api('/api/update', { lang: 'de' });
-  assert.equal(status, 200);
-  assert.deepEqual(data, {
-    enabled: false, current: '0.1.0', latest: null, updateAvailable: false, url: null, checkedAt: null, error: null, installable: false,
-  });
-  assert.equal(githubRequests().length, before);
-  assert.equal(fs.existsSync(path.join(dir, 'update-check.json')), false);
 });
 
 test('GET /api/update: neuere Version → updateAvailable, Link aufs Release; zweite Anfrage aus dem Cache', async () => {

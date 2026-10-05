@@ -1,0 +1,84 @@
+name: Report a bug / Fehler melden
+description: Something doesn’t work, or works differently than described in the guide. / Etwas funktioniert nicht oder anders als in der Anleitung beschrieben.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting the bug! Please check **Troubleshooting** in the README first; the solution may already be there. You can write in English or German.
+        Danke, dass du den Fehler meldest! Schau vorher kurz in der README unter **Probleme und Lösungen** nach, vielleicht steht die Lösung schon dort. Du kannst auf Deutsch oder Englisch schreiben.
+
+        > **Important: this page is public.** Don’t paste a **Client ID**, a **Last.fm API key** or anything from `tokens.json`, `config.jsonc` or `state.json`. If something like that appears in an output, replace it with `***` first.
+        >
+        > **Wichtig: Diese Seite ist öffentlich.** Füge **keine Client ID**, **keinen Last.fm-API-Key** und nichts aus `tokens.json`, `config.jsonc` oder `state.json` ein. Steht so etwas in einer Ausgabe, ersetze es vorher durch `***`.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened? / Was ist passiert?
+      description: |
+        What did you expect, and what happened instead? Please copy an error message word for word or paste it in.
+        Was hast du erwartet, und was ist stattdessen passiert? Eine Fehlermeldung bitte wörtlich abschreiben oder hineinkopieren.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Schritte bis zum Fehler
+      description: What did you do, one step after another? / Was hast du nacheinander gemacht?
+      placeholder: |
+        1. Started Tweakable DJ for Spotify / Tweakable DJ for Spotify gestartet
+        2. Clicked “Test run” / Auf „Probelauf“ geklickt
+        3. The message “…” appears / Die Meldung „…“ erscheint
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output of the test run / Ausgabe des Probelaufs
+      description: |
+        Click **Test run** in the interface and copy the output here (in a terminal, `node dj.mjs --dry` works too). You may shorten the list of songs. Check first: no Client ID, no API key, nothing from `tokens.json`.
+        In der Oberfläche auf **Probelauf** klicken und die Ausgabe hierher kopieren (im Terminal geht auch `node dj.mjs --dry`). Die Songliste darfst du kürzen. Vorher prüfen: keine Client ID, kein API-Key, nichts aus `tokens.json`.
+      render: text
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system / Betriebssystem
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - other (please say which above) / anderes (bitte oben angeben)
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version / Node-Version
+      description: |
+        Enter `node --version` in the terminal or command prompt and copy the result here.
+        Im Terminal bzw. in der Eingabeaufforderung `node --version` eingeben und das Ergebnis hierher kopieren.
+      placeholder: e.g. / z. B. v24.11.0
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version of Tweakable DJ for Spotify / Version von Tweakable DJ for Spotify
+      description: |
+        Shown at the very bottom of the interface and in the name of the ZIP file, e.g. v0.1.0. If you don’t know it, leave the field empty.
+        Steht ganz unten in der Oberfläche und im Namen der ZIP-Datei, z. B. v0.1.0. Weißt du es nicht, lass das Feld leer.
+
+  - type: checkboxes
+    id: credentials
+    attributes:
+      label: Credentials / Zugangsdaten
+      options:
+        - label: I haven’t pasted a Client ID, an API key or anything from tokens.json, config.jsonc or state.json. / Ich habe keine Client ID, keinen API-Key und nichts aus tokens.json, config.jsonc oder state.json eingefügt.
+          required: true

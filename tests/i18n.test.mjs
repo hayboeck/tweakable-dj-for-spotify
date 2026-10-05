@@ -9,7 +9,8 @@ import { LANGS, MESSAGES, locale, resolveLang, systemLang, t, tError } from '../
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // Texte in Anführungszeichen, die wie Schlüssel aussehen, aber Dateinamen bzw. Stellen in der config.jsonc sind
 const NOT_KEYS = ['config.jsonc', 'ui.html', 'ui.mjs', 'spotify.clientId', 'lastfm.apiKey', 'lastfm.user'];
-const placeholders =text => [...text.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort();
+// Namen der Platzhalter {name} und {name|eins|mehr} (Einzahl/Mehrzahl braucht nicht jede Sprache, z. B. „1 Künstler“)
+const placeholders = text => [...new Set([...text.matchAll(/\{(\w+)(?:\|[^|{}]*\|[^|{}]*)?\}/g)].map(m => m[1]))].sort();
 
 test('Jeder Text gibt es auf Deutsch und Englisch, mit denselben Platzhaltern', () => {
   assert.deepEqual(LANGS, ['de', 'en']);
@@ -43,7 +44,7 @@ test('Alle Schlüssel, die die Programmdateien verwenden, gibt es', () => {
 test('t: Platzhalter, unbekannte Sprache und unbekannter Schlüssel', () => {
   assert.equal(t('de', 'run.songs', { count: 11 }), '  11 Songs');
   assert.equal(t('en', 'run.songs', { count: 11 }), '  11 songs');
-  assert.equal(t('fr', 'run.songs', { count: 1 }), '  1 songs', 'unbekannte Sprache = Englisch');
+  assert.equal(t('fr', 'run.songs', { count: 11 }), '  11 songs', 'unbekannte Sprache = Englisch');
   assert.equal(t('de', 'run.error', {}), 'Fehler: {message}', 'fehlender Wert bleibt sichtbar');
   assert.equal(t('en', 'gibt.es.nicht'), 'gibt.es.nicht');
   assert.equal(t('en', 'run.current'), ' · current');
@@ -54,6 +55,38 @@ test('t: Platzhalter, unbekannte Sprache und unbekannter Schlüssel', () => {
   assert.equal(e.errorCode, 'login_expired');
   assert.equal(locale('de'), 'de-AT');
   assert.equal(locale('en'), 'en-US');
+});
+
+test('t: Einzahl und Mehrzahl mit {name|eins|mehr}, Zahl im Format der Sprache', () => {
+  assert.equal(t('de', 'run.songs', { count: 1 }), '  1 Song');
+  assert.equal(t('en', 'run.songs', { count: 1 }), '  1 song');
+  assert.equal(t('de', 'run.songs', { count: 0 }), '  0 Songs');
+  assert.equal(t('en', 'run.songs', { count: 1000 }), '  1,000 songs');
+  assert.equal(t('de', 'run.songs', { count: 1000 }), `  ${(1000).toLocaleString('de-AT')} Songs`, 'de-AT: 1 000 mit geschütztem Leerzeichen');
+  const counts = { name: 'DJ', songs: 1, fresh: 0, freshCurrent: 0, familiar: 1 };
+  assert.equal(t('de', 'run.summary', counts), 'DJ: 1 Song (0 neu, davon 0 über aktuelles Hören; 1 Favorit)');
+  assert.equal(t('en', 'run.summary', counts), 'DJ: 1 song (0 new, 0 of them via current listening; 1 favorite)');
+  assert.equal(t('de', 'run.summary', { ...counts, songs: 2, familiar: 2 }), 'DJ: 2 Songs (0 neu, davon 0 über aktuelles Hören; 2 Favoriten)');
+  assert.equal(t('en', 'run.summary', { ...counts, songs: 2, familiar: 2 }), 'DJ: 2 songs (0 new, 0 of them via current listening; 2 favorites)');
+  assert.equal(t('de', 'run.blocked', { count: 1 }), '  1 Song wegen der Sperrliste aussortiert');
+  assert.equal(t('en', 'run.blocked', { count: 3 }), '  3 songs left out because of the block list');
+  assert.equal(t('de', 'run.scrobbles', { total: 1, current: 1, days: 1, artists: 1 }), '  1 Scrobble, davon 1 in den letzten 24 Stunden (1 Künstler)');
+  assert.equal(t('en', 'run.scrobbles', { total: 1000, current: 5, days: 7, artists: 1 }), '  1,000 scrobbles, 5 of them in the last 7 days (1 artist)');
+  assert.equal(t('de', 'run.startingPoints', { current: 0, total: 1, factor: 3 }), '  0 von 1 Ausgangspunkt aus deinem aktuellen Hören (Faktor 3)');
+  assert.equal(t('en', 'run.candidates', { count: 1, hits: 0, total: 1 }), '  1 candidate (0 of 1 Last.fm request from the cache)');
+  assert.equal(t('de', 'run.description', { date: 'd', time: 't', fresh: 1, familiar: 1 }), 'Tweakable DJ · d, t Uhr · 1 neuer Song, 1 Favorit');
+  assert.equal(t('en', 'update.stepCopy', { count: 1, same: 1 }), 'Replacing 1 file (1 is unchanged) …');
+  assert.equal(t('de', 'update.stepCopy', { count: 2, same: 1 }), 'Ersetze 2 Dateien (1 ist unverändert) …');
+  assert.equal(t('en', 'ui.lastfmOk', { name: 'x', scrobbles: 12345 }), 'All good ✓ “x” has 12,345 scrobbles.');
+  assert.equal(t('de', 'ui.lastfmOk', { name: 'x', scrobbles: 1 }), 'Passt ✓ „x“ hat 1 Scrobble.');
+  assert.equal(t('de', 'run.songs', {}), '  {count|# Song|# Songs}', 'fehlender Wert bleibt sichtbar');
+  // Jede Einzahl/Mehrzahl hat genau zwei Formen; # steht nur darin
+  for (const lang of LANGS) {
+    for (const [key, text] of Object.entries(MESSAGES[lang])) {
+      for (const m of text.matchAll(/\{\w+\|[^{}]*\}/g)) assert.match(m[0], /^\{\w+\|[^|{}]*\|[^|{}]*\}$/, `${lang} ${key}`);
+      assert.doesNotMatch(text.replace(/\{\w+\|[^{}]*\}/g, ''), /#/, `${lang} ${key}: # außerhalb von {…|…|…}`);
+    }
+  }
 });
 
 test('systemLang: TWEAKABLE_DJ_LANG vor LC_ALL/LANG vor der Spracheinstellung von Node.js', () => {

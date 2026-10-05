@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { WEEKDAYS } from '../config.mjs';
 import {
   applySchedule, checkWindowsTask, cronLine, entryIds, lastRun, launchAgentPlist, LEGACY_NAMES, nextRun, PLATFORMS,
@@ -235,7 +236,11 @@ test('Status: unbekannte Plattform, letzter Lauf aus automatik.json', async () =
     await assert.rejects(applySchedule(daily(), opts), /Windows, macOS und Linux/);
     await assert.rejects(applySchedule(daily(), { ...opts, lang: 'en' }), /only available on Windows, macOS and Linux/);
 
-    const run = { startedAt: '2026-10-01T05:00:00.000Z', finishedAt: '2026-10-01T05:01:00.000Z', ok: true, summary: 'Tweakable DJ: 50 Songs (…)' };
+    const run = {
+      startedAt: '2026-10-01T05:00:00.000Z', finishedAt: '2026-10-01T05:01:00.000Z', ok: true, dry: false, songs: 50, fresh: 42, freshCurrent: 10,
+      familiar: 8, playlistName: 'Tweakable DJ', playlistUrl: 'https://open.spotify.com/playlist/x', errorCode: null, error: null,
+      summary: 'Tweakable DJ: 50 Songs (42 neu, davon 10 über aktuelles Hören; 8 Favoriten)',
+    };
     fs.writeFileSync(path.join(dir, 'automatik.json'), JSON.stringify(run));
     assert.deepEqual(lastRun(dir), run);
     assert.deepEqual((await scheduleStatus(daily(), opts)).lastRun, run);
@@ -368,5 +373,21 @@ test('Fehlermeldungen des Zeitplaners in der Sprache der Anfrage', async () => {
   } finally {
     delete PLATFORMS.sim;
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('READMEs, Abschnitt Deinstallieren: Befehle zum Entfernen von Hand mit den echten Kennungen', () => {
+  const ROOT = fileURLToPath(new URL('..', import.meta.url));
+  const { name, label, marker } = entryIds(TASK_NAME);
+  assert.deepEqual([name, label, marker], ['Tweakable DJ', 'io.github.tweakable-dj.auto', 'tweakable-dj-auto']);
+  for (const [file, heading] of [['README.md', '## 9. Uninstalling'], ['README.de.md', '## 9. Deinstallieren']]) {
+    const text = fs.readFileSync(path.join(ROOT, file), 'utf8').replace(/\r\n/g, '\n');
+    const start = text.indexOf(`\n${heading}\n`);
+    assert.ok(start > 0, `${file}: ${heading}`);
+    const section = text.slice(start, text.indexOf('\n## ', start + 1));
+    for (const s of [`schtasks /Delete /TN "${name}" /F`, `launchctl bootout gui/$(id -u)/${label}`, `rm ~/Library/LaunchAgents/${label}.plist`,
+      'crontab -e', `\`${marker}\``]) {
+      assert.ok(section.includes(s), `${file}: ${s}`);
+    }
   }
 });

@@ -1,7 +1,6 @@
 // Hinweis auf neue Versionen: fragt höchstens einmal am Tag das neueste Release auf GitHub ab.
 // Gesendet wird nur diese eine GET-Anfrage, ohne persönliche Daten. Abgeschaltet ist die Prüfung mit
-// TWEAKABLE_DJ_NO_UPDATE_CHECK=1 oder solange package.json kein "repository" (bzw. keine "version") hat
-// oder dort noch der Platzhalter OWNER steht.
+// TWEAKABLE_DJ_NO_UPDATE_CHECK=1 oder solange package.json kein "repository" (bzw. keine "version") hat.
 //
 // Eingebunden in ui.mjs (GET /api/update). ui.html fragt einmal nach dem Laden und zeigt bei updateAvailable
 // „Neue Version {latest} verfügbar (du hast {current}) – Download“ mit Link auf url. Installieren kann man sie dort mit
@@ -69,15 +68,11 @@ export function currentVersion(pkgFile = PKG) {
   return typeof v === 'string' ? v : null;
 }
 
-// Besitzer, der in package.json nur als Platzhalter steht, solange das Repository noch nicht veröffentlicht ist.
-const PLACEHOLDER_OWNER = 'OWNER';
-
-// "owner/repo" aus package.json; null = kein GitHub-Repository eingetragen (oder nur der Platzhalter),
-// Prüfung abgeschaltet.
+// "owner/repo" aus package.json; null = kein GitHub-Repository eingetragen, Prüfung abgeschaltet.
 export function repoSlug(pkgFile = PKG) {
   const repo = readPkg(pkgFile).repository;
   const m = String((typeof repo === 'string' ? repo : repo?.url) ?? '').trim().match(REPO);
-  if (!m || [m[1], m[2]].some(s => s === '.' || s === '..') || m[1] === PLACEHOLDER_OWNER) return null;
+  if (!m || [m[1], m[2]].some(s => s === '.' || s === '..')) return null;
   return `${m[1]}/${m[2]}`;
 }
 

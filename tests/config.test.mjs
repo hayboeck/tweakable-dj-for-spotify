@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { checkValue, checkValues, DEFAULTS, missingCredentials, stripComments } from '../config.mjs';
+import { checkValue, checkValues, DEFAULTS, LIMITS, missingCredentials, stripComments } from '../config.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const TEMPLATES = { en: 'config.example.jsonc', de: 'config.example.de.jsonc' };
@@ -78,8 +78,73 @@ test('Spracheinstellung: Standard "", gültig "", "de", "en"; Meldungen in beide
     assert.throws(() => checkValue('language', v, 'en'), /^Error: language: expected "de", "en" or ""$/, String(v));
   }
   assert.deepEqual(checkValues({ language: 'en', size: 40 }), { language: 'en', size: 40 });
-  assert.throws(() => checkValue('size', 'viel', 'de'), /size: number erwartet/);
-  assert.throws(() => checkValue('size', 'viel', 'en'), /size: expected number/);
+  assert.throws(() => checkValue('size', 'viel', 'de'), /^Error: size in config\.jsonc muss eine ganze Zahl von 1 bis 500 sein \(derzeit "viel"\)\.$/);
+  assert.throws(() => checkValue('size', 'viel', 'en'), /^Error: size in config\.jsonc must be a whole number from 1 to 500 \(currently "viel"\)\.$/);
+  assert.throws(() => checkValue('useLastfmTopTracks', 'ja', 'en'), /^Error: useLastfmTopTracks: expected boolean$/);
+});
+
+test('Zahlenwerte: Grenzen aus LIMITS, ganze Zahlen, Meldung mit Schlüssel, Bereich, Datei und Wert', () => {
+  const numbers = Object.keys(DEFAULTS).filter(k => typeof DEFAULTS[k] === 'number');
+  assert.deepEqual(Object.keys(LIMITS).sort(), numbers.sort(), 'jeder Zahlenwert hat genau einen Eintrag');
+  for (const [key, l] of Object.entries(LIMITS)) {
+    assert.ok(l.min <= DEFAULTS[key] && DEFAULTS[key] <= l.max, `${key}: Standard im erlaubten Bereich`);
+    assert.ok(l.min <= l.slider[0] && l.slider[0] < l.slider[1] && l.slider[1] <= l.max, `${key}: Regler im erlaubten Bereich`);
+    assert.ok(l.step > 0 && (!l.int || Number.isInteger(l.step)), `${key}: Schrittweite`);
+    for (const v of [l.min, l.max, DEFAULTS[key], ...l.slider]) assert.equal(checkValue(key, v), v, `${key} = ${v}`);
+    const message = new RegExp(`^Error: ${key} in config\\.jsonc must be a ${l.int ? 'whole number' : 'number'} from ${l.min} to ${l.max} \\(currently .+\\)\\.$`);
+    const bad = [l.min - 1, l.min - 0.01, l.max + 1, l.max * 10, NaN, Infinity, null, String(DEFAULTS[key]), true, [], {}, ...(l.int ? [l.min + 0.5] : [])];
+    for (const v of bad) assert.throws(() => checkValue(key, v, 'en'), message, `${key} = ${v}`);
+  }
+  // Bewusst so: 0 = aus bei Abstand, Sperren und Zeitraum „aktuell“, 1 = aus beim Faktor; Anteile von 0 bis 1
+  assert.deepEqual(Object.fromEntries(Object.entries(LIMITS).map(([k, l]) => [k, l.min])), {
+    size: 1, familiarShare: 0, adventure: 0, seedsPerRun: 1, currentDays: 0, currentFactor: 1, maxPerArtist: 1, artistWindow: 1,
+    maxPerWindow: 1, artistGap: 0, excludeRecentDays: 0, noRepeatRuns: 0,
+  });
+  assert.deepEqual([LIMITS.familiarShare.max, LIMITS.adventure.max, LIMITS.size.max], [1, 1, 500]);
+  assert.deepEqual(Object.keys(LIMITS).filter(k => !LIMITS[k].int), ['familiarShare', 'adventure', 'currentFactor']);
+  assert.equal(checkValue('currentFactor', 2.5), 2.5);
+  // Wortlaut in beiden Sprachen
+  assert.throws(() => checkValue('size', 0, 'en'), /^Error: size in config\.jsonc must be a whole number from 1 to 500 \(currently 0\)\.$/);
+  assert.throws(() => checkValue('size', 0, 'de'), /^Error: size in config\.jsonc muss eine ganze Zahl von 1 bis 500 sein \(derzeit 0\)\.$/);
+  assert.throws(() => checkValue('familiarShare', 15, 'de'), /^Error: familiarShare in config\.jsonc muss eine Zahl von 0 bis 1 sein \(derzeit 15\)\.$/);
+  assert.throws(() => checkValue('maxPerWindow', 2.5, 'en'), /^Error: maxPerWindow in config\.jsonc must be a whole number from 1 to 100 \(currently 2\.5\)\.$/);
+  assert.throws(() => checkValues({ size: 40, artistWindow: 0 }, 'en'), /^Error: artistWindow in config\.jsonc must be a whole number from 1 to 100/);
+});
+
+test('Vorlagen und READMEs nennen die erlaubten Bereiche aus LIMITS', () => {
+  for (const file of [...Object.values(TEMPLATES), 'README.md', 'README.de.md']) {
+    const lines = fs.readFileSync(path.join(ROOT, file), 'utf8').split('\n');
+    for (const [key, { min, max }] of Object.entries(LIMITS)) {
+      // Vorlage: Zeile des Schlüssels; README: erste Tabellenzeile mit `key` (Abschnitt „Regeln und Einstellungen“)
+      const line = file.endsWith('.jsonc')
+        ? lines.find(l => l.startsWith(`  "${key}":`))
+        : lines.find(l => l.startsWith('|') && l.includes(`\`${key}\``));
+      assert.ok(line?.includes(`${min}–${max}`), `${file}: ${key} ohne „${min}–${max}“: ${line}`);
+    }
+  }
+});
+
+test('loadConfig: ungültige Zahlen aus einer von Hand geänderten config.jsonc → alle in einer Meldung', async () => {
+  const ok = { spotify: { clientId: '0123456789abcdef0123456789abcdef' }, lastfm: { apiKey: 'fedcba9876543210fedcba9876543210', user: 'testhoerer' }, seed: 'liked' };
+  await withConfig(JSON.stringify({ ...ok, size: 0, maxPerWindow: 0 }), ({ loadConfig, numberProblems, readConfig }) => {
+    assert.throws(() => loadConfig('en'), e => !e.errorCode && e.message === 'size in config.jsonc must be a whole number from 1 to 500 (currently 0).'
+      + ' maxPerWindow in config.jsonc must be a whole number from 1 to 100 (currently 0).');
+    assert.throws(() => loadConfig('de'), /^Error: size in config\.jsonc muss eine ganze Zahl von 1 bis 500 sein \(derzeit 0\)\. maxPerWindow in /);
+    // Die Oberfläche liest sie trotzdem (readConfig), damit man sie dort korrigieren kann.
+    assert.equal(readConfig('en').size, 0);
+    assert.deepEqual(Object.keys(numberProblems(readConfig('en'), 'en')), ['size', 'maxPerWindow']);
+  });
+  // Größer als der Regler, aber erlaubt; 0 bzw. 1 = aus
+  const edge = { size: 500, seedsPerRun: 200, artistGap: 0, excludeRecentDays: 0, noRepeatRuns: 0, currentDays: 0, familiarShare: 1, currentFactor: 1 };
+  await withConfig(JSON.stringify({ ...ok, ...edge }), ({ loadConfig, numberProblems }) => {
+    const cfg = loadConfig('en');
+    assert.deepEqual(Object.fromEntries(Object.keys(edge).map(k => [k, cfg[k]])), edge);
+    assert.deepEqual(numberProblems(cfg, 'en'), {});
+  });
+  // Unvollständige Einrichtung geht vor (die Oberfläche zeigt dann den Assistenten)
+  await withConfig(JSON.stringify({ ...ok, spotify: {}, size: 0 }), ({ loadConfig }) => {
+    assert.throws(() => loadConfig('en'), e => e.errorCode === 'setup_incomplete');
+  });
 });
 
 test('Vorlagen: englisch und deutsch mit denselben Werten, jeder Schlüssel mit Erklärung', () => {

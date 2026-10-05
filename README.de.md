@@ -10,7 +10,7 @@ Die Oberfläche gibt es auf Deutsch und Englisch, umschaltbar oben rechts (DE | 
 
 <p align="center"><img src="docs/screenshot-main.de.png" width="600" alt="Die Oberfläche von Tweakable DJ: Voreinstellungen wie Entdecken und Meine aktuelle Phase, die Einstellungen der Playlist mit Reglern und die Buttons Probelauf und Playlist neu erstellen"></p>
 
-Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt (mehr dazu in [Abschnitt 11](#11-datenquellen-marken-und-lizenz)).
+Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt (mehr dazu in [Abschnitt 12](#12-datenquellen-marken-und-lizenz)).
 
 > **Das brauchst du**
 >
@@ -32,9 +32,10 @@ Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt 
 6. [Bedienung](#6-bedienung)
 7. [Einrichtung (einmalig)](#7-einrichtung-einmalig)
 8. [Aktualisieren](#8-aktualisieren)
-9. [Probleme und Lösungen](#9-probleme-und-lösungen)
-10. [Grenzen](#10-grenzen)
-11. [Datenquellen, Marken und Lizenz](#11-datenquellen-marken-und-lizenz)
+9. [Deinstallieren](#9-deinstallieren)
+10. [Probleme und Lösungen](#10-probleme-und-lösungen)
+11. [Grenzen](#11-grenzen)
+12. [Datenquellen, Marken und Lizenz](#12-datenquellen-marken-und-lizenz)
 
 ---
 
@@ -102,7 +103,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `config.example.jsonc` | Dieselbe Vorlage mit englischen Erklärungen (für die Einrichtung auf Englisch) |
 | `overview.de.svg`, `overview.en.svg` | Die Grafik in Abschnitt 2, auf Deutsch und Englisch |
 | `docs/` | Bildschirmfotos der Oberfläche für diese Anleitung, auf Deutsch und Englisch |
-| `LICENSE` | Die Lizenz (MIT), siehe Abschnitt 11 |
+| `LICENSE` | Die Lizenz (MIT), siehe Abschnitt 12 |
 | `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, die Dateien der Automatik, das Ergebnis der Prüfung auf neue Versionen und `.update/` nie mit hochgeladen werden |
 | `.gitattributes` | Einheitliche Zeilenenden für Windows, Mac und Linux; kennzeichnet Bilder als binär. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 | `.github/` | Vorlagen für Fehlermeldungen und Ideen, automatische Abläufe auf GitHub (z. B. die ZIP-Datei für neue Versionen). Nur im GitHub-Repository, nicht in der ZIP-Datei. |
@@ -151,46 +152,48 @@ Songs, die du aus „Tweakable DJ“ mit dem Herz speicherst, werden zu neuen Li
 
 Jede Regel lässt sich in `config.jsonc` oder in der Oberfläche ändern. Der Name der Einstellung steht in Klammern. „Standard“ ist der Wert, den der DJ ohne eigene Einstellung verwendet.
 
+„Erlaubt“ ist, was `config.jsonc` annimmt; Anzahlen, Tage und Läufe sind ganze Zahlen. Die Regler der Oberfläche decken den üblichen Bereich ab. Einen größeren Wert aus `config.jsonc` zeigen sie trotzdem richtig an und lassen ihn, wie er ist. Liegt ein Wert außerhalb des erlaubten Bereichs, markiert ihn die Oberfläche rot, und ein Lauf bricht mit einer Meldung ab, z. B. „size in config.jsonc muss eine ganze Zahl von 1 bis 500 sein (derzeit 0).“
+
 **Was in die Playlist kommt**
 
-| Regel | Standard |
-|---|---|
-| Name der Playlist (`playlistName`). Gibt es sie nicht, wird sie angelegt. | Tweakable DJ |
-| Quelle deiner Favoriten (`seed`): deine Lieblingssongs (`"liked"`) oder eine eigene bzw. gemeinsame Playlist. Daraus kommen die Favoriten und die meisten Ausgangspunkte. | Lieblingssongs |
-| Länge der Playlist (`size`) | 50 Songs |
-| Anteil Favoriten (`familiarShare`). Der Rest sind neue Songs, die nicht in der Quelle deiner Favoriten sind. | 15 % (≈ 8 Songs) |
-| Abenteuer (`adventure`): 0 = ähnliche Songs bevorzugen, 0,5 = egal, 1 = entfernte Songs bevorzugen. Bestimmt auch, bei wie vielen Ausgangspunkten der DJ zu verwandten Künstlern abschweift. | 0,4 |
-| Ausgangspunkte pro Lauf (`seedsPerRun`) | 20 |
-| Last.fm-Top-Songs der letzten 3 Monate zusätzlich als Ausgangspunkte (`useLastfmTopTracks`) | an |
+| Regel | Standard | Erlaubt |
+|---|---|---|
+| Name der Playlist (`playlistName`). Gibt es sie nicht, wird sie angelegt. | Tweakable DJ | beliebiger Name |
+| Quelle deiner Favoriten (`seed`): deine Lieblingssongs (`"liked"`) oder eine eigene bzw. gemeinsame Playlist. Daraus kommen die Favoriten und die meisten Ausgangspunkte. | Lieblingssongs | `"liked"` oder Link zu einer Playlist |
+| Länge der Playlist (`size`) | 50 Songs | 1–500 |
+| Anteil Favoriten (`familiarShare`). Der Rest sind neue Songs, die nicht in der Quelle deiner Favoriten sind. | 15 % (≈ 8 Songs) | 0–1 (`0.15` = 15 %) |
+| Abenteuer (`adventure`): 0 = ähnliche Songs bevorzugen, 0,5 = egal, 1 = entfernte Songs bevorzugen. Bestimmt auch, bei wie vielen Ausgangspunkten der DJ zu verwandten Künstlern abschweift. | 0,4 | 0–1 |
+| Ausgangspunkte pro Lauf (`seedsPerRun`) | 20 | 1–200 |
+| Last.fm-Top-Songs der letzten 3 Monate zusätzlich als Ausgangspunkte (`useLastfmTopTracks`) | an | `true` oder `false` |
 
 **Was du gerade hörst, zählt mehr**
 
-| Regel | Standard |
-|---|---|
-| „Aktuell“ ist alles, was du laut Last.fm in diesem Zeitraum gehört hast (`currentDays`). | 7 Tage |
-| Faktor für aktuelles Hören (`currentFactor`), 1 = aus. Bei Faktor 3 gilt Folgendes: | 3 |
-| – Ein Ausgangspunkt wird 3× so oft gezogen, wenn du den Song oder seinen Künstler gerade hörst. Die aktuell gehörten Songs selbst sind ebenfalls Ausgangspunkte. | |
-| – Ein neuer Song, der über so einen Ausgangspunkt gefunden wurde, hat bei der Auslosung ein 3× so großes Los. | |
-| – Favoriten von Künstlern, die du gerade hörst, werden 3× so oft gewählt. | |
+| Regel | Standard | Erlaubt |
+|---|---|---|
+| „Aktuell“ ist alles, was du laut Last.fm in diesem Zeitraum gehört hast (`currentDays`). 0 = aus. | 7 Tage | 0–365 |
+| Faktor für aktuelles Hören (`currentFactor`), 1 = aus. Bei Faktor 3 gilt Folgendes: | 3 | 1–100 |
+| – Ein Ausgangspunkt wird 3× so oft gezogen, wenn du den Song oder seinen Künstler gerade hörst. Die aktuell gehörten Songs selbst sind ebenfalls Ausgangspunkte. | | |
+| – Ein neuer Song, der über so einen Ausgangspunkt gefunden wurde, hat bei der Auslosung ein 3× so großes Los. | | |
+| – Favoriten von Künstlern, die du gerade hörst, werden 3× so oft gewählt. | | |
 
 In der Ausgabe sind solche Songs mit „· aktuell“ markiert (auf Englisch „· current“).
 
 **Was nicht in die Playlist kommt**
 
-| Regel | Standard |
-|---|---|
-| Kürzlich gehört (`excludeRecentDays`): alles, was du laut Last.fm in diesem Zeitraum gehört hast. 0 = aus. | 14 Tage |
-| Vorige Läufe (`noRepeatRuns`): Songs aus den letzten N Läufen. 0 = aus. | 3 Läufe |
-| Sperrliste (`blockedArtists`): Künstler, die nie vorkommen, weder als Song noch als Ausgangspunkt noch als Abstecher. Es zählen ganze Wörter: „Macloud“ sperrt auch „Miksu / Macloud“ und „feat. Macloud“, aber „Rin“ sperrt nicht „Karin“. | keine |
-| Songs, die auf Spotify nicht eindeutig gefunden werden (Titel und Interpret müssen passen). Zusätze wie „Remastered“ oder „feat.“ werden beim Vergleich ignoriert. | immer |
+| Regel | Standard | Erlaubt |
+|---|---|---|
+| Kürzlich gehört (`excludeRecentDays`): alles, was du laut Last.fm in diesem Zeitraum gehört hast. 0 = aus. | 14 Tage | 0–365 |
+| Vorige Läufe (`noRepeatRuns`): Songs aus den letzten N Läufen. 0 = aus. | 3 Läufe | 0–100 |
+| Sperrliste (`blockedArtists`): Künstler, die nie vorkommen, weder als Song noch als Ausgangspunkt noch als Abstecher. Es zählen ganze Wörter: „Macloud“ sperrt auch „Miksu / Macloud“ und „feat. Macloud“, aber „Rin“ sperrt nicht „Karin“. | keine | Liste von Namen |
+| Songs, die auf Spotify nicht eindeutig gefunden werden (Titel und Interpret müssen passen). Zusätze wie „Remastered“ oder „feat.“ werden beim Vergleich ignoriert. | immer | |
 
 **Wie oft derselbe Künstler vorkommt**
 
-| Regel | Standard |
-|---|---|
-| Pro Interpret höchstens N Songs in der ganzen Playlist (`maxPerArtist`) | 2 |
-| In jeweils 20 aufeinanderfolgenden Songs höchstens 3 Songs zum selben Künstler (`artistWindow`, `maxPerWindow`). Mitgezählt werden Songs *von* ihm und neue Songs, die *über* ihn gefunden wurden (z. B. „neu, über Künstler X“). Bei 50 Songs sind das höchstens 8 pro Künstler. | 3 aus 20 |
-| Abstand zwischen zwei Songs desselben Interpreten (`artistGap`) | mind. 4 Songs dazwischen |
+| Regel | Standard | Erlaubt |
+|---|---|---|
+| Pro Interpret höchstens N Songs in der ganzen Playlist (`maxPerArtist`) | 2 | 1–500 |
+| In jeweils 20 aufeinanderfolgenden Songs höchstens 3 Songs zum selben Künstler (`artistWindow`, `maxPerWindow`). Mitgezählt werden Songs *von* ihm und neue Songs, die *über* ihn gefunden wurden (z. B. „neu, über Künstler X“). Bei 50 Songs sind das höchstens 8 pro Künstler. | 3 aus 20 | je 1–100 |
+| Abstand zwischen zwei Songs desselben Interpreten (`artistGap`). 0 = aus. | mind. 4 Songs dazwischen | 0–50 |
 
 **Wenn nicht alles gleichzeitig geht**
 
@@ -221,7 +224,7 @@ Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-e
   - *Standard*: die Grundeinstellungen
 
   Name, Quelle, Anzahl Songs und Sperrliste bleiben dabei, wie sie sind. Passt deine Einstellung genau zu einer Voreinstellung, ist diese markiert.
-- **Regler**: Jede Einstellung hat einen Regler, eine Erklärung und einen grünen Hinweis, was der Wert gerade bewirkt. Weicht ein Wert vom Standard ab, bringt „Standard: …“ ihn per Klick zurück.
+- **Regler**: Jede Einstellung hat einen Regler, eine Erklärung und einen grünen Hinweis, was der Wert gerade bewirkt. Weicht ein Wert vom Standard ab, bringt „Standard: …“ ihn per Klick zurück. Einen Wert aus `config.jsonc` außerhalb des erlaubten Bereichs markiert die Oberfläche rot ([Regeln und Einstellungen](#5-regeln-und-einstellungen)).
 - **Quelle deiner Favoriten**: Auswahlliste mit deinen Lieblingssongs und deinen Playlists. Zur Auswahl stehen nur Playlists, die dir gehören oder bei denen du mitarbeitest, weil Spotify nur deren Inhalt herausgibt.
 - **Sperrliste**: Künstlernamen eintragen und auf *Hinzufügen* klicken. Mit × wieder entfernen.
 - **Speichern / Verwerfen**: Änderungen werden erst mit *Speichern* in `config.jsonc` geschrieben.
@@ -342,7 +345,27 @@ Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie
 
 ---
 
-## 9. Probleme und Lösungen
+## 9. Deinstallieren
+
+1. **Zuerst die Automatik ausschalten:** In der Oberfläche *Automatisch neu erstellen* auf *Aus* stellen und *Speichern* klicken. Damit verschwindet der Eintrag aus dem Zeitplaner deines Systems.
+2. Das Fenster von Tweakable DJ schließen und den Ordner `tweakable-dj` löschen. Deine persönlichen Dateien (Einstellungen, Spotify-Anmeldung, Verlauf) sind damit auch weg.
+3. Wenn du magst: die Playlist in Spotify löschen (standardmäßig „Tweakable DJ“) und deine Spotify-App im [Spotify-Dashboard](https://developer.spotify.com/dashboard).
+
+**Löschst du den Ordner, während die Automatik noch an ist**, bleibt der Eintrag im Zeitplaner. Er startet weiter zur eingestellten Zeit, aber jeder Lauf scheitert unbemerkt, weil der Ordner fehlt, und die Playlist wird nicht mehr neu erstellt. Den Eintrag kannst du von Hand entfernen:
+
+- **Windows:** die *Aufgabenplanung* öffnen, links *Aufgabenplanungsbibliothek* anklicken, Rechtsklick auf *Tweakable DJ* → *Löschen*. Oder in der Eingabeaufforderung: `schtasks /Delete /TN "Tweakable DJ" /F`
+- **macOS:** im Terminal:
+  ```sh
+  launchctl bootout gui/$(id -u)/io.github.tweakable-dj.auto
+  rm ~/Library/LaunchAgents/io.github.tweakable-dj.auto.plist
+  ```
+- **Linux:** im Terminal `crontab -e` ausführen und die Zeile mit `tweakable-dj-auto` löschen.
+
+Es gibt immer nur einen Eintrag: Er hat stets denselben Namen, egal aus welchem Ordner er stammt. Installierst du Tweakable DJ später in einem anderen Ordner neu, zeigt die Oberfläche „Die Automatik zeigt noch auf einen anderen Ordner“, und Speichern ersetzt den Eintrag. Einen zweiten gibt es nie.
+
+---
+
+## 10. Probleme und Lösungen
 
 | Meldung / Problem | Lösung |
 |---|---|
@@ -356,6 +379,7 @@ Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie
 | „Den Last.fm-Benutzer … gibt es nicht“ | Schreibweise des Last.fm-Namens über *Zugangsdaten ändern* prüfen |
 | „Last.fm hat … keine Scrobbles“ | Spotify ist vermutlich nicht mit Last.fm verbunden: unter [last.fm → Einstellungen → Anwendungen](https://www.last.fm/settings/applications) verbinden. Bis dahin greifen die Regeln zum aktuellen Hören nicht. |
 | „config.jsonc ist fehlerhaft“ | Meist fehlt ein Komma am Zeilenende oder es ist eines zu viel (nach dem letzten Eintrag darf keines stehen) |
+| „… in config.jsonc muss eine ganze Zahl von … bis … sein“ | Ein Wert in `config.jsonc` wurde von Hand geändert und liegt außerhalb des erlaubten Bereichs ([Regeln und Einstellungen](#5-regeln-und-einstellungen)). Dort korrigieren oder in der Oberfläche den Regler einstellen und speichern. |
 | „Die Quelle deiner Favoriten (Playlist) ist leer oder nicht lesbar“ | Spotify gibt nur Playlists heraus, die dir gehören oder bei denen du mitarbeitest. In der Oberfläche unter *Quelle deiner Favoriten* eine Playlist aus der Liste wählen, dort stehen nur lesbare. |
 | „Es läuft bereits ein Durchgang“ | Warten, bis der laufende Probelauf oder die Neuerstellung fertig ist (ca. 1 Minute) |
 | „Update fehlgeschlagen: …“ | Die Meldung sagt, ob nichts geändert oder die alte Version wiederhergestellt wurde. Später noch einmal versuchen oder von Hand aktualisieren ([Aktualisieren](#8-aktualisieren)). |
@@ -373,22 +397,23 @@ Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie
 | „Die Automatik zeigt noch auf einen anderen Ordner“ | Der Ordner wurde verschoben oder kopiert. Einmal *Automatik speichern* klicken, dann zeigt der Eintrag im Zeitplaner wieder auf den richtigen Ordner. |
 | „Im Zeitplaner steht noch ein Eintrag unter dem alten Namen …“ | Die Automatik wurde noch unter dem früheren Namen eingetragen. Einmal *Automatik speichern* (bzw. *Eintrag entfernen*, wenn die Automatik aus ist) klicken, dann ersetzt Tweakable DJ den alten Eintrag. |
 | Oberfläche oder Ausgabe in der falschen Sprache | Oben rechts **DE** oder **EN** wählen. Das speichert `language` in `config.jsonc` und gilt ab dem nächsten Lauf auch für die Automatik und das Terminal. |
-| Ordner löschen oder verschieben | Vorher die Automatik auf *Aus* stellen und speichern. Sonst bleibt ein Eintrag im Zeitplaner zurück, der ins Leere läuft. |
+| Ordner löschen oder verschieben | Vorher die Automatik auf *Aus* stellen und speichern. Sonst bleibt ein Eintrag im Zeitplaner zurück, der ins Leere läuft ([Deinstallieren](#9-deinstallieren)). |
 
 ---
 
-## 10. Grenzen
+## 11. Grenzen
 
 - **Kein Endlos-Modus:** Die Playlist hat eine feste Länge. Ist sie durchgespielt, übernimmt Spotifys Autoplay (falls eingeschaltet), das deine Regeln nicht kennt. Für neue Songs „Playlist neu erstellen“ klicken.
 - **Die Automatik braucht deinen Rechner:** Tweakable DJ läuft auf deinem PC oder Mac, nicht im Internet. Zur eingestellten Zeit muss der Rechner an sein. Verpasste Läufe holt Windows beim nächsten Einschalten nach, der Mac nur nach dem Ruhezustand, Linux gar nicht. Auf einem echten Mac ist die Automatik noch nicht getestet.
 - **Große Sammlungen:** Von deinen Lieblingssongs verwendet der DJ die 1.000, die du zuletzt gespeichert hast.
+- **Hörverlauf:** Pro Lauf holt der DJ höchstens die 1.000 neuesten Scrobbles von Last.fm, und zwar aus dem längeren der beiden Zeiträume `excludeRecentDays` und `currentDays` (standardmäßig 14 Tage). Hörst du mehr, fehlen die ältesten Tage dieses Zeitraums: Songs aus diesen Tagen werden nicht als kürzlich gehört gesperrt und zählen nicht als aktuelles Hören. Mit den Standardeinstellungen betrifft das das Sperren von kürzlich Gehörtem (14 Tage) ab etwa 70 Songs am Tag, „aktuell“ (7 Tage) erst ab etwa 140 am Tag. Bei langen Zeiträumen (z. B. `excludeRecentDays` 90) ist die Grenze viel früher erreicht. Die Zeile „… Scrobbles, …“ in der Ausgabe zeigt, wie viele geholt wurden; bei 1.000 ist die Grenze erreicht.
 - **Spotify-Vorgaben:** Die Spotify-App läuft im Entwicklermodus. Dafür braucht der Besitzer ein Premium-Konto, und höchstens 5 Personen dürfen die App nutzen.
 - **Last.fm als Quelle:** Wie gut die Vorschläge sind, hängt davon ab, wie viele Daten Last.fm zu einem Song hat. Bei sehr neuen oder wenig bekannten Songs findet Last.fm oft nichts Ähnliches. Ähnliche Songs und Künstler speichert der DJ 7 Tage zwischen, so wie Last.fm es verlangt. Neue Daten von Last.fm kommen deshalb mit bis zu einer Woche Verzögerung an. Dein Hörverlauf wird dagegen immer frisch abgefragt.
 - **Zwei Sprachen:** Oberfläche, Meldungen und Ausgabe gibt es auf Deutsch und Englisch. Namen von Songs, Künstlern und Playlists bleiben, wie sie bei Spotify und Last.fm heißen.
 
 ---
 
-## 11. Datenquellen, Marken und Lizenz
+## 12. Datenquellen, Marken und Lizenz
 
 **Spotify**
 

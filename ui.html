@@ -414,7 +414,7 @@ const TEXT = {
       presets: 'Voreinstellungen',
       presetsHelp: 'Setzen mehrere Regler auf einmal. Name, Quelle, Anzahl Songs und Sperrliste bleiben, wie sie sind. Gespeichert wird erst mit „Speichern“.',
       open: 'In Spotify öffnen ↗',
-      creditLastfm: `Ähnliche Songs und Hörverlauf: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · Nutzung nur nicht kommerziell · nicht mit Last.fm verbunden`,
+      creditLastfm: `Ähnliche Songs und Hörverlauf: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · Nutzung nur nicht kommerziell · kein offizielles Angebot von Last.fm`,
       creditSpotify: 'Kein offizielles Spotify-Produkt · Spotify ist eine Marke von Spotify AB',
       discard: 'Verwerfen',
       save: 'Speichern',
@@ -442,21 +442,21 @@ const TEXT = {
         help: 'Aus diesen Songs zieht der DJ Ausgangspunkte und Favoriten. Zur Auswahl stehen Playlists, die dir gehören oder bei denen du mitarbeitest.' },
       size: { label: 'Anzahl Songs', fmt: v => plural(v, 'Song', 'Songs'), help: 'So viele Songs kommen bei jedem Lauf in die Playlist.' },
       familiarShare: { label: 'Anteil Favoriten', fmt: v => pct(v),
-        hint: (v, c) => `≈ ${Math.round(c.size * v)} Favoriten und ${c.size - Math.round(c.size * v)} neue Songs`,
+        hint: (v, c) => `≈ ${plural(Math.round(c.size * v), 'Favorit', 'Favoriten')} und ${plural(c.size - Math.round(c.size * v), 'neuer Song', 'neue Songs')}`,
         help: 'Favoriten kommen aus der Quelle deiner Favoriten (z. B. deinen Lieblingssongs), der Rest sind Songs, die dort noch nicht drin sind.' },
       adventure: { label: 'Abenteuer', fmt: v => num(v), hint: v => adventureHint(v),
         help: '0 = ähnliche Songs bevorzugen, 0,5 = egal, 1 = entfernte Songs bevorzugen. Bestimmt auch, wie oft der DJ zu verwandten Künstlern abschweift.' },
       seedsPerRun: { label: 'Ausgangspunkte pro Lauf', fmt: v => num(v),
         help: 'Zu so vielen gezogenen Songs sucht Last.fm ähnliche. Mehr = breiterer Mix, der Lauf dauert etwas länger.' },
       useLastfmTopTracks: { label: 'Last.fm-Top-Songs einbeziehen', help: 'Deine meistgehörten Songs der letzten 3 Monate zusätzlich als Ausgangspunkte verwenden.' },
-      currentDays: { label: 'Zeitraum „aktuell“', fmt: v => plural(v, 'Tag', 'Tage'), help: 'Was du laut Last.fm in diesem Zeitraum gehört hast, zählt als aktuell.' },
+      currentDays: { label: 'Zeitraum „aktuell“', fmt: v => (v ? plural(v, 'Tag', 'Tage') : 'aus'), help: 'Was du laut Last.fm in diesem Zeitraum gehört hast, zählt als aktuell.' },
       currentFactor: { label: 'Gewicht für aktuelles Hören', fmt: v => (v === 1 ? 'aus' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Aktuell Gehörtes hat ein ${num(v)}× größeres Los`),
         help: 'Gilt bei den Ausgangspunkten, bei der Auslosung der neuen Songs und bei den Favoriten. 1 = aus.' },
       maxPerArtist: { label: 'Songs pro Interpret', fmt: v => `max. ${v}`, help: 'Höchstens so viele Songs desselben Interpreten in der ganzen Playlist.' },
       artistWindow: { label: 'Fenstergröße', fmt: v => plural(v, 'Song', 'Songs'), help: 'In je so vielen aufeinanderfolgenden Songs gilt die Regel darunter.' },
       maxPerWindow: { label: 'Songs pro Künstler im Fenster', fmt: v => `max. ${v}`,
-        hint: (v, c) => `„${v} aus ${c.artistWindow}“ → höchstens ${Math.ceil(c.size * v / c.artistWindow)} Songs pro Künstler in ${c.size} Songs`,
+        hint: (v, c) => windowHint(v, c, n => `„${v} aus ${c.artistWindow}“ → höchstens ${plural(n, 'Song', 'Songs')} pro Künstler in ${plural(c.size, 'Song', 'Songs')}`),
         help: 'Zählt Songs von einem Künstler und neue Songs, die über ihn gefunden wurden.' },
       artistGap: { label: 'Abstand gleicher Interpret', fmt: v => (v ? plural(v, 'Song', 'Songs') : 'aus'),
         help: 'Mindestens so viele andere Songs zwischen zwei Songs desselben Interpreten.' },
@@ -503,12 +503,10 @@ const TEXT = {
     run: {
       running: dry => (dry ? 'Probelauf läuft … (ca. 1 Minute)' : 'Playlist wird neu erstellt … (ca. 1 Minute)'),
       ok: (r, dry) => `${dry ? 'Probelauf' : 'Fertig'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${plural(r.songs, 'Song', 'Songs')} (${num(r.fresh)} neu, davon ${num(r.freshCurrent)} über aktuelles Hören; ${plural(r.familiar, 'Favorit', 'Favoriten')})`,
-      done: dry => (dry ? 'Probelauf fertig' : 'Fertig'),
       unchanged: ' · Playlist nicht verändert',
       failedWith: reason => `Fehlgeschlagen: ${reason} – siehe Ausgabe`,
       failed: 'Fehlgeschlagen – siehe Ausgabe',
       failedShort: 'Fehlgeschlagen',
-      ended: dry => (dry ? 'Probelauf beendet – siehe Ausgabe' : 'Beendet – siehe Ausgabe'),
     },
     seed: {
       liked: 'Lieblingssongs',
@@ -574,6 +572,8 @@ const TEXT = {
     },
     // Automatik (platform wie in Node: win32, darwin, linux)
     auto: {
+      background: 'Die Automatik läuft auch, wenn das Fenster von Tweakable DJ und diese Seite geschlossen sind.',
+      beforeDelete: 'Bevor du den Ordner von Tweakable DJ löschst: Automatik hier ausschalten.',
       platform: {
         win32: 'Dein PC muss an sein; war er aus, wird der Lauf beim nächsten Einschalten nachgeholt.',
         darwin: 'Dein Mac muss an sein. Schläft er zur eingestellten Zeit, wird der Lauf nach dem Aufwachen nachgeholt; war er ausgeschaltet, entfällt er.',
@@ -590,7 +590,6 @@ const TEXT = {
       running: 'läuft gerade …',
       aborted: '✗ abgebrochen, ohne Ergebnis',
       ok: (songs, dry) => `✓ ${songs != null ? plural(songs, 'Song', 'Songs') : 'fertig'}${dry ? ' (Probelauf)' : ''}`,
-      okSummary: (summary, dry) => `✓ ${summary}${dry ? ' (Probelauf)' : ''}`,
       open: 'In Spotify öffnen ↗',
       loginAgain: 'Jetzt neu anmelden',
       loginRenewed: '(inzwischen neu angemeldet ✓)',
@@ -615,13 +614,13 @@ const TEXT = {
   },
 
   en: {
-    locale: 'en-GB',
+    locale: 'en-US',
     pct: v => `${Math.round(v * 100)}%`,
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Setup' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Setup in 5 steps', settings: 'Settings for your playlist' },
     status: { loading: 'Loading …', setup: 'Setup', running: 'Running …', updating: 'Updating …', dirty: 'Unsaved changes', saved: 'Saved', error: 'Error' },
-    // "Mon 6 Oct, 07:00"
-    when: d => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]} ${d.getDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]}, ${two(d.getHours())}:${two(d.getMinutes())}`,
+    // "Mon, Oct 6, 07:00" (amerikanische Reihenfolge wie en-US; Uhrzeit mit 24 Stunden wie bei der Automatik)
+    when: d => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]}, ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]} ${d.getDate()}, ${two(d.getHours())}:${two(d.getMinutes())}`,
     page: {
       tagline: 'Your personal, tweakable DJ for Spotify – no talking, more variety.',
       openSetup: 'Change credentials',
@@ -687,21 +686,21 @@ const TEXT = {
         help: 'The DJ draws starting points and favorites from these songs. You can choose playlists you own or collaborate on.' },
       size: { label: 'Number of songs', fmt: v => plural(v, 'song', 'songs'), help: 'This many songs go into the playlist on every run.' },
       familiarShare: { label: 'Share of favorites', fmt: v => pct(v),
-        hint: (v, c) => `≈ ${Math.round(c.size * v)} favorites and ${c.size - Math.round(c.size * v)} new songs`,
+        hint: (v, c) => `≈ ${plural(Math.round(c.size * v), 'favorite', 'favorites')} and ${plural(c.size - Math.round(c.size * v), 'new song', 'new songs')}`,
         help: 'Favorites come from the source of your favorites (e.g. your Liked Songs); the rest are songs that aren’t in there yet.' },
       adventure: { label: 'Adventure', fmt: v => num(v), hint: v => adventureHint(v),
         help: '0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant songs. Also sets how often the DJ wanders off to related artists.' },
       seedsPerRun: { label: 'Starting points per run', fmt: v => num(v),
         help: 'Last.fm looks for songs similar to this many drawn songs. More = a broader mix; the run takes a little longer.' },
       useLastfmTopTracks: { label: 'Include Last.fm top songs', help: 'Also use your most-played songs of the last 3 months as starting points.' },
-      currentDays: { label: 'Period counted as “current”', fmt: v => plural(v, 'day', 'days'), help: 'Whatever Last.fm says you played in this period counts as current.' },
+      currentDays: { label: 'Period counted as “current”', fmt: v => (v ? plural(v, 'day', 'days') : 'off'), help: 'Whatever Last.fm says you played in this period counts as current.' },
       currentFactor: { label: 'Weight of current listening', fmt: v => (v === 1 ? 'off' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `What you’re listening to now is ${num(v)}× as likely to be drawn`),
         help: 'Applies to the starting points, the draw of new songs and the favorites. 1 = off.' },
       maxPerArtist: { label: 'Songs per artist', fmt: v => `max ${v}`, help: 'At most this many songs by the same artist in the whole playlist.' },
       artistWindow: { label: 'Window size', fmt: v => plural(v, 'song', 'songs'), help: 'The rule below applies to every stretch of this many consecutive songs.' },
       maxPerWindow: { label: 'Songs per artist in the window', fmt: v => `max ${v}`,
-        hint: (v, c) => `“${v} in ${c.artistWindow}” → at most ${Math.ceil(c.size * v / c.artistWindow)} songs per artist in ${c.size} songs`,
+        hint: (v, c) => windowHint(v, c, n => `“${v} in ${c.artistWindow}” → at most ${plural(n, 'song', 'songs')} per artist in ${plural(c.size, 'song', 'songs')}`),
         help: 'Counts songs by an artist and new songs found via that artist.' },
       artistGap: { label: 'Gap between songs by the same artist', fmt: v => (v ? plural(v, 'song', 'songs') : 'off'),
         help: 'At least this many other songs between two songs by the same artist.' },
@@ -747,12 +746,10 @@ const TEXT = {
     run: {
       running: dry => (dry ? 'Test run in progress … (about 1 minute)' : 'Rebuilding the playlist … (about 1 minute)'),
       ok: (r, dry) => `${dry ? 'Test run' : 'Done'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${plural(r.songs, 'song', 'songs')} (${num(r.fresh)} new, ${num(r.freshCurrent)} of them via current listening; ${plural(r.familiar, 'favorite', 'favorites')})`,
-      done: dry => (dry ? 'Test run finished' : 'Done'),
       unchanged: ' · playlist not changed',
       failedWith: reason => `Failed: ${reason} – see output`,
       failed: 'Failed – see output',
       failedShort: 'Failed',
-      ended: dry => (dry ? 'Test run ended – see output' : 'Ended – see output'),
     },
     seed: {
       liked: 'Liked Songs',
@@ -816,6 +813,8 @@ const TEXT = {
       failed: 'The update didn’t work.',
     },
     auto: {
+      background: 'Automatic runs also work when the Tweakable DJ window and this page are closed.',
+      beforeDelete: 'Before deleting the Tweakable DJ folder, turn automatic runs off here.',
       platform: {
         win32: 'Your PC needs to be on; if it was off, the run is made up the next time you turn it on.',
         darwin: 'Your Mac needs to be on. If it’s asleep at the set time, the run is made up after it wakes; if it was switched off, the run is skipped.',
@@ -832,7 +831,6 @@ const TEXT = {
       running: 'running …',
       aborted: '✗ aborted, no result',
       ok: (songs, dry) => `✓ ${songs != null ? plural(songs, 'song', 'songs') : 'done'}${dry ? ' (test run)' : ''}`,
-      okSummary: (summary, dry) => `✓ ${summary}${dry ? ' (test run)' : ''}`,
       open: 'Open in Spotify ↗',
       loginAgain: 'Log in again now',
       loginRenewed: '(logged in again since then ✓)',
@@ -872,6 +870,11 @@ const two = n => String(n).padStart(2, '0');
 const num = v => Number(v).toLocaleString(T.locale, { maximumFractionDigits: 2 });
 const pct = v => T.pct(v);
 const plural = (n, one, many) => `${num(n)} ${n === 1 ? one : many}`;
+// Hinweis zur Fensterregel mit der Höchstzahl pro Künstler in der ganzen Playlist; leer bei ungültigen Werten (z. B. Fenster 0).
+const windowHint = (v, c, text) => {
+  const n = Math.ceil(c.size * v / c.artistWindow);
+  return Number.isFinite(n) ? text(n) : '';
+};
 
 // Gleiche Formel wie candidateWeight() in lineup.mjs.
 function adventureHint(a) {
@@ -885,33 +888,34 @@ function adventureHint(a) {
 }
 
 // --- Regler: Aufbau ohne Texte (die stehen in TEXT[lang].items bzw. .groups) ---
+// Einträge ohne type sind Schieberegler; Bereich und Schrittweite kommen vom Server (limits aus GET /api/config).
 
 const SCHEDULE_KEYS = ['schedule', 'scheduleTime', 'scheduleDay'];
 const GROUPS = [
   { id: 'playlist', items: [
     { key: 'playlistName', type: 'text' },
     { key: 'seed', type: 'seed' },
-    { key: 'size', min: 10, max: 100, step: 5 },
-    { key: 'familiarShare', min: 0, max: 1, step: 0.05 },
+    { key: 'size' },
+    { key: 'familiarShare' },
   ]},
   { id: 'selection', items: [
-    { key: 'adventure', min: 0, max: 1, step: 0.05 },
-    { key: 'seedsPerRun', min: 5, max: 50, step: 1 },
+    { key: 'adventure' },
+    { key: 'seedsPerRun' },
     { key: 'useLastfmTopTracks', type: 'toggle' },
   ]},
   { id: 'current', items: [
-    { key: 'currentDays', min: 1, max: 30, step: 1 },
-    { key: 'currentFactor', min: 1, max: 10, step: 0.5 },
+    { key: 'currentDays' },
+    { key: 'currentFactor' },
   ]},
   { id: 'variety', items: [
-    { key: 'maxPerArtist', min: 1, max: 10, step: 1 },
-    { key: 'artistWindow', min: 5, max: 50, step: 1 },
-    { key: 'maxPerWindow', min: 1, max: 10, step: 1 },
-    { key: 'artistGap', min: 0, max: 10, step: 1 },
+    { key: 'maxPerArtist' },
+    { key: 'artistWindow' },
+    { key: 'maxPerWindow' },
+    { key: 'artistGap' },
   ]},
   { id: 'repeats', items: [
-    { key: 'excludeRecentDays', min: 0, max: 60, step: 1 },
-    { key: 'noRepeatRuns', min: 0, max: 10, step: 1 },
+    { key: 'excludeRecentDays' },
+    { key: 'noRepeatRuns' },
   ]},
   { id: 'blocked', items: [
     { key: 'blockedArtists', type: 'list' },
@@ -962,6 +966,8 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 let saved = {};
 let current = {};
 let defaults = {};
+let limits = {};             // erlaubte Bereiche und Regler der Zahlenwerte (LIMITS in config.mjs)
+let problems = {};           // ungültige Zahlenwerte aus der config.jsonc: Schlüssel → Meldung des Servers
 let setup = null;           // Stand der Einrichtung vom Server
 let view = '';              // 'setup' oder 'settings'
 let activeStep = 1;
@@ -1027,8 +1033,9 @@ function setLang(next, { save = true } = {}) {
     lang = next;
     T = TEXT[lang];
     renderLang();
-    // Meldungen des Servers zur Automatik in der neuen Sprache holen.
+    // Meldungen des Servers zur Automatik bzw. zu ungültigen Zahlenwerten in der neuen Sprache holen.
     if (save && view === 'settings') loadSchedule();
+    if (Object.keys(problems).length) loadProblems();
   }
   if (save) saveLang();
 }
@@ -1044,6 +1051,16 @@ async function saveLang() {
     if (setup && !setup.configExists) setup.configExists = true;
   } catch {
     // bleibt vorgemerkt
+  }
+}
+
+// Nur die Meldungen zu ungültigen Zahlenwerten neu holen (in der Sprache der Seite); Regler und Werte bleiben, wie sie sind.
+async function loadProblems() {
+  try {
+    problems = (await apiJson('/api/config')).problems;
+    refresh();
+  } catch {
+    // dann eben in der bisherigen Sprache
   }
 }
 
@@ -1125,12 +1142,15 @@ function build() {
           control.note, help, control.tags,
         ]));
       } else {
-        input = el('input', { type: 'range', id, min: item.min, max: item.max, step: item.step, oninput: () => set(item.key, Number(input.value)) });
+        // Bereich, Skala und Meldung zu einem ungültigen Wert setzt refresh().
+        input = el('input', { type: 'range', id, oninput: () => set(item.key, Number(input.value)) });
+        control.scale = [el('span'), el('span')];
+        control.problem = attr(el('p', { className: 'msg err' }), { role: 'status' });
         section.append(el('div', { className: 'row' }, [
           el('div', { className: 'row-head' }, [label, out]),
           input,
-          el('div', { className: 'scale' }, [el('span', { textContent: text.fmt(item.min) }), el('span', { textContent: text.fmt(item.max) })]),
-          hint, help, reset,
+          el('div', { className: 'scale' }, control.scale),
+          control.problem, hint, help, reset,
         ]));
       }
       if (control.row) section.append(control.row);
@@ -1172,6 +1192,25 @@ function renderTags(control, list) {
   ])) : [el('li', { className: 'empty', textContent: T.list.empty })]));
 }
 
+// Bereich des Schiebereglers: der übliche (slider), erweitert bis zum gespeicherten bzw. eingestellten Wert, aber nie über
+// den erlaubten hinaus. So zeigt er auch größere Werte aus der config.jsonc an, ohne sie beim Speichern abzuschneiden:
+// Gespeichert wird ein Regler nur, wenn man ihn bewegt.
+function sliderRange(key) {
+  const l = limits[key];
+  const values = [saved[key], current[key]].filter(Number.isFinite);
+  return [Math.max(l.min, Math.min(l.slider[0], ...values)), Math.min(l.max, Math.max(l.slider[1], ...values))];
+}
+
+function setSlider(control, v) {
+  const { item, input, text, scale } = control;
+  if (!limits[item.key]) return;
+  const [min, max] = sliderRange(item.key);
+  Object.assign(input, { min, max, step: limits[item.key].step }); // vor value, sonst schneidet der alte Bereich ab
+  input.value = v;
+  scale[0].textContent = text.fmt(min);
+  scale[1].textContent = text.fmt(max);
+}
+
 const presetValues = p => Object.fromEntries(PRESET_KEYS.map(k => [k, p.values[k] ?? defaults[k]]));
 const matchingPreset = () => PRESETS.find(p => Object.entries(presetValues(p)).every(([k, v]) => current[k] === v));
 
@@ -1184,8 +1223,11 @@ function refresh(skipInput) {
       else if (item.type === 'seed') fillSeedSelect(input, v);
       else if (item.type === 'list') renderTags(control, v ?? []);
       else if (item.type === 'choice') control.radios.forEach(r => { r.checked = r.value === v; });
+      else if (!item.type) setSlider(control, v);
       else input.value = v;
     }
+    // Ungültiger Wert aus der config.jsonc: Meldung, solange er unverändert ist.
+    if (control.problem) control.problem.textContent = same(v, saved[item.key]) ? problems[item.key] ?? '' : '';
     if (control.row) control.row.hidden = Boolean(item.show) && !item.show(current);
     if (item.type === 'seed') control.note.textContent = seedNoteText();
     out.textContent = item.type ? '' : text.fmt(v);
@@ -1220,6 +1262,8 @@ async function load(keepEdits = false) {
   saved = { ...data.values };
   current = { ...data.values, ...edits };
   defaults = data.defaults;
+  limits = data.limits;
+  problems = data.problems;
   setup = data.setup;
   loaded = true;
   adoptLang(data);
@@ -1240,6 +1284,7 @@ async function save() {
     throw e;
   }
   saved = { ...current };
+  for (const key of Object.keys(changes)) delete problems[key]; // jetzt gültig gespeichert
   if (res.schedule) {
     scheduleInfo = res.schedule;
     setMsg($('auto-msg'), 'ok', saved.schedule === 'off' ? T.auto.savedOff : T.auto.savedOn(T.auto.place[scheduleInfo.platform]));
@@ -1262,6 +1307,8 @@ function scheduleBox() {
   const fix = el('button', { type: 'button', className: 'btn small', id: 'auto-fix', onclick: fixSchedule });
   return el('div', { className: 'row', id: 'auto-status' }, [
     el('p', { className: 'help', id: 'auto-platform' }),
+    // Sonst bliebe der Eintrag im Zeitplaner stehen und jeder Lauf scheiterte unbemerkt (README „Deinstallieren“).
+    el('p', { className: 'help', id: 'auto-uninstall' }),
     attr(el('p', { className: 'msg warn', id: 'auto-pending' }), { role: 'status' }),
     el('dl', { className: 'facts', id: 'auto-facts' }),
     el('div', { className: 'auto-problem', id: 'auto-problem', hidden: true }, [el('p', { id: 'auto-problem-text' }), fix]),
@@ -1270,7 +1317,7 @@ function scheduleBox() {
 }
 
 // Letzter automatischer Lauf aus automatik.json: Zeit · ✓ 50 Songs bzw. ✗ Grund – aus den Zahlen und errorCode in der
-// Sprache der Seite. Ältere Dateien ohne diese Felder: summary bzw. error, so wie sie dort stehen.
+// Sprache der Seite; bei errorCode 'other' die erste Zeile von error, so wie sie dort steht.
 function lastRunView(r) {
   const time = `${when(r.finishedAt ?? r.startedAt)} · `;
   if (r.ok === null) {
@@ -1278,7 +1325,8 @@ function lastRunView(r) {
     return [time, el('span', { className: running ? '' : 'err', textContent: running ? T.auto.running : T.auto.aborted })];
   }
   if (r.ok) {
-    const result = typeof r.songs === 'number' ? T.auto.ok(r.songs, r.dry) : r.summary ? T.auto.okSummary(r.summary, r.dry) : T.auto.ok(null, r.dry);
+    // songs fehlt nur, wenn der Lauf ohne eigenes Ergebnis endete (Sicherheitsnetz in recordAutoRun)
+    const result = T.auto.ok(typeof r.songs === 'number' ? r.songs : null, r.dry);
     return [time, el('span', { className: 'ok', textContent: result }),
       ...(r.playlistUrl ? [' · ', el('a', { href: r.playlistUrl, target: '_blank', rel: 'noopener', textContent: T.auto.open })] : [])];
   }
@@ -1308,8 +1356,9 @@ function renderSchedule() {
   controls.schedule.radios.forEach(r => { r.disabled = scheduleBusy || (unsupported && r.value !== 'off'); });
 
   const platform = $('auto-platform');
-  platform.textContent = unsupported ? info.message : current.schedule !== 'off' ? T.auto.platform[info?.platform] ?? '' : '';
+  platform.textContent = unsupported ? info.message : current.schedule !== 'off' ? [T.auto.background, T.auto.platform[info?.platform]].filter(Boolean).join(' ') : '';
   platform.className = unsupported ? 'msg warn' : 'help';
+  $('auto-uninstall').textContent = !unsupported && current.schedule !== 'off' ? T.auto.beforeDelete : '';
   $('auto-pending').textContent = pending && !unsupported ? (current.schedule === 'off' ? T.auto.pendingOff : T.auto.pendingOn(place)) : '';
 
   const facts = [];
@@ -1339,6 +1388,19 @@ async function loadSchedule() {
   }
   renderSchedule();
   renderNotice();
+  watchSchedule();
+}
+
+// Die Seite bleibt oft lange offen: Läuft gerade ein automatischer Lauf, alle 10 s nachsehen, bis er fertig ist;
+// sonst kurz nach dem nächsten geplanten Lauf. Sonst bliebe "läuft gerade …" stehen, obwohl er längst fertig ist.
+let scheduleTimer = null;
+function watchSchedule() {
+  clearTimeout(scheduleTimer);
+  const last = scheduleInfo?.lastRun;
+  const running = last?.startedAt && last.ok === null && Date.now() - Date.parse(last.startedAt) < 35 * 60_000;
+  const untilNext = scheduleInfo?.nextRun ? Date.parse(scheduleInfo.nextRun) - Date.now() + 30_000 : NaN;
+  const wait = running ? 10_000 : untilNext > 0 && untilNext < 24 * 3600_000 ? untilNext : null;
+  if (wait != null) scheduleTimer = setTimeout(() => { if (view === 'settings') loadSchedule(); }, wait);
 }
 
 // "Automatik speichern" bzw. "Eintrag entfernen": gespeicherte Einstellung neu eintragen.
@@ -1358,7 +1420,8 @@ async function fixSchedule() {
 
 // --- Probelauf und Neuerstellung ---
 
-// Ergebnis des Laufs: letzte Zeile "@@RESULT {json}" der Ausgabe (fehlt z. B. bei einem älteren Server → null).
+// Ergebnis des Laufs: letzte Zeile "@@RESULT {json}" der Ausgabe. Die schickt der Server immer mit (auch wenn dj.mjs
+// abstürzt); null nur, wenn sie trotzdem fehlt oder kaputt ist.
 function runResult(text) {
   const line = text.replace(/\r/g, '').split('\n').reverse().find(l => l.startsWith('@@RESULT '));
   try {
@@ -1382,17 +1445,15 @@ function renderLog(text) {
   }));
 }
 
-function runSummary(r, dry) {
-  if (!r) return T.run.ended(dry);
-  const isDry = r.dry ?? dry;
-  if (r.ok) return typeof r.songs === 'number' ? T.run.ok(r, isDry) + (isDry ? T.run.unchanged : '') : T.run.done(isDry);
-  return T.errors[r.errorCode] ? T.run.failedWith(T.errors[r.errorCode]) : T.run.failed;
+function runSummary(r) {
+  if (r?.ok) return T.run.ok(r, r.dry) + (r.dry ? T.run.unchanged : '');
+  return T.errors[r?.errorCode] ? T.run.failedWith(T.errors[r.errorCode]) : T.run.failed;
 }
 
 function renderSummary() {
   if (!runState) return;
   const { phase, dry, result } = runState;
-  $('summary').textContent = phase === 'running' ? T.run.running(dry) : phase === 'error' ? T.run.failedShort : runSummary(result, dry);
+  $('summary').textContent = phase === 'running' ? T.run.running(dry) : phase === 'error' ? T.run.failedShort : runSummary(result);
   const link = phase === 'done' && result?.ok && !result.dry && /^https:\/\/open\.spotify\.com\//.test(result.playlistUrl ?? '');
   $('open').hidden = !link;
   if (link) $('open').href = result.playlistUrl;

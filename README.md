@@ -10,7 +10,7 @@ The interface is available in English and German; switch at the top right (DE | 
 
 <p align="center"><img src="docs/screenshot-main.en.png" width="600" alt="The Tweakable DJ interface: presets such as Discover and My current phase, the playlist settings with sliders, and the buttons Test run and Rebuild playlist"></p>
 
-Tweakable DJ is an independent project and not an official Spotify product (more in [section 11](#11-data-sources-trademarks-and-license)).
+Tweakable DJ is an independent project and not an official Spotify product (more in [section 12](#12-data-sources-trademarks-and-license)).
 
 > **What you need**
 >
@@ -32,9 +32,10 @@ Tweakable DJ is an independent project and not an official Spotify product (more
 6. [Using Tweakable DJ](#6-using-tweakable-dj)
 7. [Setup (one time)](#7-setup-one-time)
 8. [Updating](#8-updating)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Limitations](#10-limitations)
-11. [Data sources, trademarks and license](#11-data-sources-trademarks-and-license)
+9. [Uninstalling](#9-uninstalling)
+10. [Troubleshooting](#10-troubleshooting)
+11. [Limitations](#11-limitations)
+12. [Data sources, trademarks and license](#12-data-sources-trademarks-and-license)
 
 ---
 
@@ -102,7 +103,7 @@ The numbers show the order of a run:
 | `config.example.de.jsonc` | The same template with German explanations (for setting up in German) |
 | `overview.en.svg`, `overview.de.svg` | The diagram in section 2, in English and German |
 | `docs/` | Screenshots of the interface for this guide, in English and German |
-| `LICENSE` | The license (MIT), see section 11 |
+| `LICENSE` | The license (MIT), see section 12 |
 | `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, the files of automatic runs, the result of the update check and `.update/` are never uploaded |
 | `.gitattributes` | Consistent line endings for Windows, Mac and Linux; marks images as binary. Only in the GitHub repository, not in the ZIP file. |
 | `.github/` | Templates for bug reports and ideas, automated workflows on GitHub (e.g. the ZIP file for new versions). Only in the GitHub repository, not in the ZIP file. |
@@ -151,46 +152,48 @@ Songs from “Tweakable DJ” that you save with the heart become new Liked Song
 
 Every rule can be changed in `config.jsonc` or in the interface. The setting’s name is in parentheses. “Default” is the value the DJ uses if you haven’t set your own.
 
+“Allowed” is what `config.jsonc` accepts; counts, days and runs are whole numbers. The controls in the interface cover the usual range. A larger value from `config.jsonc` is still shown correctly and kept as it is. If a value is outside the allowed range, the interface marks it in red and a run stops with a message such as “size in config.jsonc must be a whole number from 1 to 500 (currently 0).”
+
 **What goes into the playlist**
 
-| Rule | Default |
-|---|---|
-| Name of the playlist (`playlistName`). If it doesn’t exist, it is created. | Tweakable DJ |
-| Source of your favorites (`seed`): your Liked Songs (`"liked"`) or one of your own or collaborative playlists. Favorites and most starting points come from here. | Liked Songs |
-| Length of the playlist (`size`) | 50 songs |
-| Share of favorites (`familiarShare`). The rest are new songs that aren’t in the source of your favorites. | 15% (≈ 8 songs) |
-| Adventure (`adventure`): 0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant songs. Also sets for how many starting points the DJ wanders off to related artists. | 0.4 |
-| Starting points per run (`seedsPerRun`) | 20 |
-| Also use your Last.fm top songs of the last 3 months as starting points (`useLastfmTopTracks`) | on |
+| Rule | Default | Allowed |
+|---|---|---|
+| Name of the playlist (`playlistName`). If it doesn’t exist, it is created. | Tweakable DJ | any name |
+| Source of your favorites (`seed`): your Liked Songs (`"liked"`) or one of your own or collaborative playlists. Favorites and most starting points come from here. | Liked Songs | `"liked"` or a playlist link |
+| Length of the playlist (`size`) | 50 songs | 1–500 |
+| Share of favorites (`familiarShare`). The rest are new songs that aren’t in the source of your favorites. | 15% (≈ 8 songs) | 0–1 (`0.15` = 15%) |
+| Adventure (`adventure`): 0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant songs. Also sets for how many starting points the DJ wanders off to related artists. | 0.4 | 0–1 |
+| Starting points per run (`seedsPerRun`) | 20 | 1–200 |
+| Also use your Last.fm top songs of the last 3 months as starting points (`useLastfmTopTracks`) | on | `true` or `false` |
 
 **What you’re listening to now counts more**
 
-| Rule | Default |
-|---|---|
-| “Current” is everything Last.fm says you played in this period (`currentDays`). | 7 days |
-| Factor for current listening (`currentFactor`), 1 = off. With factor 3: | 3 |
-| – A starting point is drawn 3× as often if you’re currently playing the song or its artist. The songs you’re currently playing are starting points too. | |
-| – A new song found via such a starting point is 3× as likely to be drawn. | |
-| – Favorites by artists you’re currently playing are picked 3× as often. | |
+| Rule | Default | Allowed |
+|---|---|---|
+| “Current” is everything Last.fm says you played in this period (`currentDays`). 0 = off. | 7 days | 0–365 |
+| Factor for current listening (`currentFactor`), 1 = off. With factor 3: | 3 | 1–100 |
+| – A starting point is drawn 3× as often if you’re currently playing the song or its artist. The songs you’re currently playing are starting points too. | | |
+| – A new song found via such a starting point is 3× as likely to be drawn. | | |
+| – Favorites by artists you’re currently playing are picked 3× as often. | | |
 
 In the output, such songs are marked with “· current” (in German “· aktuell”).
 
 **What stays out of the playlist**
 
-| Rule | Default |
-|---|---|
-| Recently played (`excludeRecentDays`): everything Last.fm says you played in this period. 0 = off. | 14 days |
-| Previous runs (`noRepeatRuns`): songs from the last N runs. 0 = off. | 3 runs |
-| Block list (`blockedArtists`): artists that never come up, neither as a song nor as a starting point nor as a detour. Whole words count: “Macloud” also blocks “Miksu / Macloud” and “feat. Macloud”, but “Rin” doesn’t block “Karin”. | none |
-| Songs that can’t be found unambiguously on Spotify (title and artist must match). Additions like “Remastered” or “feat.” are ignored in the comparison. | always |
+| Rule | Default | Allowed |
+|---|---|---|
+| Recently played (`excludeRecentDays`): everything Last.fm says you played in this period. 0 = off. | 14 days | 0–365 |
+| Previous runs (`noRepeatRuns`): songs from the last N runs. 0 = off. | 3 runs | 0–100 |
+| Block list (`blockedArtists`): artists that never come up, neither as a song nor as a starting point nor as a detour. Whole words count: “Macloud” also blocks “Miksu / Macloud” and “feat. Macloud”, but “Rin” doesn’t block “Karin”. | none | list of names |
+| Songs that can’t be found unambiguously on Spotify (title and artist must match). Additions like “Remastered” or “feat.” are ignored in the comparison. | always | |
 
 **How often the same artist comes up**
 
-| Rule | Default |
-|---|---|
-| At most N songs per artist in the whole playlist (`maxPerArtist`) | 2 |
-| In every 20 consecutive songs, at most 3 songs for the same artist (`artistWindow`, `maxPerWindow`). This counts songs *by* the artist and new songs found *via* them (e.g. “new, via artist X”). With 50 songs, that’s at most 8 per artist. | 3 in 20 |
-| Gap between two songs by the same artist (`artistGap`) | at least 4 songs in between |
+| Rule | Default | Allowed |
+|---|---|---|
+| At most N songs per artist in the whole playlist (`maxPerArtist`) | 2 | 1–500 |
+| In every 20 consecutive songs, at most 3 songs for the same artist (`artistWindow`, `maxPerWindow`). This counts songs *by* the artist and new songs found *via* them (e.g. “new, via artist X”). With 50 songs, that’s at most 8 per artist. | 3 in 20 | 1–100 each |
+| Gap between two songs by the same artist (`artistGap`). 0 = off. | at least 4 songs in between | 0–50 |
 
 **When not everything is possible at once**
 
@@ -221,7 +224,7 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
   - *Default*: the basic settings
 
   Name, source, number of songs and block list stay as they are. If your settings match a preset exactly, it is highlighted.
-- **Controls**: each setting has a control, an explanation and a green hint showing what the value does right now. If a value differs from the default, clicking “Default: …” resets it.
+- **Controls**: each setting has a control, an explanation and a green hint showing what the value does right now. If a value differs from the default, clicking “Default: …” resets it. A value from `config.jsonc` outside the allowed range is marked in red ([Rules and settings](#5-rules-and-settings)).
 - **Source of your favorites**: a list with your Liked Songs and your playlists. Only playlists you own or collaborate on are offered, because Spotify only shares the contents of those.
 - **Block list**: enter an artist name and click *Add*. Remove it again with ×.
 - **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*.
@@ -342,7 +345,27 @@ Your personal files aren’t in the ZIP file, so they stay as they are, and auto
 
 ---
 
-## 9. Troubleshooting
+## 9. Uninstalling
+
+1. **First turn automatic runs off:** in the interface, set *Rebuild automatically* to *Off* and click *Save*. That removes the entry from your system’s scheduler.
+2. Close the Tweakable DJ window and delete the `tweakable-dj` folder. Your personal files (settings, Spotify login, history) go with it.
+3. If you like: delete the playlist in Spotify (by default “Tweakable DJ”) and your Spotify app in the [Spotify dashboard](https://developer.spotify.com/dashboard).
+
+**If you delete the folder while automatic runs are still on**, the entry stays in the scheduler. It keeps starting at the set time, but each run fails silently because the folder is gone, and the playlist is no longer rebuilt. You can remove the entry by hand:
+
+- **Windows:** open *Task Scheduler*, click *Task Scheduler Library*, right-click *Tweakable DJ* → *Delete*. Or in the command prompt: `schtasks /Delete /TN "Tweakable DJ" /F`
+- **macOS:** in the terminal:
+  ```sh
+  launchctl bootout gui/$(id -u)/io.github.tweakable-dj.auto
+  rm ~/Library/LaunchAgents/io.github.tweakable-dj.auto.plist
+  ```
+- **Linux:** run `crontab -e` in the terminal and delete the line containing `tweakable-dj-auto`.
+
+There is only ever one entry: it always has the same name, whichever folder it comes from. If you install Tweakable DJ again in a different folder, the interface shows “Automatic runs still point to a different folder”, and saving replaces the entry. There is never a second one.
+
+---
+
+## 10. Troubleshooting
 
 | Message / problem | Solution |
 |---|---|
@@ -356,6 +379,7 @@ Your personal files aren’t in the ZIP file, so they stay as they are, and auto
 | “The Last.fm user … doesn’t exist” | Check the spelling of your Last.fm username via *Change credentials* |
 | “Last.fm has no scrobbles from …” | Spotify is probably not connected to Last.fm: connect it under [last.fm → Settings → Applications](https://www.last.fm/settings/applications). Until then, the rules for current listening don’t apply. |
 | “config.jsonc is invalid” | Usually a comma is missing at the end of a line, or there is one too many (there must be none after the last entry) |
+| “… in config.jsonc must be a whole number from … to …” | A value in `config.jsonc` was changed by hand and is outside the allowed range ([Rules and settings](#5-rules-and-settings)). Correct it there, or set the control in the interface and save. |
 | “The source of your favorites (playlist) is empty or can’t be read” | Spotify only returns playlists you own or collaborate on. In the interface, choose a playlist from the list under *Source of your favorites*; only readable ones are listed there. |
 | “A run is already in progress” | Wait until the current test run or rebuild is finished (about 1 minute) |
 | “Update failed: …” | The message says whether nothing was changed or the old version was restored. Try again later, or update by hand ([Updating](#8-updating)). |
@@ -373,22 +397,23 @@ Your personal files aren’t in the ZIP file, so they stay as they are, and auto
 | “Automatic runs still point to a different folder” | The folder was moved or copied. Click *Save automatic runs* once, and the scheduler entry points to the right folder again. |
 | “The scheduler still has an entry under the old name …” | Automatic runs were set up under the project’s former name. Click *Save automatic runs* once (or *Remove entry* if automatic runs are off), and Tweakable DJ replaces the old entry. |
 | Interface or output in the wrong language | Choose **DE** or **EN** at the top right. That saves `language` in `config.jsonc`, which from the next run on also applies to automatic runs and the terminal. |
-| Deleting or moving the folder | First set automatic runs to *Off* and save. Otherwise an entry stays behind in the scheduler that leads nowhere. |
+| Deleting or moving the folder | First set automatic runs to *Off* and save. Otherwise an entry stays behind in the scheduler that leads nowhere ([Uninstalling](#9-uninstalling)). |
 
 ---
 
-## 10. Limitations
+## 11. Limitations
 
 - **No endless mode:** the playlist has a fixed length. When it has finished, Spotify’s autoplay takes over (if enabled), which doesn’t know your rules. For new songs, click “Rebuild playlist”.
 - **Automatic runs need your computer:** Tweakable DJ runs on your PC or Mac, not on the internet. The computer must be on at the set time. Missed runs are made up by Windows the next time it starts, by the Mac only after sleep, and not at all by Linux. Automatic runs haven’t been tested on a real Mac yet.
 - **Large libraries:** of your Liked Songs, the DJ uses the 1,000 you saved most recently.
+- **Listening history:** per run, the DJ fetches at most the 1,000 newest scrobbles from Last.fm, from the longer of the two periods `excludeRecentDays` and `currentDays` (14 days by default). If you listen to more, the oldest days of that period are missing: songs from those days aren’t blocked as recently played and don’t count as current listening. With the defaults, blocking recently played songs (14 days) is affected from about 70 songs a day, “current” (7 days) only from about 140 a day. With long periods (e.g. `excludeRecentDays` 90), the limit is reached much sooner. The line “… scrobbles, …” in the output shows how many were fetched; 1,000 means the limit was reached.
 - **Spotify’s rules:** the Spotify app runs in development mode. This requires a Premium account for the owner, and at most 5 people may use the app.
 - **Last.fm as a source:** how good the suggestions are depends on how much data Last.fm has about a song. For very new or little-known songs, Last.fm often finds nothing similar. The DJ caches similar songs and artists for 7 days, as Last.fm requires. New data from Last.fm therefore arrives with up to a week’s delay. Your listening history, on the other hand, is always fetched fresh.
 - **Two languages:** interface, messages and output are available in English and German. Names of songs, artists and playlists stay as they are on Spotify and Last.fm.
 
 ---
 
-## 11. Data sources, trademarks and license
+## 12. Data sources, trademarks and license
 
 **Spotify**
 

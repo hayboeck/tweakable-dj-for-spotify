@@ -12,7 +12,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import {
-  CONFIG, DEFAULTS, HERE, checkValues, configLanguage, isPlaceholder, missingCredentials, readConfig, saveCredentials, updateConfig,
+  CONFIG, DEFAULTS, HERE, LIMITS, checkValues, configLanguage, isPlaceholder, missingCredentials, numberProblems, readConfig, saveCredentials,
+  updateConfig,
 } from './config.mjs';
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
@@ -128,7 +129,7 @@ async function checkLastfm({ apiKey = '', user = '' }, lang) {
     name,
     scrobbles,
     message: scrobbles
-      ? t(lang, 'ui.lastfmOk', { name, scrobbles: scrobbles.toLocaleString(locale(lang)) })
+      ? t(lang, 'ui.lastfmOk', { name, scrobbles })
       : t(lang, 'ui.noScrobbles', { name }),
   };
 }
@@ -246,10 +247,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     // values.language: '' = noch nicht gewählt; systemLang = Sprache, die dann gilt (auch für automatische Läufe).
+    // limits: erlaubte Bereiche und Regler der Zahlenwerte; problems: ungültige Zahlenwerte aus der config.jsonc (Schlüssel → Meldung).
     if (route === 'GET /api/config') {
       const cfg = currentConfig(lang);
       const values = Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, cfg[k]]));
-      return send(200, { values, defaults: DEFAULTS, lang, systemLang: systemLang(), running: Boolean(running), setup: setupStatus(cfg) });
+      return send(200, {
+        values, defaults: DEFAULTS, limits: LIMITS, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running),
+        setup: setupStatus(cfg),
+      });
     }
 
     if (route === 'POST /api/config') {

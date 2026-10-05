@@ -40,6 +40,36 @@ export const DEFAULTS = {
   language: '', // '' = noch nicht gewählt, dann gilt die Systemsprache
 };
 
+// Zahlenwerte: erlaubter Bereich (min bis max, int = nur ganze Zahlen) für die Prüfung beim Speichern aus der Oberfläche
+// und beim Lesen der config.jsonc in dj.mjs, dazu der Regler der Oberfläche (slider = üblicher Bereich, step).
+// Abgewiesen wird nur, was kaputt oder sinnlos ist; die Obergrenzen fangen Tippfehler (z. B. 5000 statt 50) ab und halten
+// die Läufe in vernünftiger Zeit. Liegt ein gespeicherter Wert außerhalb von slider, erweitert die Oberfläche den Regler.
+// 0 heißt „aus“ bei currentDays, artistGap, excludeRecentDays und noRepeatRuns; 1 heißt „aus“ bei currentFactor.
+export const LIMITS = {
+  // 500: Spotify nimmt 100 Songs pro Anfrage (der DJ schickt sie in Teilen); der erste Lauf sucht dann einige Minuten.
+  size: { min: 1, max: 500, int: true, slider: [10, 100], step: 5 },
+  familiarShare: { min: 0, max: 1, slider: [0, 1], step: 0.05 },
+  adventure: { min: 0, max: 1, slider: [0, 1], step: 0.05 },
+  // 200: genug Kandidaten auch für 500 Songs; jeder Ausgangspunkt kostet 1–3 Abfragen bei Last.fm (7 Tage im Cache).
+  seedsPerRun: { min: 1, max: 200, int: true, slider: [5, 50], step: 1 },
+  // 365: ein Jahr; mehr ist nicht mehr „aktuell“, und Last.fm liefert ohnehin höchstens 1000 Scrobbles (lastfm.mjs).
+  currentDays: { min: 0, max: 365, int: true, slider: [1, 30], step: 1 },
+  // 100: Aktuelles gewinnt dann bei der Auslosung praktisch immer; mehr ändert nichts.
+  currentFactor: { min: 1, max: 100, slider: [1, 10], step: 0.5 },
+  // 500 = längste Playlist; mehr ändert nichts.
+  maxPerArtist: { min: 1, max: 500, int: true, slider: [1, 10], step: 1 },
+  // 100: längere Fenster wirken praktisch wie maxPerArtist und verlangsamen nur die Reihenfolge (lineup.mjs).
+  artistWindow: { min: 1, max: 100, int: true, slider: [5, 50], step: 1 },
+  // 100 = größtes Fenster; mehr ändert nichts.
+  maxPerWindow: { min: 1, max: 100, int: true, slider: [1, 10], step: 1 },
+  // 50 = eine ganze Standard-Playlist ohne Wiederholung; größere Abstände verlangsamen nur die Reihenfolge.
+  artistGap: { min: 0, max: 50, int: true, slider: [0, 10], step: 1 },
+  // 365: wie currentDays (höchstens 1000 Scrobbles).
+  excludeRecentDays: { min: 0, max: 365, int: true, slider: [0, 60], step: 1 },
+  // 100: state.json merkt sich je Lauf eine Liste; das sperrt bei täglichen Läufen schon gut drei Monate.
+  noRepeatRuns: { min: 0, max: 100, int: true, slider: [0, 10], step: 1 },
+};
+
 // Automatik: wie oft, um wie viel Uhr (24 h) und an welchem Wochentag (nur bei 'weekly').
 export const SCHEDULES = ['off', 'daily', 'weekly'];
 export const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -126,13 +156,30 @@ export function missingCredentials(cfg) {
   return missing;
 }
 
+// Für dj.mjs: Config mit vollständigen Zugangsdaten und gültigen Zahlenwerten (z. B. size: 0 von Hand eingetragen
+// ergäbe sonst nur „Kein einziger Song gefunden“).
 export function loadConfig(lang) {
   const cfg = readConfig(lang);
   const missing = missingCredentials(cfg).map(k => (k === 'lastfm.user' ? t(lang, 'config.userOrEmpty') : k));
   if (missing.length) {
     throw tError(lang, 'config.incomplete', { missing: missing.join(', ') }, { errorCode: 'setup_incomplete' });
   }
+  const problems = Object.values(numberProblems(cfg, lang));
+  if (problems.length) throw new Error(problems.join(' '));
   return cfg;
+}
+
+// Ungültige Zahlenwerte (Schlüssel → Meldung), z. B. von Hand in der config.jsonc geändert; {} = alles gültig.
+export function numberProblems(cfg, lang) {
+  const problems = {};
+  for (const key of Object.keys(LIMITS)) {
+    try {
+      checkValue(key, cfg[key], lang);
+    } catch (e) {
+      problems[key] = e.message;
+    }
+  }
+  return problems;
 }
 
 // Prüft Einstellungen aus der Oberfläche und gibt sie gesäubert zurück; wirft bei ungültigen Werten.
@@ -176,9 +223,14 @@ export function checkValue(key, value, lang) {
     }
     return out;
   }
+  if (Object.hasOwn(LIMITS, key)) {
+    const { min, max, int } = LIMITS[key];
+    const ok = typeof value === 'number' && value >= min && value <= max && (!int || Number.isInteger(value));
+    if (!ok) throw tError(lang, int ? 'config.badInteger' : 'config.badNumber', { key, min, max, value: JSON.stringify(value) ?? String(value) });
+    return value;
+  }
   const expected = typeof standard;
   if (typeof value !== expected) throw tError(lang, 'config.typeExpected', { key, type: expected });
-  if (expected === 'number' && !(Number.isFinite(value) && value >= 0)) throw tError(lang, 'config.badNumber', { key });
   if (expected === 'string' && !(value.trim() && value.length <= 200)) throw tError(lang, 'config.badText', { key });
   if (key === 'seed' && !SEED.test(value)) throw tError(lang, CREDENTIALS.seed.error);
   if (key === 'schedule' && !SCHEDULES.includes(value)) throw tError(lang, 'config.badSchedule');

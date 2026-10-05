@@ -8,27 +8,27 @@
 
   // --- Playlist ---
   "playlistName": "Tweakable DJ",     // Name der Playlist, die befüllt wird (gibt es sie nicht, wird sie angelegt)
-  "size": 50,                         // Anzahl Songs pro Lauf
-  "familiarShare": 0.15,              // Anteil Favoriten (0.15 = 15 % ≈ 8 Songs), der Rest sind neue Songs
+  "size": 50,                         // Anzahl Songs pro Lauf (1–500)
+  "familiarShare": 0.15,              // Anteil Favoriten (0–1; 0.15 = 15 % ≈ 8 Songs), der Rest sind neue Songs
 
   // --- Auswahl ---
-  "adventure": 0.4,                   // 0 = ähnliche Songs bevorzugen, 0.5 = egal, 1 = entfernte bevorzugen; zugleich Chance auf Abstecher zu verwandten Künstlern
-  "seedsPerRun": 20,                  // So viele Ausgangspunkte werden pro Lauf gezogen, zu denen Last.fm ähnliche Songs sucht
+  "adventure": 0.4,                   // 0–1: 0 = ähnliche Songs bevorzugen, 0.5 = egal, 1 = entfernte bevorzugen; zugleich Chance auf Abstecher zu verwandten Künstlern
+  "seedsPerRun": 20,                  // So viele Ausgangspunkte werden pro Lauf gezogen, zu denen Last.fm ähnliche Songs sucht (1–200)
   "useLastfmTopTracks": true,         // Deine Last.fm-Top-Songs der letzten 3 Monate zusätzlich als Ausgangspunkte verwenden
 
   // --- Was du gerade hörst ---
-  "currentDays": 7,                   // "Aktuell" = in so vielen Tagen gehört (laut Last.fm)
-  "currentFactor": 3,                 // So viel stärker zählt aktuell Gehörtes: bei Ausgangspunkten, bei der Auslosung und bei den Favoriten (1 = aus)
+  "currentDays": 7,                   // "Aktuell" = in so vielen Tagen gehört (laut Last.fm; 0–365, 0 = aus)
+  "currentFactor": 3,                 // So viel stärker zählt aktuell Gehörtes: bei Ausgangspunkten, bei der Auslosung und bei den Favoriten (1–100, 1 = aus)
 
   // --- Abwechslung ---
-  "maxPerArtist": 2,                  // Höchstens so viele Songs pro Interpret in der ganzen Playlist
-  "artistWindow": 20,                 // Fenstergröße für die Regel darunter: je so viele aufeinanderfolgende Songs …
-  "maxPerWindow": 3,                  // … enthalten höchstens so viele Songs zum selben Künstler (von ihm oder über ihn gefunden)
-  "artistGap": 4,                     // Mindestens so viele Songs Abstand zwischen zwei Songs desselben Interpreten
+  "maxPerArtist": 2,                  // Höchstens so viele Songs pro Interpret in der ganzen Playlist (1–500)
+  "artistWindow": 20,                 // Fenstergröße für die Regel darunter (1–100): je so viele aufeinanderfolgende Songs …
+  "maxPerWindow": 3,                  // … enthalten höchstens so viele Songs zum selben Künstler (von ihm oder über ihn gefunden; 1–100)
+  "artistGap": 4,                     // Mindestens so viele Songs Abstand zwischen zwei Songs desselben Interpreten (0–50, 0 = aus)
 
   // --- Keine Wiederholungen ---
-  "excludeRecentDays": 14,            // Songs, die du in so vielen Tagen gehört hast, kommen nicht hinein
-  "noRepeatRuns": 3,                  // Songs aus so vielen vorigen Läufen kommen nicht hinein
+  "excludeRecentDays": 14,            // Songs, die du in so vielen Tagen gehört hast, kommen nicht hinein (0–365, 0 = aus)
+  "noRepeatRuns": 3,                  // Songs aus so vielen vorigen Läufen kommen nicht hinein (0–100, 0 = aus)
 
   // --- Sperrliste ---
   "blockedArtists": [],               // Künstler, die nie gespielt werden, z. B. ["Künstler A", "Künstler B"]

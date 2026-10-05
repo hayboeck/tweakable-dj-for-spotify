@@ -414,3 +414,35 @@ test('Zu alte Node-Version: klare Meldung (errorCode node_version)', () => {
     cleanup(dir);
   }
 });
+
+test('Ungültige Zahlen in config.jsonc: Abbruch vor der ersten Anfrage mit klarer Meldung', () => {
+  const dir = setup({ size: 0, maxPerWindow: 0 });
+  try {
+    const de = run(dir);
+    assert.equal(de.code, 1, de.all);
+    assert.equal(de.requests.length, 0);
+    assert.match(de.err, /^Fehler: size in config\.jsonc muss eine ganze Zahl von 1 bis 500 sein \(derzeit 0\)\. maxPerWindow in config\.jsonc muss eine ganze Zahl von 1 bis 100 sein \(derzeit 0\)\.$/m);
+    assert.doesNotMatch(de.all, /Kein einziger Song/);
+    assert.deepEqual([de.result.ok, de.result.errorCode, de.result.playlistName], [false, 'other', null]);
+    const en = run(dir, { TWEAKABLE_DJ_LANG: 'en' });
+    assert.match(en.err, /^Error: size in config\.jsonc must be a whole number from 1 to 500 \(currently 0\)\. maxPerWindow in /m);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('0 = aus: excludeRecentDays und currentDays 0 sperren bzw. markieren nichts, auch nicht den Song, der gerade läuft', () => {
+  const dir = setup({ excludeRecentDays: 0, currentDays: 0 });
+  try {
+    const { code, out, all, result } = run(dir);
+    assert.equal(code, 0, all);
+    assert.match(out, /^ {2}6 Scrobbles, davon 0 in den letzten 0 Tagen \(0 Künstler\)$/m);
+    assert.match(out, /^ {2}0 von \d+ Ausgangspunkten aus deinem aktuellen Hören/m);
+    const lineup = parseLineup(out);
+    assert.equal(lineup.length, 20);
+    assert.ok(!lineup.some(t => t.kind.endsWith(' · aktuell')), lineup.map(t => t.kind).join(' | '));
+    assert.equal(result.freshCurrent, 0);
+  } finally {
+    cleanup(dir);
+  }
+});
