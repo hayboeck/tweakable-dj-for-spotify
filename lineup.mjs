@@ -30,6 +30,51 @@ export function artistBlocker(names) {
   };
 }
 
+// Sperrliste für einzelne Songs (blockedTracks: [{ uri, artist, name }]): liefert eine Prüffunktion track => true, wenn
+// gesperrt. Trifft dieselbe Spotify-URI oder denselben trackKey(Künstler, Titel) – so auch andere Versionen desselben Songs
+// (Remaster, Live, Single statt Album mit eigener URI). Kaputte Einträge (z. B. von Hand geändert) zählen nicht.
+export function trackBlocker(entries) {
+  const uris = new Set();
+  const keys = new Set();
+  for (const e of [].concat(entries ?? [])) {
+    if (!e || typeof e !== 'object') continue;
+    if (typeof e.uri === 'string' && e.uri) uris.add(e.uri);
+    if (typeof e.artist === 'string' && typeof e.name === 'string' && e.artist.trim() && e.name.trim()) keys.add(trackKey(e.artist, e.name));
+  }
+  return track => Boolean(track) && (uris.has(track.uri) || (Boolean(track.artist && track.name) && keys.has(trackKey(track.artist, track.name))));
+}
+
+// --- Such-Cache in state.json (state.cache: trackKey → Treffer auf Spotify) ---
+// Eintrag: { uri, explicit, clean } bzw. null = auf Spotify nicht gefunden. explicit: laut Spotify (true/false); clean: nur
+// bei explicit true – URI einer nicht expliziten Version desselben Songs aus derselben Suche, sonst null.
+// Bis Version 0.1.1 stand dort nur die URI als Text: Solche Einträge bleiben gültig, explicit ist dann unbekannt (null).
+// Nur mit excludeExplicit sucht der DJ sie einmal neu und ersetzt sie (searchAgain); sonst bleiben sie, wie sie sind.
+// undefined = kein brauchbarer Eintrag (fehlt oder kaputt), dann wird ebenfalls gesucht.
+export function cacheEntry(value) {
+  if (value === null) return null;
+  if (typeof value === 'string') return value ? { uri: value, explicit: null, clean: null } : undefined;
+  if (!value || typeof value !== 'object' || typeof value.uri !== 'string' || !value.uri) return undefined;
+  return {
+    uri: value.uri,
+    explicit: typeof value.explicit === 'boolean' ? value.explicit : null,
+    clean: value.explicit === true && typeof value.clean === 'string' && value.clean ? value.clean : null,
+  };
+}
+
+// Neuer Eintrag aus einem Treffer von spotify.findTrack() ({ uri, explicit, clean }) bzw. null.
+export const cacheValue = hit => (hit ? { uri: hit.uri, explicit: hit.explicit === true, ...(hit.explicit === true && { clean: hit.clean?.uri ?? null }) } : null);
+
+// Muss ein Eintrag (aus cacheEntry) neu gesucht werden?
+export const searchAgain = (entry, excludeExplicit) => entry === undefined || Boolean(excludeExplicit && entry?.explicit === null);
+
+// URI für die Playlist: mit excludeExplicit bei einem expliziten Treffer die nicht explizite Version, gibt es keine, null
+// (= auslassen). Ohne Treffer null.
+export function playableUri(entry, excludeExplicit) {
+  if (!entry) return null;
+  if (excludeExplicit && entry.explicit !== false) return entry.explicit === true ? entry.clean : null;
+  return entry.uri;
+}
+
 // Einzelne Namen aus einem Künstler-Text, dazu der ganze Text: "A feat. B", "A (feat. B)", "A / B", "A, B & C", "A x B".
 // "Malcolm X" bleibt ganz (x nur mit Leerzeichen auf beiden Seiten).
 const NAME_SEPARATORS = /\s*(?:[/,;&+×()[\]]|\s(?:x|feat\.?|ft\.?|featuring)(?=\s))\s*/i;

@@ -51,7 +51,7 @@ const LIKED = [
   ['Stadtkind', 'Asphalt'],
   ['Macloud / Miksu', 'Nachtschicht'], // gesperrt (Macloud)
   ['Karin', 'Sommerregen'], // nicht gesperrt, obwohl "Rin" gesperrt ist
-  ['Wellenreiter', 'Brandung'],
+  ['Wellenreiter', 'Brandung'], // explizit
   ['Unbekannt', 'Gibt es nicht'], // Last.fm kennt den Titel nicht (Fehler 6)
   ['Stadtkind', 'Beton'],
   ['Rin', 'Doppelpass'], // gesperrt
@@ -61,12 +61,18 @@ const LIKED = [
 const POOL = ['Aurora Nord', 'Blaue Stunde', 'Chromwerk', 'Dünenfeuer', 'Elbsand', 'Flussglas',
   'Gleisdreieck', 'Hafenlicht', 'Inselkind', 'Juniregen', 'Kaltfront', 'Leuchtturm'];
 
-// IDs mit 22 Zeichen wie bei Spotify (dann erkennt sie auch der Import aus einer Textdatei)
-const spotifyTrack = (artist, name) => ({
+// Explizite Songs: dieser Lieblingssong und bei der Suche alle Titel auf "Echo 4" bzw. "Echo 6"; zu "Echo 6" findet die
+// Suche zusätzlich eine nicht explizite Version (variant 'clean', eigene URI).
+const EXPLICIT_LIKED = new Set(['Wellenreiter|Brandung']);
+
+// IDs mit 22 Zeichen wie bei Spotify (dann erkennt sie auch der Import aus einer Textdatei). URI wie in mockUri() in
+// tests/probelauf.test.mjs.
+const spotifyTrack = (artist, name, { explicit = EXPLICIT_LIKED.has(`${artist}|${name}`), variant = '' } = {}) => ({
   type: 'track',
-  uri: `spotify:track:${`mock${hash(`${artist}|${name}`).toString(36)}`.padEnd(22, '0')}`,
+  uri: `spotify:track:${`mock${hash(`${artist}|${name}${variant ? `|${variant}` : ''}`).toString(36)}`.padEnd(22, '0')}`,
   name,
   artists: artist.split(' / ').map(n => ({ name: n })),
+  explicit,
   is_local: false,
 });
 
@@ -209,8 +215,13 @@ function spotifyApi(url, init, headers) {
     if (name.startsWith('Nicht auf Spotify')) return json({ tracks: { items: [] } });
     // Künstler mit Gast ("Hauptkünstler, Gast") findet die genaue Suche nicht, nur die Suche nach dem Hauptkünstler
     if (artist.includes(', ')) return json({ tracks: { items: [] } });
-    const hit = spotifyTrack(artist, name.endsWith('Echo 3') ? `${name} - Remastered 2011` : name);
+    const hit = spotifyTrack(artist, name.endsWith('Echo 3') ? `${name} - Remastered 2011` : name, { explicit: /Echo [46]$/.test(name) });
     remember([hit]);
+    if (name.endsWith('Echo 6')) {
+      const clean = spotifyTrack(artist, name, { explicit: false, variant: 'clean' });
+      remember([clean]);
+      return json({ tracks: { items: [spotifyTrack('Coverband', name), hit, clean] } });
+    }
     // "Echo 5": zuerst nur eine Coverversion, der richtige Treffer kommt erst bei der zweiten Suche
     if (name.endsWith('Echo 5')) {
       searchHits.set(`${artist} ${name}`, hit);
@@ -255,6 +266,7 @@ function similarTracks(artist, track) {
     { name: 'Talfahrt', match: 0.8, artist: { name: 'Bergfunk' } }, // kürzlich gehört
     { name: 'Polarnacht', match: 0.95, artist: { name: 'Nordlicht' } }, // schon Lieblingssong
     { name: `Nicht auf Spotify ${h % 1000}`, match: 0.7, artist: { name: POOL[h % POOL.length] } },
+    { name: 'Leuchtfeuer', match: 0.5, artist: { name: 'Leuchtturm' } }, // für die Sperrliste der Songs (über die URI)
   );
   return json({ similartracks: { track: tracks, '@attr': { artist } } });
 }

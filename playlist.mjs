@@ -13,8 +13,11 @@
 // (open.spotify.com/track/ID, auch mit /intl-de/ oder ?si=…, bzw. spotify:track:ID) gilt direkt, sonst wird
 // "Künstler – Titel" (Trenner –, — oder " - ") auf Spotify gesucht. Eine exportierte Datei ergibt so wieder genau dieselbe
 // Liste. Ein Import schreibt nur die Playlist, nicht den Verlauf des DJ (state.json): Es ist deine Liste, kein Lauf des DJ.
+// Aus demselben Grund filtert er weder die Sperrliste der Songs noch explizite Songs heraus, sondern nennt sie nur
+// (importHints): Wer sie in die Datei schreibt, will sie wohl hören – und der Import zeigt vorher, was er schreibt.
 import { LIMITS } from './config.mjs';
 import { locale, t, tError } from './i18n.mjs';
+import { trackBlocker } from './lineup.mjs';
 
 export const IMPORT_MAX_SONGS = LIMITS.size.max; // so viele Songs wie die größte Playlist eines Laufs
 export const IMPORT_MAX_BYTES = 1_000_000;
@@ -99,9 +102,14 @@ const URI = /^spotify:track:[A-Za-z0-9]{22}$/;
 // in einer Zeile mit Link zu einem Song (so schreibt sie der Export). "# …" mit Leerzeichen bleibt immer ein Kommentar.
 const isComment = line => line.startsWith('#') && (/^#(\s|$)/.test(line) || !TRACK.test(line));
 
+// Zeile mit Link: dazu Künstler und Titel davor, falls sie dort stehen (so schreibt sie der Export) – für die Hinweise auf
+// gesperrte Songs. Der Link allein bestimmt den Song.
 function parseLine(line) {
   const link = line.match(TRACK);
-  if (link) return { uri: `spotify:track:${link[1]}` };
+  if (link) {
+    const before = line.slice(0, link.index).replace(/\S+$/, '').trim().match(SEPARATOR);
+    return { uri: `spotify:track:${link[1]}`, ...(before && { artist: before[1].trim(), title: before[2].trim() }) };
+  }
   if (OTHER_LINK.test(line)) return { problem: 'link' };
   const m = line.match(SEPARATOR);
   // Rest hinter einem Tabulator (z. B. eine zweite Spalte aus einer Tabelle) gehört nicht zum Titel.
@@ -126,18 +134,21 @@ export function parseImport(text, lang) {
   return entries;
 }
 
-// Sucht einen Song aus der Datei. Mehrere Künstler ("A, B") findet Spotify nicht immer: dann noch einmal nur mit dem ersten.
+// Sucht einen Song aus der Datei ({ uri, artist, name, explicit } wie spotify.findTrack, null = nicht gefunden).
+// Mehrere Künstler ("A, B") findet Spotify nicht immer: dann noch einmal nur mit dem ersten.
 async function searchImported(spotify, artist, title) {
-  const uri = await spotify.searchTrack(artist, title);
+  const hit = await spotify.findTrack(artist, title);
   const first = artist.split(', ')[0];
-  return uri ?? (first !== artist ? spotify.searchTrack(first, title) : null);
+  return hit ?? (first !== artist ? spotify.findTrack(first, title) : null);
 }
 
 // Fehler, bei denen weitere Suchen nichts bringen (Anmeldung, 403, Rate-Limit über 2 Minuten): ganzen Import abbrechen.
 const fatal = e => Boolean(e.errorCode) || [401, 403].includes(e.status) || e.rateLimit;
 
-// Einträge aus parseImport → { uris (Reihenfolge der Datei), notFound: [{ line, text, reason }] } mit reason 'link',
+// Einträge aus parseImport → { uris (Reihenfolge der Datei), notFound: [{ line, text, reason }], tracks } mit reason 'link',
 // 'format', 'notFound' (auf Spotify nicht gefunden) oder 'error' (Suche fehlgeschlagen, z. B. ohne Internet).
+// tracks: zu jeder URI in uris { line, text, uri, artist, name, explicit } – bei Links Künstler (Hauptkünstler) und Titel aus
+// der Zeile, sofern sie dort stehen, und explicit null (unbekannt, dafür bräuchte es eine Anfrage pro Song).
 // onProgress(fertig, gesamt) nach jeder Suche; signal bricht ab (z. B. Seite geschlossen).
 export async function resolveImport(spotify, entries, { onProgress = () => {}, signal = null, concurrency = 3 } = {}) {
   const found = new Map();
@@ -147,8 +158,8 @@ export async function resolveImport(spotify, entries, { onProgress = () => {}, s
   await mapLimit(search, concurrency, async e => {
     if (signal?.aborted) throw new Error('aborted');
     try {
-      const uri = await searchImported(spotify, e.artist, e.title);
-      if (uri) found.set(e, uri);
+      const hit = await searchImported(spotify, e.artist, e.title);
+      if (hit) found.set(e, hit);
       else failed.set(e, 'notFound');
     } catch (err) {
       if (fatal(err)) throw err;
@@ -158,12 +169,32 @@ export async function resolveImport(spotify, entries, { onProgress = () => {}, s
   });
   const uris = [];
   const notFound = [];
+  const tracks = [];
   for (const e of entries) {
-    const uri = e.uri ?? found.get(e);
-    if (uri) uris.push(uri);
-    else notFound.push({ line: e.line, text: e.text, reason: e.problem ?? failed.get(e) ?? 'notFound' });
+    const hit = found.get(e);
+    const uri = e.uri ?? hit?.uri;
+    if (!uri) {
+      notFound.push({ line: e.line, text: e.text, reason: e.problem ?? failed.get(e) ?? 'notFound' });
+      continue;
+    }
+    uris.push(uri);
+    tracks.push(hit
+      ? { line: e.line, text: e.text, uri, artist: hit.artist ?? null, name: hit.name ?? null, explicit: typeof hit.explicit === 'boolean' ? hit.explicit : null }
+      : { line: e.line, text: e.text, uri, artist: e.artist?.split(', ')[0] ?? null, name: e.title ?? null, explicit: null });
   }
-  return { uris, notFound };
+  return { uris, notFound, tracks };
+}
+
+// Hinweise für die Vorschau eines Imports (tracks aus resolveImport, cfg mit blockedTracks und excludeExplicit):
+// { blocked, explicit } – je [{ line, text }] der Songs, die ein Lauf des DJ auslassen würde. Explizite nur mit
+// excludeExplicit und nur, wo Spotify es bei der Suche gesagt hat.
+export function importHints(tracks, cfg = {}) {
+  const isBlocked = trackBlocker(cfg.blockedTracks);
+  const lines = list => list.map(s => ({ line: s.line, text: s.text }));
+  return {
+    blocked: lines(tracks.filter(isBlocked)),
+    explicit: cfg.excludeExplicit === true ? lines(tracks.filter(s => s.explicit === true)) : [],
+  };
 }
 
 // Liste aus der Oberfläche (POST /api/import) prüfen: 1 bis IMPORT_MAX_SONGS Song-URIs.

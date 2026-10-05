@@ -138,7 +138,7 @@ Last.fm-Top-Songs┼─► 20 Ausgangspunkte ─► ~150–200 Kandidaten ─►
 Aktuell gehört ──┘        (Los)               (Last.fm)              (Los + Regeln)           (Regeln)
 ```
 
-1. **Ausschlüsse festlegen:** Was du in den letzten 14 Tagen gehört hast, was in den letzten 3 Läufen schon drin war und alles von Künstlern auf deiner Sperrliste kommt nicht hinein.
+1. **Ausschlüsse festlegen:** Was du in den letzten 14 Tagen gehört hast, was in den letzten 3 Läufen schon drin war, alles von Künstlern auf deiner Sperrliste und die Songs darauf (in jeder Version) kommen nicht hinein – und explizite Songs, wenn du *Keine Songs mit expliziten Texten* eingeschaltet hast.
 2. **Ausgangspunkte ziehen:** Aus deinen Lieblingssongs, deinen Last.fm-Top-Songs und dem, was du gerade hörst, werden 20 Songs gezogen. Hast du einen Song oder dessen Künstler gerade gehört, hat er ein 3× größeres Los.
 3. **Kandidaten sammeln:** Last.fm liefert zu jedem Ausgangspunkt die 30 ähnlichsten Songs. Manchmal macht der DJ zusätzlich einen Abstecher zu einem verwandten Künstler, der etwas weiter weg ist. Bekannte Lieblingssongs und ausgeschlossene Songs fliegen raus. Antworten von Last.fm merkt sich der DJ 7 Tage lang, dann geht der nächste Lauf schneller.
 4. **Favoriten auswählen:** 15 % der Playlist kommen aus deinen Lieblingssongs. Künstler, die du gerade hörst, werden bevorzugt (und Künstler, denen du auf Spotify folgst, wenn du *Gefolgte Künstler* so eingestellt hast).
@@ -192,6 +192,8 @@ In der Ausgabe sind solche Songs mit „· aktuell“ markiert (auf Englisch „
 | Kürzlich gehört (`excludeRecentDays`): alles, was du laut Last.fm in diesem Zeitraum gehört hast. 0 = aus. | 14 Tage | 0–365 |
 | Vorige Läufe (`noRepeatRuns`): Songs aus den letzten N Läufen. 0 = aus. | 3 Läufe | 0–100 |
 | Sperrliste (`blockedArtists`): Künstler, die nie vorkommen, weder als Song noch als Ausgangspunkt noch als Abstecher. Es zählen ganze Wörter: „Macloud“ sperrt auch „Miksu / Macloud“ und „feat. Macloud“, aber „Rin“ sperrt nicht „Karin“. | keine | Liste von Namen |
+| Gesperrte Songs (`blockedTracks`): einzelne Songs, die nie vorkommen, weder als Favorit noch als neuer Song noch als Ausgangspunkt. Als derselbe Song gilt, was denselben Link zu Spotify oder denselben Künstler und Titel hat, Zusätze wie „Remastered 2011“, „(Live)“ oder „feat.“ nicht mitgezählt – andere Versionen sind also mitgesperrt. Am einfachsten mit × in der Liste eines Probelaufs ([Sperrliste](#sperrliste-künstler-und-songs)). | keine | höchstens 1 000 Einträge `{ "uri": "spotify:track:…", "artist": "…", "name": "…" }` (`uri` darf fehlen) |
+| Keine Songs mit expliziten Texten (`excludeExplicit`): Songs, die Spotify als explizit kennzeichnet, kommen nicht hinein – weder als Favorit noch als neuer Song noch beim Auffüllen mit Favoriten. Hat Spotify von einem neuen Song eine nicht explizite Version, nimmt der DJ diese. Ausgangspunkte bleiben, sie bestimmen nur, wonach Last.fm sucht. | aus | `true` oder `false` |
 | Songs, die auf Spotify nicht eindeutig gefunden werden (Titel und Interpret müssen passen). Zusätze wie „Remastered“ oder „feat.“ werden beim Vergleich ignoriert. | immer | |
 
 **Wie oft derselbe Künstler vorkommt**
@@ -247,7 +249,7 @@ Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-e
 - **Regler**: Jede Einstellung hat einen Regler, eine Erklärung und einen grünen Hinweis, was der Wert gerade bewirkt. Weicht ein Wert vom Standard ab, bringt „Standard: …“ ihn per Klick zurück. Einen Wert aus `config.jsonc` außerhalb des erlaubten Bereichs markiert die Oberfläche rot ([Regeln und Einstellungen](#5-regeln-und-einstellungen)).
 - **Abwechslung bei Künstlern**: Ein Regler mit vier Stufen (*wenig* bis *sehr viel*) setzt alle vier Künstler-Regeln auf einmal. Die Einzelwerte stehen unter *Details für Fortgeschrittene*; passen sie zu keiner Stufe, zeigt der Regler *Eigene Einstellung*, und die Details sind aufgeklappt.
 - **Quelle deiner Favoriten**: Auswahlliste mit deinen Lieblingssongs und deinen Playlists. Zur Auswahl stehen nur Playlists, die dir gehören oder bei denen du mitarbeitest, weil Spotify nur deren Inhalt herausgibt.
-- **Sperrliste**: Künstlernamen eintragen und auf *Hinzufügen* klicken. Mit × wieder entfernen.
+- **Sperrliste**: Künstler, einzelne Songs und explizite Songs, siehe [Sperrliste](#sperrliste-künstler-und-songs) weiter unten.
 - **Speichern / Verwerfen**: Änderungen werden erst mit *Speichern* in `config.jsonc` geschrieben.
 - **Probelauf**: Zeigt die Auswahl an, ohne die Playlist zu ändern. Darunter:
   - **Diese Liste übernehmen**: schreibt genau diese Songs in dieser Reihenfolge in „Tweakable DJ“, ohne neu zu losen, samt Beschreibung. Das zählt wie ein Lauf (die Songs sind danach für *Vorige Läufe sperren* gemerkt). Der Button gilt 24 Stunden und nur, solange die Einstellungen so bleiben wie beim Probelauf; danach, nach einer Neuerstellung (auch durch die Automatik) oder wenn `probelauf.json` fehlt, ist er gesperrt und sagt, warum. Dann einfach einen neuen Probelauf starten. Zurückgestellte Regler machen ihn wieder frei.
@@ -260,9 +262,21 @@ Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-e
   - Windows: Der Lauf wird beim nächsten Einschalten nachgeholt.
   - Mac: Der Lauf wird nach dem Aufwachen aus dem Ruhezustand nachgeholt, nach dem Ausschalten nicht.
   - Linux: Der Lauf entfällt.
-- **Neue Version**: Gibt es eine neuere Version von Tweakable DJ, erscheint oben ein Hinweis mit Link zum Download und der Schaltfläche **Jetzt aktualisieren** (siehe [Aktualisieren](#8-aktualisieren)). Mit × blendest du ihn aus; er kommt erst bei der nächsten Version wieder. Ganz unten auf der Seite steht, welche Version du hast (z. B. *v0.1.0*). Mehr unter [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen).
+- **Neue Version**: Gibt es eine neuere Version von Tweakable DJ, erscheint oben ein Hinweis mit Link zum Download und der Schaltfläche **Jetzt aktualisieren** (siehe [Aktualisieren](#8-aktualisieren)). Mit × blendest du ihn aus; er kommt erst bei der nächsten Version wieder. Ganz unten auf der Seite steht, welche Version du hast (z. B. *v0.1.2*), daneben **Nach Updates suchen**: Das fragt sofort bei GitHub nach und meldet dann *Du hast die neueste Version ✓*, zeigt den Hinweis wieder an (auch wenn du ihn ausgeblendet hattest) oder sagt *GitHub nicht erreichbar*. Mehr unter [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen).
 
 *Probelauf* und *Playlist neu erstellen* speichern vorher automatisch. Die Oberfläche ist nur auf deinem PC erreichbar, andere Geräte im Netzwerk und fremde Webseiten haben keinen Zugriff.
+
+### Sperrliste: Künstler und Songs
+
+Die Gruppe *Sperrliste* hat drei Teile. Wie bei jeder Einstellung kommen Änderungen erst mit *Speichern* in die `config.jsonc` (ein Probelauf speichert vorher von selbst).
+
+- **Keine Songs mit expliziten Texten**: ein Schalter. Ist er an, kommt kein Song in die Playlist, den Spotify als explizit kennzeichnet ([Regeln und Einstellungen](#5-regeln-und-einstellungen)). Ein Probelauf zeigt dann z. B. „4 explizite Songs ausgelassen“.
+- **Künstler, die nie gespielt werden**: Namen eintragen und auf *Hinzufügen* klicken. Mit × wieder entfernen.
+- **Songs, die nie gespielt werden**: Nach einem Probelauf steht hinter jedem Song der Liste ein kleines **×**. Ein Klick sperrt den Song: Er wird durchgestrichen, erscheint als Chip unter *Songs, die nie gespielt werden* und kommt ab dann bei keinem Lauf mehr vor, auch nicht in anderen Versionen (Remaster, Live, Single mit eigenem Link). **↺** neben einem durchgestrichenen Song oder × am Chip hebt die Sperre wieder auf. Ein Probelauf zeigt z. B. „2 gesperrte Songs ausgelassen“.
+
+Sperrst du einen Song aus der Liste eines Probelaufs, ist *Diese Liste übernehmen* gesperrt (die Liste enthält ja den Song). Starte einen neuen Probelauf; er speichert deine Änderungen vorher.
+
+Für einen Import aus einer Textdatei gilt die Sperrliste nicht: Es ist deine Liste. Die Vorschau nennt die Songs, die ein Lauf des DJ auslassen würde („auf deiner Sperrliste“, „explizit“), und sie kommen trotzdem hinein.
 
 <p align="center"><img src="docs/screenshot-run.de.png" width="640" alt="Ergebnis eines Probelaufs: Tweakable DJ mit 50 Songs, davon 40 neu und 35 über aktuelles Hören gefunden, 10 Favoriten, darunter die Schritte des Laufs (samt gefolgten Künstlern) und die Liste der ausgewählten Songs"></p>
 
@@ -314,12 +328,15 @@ Hauptkünstler, Gast – Titel	https://open.spotify.com/track/…
 - Ein Link oder eine URI zu einem Song (`https://open.spotify.com/track/…`, auch mit `?si=…`, oder `spotify:track:…`) gilt direkt, egal was sonst in der Zeile steht. Eine gespeicherte Datei kommt so genau gleich zurück.
 - Sonst muss die Zeile `Künstler – Titel` lauten (Trenner `–`, `—` oder ` - ` mit Leerzeichen). Diese Songs sucht Tweakable DJ auf Spotify, so wie bei einem Lauf.
 - Höchstens 500 Songs und 1 MB. Die Vorschau zeigt, wie viele gefunden wurden und welche Zeilen nicht passen; geschrieben wird erst nach der Rückfrage. Bei vielen Songs dauert die Suche eine Weile, der Fortschritt steht dabei unter den Buttons.
+- Songs von deiner Sperrliste – und mit *Keine Songs mit expliziten Texten* explizite – werden nicht weggelassen, die Vorschau nennt sie aber als Hinweis. Bei Zeilen nur mit Link weiß Tweakable DJ nicht, ob ein Song explizit ist (das bräuchte eine eigene Anfrage pro Song).
 - Ein Import ersetzt den Inhalt der Playlist und setzt ihre Beschreibung, **zählt aber nicht als Lauf des DJ**: Er schreibt nichts in den Verlauf (`state.json`), die Songs werden also bei *Vorige Läufe sperren* nicht gesperrt. Es ist deine Liste, keine Auswahl des DJ.
 - Während eines Laufs, eines Updates oder einer Spotify-Anmeldung startet kein Import, und umgekehrt.
 
 ### Prüfung auf neue Versionen
 
 Wenn du die Oberfläche öffnest, schaut Tweakable DJ **höchstens einmal am Tag** nach, ob eine neue Version erschienen ist. Dafür geht eine einzige Anfrage an die GitHub-Releases-API (`api.github.com`), die nach dem neuesten Release von Tweakable DJ fragt. **Persönliche Daten werden nicht gesendet**: keine Einstellungen, Zugangsdaten, Songs oder Kennungen. Die Antwort wird in `update-check.json` gemerkt; klappt die Prüfung nicht (z. B. offline), versucht sie es frühestens eine Stunde später wieder. Nur die Oberfläche prüft, nicht die Läufe im Terminal und nicht die Automatik. Sie zeigt nur einen Hinweis an und lädt oder installiert nie von selbst etwas; aktualisiert wird nur, wenn du auf *Jetzt aktualisieren* klickst (siehe [Aktualisieren](#8-aktualisieren)).
+
+**Nach Updates suchen** ganz unten auf der Seite, neben der Versionsnummer, fragt sofort bei GitHub nach, unabhängig vom Tagesrhythmus – höchstens einmal pro Minute; ein weiterer Klick in dieser Minute zeigt wieder das letzte Ergebnis.
 
 Abschalten lässt sich die Prüfung mit der Umgebungsvariablen `TWEAKABLE_DJ_NO_UPDATE_CHECK=1` vor dem Start:
 

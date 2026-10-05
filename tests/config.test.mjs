@@ -37,7 +37,7 @@ const SCHEDULE = { schedule: 'weekly', scheduleTime: '06:30', scheduleDay: 'FRI'
 async function withConfig(text, fn) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj ü-'));
   try {
-    for (const f of ['config.mjs', 'i18n.mjs', ...Object.values(TEMPLATES)]) fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
+    for (const f of ['config.mjs', 'i18n.mjs', 'lineup.mjs', ...Object.values(TEMPLATES)]) fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
     if (text !== null) fs.writeFileSync(path.join(dir, 'config.jsonc'), text);
     const config = await import(pathToFileURL(path.join(dir, 'config.mjs')).href);
     await fn(config, () => fs.readFileSync(path.join(dir, 'config.jsonc'), 'utf8'), dir);
@@ -315,4 +315,62 @@ test('loadConfig: unvollständige Einrichtung mit errorCode, Platzhalter beider 
       assert.throws(() => loadConfig('de'), /^Error: Einrichtung nicht abgeschlossen .*lastfm\.user \(oder leer lassen\)$/);
     });
   }
+});
+
+// --- Gesperrte Songs (blockedTracks) und „Keine Songs mit expliziten Texten“ (excludeExplicit) ---
+
+const URI_A = 'spotify:track:aaaaaaaaaaaaaaaaaaaaaa';
+
+test('blockedTracks: Objekte { uri, artist, name }, uri darf fehlen; gesäubert, Doppelte über trackKey; höchstens 1000', () => {
+  assert.deepEqual([DEFAULTS.blockedTracks, DEFAULTS.excludeExplicit], [[], false]);
+  assert.deepEqual(checkValue('blockedTracks', [
+    { uri: URI_A, artist: '  Nordlicht ', name: 'Eisblau', kind: 'Favorit' },
+    { artist: 'Nordlicht', name: 'Eisblau (Remastered 2011)' }, // gleicher Song, andere Version
+    { uri: '', artist: 'Fernweh', name: 'Horizont   Live' },
+  ]), [{ uri: URI_A, artist: 'Nordlicht', name: 'Eisblau' }, { artist: 'Fernweh', name: 'Horizont Live' }]);
+  assert.equal(checkValue('blockedTracks', Array.from({ length: 1000 }, (_, i) => ({ artist: 'A', name: `T${i}` }))).length, 1000);
+  assert.throws(() => checkValue('blockedTracks', Array.from({ length: 1001 }, (_, i) => ({ artist: 'A', name: `T${i}` })), 'de'),
+    /^Error: blockedTracks: Liste mit höchstens 1\s000 Songs erwartet$/);
+  assert.throws(() => checkValue('blockedTracks', 'Nordlicht', 'en'), /^Error: blockedTracks: expected a list of at most 1,000 songs$/);
+  for (const bad of [['Nordlicht – Eisblau'], [null], [[]], [{ artist: 'A' }], [{ name: 'T' }], [{ artist: ' ', name: 'T' }],
+    [{ uri: 'spotify:album:aaaaaaaaaaaaaaaaaaaaaa', artist: 'A', name: 'T' }], [{ uri: 42, artist: 'A', name: 'T' }]]) {
+    assert.throws(() => checkValue('blockedTracks', bad, 'en'), /^Error: blockedTracks: every song needs "artist" and "name"/, JSON.stringify(bad));
+  }
+  assert.throws(() => checkValue('blockedTracks', [{ artist: 'A', name: 'x'.repeat(201) }], 'de'), /^Error: blockedTracks: Eintrag zu lang$/);
+  assert.equal(checkValue('excludeExplicit', true), true);
+  assert.throws(() => checkValue('excludeExplicit', 'ja', 'en'), /^Error: excludeExplicit: expected boolean$/);
+});
+
+test('blockedTracks speichern: ein Song pro Zeile, Kommentar hinter "],"; zurück auf [] wie in der Vorlage', async () => {
+  for (const lang of ['de', 'en']) {
+    await withConfig(readTemplate(lang), async ({ readConfig, updateConfig }, read) => {
+      const before = read();
+      const songs = [{ uri: URI_A, artist: 'Nordlicht', name: 'Eisblau' }, { artist: 'Fernweh', name: 'Horizont "Live"' }];
+      updateConfig({ blockedTracks: songs, excludeExplicit: true }, lang);
+      const text = read();
+      const lines = text.split('\n');
+      const start = lines.findIndex(l => l.startsWith('  "blockedTracks": ['));
+      assert.deepEqual(lines.slice(start, start + 3), [
+        '  "blockedTracks": [',
+        `    { "uri": "${URI_A}", "artist": "Nordlicht", "name": "Eisblau" },`,
+        '    { "artist": "Fernweh", "name": "Horizont \\"Live\\"" }',
+      ]);
+      assert.match(lines[start + 3], /^ {2}\], +\/\/ /);
+      assert.equal(lines[start + 3].indexOf('//'), 38, 'Kommentar in der Spalte der Vorlage');
+      assert.match(text, /\n {2}"excludeExplicit": true, +\/\//);
+      assert.deepEqual([readConfig(lang).blockedTracks, readConfig(lang).excludeExplicit], [songs, true]);
+      // Zurück: wieder genau die Vorlage
+      updateConfig({ blockedTracks: [], excludeExplicit: false }, lang);
+      assert.equal(read(), before);
+    });
+  }
+  // Alte config.jsonc ohne die Schlüssel: kommen samt Erklärung aus der Vorlage dazu
+  await withConfig(OLD_CONFIG, async ({ readConfig, updateConfig }, read) => {
+    updateConfig({ blockedTracks: [{ artist: 'Nordlicht', name: 'Eisblau' }] }, 'de');
+    const text = read();
+    assert.ok(text.includes('  "blockedArtists": ["Künstler A"],   // Künstler, die nie gespielt werden\n'
+      + '  "blockedTracks": [\n    { "artist": "Nordlicht", "name": "Eisblau" }\n  ]                                   // Songs, die nie gespielt werden'), text);
+    assert.deepEqual(readConfig().blockedTracks, [{ artist: 'Nordlicht', name: 'Eisblau' }]);
+    assert.deepEqual(readConfig().excludeExplicit, false, 'Standard');
+  });
 });

@@ -611,3 +611,81 @@ test('ui.html: TEXT.de und TEXT.en haben dieselben Schlüssel', async () => {
   assert.deepEqual(shape(TEXT.en), shape(TEXT.de));
   assert.equal(typeof TEXT.de.update.text('0.2.0', '0.1.0'), 'string');
 });
+
+// --- „Nach Updates suchen“ (GET /api/update?force=1): am Tages-Cache vorbei, höchstens einmal pro Minute ---
+
+test('GET /api/update?force=1: fragt sofort, zweiter Klick innerhalb einer Minute aus dem Cache; ohne Header 403', async () => {
+  updateCase('beispiel', RELEASE('v0.1.0'));
+  const before = githubRequests().length;
+  const first = (await api('/api/update', { lang: 'de' })).data;
+  assert.deepEqual([first.latest, first.updateAvailable], ['0.1.0', false], 'gleiche Version');
+  // Neues Release, aber der Tages-Cache gilt noch: ohne force kein Hinweis …
+  fs.writeFileSync(path.join(dir, 'github-antwort.json'), JSON.stringify(RELEASE('v0.3.0')));
+  assert.equal((await api('/api/update', { lang: 'de' })).data.latest, '0.1.0');
+  assert.equal(githubRequests().length, before + 1);
+  // … ohne Header nicht einmal mit force
+  assert.deepEqual(await api('/api/update?force=1', { lang: 'en', headers: { 'X-Tweakable-DJ': '0' } }), {
+    status: 403, data: { error: 'Not allowed' }, text: JSON.stringify({ error: 'Not allowed' }),
+  });
+  const plain = await fetch(`${base}/api/update?force=1`, { headers: { 'X-Lang': 'de' } });
+  assert.deepEqual([plain.status, await plain.json()], [403, { error: 'Nicht erlaubt' }]);
+  assert.equal(githubRequests().length, before + 1, 'ohne Header keine Abfrage');
+  // … mit force sofort
+  const forced = (await api('/api/update?force=1', { lang: 'de' })).data;
+  assert.deepEqual([forced.status, forced.latest, forced.updateAvailable, forced.error, forced.installable], [undefined, '0.3.0', true, null, true]);
+  assert.equal(githubRequests().length, before + 2);
+  // Zweimal kurz hintereinander (auch gleichzeitig): keine weitere Abfrage, Ergebnis aus dem Cache
+  fs.writeFileSync(path.join(dir, 'github-antwort.json'), JSON.stringify({ offline: true }));
+  const again = await Promise.all([api('/api/update?force=1', { lang: 'de' }), api('/api/update?force=1', { lang: 'en' })]);
+  for (const r of again) assert.deepEqual([r.status, r.data.latest, r.data.updateAvailable, r.data.checkedAt], [200, '0.3.0', true, forced.checkedAt]);
+  assert.equal(githubRequests().length, before + 2, 'höchstens einmal pro Minute');
+  fs.rmSync(path.join(dir, 'update-check.json'), { force: true });
+});
+
+// --- Probelauf: Liste für „sperren“, gesperrter Song macht „Diese Liste übernehmen“ ungültig; Import mit Hinweisen ---
+
+test('GET /api/trial?tracks=1: Songs des Probelaufs; einen davon sperren → nicht mehr übernehmbar, nächster Probelauf ohne ihn', async () => {
+  const dry = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
+  const { trialId } = resultLine(dry.text);
+  const trial = JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8'));
+  const short = (await api(`/api/trial?id=${trialId}`)).data;
+  assert.equal(short.trial.tracks, undefined, 'ohne tracks=1 nur die Eckdaten');
+  const full = (await api(`/api/trial?id=${trialId}&tracks=1`)).data;
+  assert.deepEqual(full.trial.tracks, trial.tracks.map(t => ({ uri: t.uri, artist: t.artist, name: t.name })));
+  assert.equal(full.trial.tracks.length, 20);
+
+  const song = full.trial.tracks.find(t => !/Echo/.test(t.name)) ?? full.trial.tracks[0];
+  try {
+    const saved = await api('/api/config', { lang: 'en', method: 'POST', body: { blockedTracks: [{ ...song, kind: 'egal' }] } });
+    assert.deepEqual(saved.data, { ok: true });
+    assert.deepEqual((await api('/api/config')).data.values.blockedTracks, [song], 'gesäubert gespeichert');
+    const after = (await api(`/api/trial?id=${trialId}`, { lang: 'de' })).data;
+    assert.deepEqual([after.ok, after.reason], [false, 'settings']);
+    assert.equal((await api('/api/apply', { lang: 'de', method: 'POST', body: { id: trialId } })).status, 409);
+    assert.equal(resultLine((await api('/api/run?dry=1', { lang: 'de', method: 'POST' })).text).ok, true);
+    assert.ok(!JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8')).tracks.some(t => t.uri === song.uri), 'nicht mehr dabei');
+    // Ungültige Liste: abgelehnt
+    const bad = await api('/api/config', { lang: 'de', method: 'POST', body: { blockedTracks: [{ uri: 'x', artist: 'A', name: 'B' }] } });
+    assert.deepEqual([bad.status, bad.data.error], [400, 'blockedTracks: Jeder Song braucht "artist" und "name" (Text); "uri" fehlt oder ist eine Spotify-URI (spotify:track:…).']);
+  } finally {
+    assert.equal((await api('/api/config', { method: 'POST', body: { blockedTracks: [] } })).status, 200);
+  }
+});
+
+test('Import-Vorschau: gesperrte und explizite Songs als Hinweis, trotzdem in der Liste', async () => {
+  const blocked = { uri: 'spotify:track:aaaaaaaaaaaaaaaaaaaaaa', artist: 'Irgendwer', name: 'Egal' };
+  try {
+    assert.equal((await api('/api/config', { method: 'POST', body: { excludeExplicit: true, blockedTracks: [blocked, { artist: 'Nordlicht', name: 'Polarnacht' }] } })).status, 200);
+    const text = 'Nordlicht – Polarnacht (Remastered)\nElbsand – Polarnacht Echo 4\nStadtkind – Asphalt\nspotify:track:aaaaaaaaaaaaaaaaaaaaaa\n';
+    const r = resultLine((await preview(text)).text);
+    assert.deepEqual([r.ok, r.found, r.uris.length], [true, 4, 4], 'nichts herausgefiltert');
+    assert.deepEqual(r.hints, {
+      blocked: [{ line: 1, text: 'Nordlicht – Polarnacht (Remastered)' }, { line: 4, text: 'spotify:track:aaaaaaaaaaaaaaaaaaaaaa' }],
+      explicit: [{ line: 2, text: 'Elbsand – Polarnacht Echo 4' }],
+    });
+    assert.equal((await api('/api/config', { method: 'POST', body: { excludeExplicit: false } })).status, 200);
+    assert.deepEqual(resultLine((await preview(text)).text).hints.explicit, [], 'ohne Filter kein Hinweis');
+  } finally {
+    assert.equal((await api('/api/config', { method: 'POST', body: { excludeExplicit: false, blockedTracks: [] } })).status, 200);
+  }
+});

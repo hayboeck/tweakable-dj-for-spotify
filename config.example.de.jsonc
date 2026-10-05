@@ -33,7 +33,9 @@
   "noRepeatRuns": 3,                  // Songs aus so vielen vorigen Läufen kommen nicht hinein (0–100, 0 = aus)
 
   // --- Sperrliste ---
+  "excludeExplicit": false,           // true = keine Songs mit expliziten Texten (laut Spotify), weder als Favorit noch als neuer Song
   "blockedArtists": [],               // Künstler, die nie gespielt werden, z. B. ["Künstler A", "Künstler B"]
+  "blockedTracks": [],                // Songs, die nie gespielt werden, auch in anderen Versionen (höchstens 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; am einfachsten mit × in einem Probelauf
 
   // --- Automatik ---
   // In der Oberfläche einstellen: Nur beim Speichern dort trägt Tweakable DJ sich in den Zeitplaner deines PCs ein.

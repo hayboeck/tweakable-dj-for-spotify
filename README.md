@@ -138,7 +138,7 @@ Last.fm top songs┼─► 20 starting points ─► ~150–200 candidates ─�
 Listening now ───┘        (draw)              (Last.fm)              (draw + rules)        (rules)
 ```
 
-1. **Set exclusions:** Whatever you played in the last 14 days, whatever was in the last 3 runs, and everything by artists on your block list stays out.
+1. **Set exclusions:** Whatever you played in the last 14 days, whatever was in the last 3 runs, everything by artists on your block list and the songs on it (in every version) stay out – and explicit songs, if you turned on *No explicit songs*.
 2. **Draw starting points:** 20 songs are drawn from your Liked Songs, your Last.fm top songs and what you’re listening to right now. If you’ve just been playing a song or its artist, it is 3× as likely to be drawn.
 3. **Collect candidates:** For each starting point, Last.fm provides the 30 most similar songs. Sometimes the DJ also takes a detour to a related artist a bit further away. Known Liked Songs and excluded songs are dropped. The DJ remembers Last.fm’s answers for 7 days, so the next run is faster.
 4. **Pick favorites:** 15% of the playlist comes from your Liked Songs. Artists you’re listening to right now are preferred (and artists you follow on Spotify, if you set *Followed artists* that way).
@@ -192,6 +192,8 @@ In the output, such songs are marked with “· current” (in German “· aktu
 | Recently played (`excludeRecentDays`): everything Last.fm says you played in this period. 0 = off. | 14 days | 0–365 |
 | Previous runs (`noRepeatRuns`): songs from the last N runs. 0 = off. | 3 runs | 0–100 |
 | Block list (`blockedArtists`): artists that never come up, neither as a song nor as a starting point nor as a detour. Whole words count: “Macloud” also blocks “Miksu / Macloud” and “feat. Macloud”, but “Rin” doesn’t block “Karin”. | none | list of names |
+| Blocked songs (`blockedTracks`): single songs that never come up, neither as a favorite nor as a new song nor as a starting point. A song counts as the same if it has the same Spotify link or the same artist and title, ignoring additions like “Remastered 2011”, “(Live)” or “feat.” – so other versions are blocked too. Easiest with × in the list of a test run ([Block list](#block-list-artists-and-songs)). | none | at most 1,000 entries `{ "uri": "spotify:track:…", "artist": "…", "name": "…" }` (`uri` may be missing) |
+| No explicit songs (`excludeExplicit`): songs that Spotify marks as explicit stay out – favorites, new songs and the top-up with favorites. If Spotify has a clean version of a new song, the DJ takes that one. Starting points stay, because they only decide what Last.fm looks for. | off | `true` or `false` |
 | Songs that can’t be found unambiguously on Spotify (title and artist must match). Additions like “Remastered” or “feat.” are ignored in the comparison. | always | |
 
 **How often the same artist comes up**
@@ -247,7 +249,7 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
 - **Controls**: each setting has a control, an explanation and a green hint showing what the value does right now. If a value differs from the default, clicking “Default: …” resets it. A value from `config.jsonc` outside the allowed range is marked in red ([Rules and settings](#5-rules-and-settings)).
 - **Artist variety**: one slider with four steps (*low* to *very high*) sets all four artist rules at once. The individual values are under *Details for experts*; if they don’t match any step, the slider shows *Custom* and the details open.
 - **Source of your favorites**: a list with your Liked Songs and your playlists. Only playlists you own or collaborate on are offered, because Spotify only shares the contents of those.
-- **Block list**: enter an artist name and click *Add*. Remove it again with ×.
+- **Block list**: artists, single songs and explicit songs, see [Block list](#block-list-artists-and-songs) below.
 - **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*.
 - **Test run**: shows the selection without changing the playlist. Below it:
   - **Use this list**: writes exactly these songs, in this order, to “Tweakable DJ” without drawing again, including the description. It counts like a run (the songs are then remembered for *Block previous runs*). The button is valid for 24 hours and only as long as the settings stay as they were for the test run; after that, after a rebuild (also by automatic runs) or if `probelauf.json` is missing, it is disabled and says why. Then just start a new test run. Setting the controls back makes it available again.
@@ -260,9 +262,21 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
   - Windows: the run is made up the next time you turn it on.
   - Mac: the run is made up after waking from sleep, but not after being switched off.
   - Linux: the run is skipped.
-- **New version**: if a newer version of Tweakable DJ has been released, a notice appears at the top with a download link and the button **Update now** (see [Updating](#8-updating)). Close it with ×; it only comes back for the next version. The bottom of the page shows which version you have (e.g. *v0.1.0*). More in [Update check](#update-check).
+- **New version**: if a newer version of Tweakable DJ has been released, a notice appears at the top with a download link and the button **Update now** (see [Updating](#8-updating)). Close it with ×; it only comes back for the next version. The bottom of the page shows which version you have (e.g. *v0.1.2*), next to it **Check for updates**: it asks GitHub right away and then says *You’re up to date ✓*, shows the notice again (even if you closed it) or says *GitHub not reachable*. More in [Update check](#update-check).
 
 *Test run* and *Rebuild playlist* save first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
+
+### Block list: artists and songs
+
+The group *Block list* has three parts. Like every setting, changes are only written to `config.jsonc` when you click *Save* (a test run saves first by itself).
+
+- **No explicit songs**: a switch. When it’s on, no song that Spotify marks as explicit goes into the playlist ([Rules and settings](#5-rules-and-settings)). A test run then shows e.g. “4 explicit songs left out”.
+- **Artists that are never played**: enter a name and click *Add*. Remove it again with ×.
+- **Songs that are never played**: after a test run, every song in the list has a small **×**. Clicking it blocks the song: it is struck through, appears as a chip under *Songs that are never played* and stays out of every run from then on, including other versions of it (remaster, live, a single with its own link). **↺** next to a struck-through song, or × on the chip, unblocks it. A test run shows e.g. “2 blocked songs left out”.
+
+If you block a song from the list of a test run, *Use this list* is disabled (that list contains the song). Start a new test run; it saves your changes first.
+
+The block list doesn’t apply to an import from a text file: it’s your list. The preview names the songs a run of the DJ would leave out (“on your block list”, “explicit”), and they still go in.
 
 <p align="center"><img src="docs/screenshot-run.en.png" width="640" alt="Result of a test run: Tweakable DJ with 50 songs, 40 of them new and 34 found via current listening, 10 favorites, followed by the steps of the run (including the followed artists) and the list of picked songs"></p>
 
@@ -314,12 +328,15 @@ Main artist, Guest – Title	https://open.spotify.com/track/…
 - A link or URI to a song (`https://open.spotify.com/track/…`, also with `?si=…`, or `spotify:track:…`) is used directly, whatever else is on the line. That way a saved file comes back exactly the same.
 - Otherwise the line must read `artist – title` (separator `–`, `—` or ` - ` with spaces). Tweakable DJ looks these songs up on Spotify, just like during a run.
 - At most 500 songs and 1 MB. The preview shows how many were found and which lines don’t match; nothing is written until you confirm. With many songs the search takes a while; the progress is shown below the buttons.
+- Songs from your block list – and, with *No explicit songs*, explicit ones – aren’t left out, but the preview lists them as a note. For lines with only a link, Tweakable DJ doesn’t know whether a song is explicit (that would take one extra request per song).
 - An import replaces the contents of the playlist and sets its description, **but doesn’t count as a DJ run**: it writes nothing to the history (`state.json`), so its songs aren’t blocked by *Block previous runs*. It’s your list, not the DJ’s selection.
 - No import starts during a run, an update or a Spotify login, and vice versa.
 
 ### Update check
 
 When you open the interface, Tweakable DJ checks **at most once a day** whether a new version has been released. For this, it sends a single request to the GitHub Releases API (`api.github.com`) that asks for the newest release of Tweakable DJ. **No personal data is sent**: no settings, credentials, songs or IDs. The answer is stored in `update-check.json`; if the check fails (e.g. offline), it tries again an hour later at the earliest. Only the interface checks, not runs in the terminal or automatic runs. It only shows a notice and never downloads or installs anything by itself; an update only happens when you click *Update now* (see [Updating](#8-updating)).
+
+**Check for updates** at the bottom of the page, next to the version number, asks GitHub right away, regardless of the daily rhythm – at most once a minute; another click within that minute shows the last result again.
 
 To turn the check off, set the environment variable `TWEAKABLE_DJ_NO_UPDATE_CHECK=1` before starting:
 

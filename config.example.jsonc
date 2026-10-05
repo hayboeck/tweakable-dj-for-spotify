@@ -33,7 +33,9 @@
   "noRepeatRuns": 3,                  // Songs from this many previous runs are left out (0–100, 0 = off)
 
   // --- Block list ---
+  "excludeExplicit": false,           // true = no songs with explicit lyrics (as marked by Spotify), neither as favorites nor as new songs
   "blockedArtists": [],               // Artists that are never played, e.g. ["Artist A", "Artist B"]
+  "blockedTracks": [],                // Songs that are never played, also in other versions (at most 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; easiest with × in a test run
 
   // --- Automatic runs ---
   // Set this in the interface: only saving there adds Tweakable DJ to your computer's scheduler.

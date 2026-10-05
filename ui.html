@@ -132,6 +132,11 @@
   .tag button { font: inherit; font-size: 17px; line-height: 1; width: 26px; height: 26px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
   .tag button:hover { background: var(--border); color: var(--text); }
   .tags .empty { color: var(--muted); font-size: 13.5px; }
+  /* Song sperren: × hinter jedem Song in der Liste eines Probelaufs; gesperrte Songs durchgestrichen (↺ hebt die Sperre auf) */
+  pre .blocked { text-decoration: line-through; opacity: .55; }
+  pre button.block { font: inherit; font-size: 12px; line-height: 1.2; padding: 0 6px; margin-left: 6px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); cursor: pointer; }
+  pre button.block:hover { color: var(--danger); border-color: currentColor; }
+  pre button.block.undo:hover { color: var(--accent); }
 
   /* Automatik */
   .row-head .label { font-weight: 600; }
@@ -207,6 +212,7 @@
   .import-missing { margin: 0 0 10px; padding-left: 20px; max-height: 220px; overflow: auto; font-size: 13.5px; overflow-wrap: anywhere; }
   .import-missing li { margin-bottom: 2px; }
   .import-missing .why { color: var(--muted); }
+  #import-hints-head { color: var(--warn); }
   pre { margin: 0 0 16px; padding: 12px; max-height: 480px; overflow: auto; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); font: 12.5px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
   pre .now { color: var(--accent); }
   pre .warn { color: var(--warn); }
@@ -216,6 +222,11 @@
   .credit p { margin: 2px 0; }
   .credit a { color: inherit; }
   .credit .version { margin-top: 6px; opacity: .85; }
+  /* „Nach Updates suchen“: dezent wie ein Link, Ergebnis gleich daneben */
+  .credit button.link { font-size: inherit; color: inherit; }
+  .credit button.link:disabled { opacity: .6; cursor: default; }
+  #update-check-msg.ok { color: var(--accent); }
+  #update-check-msg.err { color: var(--danger); }
 </style>
 </head>
 <body>
@@ -367,6 +378,9 @@
           <p class="summary" id="import-found"></p>
           <p class="help" id="import-missing-head"></p>
           <ul class="import-missing" id="import-missing"></ul>
+          <!-- Gesperrte bzw. explizite Songs aus der Datei: nur ein Hinweis, sie kommen trotzdem hinein -->
+          <p class="help" id="import-hints-head" hidden></p>
+          <ul class="import-missing" id="import-hints" hidden></ul>
           <div class="actions">
             <button type="button" class="btn primary" id="import-go"></button>
             <button type="button" class="btn" id="import-cancel"></button>
@@ -394,7 +408,9 @@
   <footer class="credit">
     <p data-html="creditLastfm"></p>
     <p data-t="creditSpotify"></p>
-    <p class="version" id="version" hidden></p>
+    <!-- Eigene Version und „Nach Updates suchen“ (GET /api/update?force=1) mit dem Ergebnis daneben -->
+    <p class="version" id="version" hidden><span id="version-text"></span><span id="update-check-box"> · <button type="button" class="link" id="update-check"></button></span>
+      <span id="update-check-msg" role="status" aria-live="polite"></span></p>
   </footer>
 </main>
 <div class="bar" id="bar" hidden>
@@ -533,7 +549,11 @@ const TEXT = {
         help: 'Songs, die du laut Last.fm in diesem Zeitraum gehört hast, kommen nicht in die Playlist.' },
       noRepeatRuns: { label: 'Vorige Läufe sperren', fmt: v => (v ? plural(v, 'Lauf', 'Läufe') : 'aus'),
         help: 'Songs aus so vielen vorigen Läufen kommen nicht wieder.' },
+      excludeExplicit: { label: 'Keine Songs mit expliziten Texten',
+        help: 'Songs, die Spotify als explizit kennzeichnet, kommen nicht in die Playlist – weder als Favorit noch als neuer Song. Gibt es eine nicht explizite Version, nimmt der DJ diese.' },
       blockedArtists: { label: 'Künstler, die nie gespielt werden', placeholder: 'Name des Künstlers', help: 'Songs dieser Künstler kommen nie in die Playlist.' },
+      blockedTracks: { label: 'Songs, die nie gespielt werden',
+        help: 'Sperren geht in der Liste eines Probelaufs mit × hinter dem Song. Andere Versionen desselben Songs (z. B. Remaster oder Live) sind mitgesperrt.' },
       schedule: { label: 'Wie oft', options: { off: 'Aus', daily: 'Täglich', weekly: 'Wöchentlich' },
         help: 'Tweakable DJ erstellt die Playlist zur eingestellten Zeit von selbst neu, auch wenn diese Seite geschlossen ist.' },
       scheduleDay: { label: 'Wochentag',
@@ -547,6 +567,11 @@ const TEXT = {
       removeName: name => `${name} entfernen`,
       empty: 'Noch niemand gesperrt.',
       duplicate: name => `„${name}“ steht schon auf der Liste.`,
+      tracksEmpty: 'Noch kein Song gesperrt.',
+      block: 'Song sperren (danach speichern)',
+      blockName: name => `„${name}“ sperren`,
+      unblock: 'Sperre aufheben',
+      unblockName: name => `Sperre für „${name}“ aufheben`,
     },
     reset: d => `Standard: ${d}`,
     on: 'an',
@@ -583,6 +608,7 @@ const TEXT = {
       help: (name, until) => `Schreibt genau diese Songs in dieser Reihenfolge in „${name}“, ohne neu zu losen. Geht bis ${until} Uhr, solange die Einstellungen bleiben, wie sie beim Probelauf waren.`,
       dirty: 'Nicht mehr übernehmbar: Du hast seit dem Probelauf Einstellungen geändert. Stelle sie zurück oder starte einen neuen Probelauf.',
       old: 'Nicht mehr übernehmbar: Der Probelauf ist älter als 24 Stunden. Starte einen neuen Probelauf.',
+      blocked: 'Nicht mehr übernehmbar: Du hast einen Song aus dieser Liste gesperrt. Starte einen neuen Probelauf – er speichert vorher.',
     },
     // Als Textdatei speichern und Textdatei importieren
     files: {
@@ -595,6 +621,9 @@ const TEXT = {
       missingHead: n => (n === 1 ? 'Diese Zeile kommt nicht in die Playlist:' : `Diese ${num(n)} Zeilen kommen nicht in die Playlist:`),
       line: n => `Zeile ${num(n)}: `,
       reasons: { notFound: 'auf Spotify nicht gefunden', format: 'weder Link noch „Künstler – Titel“', link: 'Link zu keinem Song', error: 'Suche fehlgeschlagen' },
+      hintHead: n => (n === 1 ? 'Diesen Song würde der DJ selbst auslassen. Er kommt trotzdem in die Playlist – die Datei ist deine Liste:'
+        : `Diese ${num(n)} Songs würde der DJ selbst auslassen. Sie kommen trotzdem in die Playlist – die Datei ist deine Liste:`),
+      hintReasons: { blocked: 'auf deiner Sperrliste', explicit: 'explizit' },
       write: name => `In Playlist „${name}“ schreiben (ersetzt den Inhalt)`,
       cancel: 'Abbrechen',
       none: 'Kein einziger Song gefunden – es gibt nichts zu schreiben.',
@@ -665,6 +694,11 @@ const TEXT = {
       manual: to => `Update auf Version ${to} installiert ✓ Bitte Tweakable DJ neu starten (Fenster schließen und wieder öffnen). Die Seite lädt dann von selbst neu.`,
       slow: 'Tweakable DJ antwortet noch nicht. Ist das Fenster von Tweakable DJ noch offen? Sonst starte Tweakable DJ neu – die Seite lädt dann von selbst neu.',
       failed: 'Das Update hat nicht geklappt.',
+      check: 'Nach Updates suchen',
+      checking: 'Suche …',
+      latest: 'Du hast die neueste Version ✓',
+      found: v => `Version ${v} ist verfügbar – siehe Hinweis oben`,
+      offline: 'GitHub nicht erreichbar',
     },
     // Automatik (platform wie in Node: win32, darwin, linux)
     auto: {
@@ -827,7 +861,11 @@ const TEXT = {
         help: 'Songs you played in this period (according to Last.fm) don’t go into the playlist.' },
       noRepeatRuns: { label: 'Block previous runs', fmt: v => (v ? plural(v, 'run', 'runs') : 'off'),
         help: 'Songs from this many previous runs don’t come back.' },
+      excludeExplicit: { label: 'No explicit songs',
+        help: 'Songs that Spotify marks as explicit don’t go into the playlist, neither as favorites nor as new songs. If there’s a clean version, the DJ takes that one.' },
       blockedArtists: { label: 'Artists that are never played', placeholder: 'Artist name', help: 'Songs by these artists never go into the playlist.' },
+      blockedTracks: { label: 'Songs that are never played',
+        help: 'Block a song in the list of a test run with the × after it. Other versions of the same song (e.g. remaster or live) are blocked too.' },
       schedule: { label: 'How often', options: { off: 'Off', daily: 'Daily', weekly: 'Weekly' },
         help: 'Tweakable DJ rebuilds the playlist by itself at the set time, even when this page is closed.' },
       scheduleDay: { label: 'Day of the week',
@@ -841,6 +879,11 @@ const TEXT = {
       removeName: name => `Remove ${name}`,
       empty: 'Nobody blocked yet.',
       duplicate: name => `“${name}” is already on the list.`,
+      tracksEmpty: 'No songs blocked yet.',
+      block: 'Block song (then save)',
+      blockName: name => `Block “${name}”`,
+      unblock: 'Unblock',
+      unblockName: name => `Unblock “${name}”`,
     },
     reset: d => `Default: ${d}`,
     on: 'on',
@@ -875,6 +918,7 @@ const TEXT = {
       help: (name, until) => `Writes exactly these songs, in this order, to “${name}” without drawing again. Works until ${until} as long as the settings stay as they were for the test run.`,
       dirty: 'Can no longer be applied: you’ve changed settings since the test run. Change them back or start a new test run.',
       old: 'Can no longer be applied: the test run is more than 24 hours old. Start a new test run.',
+      blocked: 'Can no longer be applied: you blocked a song from this list. Start a new test run – it saves first.',
     },
     files: {
       help: name => `Saves “${name}” as it currently is in Spotify as a text file – or fills it with your own list: one line per song, “artist – title” or a Spotify link. An import replaces the contents of the playlist but doesn’t count as a DJ run (nothing gets blocked by “Block previous runs”).`,
@@ -886,6 +930,9 @@ const TEXT = {
       missingHead: n => (n === 1 ? 'This line won’t be in the playlist:' : `These ${num(n)} lines won’t be in the playlist:`),
       line: n => `Line ${num(n)}: `,
       reasons: { notFound: 'not found on Spotify', format: 'neither a link nor “artist – title”', link: 'link to something other than a song', error: 'search failed' },
+      hintHead: n => (n === 1 ? 'The DJ itself would leave out this song. It still goes into the playlist – the file is your list:'
+        : `The DJ itself would leave out these ${num(n)} songs. They still go into the playlist – the file is your list:`),
+      hintReasons: { blocked: 'on your block list', explicit: 'explicit' },
       write: name => `Write to playlist “${name}” (replaces its contents)`,
       cancel: 'Cancel',
       none: 'Not a single song found – there’s nothing to write.',
@@ -955,6 +1002,11 @@ const TEXT = {
       manual: to => `Update to version ${to} installed ✓ Please start Tweakable DJ again (close the window and open it again). This page will then reload by itself.`,
       slow: 'Tweakable DJ isn’t responding yet. Is the Tweakable DJ window still open? If not, start Tweakable DJ again – this page will then reload by itself.',
       failed: 'The update didn’t work.',
+      check: 'Check for updates',
+      checking: 'Checking …',
+      latest: 'You’re up to date ✓',
+      found: v => `Version ${v} is available – see the notice at the top`,
+      offline: 'GitHub not reachable',
     },
     auto: {
       background: 'Automatic runs also work when the Tweakable DJ window and this page are closed.',
@@ -1074,7 +1126,9 @@ const GROUPS = [
     { key: 'noRepeatRuns' },
   ]},
   { id: 'blocked', items: [
+    { key: 'excludeExplicit', type: 'toggle' },
     { key: 'blockedArtists', type: 'list' },
+    { key: 'blockedTracks', type: 'tracks' },
   ]},
   { id: 'auto', status: true, items: [
     { key: 'schedule', type: 'choice', options: ['off', 'daily', 'weekly'] },
@@ -1192,6 +1246,7 @@ function renderLang() {
   renderNotice();
   renderSummary();
   renderImport();
+  if (runState?.tracks) renderLog(logText); // Knöpfe zum Sperren in der neuen Sprache
   if (trial) refreshTrial(); // Meldung des Servers in der neuen Sprache
   if ($('w-client').value.trim()) checkClientId();
 }
@@ -1320,6 +1375,12 @@ function build() {
           el('div', { className: 'add-row' }, [input, el('button', { className: 'btn', type: 'button', textContent: T.list.add, onclick: add })]),
           control.note, help, control.tags,
         ]));
+      } else if (item.type === 'tracks') {
+        // Gesperrte Songs: nur Chips mit ×; gesperrt wird in der Liste eines Probelaufs (blockButton).
+        label = el('span', { className: 'label', textContent: text.label });
+        input = control.tags = attr(el('ul', { className: 'tags', id }), { 'aria-label': text.label });
+        reset.hidden = true;
+        parent.append(el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), help, control.tags]));
       } else {
         // Bereich, Skala und Meldung zu einem ungültigen Wert setzt refresh().
         input = el('input', { type: 'range', id, oninput: () => set(item.key, Number(input.value)) });
@@ -1443,6 +1504,57 @@ function renderTags(control, list) {
   ])) : [el('li', { className: 'empty', textContent: T.list.empty })]));
 }
 
+// --- Gesperrte Songs (blockedTracks: [{ uri, artist, name }]) ---
+
+// Gleiche Formel wie norm() bzw. trackKey() in lineup.mjs: Ein gesperrter Song trifft auch andere Versionen desselben Songs.
+function norm(s) {
+  const raw = String(s ?? '');
+  const n = raw
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s*[([].*?[)\]]/g, '')
+    .replace(/\s+-\s+.*$/, '')
+    .replace(/\s(feat|ft)\.?\s.*$/, '')
+    .replace(/^the\s+/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  return n || raw.toLowerCase().trim();
+}
+const trackKey = s => `${norm(s.artist)}|${norm(s.name)}`;
+const trackLabel = s => `${s.artist} – ${s.name}`;
+// Nur brauchbare Einträge (die config.jsonc kann von Hand geändert sein)
+const validTracks = list => (Array.isArray(list) ? list.filter(s => s && typeof s.artist === 'string' && typeof s.name === 'string') : []);
+const sameSong = (a, b) => Boolean(a.uri && a.uri === b.uri) || trackKey(a) === trackKey(b);
+const songBlocked = (track, list = current.blockedTracks) => validTracks(list).some(b => sameSong(b, track));
+
+function renderTrackTags(control, list) {
+  if (same(control.shown, list)) return;
+  control.shown = list;
+  const songs = validTracks(list);
+  control.tags.replaceChildren(...(songs.length ? songs.map(s => el('li', { className: 'tag' }, [
+    el('span', { textContent: trackLabel(s) }),
+    attr(el('button', { type: 'button', textContent: '×', title: T.list.remove, onclick: () => set('blockedTracks', current.blockedTracks.filter(x => x !== s)) }),
+      { 'aria-label': T.list.removeName(trackLabel(s)) }),
+  ])) : [el('li', { className: 'empty', textContent: T.list.tracksEmpty })]));
+}
+
+// Song aus der Liste des Probelaufs sperren bzw. die Sperre wieder aufheben. Wie bei den Künstlern erst eine Änderung der
+// Einstellungen: Gespeichert wird mit „Speichern“ (oder vor dem nächsten Probelauf).
+function toggleBlock(track) {
+  const list = validTracks(current.blockedTracks);
+  set('blockedTracks', songBlocked(track) ? list.filter(b => !sameSong(b, track))
+    : [...list, { uri: track.uri, artist: track.artist, name: track.name }]);
+}
+
+function blockButton(track) {
+  const blocked = songBlocked(track);
+  const name = trackLabel(track);
+  return attr(el('button', {
+    type: 'button', className: blocked ? 'block undo' : 'block', textContent: blocked ? '↺' : '×', title: blocked ? T.list.unblock : T.list.block,
+    onclick: () => toggleBlock(track),
+  }), { 'aria-label': blocked ? T.list.unblockName(name) : T.list.blockName(name) });
+}
+
 // Bereich des Schiebereglers: der übliche (slider), erweitert bis zum gespeicherten bzw. eingestellten Wert, aber nie über
 // den erlaubten hinaus. So zeigt er auch größere Werte aus der config.jsonc an, ohne sie beim Speichern abzuschneiden:
 // Gespeichert wird ein Regler nur, wenn man ihn bewegt.
@@ -1473,6 +1585,7 @@ function refresh(skipInput) {
       if (item.type === 'toggle') input.checked = v;
       else if (item.type === 'seed') fillSeedSelect(input, v);
       else if (item.type === 'list') renderTags(control, v ?? []);
+      else if (item.type === 'tracks') renderTrackTags(control, v ?? []);
       else if (item.type === 'choice') control.radios.forEach(r => { r.checked = r.value === v; });
       else if (!item.type) setSlider(control, v);
       else input.value = v;
@@ -1483,7 +1596,7 @@ function refresh(skipInput) {
     if (item.type === 'seed') control.note.textContent = seedNoteText();
     out.textContent = item.type ? '' : text.fmt(v);
     hint.textContent = text.hint ? text.hint(v, current) : '';
-    if (item.type === 'list') continue;
+    if (item.type === 'list' || item.type === 'tracks') continue;
     reset.hidden = same(v, defaults[item.key]);
     const d = defaults[item.key];
     reset.textContent = T.reset(item.type === 'toggle' ? (d ? T.on : T.off) : item.type === 'text' ? d : text.fmt(d));
@@ -1511,6 +1624,8 @@ function refresh(skipInput) {
   $('files-help').textContent = T.files.help(saved.playlistName ?? '');
   renderSchedule();
   renderTrial();
+  // Sperrliste der Songs geändert: Markierungen in der Liste des Probelaufs anpassen
+  if (runState?.tracks && !same(logBlocked, current.blockedTracks)) renderLog(logText);
 }
 
 const isWorking = () => busy || updating() || importRunning;
@@ -1695,18 +1810,41 @@ function runResult(text) {
   }
 }
 
-// Ausgabe ohne Steuerzeilen (@@…); Fehler, Warnungen und aktuelles Hören hervorheben.
+// Ausgabe ohne Steuerzeilen (@@…); Fehler, Warnungen und aktuelles Hören hervorheben. Nach einem Probelauf (runState.tracks
+// aus GET /api/trial?tracks=1) bekommt jeder Song der Liste ("  3. Künstler – Titel  (…)") einen Knopf zum Sperren.
+let logText = '';
+let logBlocked = null;   // Sperrliste der Songs beim letzten Zeichnen
 function renderLog(text) {
+  logText = text;
+  logBlocked = current.blockedTracks;
+  const tracks = runState?.tracks ?? null;
   const lines = text.replace(/\r/g, '').split('\n');
   const last = lines.length - 1; // noch unvollständige Zeile: auch ein angefangenes "@@" nicht zeigen
-  $('log').replaceChildren(...lines.filter((line, i) => !line.startsWith('@@') && !(i === last && line.startsWith('@'))).map(line => {
-    const span = el('span', { textContent: line + '\n' });
+  $('log').replaceChildren(...lines.filter((line, i) => !line.startsWith('@@') && !(i === last && line.startsWith('@'))).flatMap(line => {
+    const span = el('span', { textContent: line });
     const start = line.trimStart();
     if (/^(Fehler|Error):/.test(start)) span.className = 'err';
     else if (start.startsWith('⚠')) span.className = 'warn';
     else if (line.includes(' · aktuell') || line.includes(' · current')) span.className = 'now';
-    return span;
+    // Song Nummer n der Liste – nur, wenn Künstler und Titel zur Zeile passen
+    const n = Number(line.match(/^\s*(\d+)\. /)?.[1]);
+    const track = tracks?.[n - 1];
+    if (!track || !line.includes(trackLabel(track))) return [span, '\n'];
+    if (songBlocked(track)) span.classList.add('blocked');
+    return [span, blockButton(track), '\n'];
   }));
+}
+
+// Songs des Probelaufs (für die Knöpfe zum Sperren); bleibt aus, wenn der Probelauf inzwischen ein anderer ist.
+async function loadTrialTracks(id) {
+  try {
+    const data = await apiJson(`/api/trial?id=${encodeURIComponent(id)}&tracks=1`);
+    if (runState?.trialId !== id || data.trial?.id !== id || !Array.isArray(data.trial.tracks)) return;
+    runState.tracks = data.trial.tracks;
+    renderLog(logText);
+  } catch {
+    // dann eben ohne Knöpfe
+  }
 }
 
 function runSummary(r) {
@@ -1761,11 +1899,12 @@ async function run(kind) {
     text += decoder.decode();
     renderLog(text);
     const result = runResult(text);
-    runState = { phase: 'done', kind, dry, result };
+    runState = { phase: 'done', kind, dry, result, trialId: dry && result?.ok ? result.trialId ?? null : null, tracks: null };
     if (LOGIN_CODES.includes(result?.errorCode)) showNotice('expired');
     if (dry && result?.ok && result.trialId) {
       trial = { id: result.trialId, settings, expiresAt: new Date(Date.now() + 24 * 3600_000).toISOString(), serverReason: null, message: '' };
       refreshTrial();
+      loadTrialTracks(result.trialId);
     } else if (kind === 'apply' && result?.errorCode === 'trial_expired') {
       Object.assign(trial, { serverReason: 'server', message: result.error });
     } else if (kind === 'apply' && result?.ok) {
@@ -1789,11 +1928,13 @@ async function run(kind) {
 // Einstellungen, die die Auswahl bestimmen (die Automatik nicht): Weichen sie vom Probelauf ab, passt seine Liste nicht mehr.
 const trialChanged = () => ITEMS.some(i => !SCHEDULE_KEYS.includes(i.key) && !same(current[i.key], trial.settings[i.key]));
 
-// Warum sich der Probelauf nicht mehr übernehmen lässt: 'dirty' (Einstellungen geändert), 'old' (älter als 24 Stunden),
+// Warum sich der Probelauf nicht mehr übernehmen lässt: 'blocked' (Song daraus gesperrt), 'dirty' (Einstellungen geändert), 'old' (älter als 24 Stunden),
 // sonst ein Grund vom Server (dann steht der Text in trial.message); null = geht.
 function trialReason() {
   if (!trial) return null;
   if (trial.serverReason && trial.serverReason !== 'settings') return trial.serverReason;
+  // Ein Song der Liste ist seit dem Probelauf gesperrt (eigener Hinweis; die Einstellungen sind damit ohnehin geändert)
+  if (runState?.trialId === trial.id && runState.tracks?.some(t => songBlocked(t) && !songBlocked(t, trial.settings.blockedTracks))) return 'blocked';
   if (trialChanged() || trial.serverReason === 'settings') return 'dirty';
   if (Date.now() >= Date.parse(trial.expiresAt)) return 'old';
   return null;
@@ -1907,6 +2048,21 @@ function renderImport() {
   $('import-missing').hidden = !missing.length;
   $('import-missing').replaceChildren(...missing.map(n => el('li', {}, [
     T.files.line(n.line), el('span', { textContent: n.text }), el('span', { className: 'why', textContent: ` – ${T.files.reasons[n.reason] ?? n.reason}` }),
+  ])));
+  // Gesperrte bzw. explizite Songs (hints vom Server): ein Eintrag pro Zeile, mit allen Gründen
+  const hints = new Map();
+  for (const [why, list] of Object.entries(preview.hints ?? {})) {
+    for (const h of Array.isArray(list) ? list : []) {
+      const entry = hints.get(h.line) ?? { ...h, why: [] };
+      entry.why.push(T.files.hintReasons[why] ?? why);
+      hints.set(h.line, entry);
+    }
+  }
+  const hinted = [...hints.values()].sort((a, b) => a.line - b.line);
+  $('import-hints-head').hidden = $('import-hints').hidden = !hinted.length;
+  $('import-hints-head').textContent = hinted.length ? T.files.hintHead(hinted.length) : '';
+  $('import-hints').replaceChildren(...hinted.map(h => el('li', {}, [
+    T.files.line(h.line), el('span', { textContent: h.text }), el('span', { className: 'why', textContent: ` – ${h.why.join(', ')}` }),
   ])));
   $('import-go').hidden = !preview.found;
   $('import-go').textContent = T.files.write(preview.playlistName);
@@ -2136,6 +2292,9 @@ const bare = v => String(v ?? '').replace(/^v/i, '');
 // (ohne Startdatei gestartet: bitte selbst neu starten), 'slow' (Neustart dauert), 'error'.
 // text: letzte Zeile des Fortschritts bzw. Fehlermeldung des Servers; to: neue Version.
 let upd = { phase: '', text: '', to: '' };
+// „Nach Updates suchen“: phase '' (nichts), 'checking', 'latest' (neueste Version), 'found' (Hinweis oben), 'offline'
+// (GitHub nicht erreichbar), 'failed' (Fehler des eigenen Servers, text = Meldung).
+let updCheck = { phase: '', text: '' };
 let reloading = false; // Seite lädt nach dem Update neu: dann nicht wegen ungespeicherter Änderungen nachfragen
 const updating = () => upd.phase === 'running';
 
@@ -2173,10 +2332,36 @@ function renderUpdate() {
     : phase === 'slow' ? T.update.slow
     : phase === 'error' ? upd.text || T.update.failed : '';
   setMsg($('update-msg'), { done: 'ok', manual: 'ok', slow: 'warn', error: 'err' }[phase] ?? '', msg);
-  // Eigene Version dezent unten auf der Seite, sobald sie bekannt ist.
+  // Eigene Version dezent unten auf der Seite, sobald sie bekannt ist, daneben „Nach Updates suchen“ (nur, wenn die
+  // Prüfung nicht abgeschaltet ist) und dessen Ergebnis.
   const version = typeof u?.current === 'string' ? bare(u.current) : '';
   $('version').hidden = !version;
-  $('version').textContent = version ? `v${version}` : '';
+  $('version-text').textContent = version ? `v${version}` : '';
+  $('update-check-box').hidden = !u?.enabled;
+  $('update-check').textContent = T.update.check;
+  $('update-check').disabled = updCheck.phase === 'checking';
+  const c = updCheck.phase;
+  $('update-check-msg').className = ['latest', 'found'].includes(c) ? 'ok' : ['offline', 'failed'].includes(c) ? 'err' : '';
+  $('update-check-msg').textContent = c === 'checking' ? T.update.checking : c === 'latest' ? T.update.latest
+    : c === 'found' ? T.update.found(bare(u?.latest)) : c === 'offline' ? T.update.offline : c === 'failed' ? updCheck.text : '';
+}
+
+// „Nach Updates suchen“: fragt GitHub sofort (der Server höchstens einmal pro Minute, sonst sein letzter Stand). Gibt es
+// eine neue Version, erscheint der Hinweis oben wieder, auch wenn er für diese Version schon weggeklickt war.
+async function checkUpdate() {
+  updCheck = { phase: 'checking', text: '' };
+  renderUpdate();
+  try {
+    updateInfo = await apiJson('/api/update?force=1');
+    const u = updateInfo;
+    const available = Boolean(u.enabled && u.updateAvailable && !u.error && u.latest && githubLink(u.url));
+    if (available) dismissedUpdate.set(null);
+    updCheck = { phase: available ? 'found' : u.error ? 'offline' : 'latest', text: '' };
+  } catch (e) {
+    updCheck = { phase: 'failed', text: e.message };
+  }
+  renderUpdate();
+  if (updCheck.phase === 'found' && !$('update').hidden) $('update').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function setUpdate(state) {
@@ -2465,6 +2650,7 @@ $('import-file').onchange = () => {
 $('import-go').onclick = importWrite;
 $('import-cancel').onclick = () => setImport(null);
 $('update-close').onclick = dismissUpdate;
+$('update-check').onclick = checkUpdate;
 $('update-install').onclick = () => {
   setUpdate({ phase: 'confirm' });
   $('update-go').focus();

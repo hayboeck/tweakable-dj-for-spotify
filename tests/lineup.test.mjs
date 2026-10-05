@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  arrange, artistBlocker, artistNames, candidateWeight, followedFactor, followedMatcher, FOLLOWED_MAX, norm, sameTrack, trackKey, weightedOrder,
-  windowViolations,
+  arrange, artistBlocker, artistNames, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, FOLLOWED_MAX, norm, playableUri,
+  sameTrack, searchAgain, trackBlocker, trackKey, weightedOrder, windowViolations,
 } from '../lineup.mjs';
 import { VARIETY_LEVELS } from '../config.mjs';
 
@@ -253,4 +253,49 @@ test('Abwechslung bei Künstlern: jede Stufe ist mit 50 Songs erfüllbar (Auswah
       assert.equal(gapViolations(lineup, v.artistGap), 0, `${id}, Seed ${seed}: Mindestabstand`);
     }
   }
+});
+
+test('trackBlocker: gleiche URI oder gleicher trackKey (andere Versionen), kaputte Einträge zählen nicht', () => {
+  const blocked = trackBlocker([
+    { uri: 'spotify:track:aaaaaaaaaaaaaaaaaaaaaa', artist: 'Nordlicht', name: 'Eisblau' },
+    { artist: 'The Fernweh', name: 'Horizont (Remastered 2011)' },
+    null, 'Text', { artist: '', name: 'Leer' }, { uri: 42 },
+  ]);
+  assert.equal(blocked({ uri: 'spotify:track:aaaaaaaaaaaaaaaaaaaaaa', artist: 'Ganz', name: 'Anders' }), true, 'URI');
+  assert.equal(blocked({ uri: 'spotify:track:bbbbbbbbbbbbbbbbbbbbbb', artist: 'Nordlicht', name: 'Eisblau - Live' }), true, 'andere Version');
+  assert.equal(blocked({ artist: 'Fernweh', name: 'Horizont' }), true, 'ohne URI (Last.fm), "The" und Klammer egal');
+  assert.equal(blocked({ artist: 'Fernweh feat. Gast', name: 'Horizont' }), true, 'Gast im Künstler-Text');
+  assert.equal(blocked({ artist: 'Nordlicht', name: 'Polarnacht' }), false);
+  assert.equal(blocked({ artist: 'Leer', name: 'Leer' }), false);
+  assert.equal(blocked({}), false);
+  assert.equal(trackBlocker(undefined)({ artist: 'A', name: 'B' }), false);
+});
+
+test('Such-Cache: Einträge von 0.1.1 (nur URI) bleiben lesbar, explicit unbekannt → nur mit Filter neu suchen', () => {
+  const uri = 'spotify:track:aaaaaaaaaaaaaaaaaaaaaa';
+  const clean = 'spotify:track:cccccccccccccccccccccc';
+  // altes Format
+  assert.deepEqual(cacheEntry(uri), { uri, explicit: null, clean: null });
+  assert.equal(cacheEntry(null), null, 'nicht gefunden bleibt nicht gefunden');
+  for (const broken of [undefined, '', 42, {}, { uri: 1 }, []]) assert.equal(cacheEntry(broken), undefined, JSON.stringify(broken));
+  // neues Format
+  assert.deepEqual(cacheValue({ uri, explicit: false, artists: ['A'] }), { uri, explicit: false });
+  assert.deepEqual(cacheValue({ uri, explicit: true, clean: { uri: clean } }), { uri, explicit: true, clean });
+  assert.deepEqual(cacheValue({ uri, explicit: true, clean: null }), { uri, explicit: true, clean: null });
+  assert.equal(cacheValue(null), null);
+  assert.deepEqual(cacheEntry(cacheValue({ uri, explicit: true, clean: { uri: clean } })), { uri, explicit: true, clean });
+  assert.deepEqual(cacheEntry({ uri, explicit: false, clean }), { uri, explicit: false, clean: null }, 'clean nur bei explicit');
+  // Neu suchen?
+  assert.equal(searchAgain(undefined, false), true, 'nicht im Cache');
+  assert.equal(searchAgain(cacheEntry(uri), false), false, 'alter Eintrag ohne Filter: bleibt');
+  assert.equal(searchAgain(cacheEntry(uri), true), true, 'alter Eintrag mit Filter: neu suchen');
+  assert.equal(searchAgain(null, true), false, 'nicht gefunden: nicht jedes Mal neu suchen');
+  assert.equal(searchAgain(cacheEntry({ uri, explicit: false }), true), false);
+  // URI für die Playlist
+  assert.equal(playableUri(cacheEntry({ uri, explicit: true, clean }), false), uri, 'ohne Filter: der Treffer');
+  assert.equal(playableUri(cacheEntry({ uri, explicit: true, clean }), true), clean, 'mit Filter: die nicht explizite Version');
+  assert.equal(playableUri(cacheEntry({ uri, explicit: true, clean: null }), true), null, 'keine: auslassen');
+  assert.equal(playableUri(cacheEntry({ uri, explicit: false }), true), uri);
+  assert.equal(playableUri(cacheEntry(uri), true), null, 'unbekannt mit Filter: lieber auslassen');
+  assert.equal(playableUri(null, false), null);
 });

@@ -3,6 +3,36 @@
 All notable changes to Tweakable DJ for Spotify, newest first. Each version has an English and a German section.
 Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuerst – jeweils auf Englisch und auf Deutsch.
 
+## [0.1.2] – 2026-10-05
+
+### English
+
+**New**
+
+- **Block songs**: after a test run, every song in the list has a small × that blocks it (↺ unblocks it). Blocked songs appear as chips in the *Block list* group and never come up again – neither as a favorite, nor as a new song, nor as a starting point – including other versions of the same song (remaster, live, a single with its own link). Like every setting, the change is saved with *Save*; *Use this list* is then disabled for that test run. New setting `blockedTracks` (at most 1,000 songs).
+- **No explicit songs**: a switch in the *Block list* group (`excludeExplicit`, off by default). When it’s on, songs that Spotify marks as explicit stay out of favorites, new songs and the top-up. If Spotify has a clean version of a new song, the DJ takes that one.
+- **Check for updates**: a link-style button at the bottom of the page, next to the version number. It asks GitHub right away instead of waiting for the daily check (at most once a minute) and then says *You’re up to date ✓*, shows the update notice again – even if you closed it – or says *GitHub not reachable*.
+
+**Changed**
+
+- The output of a run also shows how many blocked and explicit songs were left out.
+- Import from a text file: the preview names songs from your block list and, with *No explicit songs*, explicit ones. They still go in – the file is your list.
+- The Spotify search cache in `state.json` now also remembers whether a song is explicit (and its clean version, if there is one). Older entries stay valid; only with *No explicit songs* turned on are they looked up once more.
+
+### Deutsch
+
+**Neu**
+
+- **Songs sperren**: Nach einem Probelauf steht hinter jedem Song der Liste ein kleines ×, das ihn sperrt (↺ hebt die Sperre auf). Gesperrte Songs stehen als Chips in der Gruppe *Sperrliste* und kommen nie wieder vor – weder als Favorit noch als neuer Song noch als Ausgangspunkt –, auch nicht in anderen Versionen (Remaster, Live, Single mit eigenem Link). Wie jede Einstellung wird die Änderung mit *Speichern* gespeichert; *Diese Liste übernehmen* ist für diesen Probelauf dann gesperrt. Neue Einstellung `blockedTracks` (höchstens 1 000 Songs).
+- **Keine Songs mit expliziten Texten**: ein Schalter in der Gruppe *Sperrliste* (`excludeExplicit`, standardmäßig aus). Ist er an, kommen Songs, die Spotify als explizit kennzeichnet, weder als Favorit noch als neuer Song noch beim Auffüllen hinein. Hat Spotify von einem neuen Song eine nicht explizite Version, nimmt der DJ diese.
+- **Nach Updates suchen**: ein dezenter Link ganz unten auf der Seite, neben der Versionsnummer. Er fragt sofort bei GitHub nach, statt auf die tägliche Prüfung zu warten (höchstens einmal pro Minute), und meldet dann *Du hast die neueste Version ✓*, zeigt den Hinweis auf die neue Version wieder an – auch wenn du ihn ausgeblendet hattest – oder sagt *GitHub nicht erreichbar*.
+
+**Geändert**
+
+- Die Ausgabe eines Laufs zeigt auch, wie viele gesperrte und explizite Songs ausgelassen wurden.
+- Import aus einer Textdatei: Die Vorschau nennt Songs von deiner Sperrliste und, mit *Keine Songs mit expliziten Texten*, explizite. Sie kommen trotzdem hinein – die Datei ist deine Liste.
+- Der Such-Cache von Spotify in `state.json` merkt sich jetzt auch, ob ein Song explizit ist (und seine nicht explizite Version, falls es eine gibt). Ältere Einträge bleiben gültig; nur mit eingeschaltetem *Keine Songs mit expliziten Texten* werden sie einmal neu gesucht.
+
 ## [0.1.1] – 2026-10-05
 
 ### English
@@ -57,5 +87,6 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.1.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.2
 [0.1.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.1
 [0.1.0]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.0

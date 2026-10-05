@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { norm, windowViolations } from '../lineup.mjs';
+import { norm, trackKey, windowViolations } from '../lineup.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MOCK = pathToFileURL(path.join(ROOT, 'tests', 'mock-apis.mjs')).href;
@@ -517,6 +517,131 @@ test('Gefolgte Künstler ohne Berechtigung (ältere Anmeldung): Warnung, Lauf ge
     const ok = run(dir);
     assert.equal(ok.result.missingScope, null);
     assert.doesNotMatch(ok.all, /neu bei Spotify anmelden/);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+// --- Gesperrte Songs (blockedTracks) und „Keine Songs mit expliziten Texten“ (excludeExplicit) ---
+
+// URI eines Songs im Mock (gleiche Formel wie spotifyTrack() in tests/mock-apis.mjs)
+const mockUri = (artist, name, variant = '') => {
+  const h = [...`${artist}|${name}${variant ? `|${variant}` : ''}`].reduce((x, c) => (x * 31 + c.charCodeAt(0)) >>> 0, 7);
+  return `spotify:track:${`mock${h.toString(36)}`.padEnd(22, '0')}`;
+};
+// Groß genug, dass jeder Kandidat auf Spotify gesucht wird und keine Regel etwas aussortiert; ohne Anteil Favoriten kommen
+// Favoriten nur übers Auffüllen hinein.
+const ALL = { size: 500, familiarShare: 0, maxPerArtist: 500, artistWindow: 100, maxPerWindow: 100, artistGap: 0, noRepeatRuns: 0 };
+const trialTracks = dir => JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8')).tracks;
+
+test('Gesperrte Songs: über die URI und als andere Version (trackKey), bei Favoriten, Auffüllen, Ausgangspunkten und neuen Songs', () => {
+  const dir = setup({
+    ...ALL,
+    blockedTracks: [
+      { uri: mockUri('Nordlicht', 'Eisblau'), artist: 'Nordlicht', name: 'Eisblau' }, // Favorit
+      { artist: 'Fernweh', name: 'Horizont (Live)' }, // andere Version eines Favoriten, der auch gerade läuft
+      { uri: mockUri('Leuchtturm', 'Leuchtfeuer'), artist: 'Leuchtturm', name: 'Anderer Name' }, // neuer Song, nur über die URI
+    ],
+  });
+  try {
+    const de = run(dir);
+    assert.equal(de.code, 0, de.all);
+    const lineup = parseLineup(de.out);
+    assert.ok(lineup.some(t => t.kind.startsWith('Favorit')), 'aufgefüllt mit Favoriten');
+    assert.ok(lineup.some(t => t.kind.startsWith('neu')));
+    for (const name of ['Eisblau', 'Horizont', 'Leuchtfeuer']) assert.ok(!lineup.some(t => t.name === name), name);
+    assert.ok(!trialTracks(dir).some(t => t.uri === mockUri('Leuchtturm', 'Leuchtfeuer')));
+    assert.match(de.out, /^ {2}3 gesperrte Songs ausgelassen$/m);
+    // Kein Ausgangspunkt: Last.fm wird zu gesperrten Songs nicht gefragt
+    assert.ok(!de.requests.some(r => r.method === 'track.getSimilar' && /Eisblau|Horizont/.test(r.path)));
+    assert.ok(lastfmCalls(de.requests, 'track.getSimilar') > 0);
+    const en = run(dir, { TWEAKABLE_DJ_LANG: 'en' });
+    assert.match(en.out, /^ {2}3 blocked songs left out$/m);
+
+    // Ein einziger Song: Einzahl; ohne Sperre keine Zeile
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, ...ALL, blockedTracks: [{ artist: 'Nordlicht', name: 'Eisblau' }] }));
+    assert.match(run(dir).out, /^ {2}1 gesperrter Song ausgelassen$/m);
+    assert.match(run(dir, { TWEAKABLE_DJ_LANG: 'en' }).out, /^ {2}1 blocked song left out$/m);
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, ...ALL }));
+    const none = run(dir);
+    assert.doesNotMatch(none.out, /gesperrte? Songs? ausgelassen/);
+    assert.ok(parseLineup(none.out).some(t => t.name === 'Eisblau'), 'ohne Sperre wieder dabei');
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('Explizite Songs: Favoriten, neue Songs und Auffüllen ohne explizite; nicht explizite Version, wenn es eine gibt', () => {
+  const dir = setup({ ...ALL, excludeExplicit: true });
+  try {
+    const de = run(dir);
+    assert.equal(de.code, 0, de.all);
+    const lineup = parseLineup(de.out);
+    assert.ok(lineup.some(t => t.kind.startsWith('Favorit')), 'aufgefüllt mit Favoriten');
+    // Im Mock explizit: der Favorit "Brandung" und alle Titel auf "Echo 4" bzw. "Echo 6"
+    assert.ok(!lineup.some(t => t.name === 'Brandung' || / Echo 4$/.test(t.name)), lineup.map(t => t.name).join(', '));
+    const [, n] = de.out.match(/^ {2}(\d+) explizite Songs ausgelassen$/m) ?? [];
+    assert.ok(Number(n) >= 2, de.out);
+    // "Echo 6": statt der expliziten die nicht explizite Version aus derselben Suche
+    const echo6 = trialTracks(dir).filter(t => / Echo 6$/.test(t.name));
+    assert.ok(echo6.length > 0, 'Echo 6 dabei');
+    for (const t of echo6) assert.equal(t.uri, mockUri(t.artist, t.name, 'clean'), t.name);
+    // Ausgangspunkte bleiben: zu "Brandung" fragt der DJ Last.fm trotzdem
+    assert.ok(de.requests.some(r => r.method === 'track.getSimilar' && r.path.includes('Brandung')));
+    assert.match(run(dir, { TWEAKABLE_DJ_LANG: 'en' }).out, /^ {2}\d+ explicit songs left out$/m);
+
+    // Ohne Filter: alles wie bisher, auch die explizite Version
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, ...ALL }));
+    const off = run(dir);
+    assert.doesNotMatch(off.out, /explizite/);
+    const names = parseLineup(off.out).map(t => t.name);
+    assert.ok(names.includes('Brandung') && names.some(x => / Echo 4$/.test(x)), names.join(', '));
+    for (const t of trialTracks(dir).filter(s => / Echo 6$/.test(s.name))) assert.equal(t.uri, mockUri(t.artist, t.name));
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('Such-Cache von 0.1.1 (nur URIs): bleibt ohne Filter unverändert, mit Filter einmal neu gesucht und ersetzt', () => {
+  const dir = setup(ALL);
+  const stateFile = path.join(dir, 'state.json');
+  // Gesuchte Songs (trackKey aus der genauen Suche track:"…" artist:"…"); neue Kandidaten aus zufälligen Abstechern kommen dazu.
+  const searched = requests => new Set(requests.filter(r => r.path?.startsWith('/v1/search')).map(r => {
+    const m = new URLSearchParams(r.path.split('?')[1]).get('q').match(/^track:"(.*)" artist:"(.*)"$/);
+    return m ? trackKey(m[2], m[1]) : null;
+  }).filter(Boolean));
+  const cachedIn = (requests, cache) => [...searched(requests)].filter(k => cache[k] != null);
+  try {
+    assert.equal(run(dir).code, 0);
+    // Neues Format: { uri, explicit[, clean] } bzw. null
+    const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    const entries = Object.values(state.cache);
+    assert.ok(entries.length > 20 && entries.every(v => v === null || (typeof v.uri === 'string' && typeof v.explicit === 'boolean')));
+    assert.ok(entries.some(v => v?.explicit === true && v.clean), 'Echo 6 mit nicht expliziter Version');
+    // So stand er in 0.1.1 da: nur die URI
+    const old = Object.fromEntries(Object.entries(state.cache).map(([k, v]) => [k, v?.uri ?? null]));
+    fs.writeFileSync(stateFile, JSON.stringify({ ...state, cache: old }, null, 2));
+
+    // Ohne Filter: alte Einträge gelten, keine neue Suche, nichts umgeschrieben
+    const plain = run(dir);
+    assert.equal(plain.code, 0, plain.all);
+    assert.deepEqual(cachedIn(plain.requests, old), [], 'Einträge aus dem Cache nicht neu gesucht');
+    const kept = JSON.parse(fs.readFileSync(stateFile, 'utf8')).cache;
+    for (const [k, v] of Object.entries(old)) assert.equal(kept[k], v, k);
+    assert.ok(parseLineup(plain.out).length > 20);
+
+    // Mit Filter: explicit unbekannt → neu suchen; danach im neuen Format, beim nächsten Lauf wieder aus dem Cache
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, ...ALL, excludeExplicit: true }));
+    const filtered = run(dir);
+    assert.equal(filtered.code, 0, filtered.all);
+    assert.ok(cachedIn(filtered.requests, old).length > 0, 'alte Einträge neu gesucht');
+    const migrated = JSON.parse(fs.readFileSync(stateFile, 'utf8')).cache;
+    for (const k of cachedIn(filtered.requests, old)) assert.equal(typeof migrated[k].explicit, 'boolean', k);
+    assert.ok(!parseLineup(filtered.out).some(t => / Echo 4$/.test(t.name)));
+    assert.ok(trialTracks(dir).filter(t => / Echo 6$/.test(t.name)).every(t => t.uri === mockUri(t.artist, t.name, 'clean')));
+    const again = run(dir);
+    const known = Object.fromEntries(Object.entries(migrated).filter(([, v]) => v && typeof v === 'object'));
+    assert.deepEqual(cachedIn(again.requests, known), [], 'jetzt wieder aus dem Cache');
   } finally {
     cleanup(dir);
   }

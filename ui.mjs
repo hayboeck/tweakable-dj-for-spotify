@@ -21,7 +21,8 @@ import { applySchedule, scheduleStatus } from './schedule.mjs';
 import { createSpotify, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
 import { autoRunMessage, installBlocker, installUpdate } from './install-update.mjs';
 import {
-  exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, parseImport, readPlaylist, resolveImport, validUris, writePlaylist,
+  exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, parseImport, readPlaylist, resolveImport, validUris,
+  writePlaylist,
 } from './playlist.mjs';
 import { readTrial, trialInfo, trialProblem } from './trial.mjs';
 import { checkForUpdate, currentVersion } from './update.mjs';
@@ -202,14 +203,21 @@ async function saveSettings(values, lang) {
   return scheduleStatus(after, { lang });
 }
 
-// Hinweis auf neue Versionen (update.mjs): höchstens eine Abfrage gleichzeitig, auch bei mehreren offenen Tabs.
+// Hinweis auf neue Versionen (update.mjs): höchstens eine Abfrage gleichzeitig je Art, auch bei mehreren offenen Tabs.
 // Schlägt etwas fehl, ist die Prüfung eben aus – die Oberfläche zeigt dann nichts an.
-let updateJob = null;
-function updateStatus() {
-  updateJob ??= checkForUpdate()
+// force („Nach Updates suchen“): fragt GitHub sofort, am Tages-Cache vorbei – höchstens einmal pro FORCE_INTERVAL. Kommt
+// ein weiterer Klick früher, gilt der gespeicherte Stand (bzw. die erzwungene Abfrage, die gerade läuft).
+const FORCE_INTERVAL = 60_000;
+const updateJobs = { normal: null, forced: null };
+let forcedAt = -Infinity;
+function updateStatus(force = false) {
+  const throttled = force && Date.now() - forcedAt < FORCE_INTERVAL;
+  const kind = force && (!throttled || updateJobs.forced) ? 'forced' : 'normal';
+  if (kind === 'forced' && !updateJobs.forced) forcedAt = Date.now();
+  updateJobs[kind] ??= checkForUpdate({ force: kind === 'forced' })
     .catch(e => ({ enabled: false, current: null, latest: null, updateAvailable: false, url: null, checkedAt: null, error: String(e?.message ?? e) }))
-    .finally(() => (updateJob = null));
-  return updateJob;
+    .finally(() => (updateJobs[kind] = null));
+  return updateJobs[kind];
 }
 
 // Warum gerade kein Update geht (übersetzt), sonst null: Lauf aus der Oberfläche oder Anmeldung bei Spotify.
@@ -322,7 +330,10 @@ const server = http.createServer(async (req, res) => {
 
     // Neue Version auf GitHub? Antwortet immer mit 200 (bei Problemen enabled: false bzw. mit error).
     // installable: „Jetzt aktualisieren“ geht in diesem Ordner (nicht bei einem git-Checkout).
-    if (route === 'GET /api/update') return send(200, { ...await updateStatus(), installable: !installBlocker(HERE) });
+    // ?force=1 („Nach Updates suchen“): sofort bei GitHub nachfragen, höchstens einmal pro Minute (updateStatus).
+    if (route === 'GET /api/update') {
+      return send(200, { ...await updateStatus(url.searchParams.get('force') === '1'), installable: !installBlocker(HERE) });
+    }
 
     // Version dieses Servers; die Seite wartet nach einem Update darauf, dass der neue Server antwortet.
     if (route === 'GET /api/version') return send(200, { version: VERSION });
@@ -402,10 +413,13 @@ const server = http.createServer(async (req, res) => {
 
     // Stand des letzten Probelaufs (probelauf.json): Lässt er sich übernehmen? ?id= = Kennung aus @@RESULT (trialId).
     // { ok, reason ('missing', 'invalid', 'replaced', 'old', 'settings' oder null), message, trial: { id, createdAt, expiresAt, songs, playlistName } }
+    // Mit ?tracks=1 zusätzlich tracks: [{ uri, artist, name }] in der Reihenfolge der Liste (für „sperren“ in der Oberfläche).
     if (route === 'GET /api/trial') {
       const trial = readTrial(HERE);
       const reason = trialProblem(trial, { cfg: currentConfig(lang), id: url.searchParams.get('id') });
-      return send(200, { ok: !reason, reason, message: reason ? t(lang, `trial.${reason}`) : '', trial: trialInfo(trial) });
+      const info = trialInfo(trial);
+      if (info && url.searchParams.get('tracks') === '1') info.tracks = trial.tracks.map(s => ({ uri: s.uri, artist: s.artist, name: s.name }));
+      return send(200, { ok: !reason, reason, message: reason ? t(lang, `trial.${reason}`) : '', trial: info });
     }
 
     // „Diese Liste übernehmen“: Body { id } = Kennung des Probelaufs, den die Seite zeigt. Prüft wie dj.mjs --apply, ob er
@@ -442,7 +456,8 @@ const server = http.createServer(async (req, res) => {
 
     // Textdatei importieren, Schritt 1 (Vorschau): Body = Inhalt der Datei (Text, höchstens 1 MB). Sucht die Songs auf
     // Spotify, Fortschritt als Text, am Ende "@@RESULT { ok, total, found, uris, notFound: [{ line, text, reason }],
-    // playlistName }" bzw. { ok: false, error, errorCode }. Schreibt nichts.
+    // hints: { blocked, explicit } (je [{ line, text }], nur zum Anzeigen, siehe importHints), playlistName }" bzw.
+    // { ok: false, error, errorCode }. Schreibt nichts.
     if (route === 'POST /api/import/preview') {
       const busy = importBusy(lang);
       if (busy) return send(409, { error: busy });
@@ -458,11 +473,11 @@ const server = http.createServer(async (req, res) => {
         let result;
         try {
           res.write(`${t(lang, 'import.reading', { count: entries.length })}\n`);
-          const { uris, notFound } = await resolveImport(createSpotify(cfg.spotify.clientId, TOKENS, { lang }), entries, {
+          const { uris, notFound, tracks } = await resolveImport(createSpotify(cfg.spotify.clientId, TOKENS, { lang }), entries, {
             signal: controller.signal, onProgress: (done, total) => res.write(`${t(lang, 'import.searching', { done, total })}\n`),
           });
           res.write(`${t(lang, 'import.found', { found: uris.length, total: entries.length })}\n`);
-          result = { ok: true, total: entries.length, found: uris.length, uris, notFound, playlistName: cfg.playlistName };
+          result = { ok: true, total: entries.length, found: uris.length, uris, notFound, hints: importHints(tracks, cfg), playlistName: cfg.playlistName };
         } catch (e) {
           res.write(`${t(lang, 'run.error', { message: e.message })}\n`);
           result = { ok: false, error: e.message, errorCode: e.errorCode ?? (e.status === 403 ? 'forbidden' : 'other') };

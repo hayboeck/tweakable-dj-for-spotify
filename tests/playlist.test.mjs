@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
-  artistText, exportFileName, formatExport, IMPORT_MAX_BYTES, IMPORT_MAX_SONGS, parseImport, resolveImport, validUris,
+  artistText, exportFileName, formatExport, IMPORT_MAX_BYTES, IMPORT_MAX_SONGS, importHints, parseImport, resolveImport, validUris,
 } from '../playlist.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -134,17 +134,19 @@ test('validUris: nur 1 bis 500 Song-URIs', () => {
 
 // --- Import: Songs suchen ---
 
-// Spotify mit vorgegebenen Antworten: "Künstler|Titel" → URI, null = nicht gefunden, Error = Fehler.
+// Spotify mit vorgegebenen Antworten: "Künstler|Titel" → URI bzw. { uri, explicit, … } (wie findTrack), null = nicht
+// gefunden, Error = Fehler.
 function fakeSpotify(answers) {
   const calls = [];
   return {
     calls,
-    async searchTrack(artist, title) {
+    async findTrack(artist, title) {
       calls.push(`${artist}|${title}`);
       await new Promise(r => setTimeout(r, 1));
       const a = answers[`${artist}|${title}`];
       if (a instanceof Error) throw a;
-      return a ?? null;
+      if (!a) return null;
+      return { artist, name: title, explicit: false, ...(typeof a === 'string' ? { uri: a } : a) };
     },
   };
 }
@@ -170,6 +172,38 @@ test('resolveImport: Links direkt, sonst Suche (bei mehreren Künstlern auch nur
   assert.deepEqual(progress, ['1/4', '2/4', '3/4', '4/4'], 'nur Suchen zählen, Links nicht');
   assert.ok(spotify.calls.includes('Bergfunk, Gaststar|Duett') && spotify.calls.includes('Bergfunk|Duett'));
   assert.ok(!spotify.calls.some(c => c.startsWith('kaputt')));
+});
+
+test('resolveImport + importHints: gesperrte und explizite Songs nur als Hinweis, nicht herausgefiltert', async () => {
+  const spotify = fakeSpotify({
+    'Nordlicht|Polarnacht': { uri: `spotify:track:${id('n')}`, explicit: true },
+    'Bergfunk|Gipfelglück (Live)': `spotify:track:${id('g')}`,
+    'Stadtkind|Asphalt': `spotify:track:${id('s')}`,
+  });
+  const entries = parseImport([
+    'Nordlicht – Polarnacht', 'Bergfunk – Gipfelglück (Live)', 'Stadtkind – Asphalt',
+    `Fernweh, Gast – Horizont\thttps://open.spotify.com/track/${id('f')}`, `spotify:track:${id('x')}`,
+  ].join('\n'), 'de');
+  const { uris, tracks } = await resolveImport(spotify, entries);
+  assert.equal(uris.length, 5, 'nichts herausgefiltert');
+  assert.deepEqual(tracks.map(s => [s.line, s.uri === uris[s.line - 1], s.artist, s.name, s.explicit]), [
+    [1, true, 'Nordlicht', 'Polarnacht', true],
+    [2, true, 'Bergfunk', 'Gipfelglück (Live)', false],
+    [3, true, 'Stadtkind', 'Asphalt', false],
+    [4, true, 'Fernweh', 'Horizont', null], // Link: Künstler und Titel aus der Zeile, explicit unbekannt
+    [5, true, null, null, null],
+  ]);
+  const cfg = {
+    excludeExplicit: true,
+    // andere Version (über Künstler und Titel), Link mit Text davor, reine URI
+    blockedTracks: [{ artist: 'Bergfunk', name: 'Gipfelglück' }, { artist: 'Fernweh', name: 'Horizont' }, { uri: `spotify:track:${id('x')}`, artist: 'X', name: 'Y' }],
+  };
+  assert.deepEqual(importHints(tracks, cfg), {
+    blocked: [{ line: 2, text: 'Bergfunk – Gipfelglück (Live)' }, { line: 4, text: entries[3].text }, { line: 5, text: `spotify:track:${id('x')}` }],
+    explicit: [{ line: 1, text: 'Nordlicht – Polarnacht' }],
+  });
+  assert.deepEqual(importHints(tracks, { ...cfg, excludeExplicit: false }).explicit, [], 'explizit nur mit excludeExplicit');
+  assert.deepEqual(importHints(tracks, {}), { blocked: [], explicit: [] });
 });
 
 test('resolveImport: abgelaufene Anmeldung, 403 und langes Rate-Limit brechen ab; Abbruch per signal', async () => {

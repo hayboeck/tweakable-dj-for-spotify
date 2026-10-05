@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LANGS, resolveLang, t, tError } from './i18n.mjs';
+import { trackKey } from './lineup.mjs';
 
 export const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIG = path.join(HERE, 'config.jsonc');
@@ -34,7 +35,9 @@ export const DEFAULTS = {
   followedArtists: 0,
   currentDays: 7,
   currentFactor: 3,
+  excludeExplicit: false,
   blockedArtists: [],
+  blockedTracks: [], // gesperrte Songs: [{ uri, artist, name }] (uri darf fehlen), siehe checkTracks
   schedule: 'off',
   scheduleTime: '07:00',
   scheduleDay: 'MON',
@@ -225,6 +228,7 @@ export function checkValue(key, value, lang) {
     if (!['', ...LANGS].includes(value)) throw tError(lang, 'config.badLanguage');
     return value;
   }
+  if (key === 'blockedTracks') return checkTracks(key, value, lang);
   if (Array.isArray(standard)) {
     if (!Array.isArray(value) || value.length > 500 || !value.every(v => typeof v === 'string')) {
       throw tError(lang, 'config.listExpected', { key });
@@ -255,6 +259,32 @@ export function checkValue(key, value, lang) {
   if (key === 'scheduleTime' && !TIME.test(value)) throw tError(lang, 'config.badTime');
   if (key === 'scheduleDay' && !WEEKDAYS.includes(value)) throw tError(lang, 'config.badDay', { days: WEEKDAYS.join(', ') });
   return value;
+}
+
+// Gesperrte Songs (blockedTracks): höchstens BLOCKED_TRACKS_MAX Einträge { uri, artist, name }. artist und name sind Pflicht
+// (Text, wie ihn Spotify nennt); über sie trifft die Sperre auch andere Versionen desselben Songs (trackKey in lineup.mjs).
+// uri (spotify:track:…) darf fehlen, z. B. bei einem von Hand eingetragenen Song. Leerzeichen werden gesäubert, andere Felder
+// weggelassen, Doppelte (gleicher trackKey) nur einmal übernommen.
+export const BLOCKED_TRACKS_MAX = 1000;
+const TRACK_URI = /^spotify:track:[A-Za-z0-9]{22}$/;
+function checkTracks(key, value, lang) {
+  if (!Array.isArray(value) || value.length > BLOCKED_TRACKS_MAX) throw tError(lang, 'config.tracksExpected', { key, max: BLOCKED_TRACKS_MAX });
+  const tidy = v => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : '');
+  const seen = new Set();
+  const out = [];
+  for (const raw of value) {
+    const ok = raw && typeof raw === 'object' && !Array.isArray(raw);
+    const artist = ok ? tidy(raw.artist) : '';
+    const name = ok ? tidy(raw.name) : '';
+    const uri = ok && raw.uri != null && raw.uri !== '' ? raw.uri : null;
+    if (!artist || !name || (uri !== null && !(typeof uri === 'string' && TRACK_URI.test(uri)))) throw tError(lang, 'config.badTrack', { key });
+    if (artist.length > 200 || name.length > 200) throw tError(lang, 'config.entryTooLong', { key });
+    const k = trackKey(artist, name);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(uri ? { uri, artist, name } : { artist, name });
+  }
+  return out;
 }
 
 // Speichert Zugangsdaten und Quelle aus dem Einrichtungs-Assistenten (clientId, apiKey, user, seed – jeweils optional).
@@ -375,8 +405,12 @@ function scan(text, lang) {
   return nodes;
 }
 
-// So stehen Werte in der config.jsonc: ["A", "B"] bzw. { "user": "x" }.
-function literal(value) {
+// So stehen Werte in der config.jsonc: ["A", "B"] bzw. { "user": "x" }. Listen mit Objekten (blockedTracks) stehen mit
+// indent (Einrückung des Schlüssels) über mehrere Zeilen, ein Eintrag pro Zeile – so bleiben sie auch von Hand lesbar.
+function literal(value, indent = null) {
+  if (Array.isArray(value) && indent !== null && value.some(v => v && typeof v === 'object')) {
+    return `[\n${value.map(v => `${indent}  ${literal(v)}`).join(',\n')}\n${indent}]`;
+  }
   if (Array.isArray(value)) return `[${value.map(literal).join(', ')}]`;
   if (value && typeof value === 'object') {
     const entries = Object.entries(value).map(([k, v]) => `${JSON.stringify(k)}: ${literal(v)}`);
@@ -405,21 +439,24 @@ function usualColumn(text) {
 
 // Spalte des Kommentars in der Zeile, in der ein Wert endet (null = kein Kommentar).
 function commentColumn(text, node) {
-  const lineStart = text.lastIndexOf('\n', node.start - 1) + 1;
+  const lineStart = text.lastIndexOf('\n', node.end - 1) + 1;
   const m = trailing(text.slice(node.end, lineEnd(text, node.end)));
   return m ? node.end - lineStart + m[1].length + m[2].length : null;
 }
 
 // Ersetzt text[start, end) und hält einen Kommentar in derselben Zeile in seiner Spalte (col = Spalte vor dem Speichern).
 // Wurde er nur weggeschoben (2 Leerzeichen) und passt es wieder, rückt er zurück in die übliche Spalte.
+// Bei Werten über mehrere Zeilen zählt die Zeile, in der der Wert endet (der Kommentar steht dann hinter "],").
 function replaceValue(text, start, end, value, { col, home } = {}) {
   const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+  const endLineStart = text.lastIndexOf('\n', end - 1) + 1;
   const eol = lineEnd(text, end);
   let rest = text.slice(end, eol);
   const m = trailing(rest);
-  if (m && !value.includes('\n')) {
-    const prefix = start - lineStart + value.length + m[1].length;
-    let target = col ?? end - lineStart + m[1].length + m[2].length;
+  if (m) {
+    const nl = value.lastIndexOf('\n');
+    const prefix = (nl < 0 ? start - lineStart + value.length : value.length - nl - 1) + m[1].length;
+    let target = col ?? end - endLineStart + m[1].length + m[2].length;
     if (home && target > home && m[2].length === 2 && prefix + 2 <= home) target = home;
     rest = m[1] + ' '.repeat(Math.max(2, target - prefix)) + m[3];
   }
@@ -429,7 +466,10 @@ function replaceValue(text, start, end, value, { col, home } = {}) {
 function setValue(text, keyPath, value, layout = {}) {
   const nodes = scan(text, layout.lang);
   const node = nodes.get(keyPath);
-  if (node) return replaceValue(text, node.start, node.end, literal(value), layout);
+  if (node) {
+    const indent = /^[ \t]*/.exec(text.slice(text.lastIndexOf('\n', node.start - 1) + 1))[0];
+    return replaceValue(text, node.start, node.end, literal(value, indent), layout);
+  }
 
   const dot = keyPath.lastIndexOf('.');
   const parentPath = dot < 0 ? '' : keyPath.slice(0, dot);
@@ -446,7 +486,7 @@ function setValue(text, keyPath, value, layout = {}) {
     const add = `${last ? ',' : ''} ${JSON.stringify(name)}: ${literal(value)}${last ? '' : ' '}`;
     return text.slice(0, at) + add + text.slice(at);
   }
-  return insertMember(text, parent, name, literal(value), layout.home ?? 38, layout.lang);
+  return insertMember(text, parent, name, literal(value, '  '), layout.home ?? 38, layout.lang);
 }
 
 // Holt Erklärung und Gruppenüberschrift eines Schlüssels aus der Vorlage der Sprache lang.
@@ -480,9 +520,11 @@ function insertMember(text, root, name, valueText, home, lang) {
   const members = root.members;
   let idx = tpl ? members.findIndex(m => m.name === tpl.before.find(b => members.some(x => x.name === b))) : members.length - 1;
   const header = tpl ? tpl.header.filter(line => !text.includes(line.trim())) : [];
+  // Kommentar hinter dem Wert (bei mehreren Zeilen hinter seiner letzten) in der Spalte home
   const line = hasNext => {
     const s = `  ${JSON.stringify(name)}: ${valueText}${hasNext ? ',' : ''}`;
-    return tpl?.comment ? s.padEnd(Math.max(home, s.length + 2)) + tpl.comment : s;
+    const last = s.length - s.lastIndexOf('\n') - 1;
+    return tpl?.comment ? s + ' '.repeat(Math.max(home - last, 2)) + tpl.comment : s;
   };
   // Neuen Text bei "from" einfügen: ans Zeilenende, wenn dort nur noch ein Kommentar steht, sonst in eine eigene Zeile.
   const place = (src, from, limit, lines) => {

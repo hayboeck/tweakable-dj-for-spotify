@@ -20,12 +20,13 @@ import { createLastfm } from './lastfm.mjs';
 import { recordAutoRun } from './schedule.mjs';
 import { createSpotify, FOLLOW_SCOPE, isScopeError, login, REDIRECT_URI } from './spotify.mjs';
 import {
-  dateTime, exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, mapLimit, parseImport, readPlaylist, resolveImport,
-  writePlaylist,
+  dateTime, exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, mapLimit, parseImport, readPlaylist,
+  resolveImport, writePlaylist,
 } from './playlist.mjs';
 import { readTrial, removeTrial, saveTrial, trialProblem } from './trial.mjs';
 import {
-  arrange, artistBlocker, candidateWeight, followedFactor, followedMatcher, norm, shuffle, trackKey, weightedOrder, windowViolations,
+  arrange, artistBlocker, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, norm, playableUri, searchAgain, shuffle,
+  trackBlocker, trackKey, weightedOrder, windowViolations,
 } from './lineup.mjs';
 
 const lang = resolveLang(process.env.TWEAKABLE_DJ_LANG, configLanguage());
@@ -99,14 +100,27 @@ async function main() {
     warn(e.message);
     return fallback;
   };
-  // Sperrliste: gesperrte Künstler weder als Ausgangspunkt, noch als neuer Song, noch als Favorit.
+  // Sperrliste: gesperrte Künstler und gesperrte Songs (blockedTracks, auch andere Versionen über trackKey) weder als
+  // Ausgangspunkt, noch als neuer Song, noch als Favorit. Ein Song, der zugleich von einem gesperrten Künstler ist, zählt
+  // bei den Künstlern.
   const isBlockedArtist = artistBlocker([].concat(cfg.blockedArtists ?? []));
+  const isBlockedTrack = trackBlocker(cfg.blockedTracks);
   const blockedOut = new Set();
+  const blockedTrackOut = new Set();
   const allowed = track => {
     // Songs von Spotify kennen alle Beteiligten, Songs von Last.fm nur den Künstler-Text.
     const names = track.artists?.length ? track.artists : [track.artist];
-    if (!names.some(isBlockedArtist)) return true;
-    blockedOut.add(trackKey(track.artist, track.name));
+    const out = names.some(isBlockedArtist) ? blockedOut : isBlockedTrack(track) ? blockedTrackOut : null;
+    out?.add(trackKey(track.artist, track.name));
+    return !out;
+  };
+  // Keine Songs mit expliziten Texten (excludeExplicit): gilt für alles, was in die Playlist kommt (Favoriten, neue Songs,
+  // Auffüllen), nicht für die Ausgangspunkte – die bestimmen nur, wonach Last.fm sucht.
+  const excludeExplicit = cfg.excludeExplicit === true;
+  const explicitOut = new Set();
+  const notExplicit = track => {
+    if (!excludeExplicit || !track.explicit) return true;
+    explicitOut.add(trackKey(track.artist, track.name));
     return false;
   };
 
@@ -144,7 +158,7 @@ async function main() {
   };
   const followWeight = track => (byFollowed(track) ? followedWeight : 1);
   // Favoriten für die Playlist (die Ausgangspunkte bleiben davon unberührt).
-  const favoritePool = favorites.filter(notFollowedOut);
+  const favoritePool = favorites.filter(notFollowedOut).filter(notExplicit);
 
   // Nicht wiederholen: kürzlich gehört (Last.fm) + in den letzten Läufen schon drin gewesen.
   const blocked = new Set(lastRuns(cfg, state.history).flat());
@@ -259,7 +273,7 @@ async function main() {
 
   console.log(t(lang, 'run.searchingSpotify'));
   // Alle Künstler laut Spotify zu den Songs, die dieser Lauf gesucht hat (für probelauf.json und den Export);
-  // Songs aus dem Such-Cache in state.json kennen nur den Künstler von Last.fm.
+  // Songs aus dem Such-Cache in state.json kennen nur den Künstler von Last.fm. Format des Caches: cacheEntry() in lineup.mjs.
   const spotifyArtists = new Map();
   const fresh = [];
   const ordered = weightedOrder(
@@ -270,11 +284,14 @@ async function main() {
     if (familiar.length + fresh.length >= cfg.size) break;
     const track = { ...c, tags: tagsOf(c.artist, c.via), kind: t(lang, 'run.new', { via: c.via }) + current(c.viaCurrent) };
     if (!fits(track)) continue;
-    if (!(c.key in state.cache)) {
+    let entry = Object.hasOwn(state.cache, c.key) ? cacheEntry(state.cache[c.key]) : undefined;
+    // Neu suchen: nicht im Cache, oder mit excludeExplicit ein Eintrag von 0.1.1 (explicit unbekannt).
+    if (searchAgain(entry, excludeExplicit)) {
       try {
         const hit = await spotify.findTrack(c.artist, c.name);
-        state.cache[c.key] = hit?.uri ?? null;
-        if (hit) spotifyArtists.set(hit.uri, hit.artists);
+        state.cache[c.key] = cacheValue(hit);
+        entry = cacheEntry(state.cache[c.key]);
+        for (const h of [hit, hit?.clean]) if (h) spotifyArtists.set(h.uri, h.artists);
       } catch (e) {
         // Fehler nicht als "nicht gefunden" merken, beim nächsten Lauf wird neu gesucht. Bei 403 abbrechen.
         if (e.status === 403) throw e;
@@ -282,9 +299,20 @@ async function main() {
         continue;
       }
     }
-    track.uri = state.cache[c.key];
+    if (!entry) continue; // auf Spotify nicht gefunden
+    // Explizit und keine nicht explizite Version gefunden: auslassen.
+    track.uri = playableUri(entry, excludeExplicit);
+    if (!track.uri) {
+      explicitOut.add(c.key);
+      continue;
+    }
+    // Gesperrter Song, den erst die URI verrät (Last.fm nennt ihn anders als die Sperrliste)
+    if (isBlockedTrack(track)) {
+      blockedTrackOut.add(c.key);
+      continue;
+    }
     track.artists = spotifyArtists.get(track.uri);
-    if (track.uri && fits(track)) take(fresh, track);
+    if (fits(track)) take(fresh, track);
   }
 
   // Zu wenig gefunden? Mit weiteren Favoriten auffüllen (dann auch kürzlich gehörte).
@@ -292,6 +320,9 @@ async function main() {
     if (familiar.length + fresh.length >= cfg.size) break;
     if (fits(track)) take(familiar, track);
   }
+
+  if (blockedTrackOut.size) console.log(t(lang, 'run.blockedSongs', { count: blockedTrackOut.size }));
+  if (explicitOut.size) console.log(t(lang, 'run.explicitOut', { count: explicitOut.size }));
 
   const lineup = arrange([...familiar, ...fresh], { gap: cfg.artistGap, window: cfg.artistWindow, maxPerWindow: cfg.maxPerWindow });
   // Kein einziger Song (z. B. keine Lieblingssongs und kein Hörverlauf): abbrechen, statt die Playlist zu leeren.
@@ -390,11 +421,18 @@ async function importFile(cfg, spotify) {
   console.log(t(lang, 'import.reading', { count: entries.length }));
   // Fortschritt alle 25 Songs und am Ende
   const onProgress = (done, total) => (done % 25 === 0 || done === total) && console.log(t(lang, 'import.searching', { done, total }));
-  const { uris, notFound } = await resolveImport(spotify, entries, { onProgress });
+  const { uris, notFound, tracks } = await resolveImport(spotify, entries, { onProgress });
   console.log(`\n${t(lang, 'import.found', { found: uris.length, total: entries.length })}`);
   if (notFound.length) {
     console.log(t(lang, 'import.notFound'));
     for (const n of notFound) console.log(t(lang, 'import.notFoundLine', { line: n.line, text: n.text, reason: t(lang, `import.reason.${n.reason}`) }));
+  }
+  // Gesperrte bzw. explizite Songs nur melden: Die Datei ist deine Liste, der Import schreibt sie trotzdem.
+  const hints = importHints(tracks, cfg);
+  for (const [key, list] of [['import.hintBlocked', hints.blocked], ['import.hintExplicit', hints.explicit]]) {
+    if (!list.length) continue;
+    console.log(t(lang, key, { count: list.length }));
+    for (const h of list) console.log(t(lang, 'import.hintLine', h));
   }
   if (!uris.length) throw tError(lang, 'import.noneFound');
   if (dry) {
