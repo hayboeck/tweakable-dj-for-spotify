@@ -58,7 +58,7 @@ The console or terminal window that opens must stay open while you use the inter
 The numbers show the order of a run:
 ① read your Liked Songs from Spotify → ② get listening history and similar songs from Last.fm → ③ pick songs according to your rules → ④ find the songs on Spotify and fill “Tweakable DJ”.
 
-- **Spotify** provides your Liked Songs and receives the finished playlist. Since late 2024, Spotify no longer gives recommendations to third-party apps.
+- **Spotify** provides your Liked Songs and receives the finished playlist. Since November 2024, Spotify no longer gives recommendations or related artists to newly created apps, and since February 2026 apps in development mode don’t get an artist’s top songs either. That’s why the suggestions come from Last.fm.
 - **Last.fm** provides similar songs for each song and knows your listening history. For this, your Spotify account is connected to Last.fm (“scrobbling”), and every song you play is recorded there.
 - **Tweakable DJ** runs on your computer, fetches the data from both services, picks songs according to your rules and writes the result into the playlist.
 - **The interface** is a web page that runs only on your computer (<http://127.0.0.1:8899>). It guides you through the setup, changes the settings and starts the DJ.
@@ -97,7 +97,7 @@ The numbers show the order of a run:
 | `install-update.mjs` | Installs a new version when you click *Update now* (see [Updating](#8-updating)) |
 | `manifest.json` | List of all program files of this version with their checksums. *Update now* only replaces files listed there. Only in the ZIP file, not in the GitHub repository. |
 | `package.json` | Shortcuts for developers: `npm start` (interface) and `npm test` (tests). Tweakable DJ needs no additional packages. |
-| `tests/` | Automated tests for the rules, the translations, the interface and a test run in which Spotify and Last.fm are only simulated. Only in the GitHub repository, not in the ZIP file. |
+| `tests/` | Automated tests for the rules, the settings, the translations, automatic runs, the update check and *Update now*, the interface and a test run in which Spotify, Last.fm and GitHub are only simulated. Only in the GitHub repository, not in the ZIP file. |
 | `config.example.jsonc` | Empty settings template with English explanations. It becomes your `config.jsonc` when you set up in English. |
 | `config.example.de.jsonc` | The same template with German explanations (for setting up in German) |
 | `overview.en.svg`, `overview.de.svg` | The diagram in section 2, in English and German |
@@ -125,7 +125,7 @@ The numbers show the order of a run:
 
 ## 4. How a playlist is made
 
-The numbers are the defaults. Yours are in `config.jsonc` or in the interface.
+The numbers are the defaults. Yours are in `config.jsonc` or in the interface. “Liked Songs” stands for the source of your favorites: if you chose one of your playlists there, it takes their place.
 
 ```
 Liked Songs ─────┐
@@ -158,7 +158,7 @@ Every rule can be changed in `config.jsonc` or in the interface. The setting’s
 | Name of the playlist (`playlistName`). If it doesn’t exist, it is created. | Tweakable DJ |
 | Source of your favorites (`seed`): your Liked Songs (`"liked"`) or one of your own or collaborative playlists. Favorites and most starting points come from here. | Liked Songs |
 | Length of the playlist (`size`) | 50 songs |
-| Share of favorites (`familiarShare`). The rest are new songs that aren’t in your Liked Songs. | 15% (≈ 8 songs) |
+| Share of favorites (`familiarShare`). The rest are new songs that aren’t in the source of your favorites. | 15% (≈ 8 songs) |
 | Adventure (`adventure`): 0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant songs. Also sets for how many starting points the DJ wanders off to related artists. | 0.4 |
 | Starting points per run (`seedsPerRun`) | 20 |
 | Also use your Last.fm top songs of the last 3 months as starting points (`useLastfmTopTracks`) | on |
@@ -180,7 +180,7 @@ In the output, such songs are marked with “· current” (in German “· aktu
 | Rule | Default |
 |---|---|
 | Recently played (`excludeRecentDays`): everything Last.fm says you played in this period. 0 = off. | 14 days |
-| Recent runs (`noRepeatRuns`): songs from the last N runs. 0 = off. | 3 runs |
+| Previous runs (`noRepeatRuns`): songs from the last N runs. 0 = off. | 3 runs |
 | Block list (`blockedArtists`): artists that never come up, neither as a song nor as a starting point nor as a detour. Whole words count: “Macloud” also blocks “Miksu / Macloud” and “feat. Macloud”, but “Rin” doesn’t block “Karin”. | none |
 | Songs that can’t be found unambiguously on Spotify (title and artist must match). Additions like “Remastered” or “feat.” are ignored in the comparison. | always |
 
@@ -194,7 +194,7 @@ In the output, such songs are marked with “· current” (in German “· aktu
 
 **When not everything is possible at once**
 
-- If the DJ finds too few new songs, it fills up with more favorites. These may include recently played favorites.
+- If the DJ finds too few new songs, it fills up with more favorites. These may include favorites you played recently or that were in the last runs.
 - For the order, “3 in 20” takes priority over the minimum gap.
 - If a rule is still broken, the DJ shows a warning (⚠).
 
@@ -249,7 +249,8 @@ node dj.mjs --dry    # test run: only show, don't change the playlist
 node dj.mjs login    # log in to Spotify (again)
 node dj.mjs --auto   # like an automatic run: also writes automatik.log and automatik.json
 node ui.mjs          # start the interface (also: npm start)
-npm test             # automated tests; Spotify and Last.fm are only simulated
+node ui.mjs --no-browser   # the same, without opening the browser
+npm test             # automated tests; Spotify, Last.fm and GitHub are only simulated
 ```
 
 The output uses the language from `config.jsonc` (`language`), otherwise your system’s language. Three environment variables help in special cases:
@@ -261,6 +262,8 @@ The output uses the language from `config.jsonc` (`language`), otherwise your sy
 | `TWEAKABLE_DJ_NO_UPDATE_CHECK` | `1`: don’t check for new versions (see [Update check](#update-check)) |
 
 Example on macOS and Linux: `TWEAKABLE_DJ_LANG=de node dj.mjs --dry`. In the Windows command prompt: first `set TWEAKABLE_DJ_LANG=de`, then `node dj.mjs --dry`.
+
+You don’t need to set the other variables yourself: the start files set `TWEAKABLE_DJ_LAUNCHER=1` (then the interface restarts by itself after *Update now*), and the tests use `TWEAKABLE_DJ_TASK_NAME` and `TWEAKABLE_DJ_TASK_ARGS` so they never touch the real scheduler entry.
 
 ### Update check
 
@@ -323,7 +326,7 @@ When a new version is out, a notice appears at the top of the interface. Either 
 2. Click **Update**. Tweakable DJ downloads the new version from GitHub, checks every file against its checksum (SHA-256), backs up the files it replaces to `.update/backup-<old version>` and copies the new files in.
 3. Tweakable DJ restarts by itself, and the page reloads with the new version. If you started it with `node ui.mjs` in a terminal instead of a start file, start it again yourself; the page then reloads by itself.
 
-The update only writes the program files listed in the release (`manifest.json`) and never deletes anything. If a file doesn’t match its checksum, it changes nothing; if copying fails, it restores the old version automatically. It doesn’t start while a test run, a rebuild, an automatic run or a Spotify login is in progress. Automatic runs keep working, because the folder stays the same.
+The update only writes the program files listed in the release (`manifest.json`) and deletes nothing outside `.update/` (there it only keeps the backup of the latest update). If a file doesn’t match its checksum, it changes nothing; if copying fails, it restores the old version automatically. It doesn’t start while a test run, a rebuild, an automatic run or a Spotify login is in progress. Automatic runs keep working, because the folder stays the same.
 
 **By hand**
 
@@ -353,7 +356,7 @@ Your personal files aren’t in the ZIP file, so they stay as they are, and auto
 | “The Last.fm user … doesn’t exist” | Check the spelling of your Last.fm username via *Change credentials* |
 | “Last.fm has no scrobbles from …” | Spotify is probably not connected to Last.fm: connect it under [last.fm → Settings → Applications](https://www.last.fm/settings/applications). Until then, the rules for current listening don’t apply. |
 | “config.jsonc is invalid” | Usually a comma is missing at the end of a line, or there is one too many (there must be none after the last entry) |
-| “The seed playlist is empty or can’t be read” | Spotify only returns playlists you own or collaborate on. In the interface, choose a playlist from the list under *Source of your favorites*; only readable ones are listed there. |
+| “The source of your favorites (playlist) is empty or can’t be read” | Spotify only returns playlists you own or collaborate on. In the interface, choose a playlist from the list under *Source of your favorites*; only readable ones are listed there. |
 | “A run is already in progress” | Wait until the current test run or rebuild is finished (about 1 minute) |
 | “Update failed: …” | The message says whether nothing was changed or the old version was restored. Try again later, or update by hand ([Updating](#8-updating)). |
 | The interface doesn’t open / page can’t be reached | The console or terminal window of Tweakable DJ was closed: start Tweakable DJ again |
@@ -368,7 +371,7 @@ Your personal files aren’t in the ZIP file, so they stay as they are, and auto
 | Similar songs should come fresh from Last.fm | Delete `lastfm-cache.json`. Otherwise the DJ keeps using Last.fm’s answers for up to 7 days. |
 | An automatic run didn’t happen | Under *Rebuild automatically* you see the reason for the last run. Common causes: the computer was off (see [Using Tweakable DJ](#with-the-interface)), or the Spotify login has expired (then click *Log in with Spotify*). Details are in `automatik.log`. |
 | “Automatic runs still point to a different folder” | The folder was moved or copied. Click *Save automatic runs* once, and the scheduler entry points to the right folder again. |
-| “The scheduler still has an entry under the old name …” | Automatic runs were set up under the project’s former name “Mein DJ”. Click *Save automatic runs* once (or *Remove entry* if automatic runs are off), and Tweakable DJ replaces the old entry. |
+| “The scheduler still has an entry under the old name …” | Automatic runs were set up under the project’s former name. Click *Save automatic runs* once (or *Remove entry* if automatic runs are off), and Tweakable DJ replaces the old entry. |
 | Interface or output in the wrong language | Choose **DE** or **EN** at the top right. That saves `language` in `config.jsonc`, which from the next run on also applies to automatic runs and the terminal. |
 | Deleting or moving the folder | First set automatic runs to *Off* and save. Otherwise an entry stays behind in the scheduler that leads nowhere. |
 
@@ -378,6 +381,7 @@ Your personal files aren’t in the ZIP file, so they stay as they are, and auto
 
 - **No endless mode:** the playlist has a fixed length. When it has finished, Spotify’s autoplay takes over (if enabled), which doesn’t know your rules. For new songs, click “Rebuild playlist”.
 - **Automatic runs need your computer:** Tweakable DJ runs on your PC or Mac, not on the internet. The computer must be on at the set time. Missed runs are made up by Windows the next time it starts, by the Mac only after sleep, and not at all by Linux. Automatic runs haven’t been tested on a real Mac yet.
+- **Large libraries:** of your Liked Songs, the DJ uses the 1,000 you saved most recently.
 - **Spotify’s rules:** the Spotify app runs in development mode. This requires a Premium account for the owner, and at most 5 people may use the app.
 - **Last.fm as a source:** how good the suggestions are depends on how much data Last.fm has about a song. For very new or little-known songs, Last.fm often finds nothing similar. The DJ caches similar songs and artists for 7 days, as Last.fm requires. New data from Last.fm therefore arrives with up to a week’s delay. Your listening history, on the other hand, is always fetched fresh.
 - **Two languages:** interface, messages and output are available in English and German. Names of songs, artists and playlists stay as they are on Spotify and Last.fm.

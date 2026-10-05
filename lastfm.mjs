@@ -109,7 +109,7 @@ export function createLastfm(apiKey, cacheFile, { lang } = {}) {
     // Wie viele der Cache-fähigen Abfragen dieses Laufs aus dem Cache kamen.
     cacheStats: () => ({ ...stats }),
 
-    // Einmal am Ende eines Laufs: abgelaufene Einträge entfernen, Datei nur bei Änderungen schreiben.
+    // Einmal pro Lauf, nach der letzten Last.fm-Abfrage: abgelaufene Einträge entfernen, Datei nur bei Änderungen schreiben.
     saveCache() {
       if (!cacheFile) return;
       const now = Date.now();

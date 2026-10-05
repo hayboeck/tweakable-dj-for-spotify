@@ -66,7 +66,7 @@ body:
     id: version
     attributes:
       label: Version von Tweakable DJ for Spotify
-      description: Steht im Namen der ZIP-Datei, z. B. v1.0.0. Weißt du es nicht, lass das Feld leer.
+      description: Steht ganz unten in der Oberfläche und im Namen der ZIP-Datei, z. B. v0.1.0. Weißt du es nicht, lass das Feld leer.
 
   - type: checkboxes
     id: zugangsdaten

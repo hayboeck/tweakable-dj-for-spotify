@@ -215,7 +215,7 @@ test('loadConfig: unvollständige Einrichtung mit errorCode, Platzhalter beider 
   for (const lang of ['en', 'de']) {
     await withConfig(readTemplate(lang), async ({ loadConfig }) => {
       assert.throws(() => loadConfig('en'), e => e.errorCode === 'setup_incomplete'
-        && e.message === 'Setup not finished – complete it in the interface (Tweakable DJ.cmd) or fill in config.jsonc: spotify.clientId, lastfm.apiKey, lastfm.user (or leave it empty)');
+        && e.message === 'Setup not finished – complete it in the interface (Tweakable DJ.cmd or .command, on Linux start.sh) or fill in config.jsonc: spotify.clientId, lastfm.apiKey, lastfm.user (or leave it empty)');
       assert.throws(() => loadConfig('de'), /^Error: Einrichtung nicht abgeschlossen .*lastfm\.user \(oder leer lassen\)$/);
     });
   }

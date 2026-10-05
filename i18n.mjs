@@ -42,8 +42,8 @@ export const MESSAGES = {
 
     // --- config.mjs ---
     'config.invalid': 'config.jsonc ist fehlerhaft ({detail}). Häufige Ursache: fehlendes oder überzähliges Komma.',
-    'config.created': 'config.jsonc wurde angelegt – bitte in der Oberfläche (Tweakable DJ.cmd) einrichten oder die Datei ausfüllen: {file}',
-    'config.incomplete': 'Einrichtung nicht abgeschlossen – in der Oberfläche (Tweakable DJ.cmd) einrichten oder in config.jsonc ausfüllen: {missing}',
+    'config.created': 'config.jsonc wurde angelegt – bitte in der Oberfläche (Tweakable DJ.cmd bzw. .command, unter Linux start.sh) einrichten oder die Datei ausfüllen: {file}',
+    'config.incomplete': 'Einrichtung nicht abgeschlossen – in der Oberfläche (Tweakable DJ.cmd bzw. .command, unter Linux start.sh) einrichten oder in config.jsonc ausfüllen: {missing}',
     'config.userOrEmpty': 'lastfm.user (oder leer lassen)',
     'config.unknownSetting': 'Unbekannte Einstellung: {key}',
     'config.unknownField': 'Unbekanntes Feld: {name}',
@@ -91,8 +91,8 @@ export const MESSAGES = {
 
     // --- dj.mjs ---
     'run.loggedIn': 'Angemeldet ✓  Jetzt "node dj.mjs" ausführen.',
-    'run.seedEmpty': 'Die Seed-Playlist ist leer oder nicht lesbar. Spotify gibt Inhalte nur für Playlists heraus, die dir gehören oder bei denen du mitarbeitest.',
-    'run.loadingFavorites': 'Lade Lieblingssongs …',
+    'run.seedEmpty': 'Die Quelle deiner Favoriten (Playlist) ist leer oder nicht lesbar. Spotify gibt Inhalte nur für Playlists heraus, die dir gehören oder bei denen du mitarbeitest.',
+    'run.loadingFavorites': 'Lade deine Favoriten …',
     'run.songs': '  {count} Songs',
     'run.loadingHistory': 'Lade Hörverlauf von Last.fm …',
     'run.userUnknown': 'Den Last.fm-Benutzer "{user}" gibt es nicht. Prüfe lastfm.user in config.jsonc. Ohne Hörverlauf greifen die Regeln zum aktuellen Hören nicht.',
@@ -214,8 +214,8 @@ export const MESSAGES = {
 
     // --- config.mjs ---
     'config.invalid': 'config.jsonc is invalid ({detail}). Common cause: a missing or extra comma.',
-    'config.created': 'config.jsonc has been created – set up Tweakable DJ in its interface (Tweakable DJ.cmd) or fill in the file: {file}',
-    'config.incomplete': 'Setup not finished – complete it in the interface (Tweakable DJ.cmd) or fill in config.jsonc: {missing}',
+    'config.created': 'config.jsonc has been created – set up Tweakable DJ in its interface (Tweakable DJ.cmd or .command, on Linux start.sh) or fill in the file: {file}',
+    'config.incomplete': 'Setup not finished – complete it in the interface (Tweakable DJ.cmd or .command, on Linux start.sh) or fill in config.jsonc: {missing}',
     'config.userOrEmpty': 'lastfm.user (or leave it empty)',
     'config.unknownSetting': 'Unknown setting: {key}',
     'config.unknownField': 'Unknown field: {name}',
@@ -263,7 +263,7 @@ export const MESSAGES = {
 
     // --- dj.mjs ---
     'run.loggedIn': 'Logged in ✓  Now run "node dj.mjs".',
-    'run.seedEmpty': 'The seed playlist is empty or can’t be read. Spotify only returns the contents of playlists you own or collaborate on.',
+    'run.seedEmpty': 'The source of your favorites (playlist) is empty or can’t be read. Spotify only returns the contents of playlists you own or collaborate on.',
     'run.loadingFavorites': 'Loading your favorites …',
     'run.songs': '  {count} songs',
     'run.loadingHistory': 'Loading listening history from Last.fm …',

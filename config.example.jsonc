@@ -1,5 +1,5 @@
 // Settings for Tweakable DJ. Everything after // is a comment and is ignored.
-// Easiest to set up and change in the interface (double-click "Tweakable DJ.cmd"). In a terminal: "node dj.mjs --dry" (preview only) or "node dj.mjs".
+// Easiest to set up and change in the interface (double-click "Tweakable DJ.cmd" or "Tweakable DJ.command", on Linux ./start.sh). In a terminal: "node dj.mjs --dry" (preview only) or "node dj.mjs".
 {
   // --- Credentials and source ---
   "spotify": { "clientId": "ENTER_CLIENT_ID_HERE" },                                   // Client ID from the Spotify Developer Dashboard
@@ -7,7 +7,7 @@
   "seed": "liked",                    // Where your favorites come from: "liked" = Liked Songs, or a link to one of your own playlists
 
   // --- Playlist ---
-  "playlistName": "Tweakable DJ",       // Name of the playlist to fill (created if it doesn't exist)
+  "playlistName": "Tweakable DJ",     // Name of the playlist to fill (created if it doesn't exist)
   "size": 50,                         // Number of songs per run
   "familiarShare": 0.15,              // Share of favorites (0.15 = 15% ≈ 8 songs), the rest are new songs
 

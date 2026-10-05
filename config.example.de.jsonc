@@ -1,13 +1,13 @@
 // Einstellungen für Tweakable DJ. Alles hinter // ist ein Kommentar und wird ignoriert.
-// Am einfachsten über die Oberfläche einrichten und ändern (Doppelklick auf "Tweakable DJ.cmd"). Im Terminal: "node dj.mjs --dry" (nur anzeigen) oder "node dj.mjs".
+// Am einfachsten über die Oberfläche einrichten und ändern (Doppelklick auf "Tweakable DJ.cmd" bzw. "Tweakable DJ.command", unter Linux ./start.sh). Im Terminal: "node dj.mjs --dry" (nur anzeigen) oder "node dj.mjs".
 {
   // --- Zugangsdaten und Quelle ---
-  "spotify": { "clientId": "HIER_CLIENT_ID_EINTRAGEN" },                                // Client ID aus dem Spotify Developer Dashboard
+  "spotify": { "clientId": "HIER_CLIENT_ID_EINTRAGEN" },                               // Client ID aus dem Spotify Developer Dashboard
   "lastfm": { "apiKey": "HIER_API_KEY_EINTRAGEN", "user": "HIER_LASTFM_NUTZERNAME" },  // Last.fm-API-Key und dein Last.fm-Name ("" = ohne Hörverlauf)
   "seed": "liked",                    // Woher deine Favoriten kommen: "liked" = Lieblingssongs, oder Link zu einer eigenen Playlist
 
   // --- Playlist ---
-  "playlistName": "Tweakable DJ",       // Name der Playlist, die befüllt wird (gibt es sie nicht, wird sie angelegt)
+  "playlistName": "Tweakable DJ",     // Name der Playlist, die befüllt wird (gibt es sie nicht, wird sie angelegt)
   "size": 50,                         // Anzahl Songs pro Lauf
   "familiarShare": 0.15,              // Anteil Favoriten (0.15 = 15 % ≈ 8 Songs), der Rest sind neue Songs
 

@@ -443,7 +443,7 @@ const TEXT = {
       size: { label: 'Anzahl Songs', fmt: v => plural(v, 'Song', 'Songs'), help: 'So viele Songs kommen bei jedem Lauf in die Playlist.' },
       familiarShare: { label: 'Anteil Favoriten', fmt: v => pct(v),
         hint: (v, c) => `≈ ${Math.round(c.size * v)} Favoriten und ${c.size - Math.round(c.size * v)} neue Songs`,
-        help: 'Favoriten kommen aus deinen Lieblingssongs, der Rest sind Songs, die dort noch nicht drin sind.' },
+        help: 'Favoriten kommen aus der Quelle deiner Favoriten (z. B. deinen Lieblingssongs), der Rest sind Songs, die dort noch nicht drin sind.' },
       adventure: { label: 'Abenteuer', fmt: v => num(v), hint: v => adventureHint(v),
         help: '0 = ähnliche Songs bevorzugen, 0,5 = egal, 1 = entfernte Songs bevorzugen. Bestimmt auch, wie oft der DJ zu verwandten Künstlern abschweift.' },
       seedsPerRun: { label: 'Ausgangspunkte pro Lauf', fmt: v => num(v),
@@ -502,7 +502,7 @@ const TEXT = {
     },
     run: {
       running: dry => (dry ? 'Probelauf läuft … (ca. 1 Minute)' : 'Playlist wird neu erstellt … (ca. 1 Minute)'),
-      ok: (r, dry) => `${dry ? 'Probelauf' : 'Fertig'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${num(r.songs)} Songs (${num(r.fresh)} neu, davon ${num(r.freshCurrent)} über aktuelles Hören; ${num(r.familiar)} Favoriten)`,
+      ok: (r, dry) => `${dry ? 'Probelauf' : 'Fertig'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${plural(r.songs, 'Song', 'Songs')} (${num(r.fresh)} neu, davon ${num(r.freshCurrent)} über aktuelles Hören; ${plural(r.familiar, 'Favorit', 'Favoriten')})`,
       done: dry => (dry ? 'Probelauf fertig' : 'Fertig'),
       unchanged: ' · Playlist nicht verändert',
       failedWith: reason => `Fehlgeschlagen: ${reason} – siehe Ausgabe`,
@@ -542,7 +542,7 @@ const TEXT = {
       done: 'erledigt ✓',
       loggedIn: age => `Du bist angemeldet ✓${age == null ? '' : age === 0 ? ' (seit heute)' : ` (seit ${plural(age, 'Tag', 'Tagen')})`}. Neu anmelden musst du nur für ein anderes Konto oder wenn die Anmeldung abgelaufen ist.`,
       notLoggedIn: 'Noch nicht angemeldet.',
-      open: steps => `Noch offen: Schritt ${steps.join(', ')}.`,
+      open: steps => `Noch offen: Schritt${steps.length > 1 ? 'e' : ''} ${steps.join(', ')}.`,
       allDone: 'Alles eingerichtet ✓ Stelle jetzt die Regler ein und klicke auf „Probelauf“. Er zeigt, welche Songs der DJ auswählen würde, und ändert nichts an deiner Playlist.',
       formatOk: 'Format passt ✓',
       badChars: 'Eine Client ID enthält nur die Zeichen 0–9 und a–f.',
@@ -607,7 +607,7 @@ const TEXT = {
         disabled: ['Die Automatik ist im Zeitplaner ausgeschaltet. Einmal speichern, um sie wieder einzuschalten.', 'Automatik speichern'],
         leftover: ['Im Zeitplaner steht noch ein Eintrag von Tweakable DJ, obwohl die Automatik hier aus ist (z. B. von einem verschobenen oder kopierten Ordner).', 'Eintrag entfernen'],
       },
-      // Eintrag unter einem früheren Namen (z. B. „Mein DJ“): beim Speichern wird er ersetzt bzw. entfernt.
+      // Eintrag unter einem früheren Namen (LEGACY_NAMES in schedule.mjs): beim Speichern wird er ersetzt bzw. entfernt.
       legacy: (names, on) => `Im Zeitplaner steht noch ein Eintrag unter dem alten Namen ${names.map(n => `„${n}“`).join(', ')}. Einmal speichern ${on ? 'ersetzt ihn durch den neuen' : 'entfernt ihn'}.`,
       legacyButton: on => (on ? 'Automatik speichern' : 'Eintrag entfernen'),
       disabledMac: ' Prüfe auch unter Systemeinstellungen → Allgemein → Anmeldeobjekte, ob „node“ im Hintergrund laufen darf.',
@@ -688,7 +688,7 @@ const TEXT = {
       size: { label: 'Number of songs', fmt: v => plural(v, 'song', 'songs'), help: 'This many songs go into the playlist on every run.' },
       familiarShare: { label: 'Share of favorites', fmt: v => pct(v),
         hint: (v, c) => `≈ ${Math.round(c.size * v)} favorites and ${c.size - Math.round(c.size * v)} new songs`,
-        help: 'Favorites come from your Liked Songs; the rest are songs that aren’t in there yet.' },
+        help: 'Favorites come from the source of your favorites (e.g. your Liked Songs); the rest are songs that aren’t in there yet.' },
       adventure: { label: 'Adventure', fmt: v => num(v), hint: v => adventureHint(v),
         help: '0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant songs. Also sets how often the DJ wanders off to related artists.' },
       seedsPerRun: { label: 'Starting points per run', fmt: v => num(v),
@@ -1291,7 +1291,7 @@ function lastRunView(r) {
     el('span', { className: 'help', textContent: ` ${T.auto.logHint}` })];
 }
 
-// Erklärung und Button zu info.problem; ein Eintrag unter dem alten Namen ("Mein DJ") hat einen eigenen Text.
+// Erklärung und Button zu info.problem; ein Eintrag unter einem früheren Namen (legacyNames) hat einen eigenen Text.
 function problemText(info, on) {
   if (info.legacy && info.problem === 'leftover' && info.legacyNames?.length) return [T.auto.legacy(info.legacyNames, on), T.auto.legacyButton(on)];
   return T.auto.problems[info.problem] ?? [T.auto.invalid(info.message), null];

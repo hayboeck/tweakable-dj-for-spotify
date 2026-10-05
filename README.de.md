@@ -58,7 +58,7 @@ Das Konsolen- bzw. Terminalfenster, das sich dabei öffnet, muss offen bleiben, 
 Die Nummern zeigen die Reihenfolge eines Laufs:
 ① Lieblingssongs von Spotify lesen → ② Hörverlauf und ähnliche Songs von Last.fm holen → ③ nach deinen Regeln auswählen → ④ Songs auf Spotify suchen und „Tweakable DJ“ befüllen.
 
-- **Spotify** liefert deine Lieblingssongs und bekommt die fertige Playlist. Empfehlungen gibt Spotify seit Ende 2024 nicht mehr an eigene Programme heraus.
+- **Spotify** liefert deine Lieblingssongs und bekommt die fertige Playlist. Empfehlungen und verwandte Künstler gibt Spotify seit November 2024 nicht mehr an neu angelegte Apps heraus, und seit Februar 2026 bekommen Apps im Entwicklermodus auch die Top-Songs eines Künstlers nicht mehr. Deshalb kommen die Vorschläge von Last.fm.
 - **Last.fm** liefert zu jedem Song ähnliche Songs und kennt deinen Hörverlauf. Dafür ist dein Spotify-Konto mit Last.fm verbunden („Scrobbling“), und jeder gespielte Song wird dort erfasst.
 - **Tweakable DJ** läuft auf deinem PC, holt die Daten von beiden Diensten, wählt nach deinen Regeln aus und schreibt das Ergebnis in die Playlist.
 - **Die Oberfläche** ist eine Webseite, die nur auf deinem PC läuft (<http://127.0.0.1:8899>). Sie führt durch die Einrichtung, ändert die Einstellungen und startet den DJ.
@@ -97,7 +97,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `install-update.mjs` | Installiert eine neue Version, wenn du auf *Jetzt aktualisieren* klickst (siehe [Aktualisieren](#8-aktualisieren)) |
 | `manifest.json` | Liste aller Programmdateien dieser Version mit Prüfsummen. *Jetzt aktualisieren* ersetzt nur Dateien, die dort stehen. Nur in der ZIP-Datei, nicht im GitHub-Repository. |
 | `package.json` | Kurzbefehle für Entwickler: `npm start` (Oberfläche) und `npm test` (Tests). Tweakable DJ braucht keine zusätzlichen Pakete. |
-| `tests/` | Automatische Tests für die Regeln, die Übersetzungen, die Oberfläche und einen Probelauf, bei dem Spotify und Last.fm nur simuliert werden. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
+| `tests/` | Automatische Tests für die Regeln, die Einstellungen, die Übersetzungen, die Automatik, die Prüfung auf neue Versionen und *Jetzt aktualisieren*, die Oberfläche und einen Probelauf, bei dem Spotify, Last.fm und GitHub nur simuliert werden. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 | `config.example.de.jsonc` | Leere Vorlage der Einstellungen mit deutschen Erklärungen. Daraus wird bei der Einrichtung auf Deutsch deine `config.jsonc`. |
 | `config.example.jsonc` | Dieselbe Vorlage mit englischen Erklärungen (für die Einrichtung auf Englisch) |
 | `overview.de.svg`, `overview.en.svg` | Die Grafik in Abschnitt 2, auf Deutsch und Englisch |
@@ -125,7 +125,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 
 ## 4. So entsteht eine Playlist
 
-Die Zahlen sind die Standardwerte. Deine eigenen stehen in `config.jsonc` bzw. in der Oberfläche.
+Die Zahlen sind die Standardwerte. Deine eigenen stehen in `config.jsonc` bzw. in der Oberfläche. „Lieblingssongs“ steht für die Quelle deiner Favoriten: Hast du dort eine deiner Playlists gewählt, tritt sie an ihre Stelle.
 
 ```
 Lieblingssongs ──┐
@@ -158,7 +158,7 @@ Jede Regel lässt sich in `config.jsonc` oder in der Oberfläche ändern. Der Na
 | Name der Playlist (`playlistName`). Gibt es sie nicht, wird sie angelegt. | Tweakable DJ |
 | Quelle deiner Favoriten (`seed`): deine Lieblingssongs (`"liked"`) oder eine eigene bzw. gemeinsame Playlist. Daraus kommen die Favoriten und die meisten Ausgangspunkte. | Lieblingssongs |
 | Länge der Playlist (`size`) | 50 Songs |
-| Anteil Favoriten (`familiarShare`). Der Rest sind neue Songs, die nicht in deinen Lieblingssongs sind. | 15 % (≈ 8 Songs) |
+| Anteil Favoriten (`familiarShare`). Der Rest sind neue Songs, die nicht in der Quelle deiner Favoriten sind. | 15 % (≈ 8 Songs) |
 | Abenteuer (`adventure`): 0 = ähnliche Songs bevorzugen, 0,5 = egal, 1 = entfernte Songs bevorzugen. Bestimmt auch, bei wie vielen Ausgangspunkten der DJ zu verwandten Künstlern abschweift. | 0,4 |
 | Ausgangspunkte pro Lauf (`seedsPerRun`) | 20 |
 | Last.fm-Top-Songs der letzten 3 Monate zusätzlich als Ausgangspunkte (`useLastfmTopTracks`) | an |
@@ -180,7 +180,7 @@ In der Ausgabe sind solche Songs mit „· aktuell“ markiert (auf Englisch „
 | Regel | Standard |
 |---|---|
 | Kürzlich gehört (`excludeRecentDays`): alles, was du laut Last.fm in diesem Zeitraum gehört hast. 0 = aus. | 14 Tage |
-| Kürzlich gespielt (`noRepeatRuns`): Songs aus den letzten N Läufen. 0 = aus. | 3 Läufe |
+| Vorige Läufe (`noRepeatRuns`): Songs aus den letzten N Läufen. 0 = aus. | 3 Läufe |
 | Sperrliste (`blockedArtists`): Künstler, die nie vorkommen, weder als Song noch als Ausgangspunkt noch als Abstecher. Es zählen ganze Wörter: „Macloud“ sperrt auch „Miksu / Macloud“ und „feat. Macloud“, aber „Rin“ sperrt nicht „Karin“. | keine |
 | Songs, die auf Spotify nicht eindeutig gefunden werden (Titel und Interpret müssen passen). Zusätze wie „Remastered“ oder „feat.“ werden beim Vergleich ignoriert. | immer |
 
@@ -194,7 +194,7 @@ In der Ausgabe sind solche Songs mit „· aktuell“ markiert (auf Englisch „
 
 **Wenn nicht alles gleichzeitig geht**
 
-- Findet der DJ zu wenige neue Songs, füllt er mit weiteren Favoriten auf. Dabei können auch kürzlich gehörte Favoriten dazukommen.
+- Findet der DJ zu wenige neue Songs, füllt er mit weiteren Favoriten auf. Dabei können auch Favoriten dazukommen, die du kürzlich gehört hast oder die in den letzten Läufen drin waren.
 - Bei der Reihenfolge hat „3 aus 20“ Vorrang vor dem Mindestabstand.
 - Wird eine Regel trotzdem verletzt, zeigt der DJ eine Warnung (⚠).
 
@@ -249,7 +249,8 @@ node dj.mjs --dry    # Probelauf: nur anzeigen, Playlist nicht ändern
 node dj.mjs login    # bei Spotify (neu) anmelden
 node dj.mjs --auto   # wie ein automatischer Lauf: schreibt zusätzlich automatik.log und automatik.json
 node ui.mjs          # Oberfläche starten (auch: npm start)
-npm test             # automatische Tests; Spotify und Last.fm werden dabei nur simuliert
+node ui.mjs --no-browser   # dasselbe, ohne den Browser zu öffnen
+npm test             # automatische Tests; Spotify, Last.fm und GitHub werden dabei nur simuliert
 ```
 
 Die Ausgabe kommt in der Sprache aus `config.jsonc` (`language`), sonst in der Sprache des Systems. Drei Umgebungsvariablen helfen in Sonderfällen:
@@ -261,6 +262,8 @@ Die Ausgabe kommt in der Sprache aus `config.jsonc` (`language`), sonst in der S
 | `TWEAKABLE_DJ_NO_UPDATE_CHECK` | `1`: nicht nach neuen Versionen suchen (siehe [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen)) |
 
 Beispiel unter macOS und Linux: `TWEAKABLE_DJ_LANG=en node dj.mjs --dry`. In der Windows-Eingabeaufforderung: zuerst `set TWEAKABLE_DJ_LANG=en`, dann `node dj.mjs --dry`.
+
+Die übrigen Variablen musst du nicht selbst setzen: Die Startdateien setzen `TWEAKABLE_DJ_LAUNCHER=1` (dann startet die Oberfläche nach *Jetzt aktualisieren* von selbst neu), und die Tests verwenden `TWEAKABLE_DJ_TASK_NAME` und `TWEAKABLE_DJ_TASK_ARGS`, damit sie den echten Eintrag im Zeitplaner nie anfassen.
 
 ### Prüfung auf neue Versionen
 
@@ -323,7 +326,7 @@ Gibt es eine neue Version, erscheint oben in der Oberfläche ein Hinweis. Bei be
 2. Auf **Aktualisieren** klicken. Tweakable DJ lädt die neue Version von GitHub, prüft jede Datei anhand ihrer Prüfsumme (SHA-256), sichert die Dateien, die es ersetzt, nach `.update/backup-<alte Version>` und kopiert dann die neuen hinein.
 3. Tweakable DJ startet von selbst neu, und die Seite lädt sich mit der neuen Version neu. Hast du es mit `node ui.mjs` im Terminal statt mit einer Startdatei gestartet, starte es selbst noch einmal; die Seite lädt sich dann von selbst neu.
 
-Das Update schreibt nur die Programmdateien, die im Release stehen (`manifest.json`), und löscht nie etwas. Passt eine Datei nicht zu ihrer Prüfsumme, ändert es gar nichts; geht beim Kopieren etwas schief, holt es automatisch die alte Version zurück. Während eines Probelaufs, einer Neuerstellung, eines automatischen Laufs oder einer Spotify-Anmeldung startet es nicht. Die Automatik läuft danach weiter, weil der Ordner derselbe bleibt.
+Das Update schreibt nur die Programmdateien, die im Release stehen (`manifest.json`), und löscht nichts außerhalb von `.update/` (dort behält es nur die Sicherung des letzten Updates). Passt eine Datei nicht zu ihrer Prüfsumme, ändert es gar nichts; geht beim Kopieren etwas schief, holt es automatisch die alte Version zurück. Während eines Probelaufs, einer Neuerstellung, eines automatischen Laufs oder einer Spotify-Anmeldung startet es nicht. Die Automatik läuft danach weiter, weil der Ordner derselbe bleibt.
 
 **Von Hand**
 
@@ -353,7 +356,7 @@ Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie
 | „Den Last.fm-Benutzer … gibt es nicht“ | Schreibweise des Last.fm-Namens über *Zugangsdaten ändern* prüfen |
 | „Last.fm hat … keine Scrobbles“ | Spotify ist vermutlich nicht mit Last.fm verbunden: unter [last.fm → Einstellungen → Anwendungen](https://www.last.fm/settings/applications) verbinden. Bis dahin greifen die Regeln zum aktuellen Hören nicht. |
 | „config.jsonc ist fehlerhaft“ | Meist fehlt ein Komma am Zeilenende oder es ist eines zu viel (nach dem letzten Eintrag darf keines stehen) |
-| „Die Seed-Playlist ist leer oder nicht lesbar“ | Spotify gibt nur Playlists heraus, die dir gehören oder bei denen du mitarbeitest. In der Oberfläche unter *Quelle deiner Favoriten* eine Playlist aus der Liste wählen, dort stehen nur lesbare. |
+| „Die Quelle deiner Favoriten (Playlist) ist leer oder nicht lesbar“ | Spotify gibt nur Playlists heraus, die dir gehören oder bei denen du mitarbeitest. In der Oberfläche unter *Quelle deiner Favoriten* eine Playlist aus der Liste wählen, dort stehen nur lesbare. |
 | „Es läuft bereits ein Durchgang“ | Warten, bis der laufende Probelauf oder die Neuerstellung fertig ist (ca. 1 Minute) |
 | „Update fehlgeschlagen: …“ | Die Meldung sagt, ob nichts geändert oder die alte Version wiederhergestellt wurde. Später noch einmal versuchen oder von Hand aktualisieren ([Aktualisieren](#8-aktualisieren)). |
 | Oberfläche öffnet sich nicht / Seite nicht erreichbar | Das Konsolen- bzw. Terminalfenster von Tweakable DJ wurde geschlossen: Tweakable DJ noch einmal starten |
@@ -378,6 +381,7 @@ Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie
 
 - **Kein Endlos-Modus:** Die Playlist hat eine feste Länge. Ist sie durchgespielt, übernimmt Spotifys Autoplay (falls eingeschaltet), das deine Regeln nicht kennt. Für neue Songs „Playlist neu erstellen“ klicken.
 - **Die Automatik braucht deinen Rechner:** Tweakable DJ läuft auf deinem PC oder Mac, nicht im Internet. Zur eingestellten Zeit muss der Rechner an sein. Verpasste Läufe holt Windows beim nächsten Einschalten nach, der Mac nur nach dem Ruhezustand, Linux gar nicht. Auf einem echten Mac ist die Automatik noch nicht getestet.
+- **Große Sammlungen:** Von deinen Lieblingssongs verwendet der DJ die 1.000, die du zuletzt gespeichert hast.
 - **Spotify-Vorgaben:** Die Spotify-App läuft im Entwicklermodus. Dafür braucht der Besitzer ein Premium-Konto, und höchstens 5 Personen dürfen die App nutzen.
 - **Last.fm als Quelle:** Wie gut die Vorschläge sind, hängt davon ab, wie viele Daten Last.fm zu einem Song hat. Bei sehr neuen oder wenig bekannten Songs findet Last.fm oft nichts Ähnliches. Ähnliche Songs und Künstler speichert der DJ 7 Tage zwischen, so wie Last.fm es verlangt. Neue Daten von Last.fm kommen deshalb mit bis zu einer Woche Verzögerung an. Dein Hörverlauf wird dagegen immer frisch abgefragt.
 - **Zwei Sprachen:** Oberfläche, Meldungen und Ausgabe gibt es auf Deutsch und Englisch. Namen von Songs, Künstlern und Playlists bleiben, wie sie bei Spotify und Last.fm heißen.

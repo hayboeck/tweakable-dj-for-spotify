@@ -206,7 +206,7 @@ test('Sprache aus config.jsonc, wenn TWEAKABLE_DJ_LANG fehlt; sonst Systemsprach
     // Ohne language in config.jsonc: Systemsprache (hier über LANG)
     fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify(CONFIG));
     const de = run(dir, { TWEAKABLE_DJ_LANG: undefined, LC_ALL: undefined, LC_MESSAGES: undefined, LANG: 'de_AT.UTF-8' });
-    assert.match(de.out, /^Lade Lieblingssongs …$/m);
+    assert.match(de.out, /^Lade deine Favoriten …$/m);
     const sys = run(dir, { TWEAKABLE_DJ_LANG: undefined, LC_ALL: undefined, LC_MESSAGES: undefined, LANG: 'en_US.UTF-8' });
     assert.match(sys.out, /^Loading your favorites …$/m);
   } finally {
@@ -237,7 +237,7 @@ test('Automatischer Lauf (--auto --dry): automatik.json und automatik.log, auch 
     assert.ok(Date.parse(r.startedAt) <= Date.parse(r.finishedAt));
     // Protokoll = komplette Ausgabe (stdout; stderr siehe Fehlerfall unten)
     assert.equal(log(), ok.out);
-    assert.match(log(), /^Lade Lieblingssongs …$/m);
+    assert.match(log(), /^Lade deine Favoriten …$/m);
     assert.match(log(), /--dry: Playlist nicht verändert\./);
 
     // Spotify-Anmeldung abgelaufen: Fehler steht in automatik.json, das Protokoll wird überschrieben

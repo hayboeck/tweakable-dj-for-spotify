@@ -154,7 +154,7 @@ test('GET /api/playlists: "Lieblingssongs" bzw. "Liked Songs"', async () => {
 test('POST /api/run: Ausgabe und @@RESULT in der Sprache der Anfrage', async () => {
   const de = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
   assert.equal(de.status, 200);
-  assert.match(de.text, /^Lade Lieblingssongs …$/m);
+  assert.match(de.text, /^Lade deine Favoriten …$/m);
   assert.match(de.text, /^Test-DJ: 20 Songs \(/m);
   assert.deepEqual(Object.entries(resultLine(de.text)).filter(([k]) => ['ok', 'dry', 'songs', 'errorCode'].includes(k)),
     [['ok', true], ['dry', true], ['songs', 20], ['errorCode', null]]);
