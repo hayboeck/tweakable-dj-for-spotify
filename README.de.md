@@ -8,7 +8,7 @@ Der KI-DJ von Spotify spricht zwischen den Songs, und seine Stimme lässt sich n
 Wie viel Abwechslung, wie viele Favoriten und wie oft derselbe Künstler vorkommt, stellst du selbst ein.
 Die Oberfläche gibt es auf Deutsch und Englisch, umschaltbar oben rechts (DE | EN).
 
-<p align="center"><img src="docs/screenshot-main.de.png" width="440" alt="Die Oberfläche von Tweakable DJ: Voreinstellungen wie Entdecken und Meine aktuelle Phase, die Einstellungen der Playlist, die Regler Gefolgte Künstler und Abwechslung bei Künstlern (mit Details für Fortgeschrittene) und die Buttons Probelauf und Playlist neu erstellen"></p>
+<p align="center"><img src="docs/screenshot-main.de.png" width="440" alt="Die Oberfläche von Tweakable DJ: Voreinstellungen wie Entdecken und Meine aktuelle Phase, die Gruppen Auswahl (mit Abenteuer und Gefolgte Künstler) und Abwechslung (Abwechslung bei Künstlern mit Details für Fortgeschrittene) und die Buttons Probelauf und Playlist neu erstellen"></p>
 
 Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt (mehr dazu in [Abschnitt 12](#12-datenquellen-marken-und-lizenz)).
 
@@ -274,11 +274,13 @@ Die Gruppe *Sperrliste* hat drei Teile. Wie bei jeder Einstellung kommen Änderu
 - **Künstler, die nie gespielt werden**: Namen eintragen und auf *Hinzufügen* klicken. Mit × wieder entfernen.
 - **Songs, die nie gespielt werden**: Nach einem Probelauf steht hinter jedem Song der Liste ein kleines **×**. Ein Klick sperrt den Song: Er wird durchgestrichen, erscheint als Chip unter *Songs, die nie gespielt werden* und kommt ab dann bei keinem Lauf mehr vor, auch nicht in anderen Versionen (Remaster, Live, Single mit eigenem Link). **↺** neben einem durchgestrichenen Song oder × am Chip hebt die Sperre wieder auf. Ein Probelauf zeigt z. B. „2 gesperrte Songs ausgelassen“.
 
+<p align="center"><img src="docs/screenshot-blocklist.de.png" width="560" alt="Die Gruppen Sperrliste und Textdatei: der Schalter Keine Songs mit expliziten Texten, die gesperrten Künstler Imagine Dragons und The Killers und die gesperrten Songs Tame Impala – The Less I Know the Better und Glass Animals – Heat Waves als Chips mit ×, die Buttons Als Textdatei speichern und Textdatei importieren …, ganz unten v0.1.2 · Nach Updates suchen"></p>
+
 Sperrst du einen Song aus der Liste eines Probelaufs, ist *Diese Liste übernehmen* gesperrt (die Liste enthält ja den Song). Starte einen neuen Probelauf; er speichert deine Änderungen vorher.
 
 Für einen Import aus einer Textdatei gilt die Sperrliste nicht: Es ist deine Liste. Die Vorschau nennt die Songs, die ein Lauf des DJ auslassen würde („auf deiner Sperrliste“, „explizit“), und sie kommen trotzdem hinein.
 
-<p align="center"><img src="docs/screenshot-run.de.png" width="640" alt="Ergebnis eines Probelaufs: Tweakable DJ mit 50 Songs, davon 40 neu und 35 über aktuelles Hören gefunden, 10 Favoriten, darunter die Schritte des Laufs (samt gefolgten Künstlern) und die Liste der ausgewählten Songs"></p>
+<p align="center"><img src="docs/screenshot-run.de.png" width="640" alt="Ergebnis eines Probelaufs: Tweakable DJ mit 50 Songs, 34 neu (alle über aktuelles Hören gefunden) und 16 Favoriten, die Schritte des Laufs (samt gefolgten Künstlern und 2 ausgelassenen gesperrten Songs), der Anfang der Songliste mit einem × zum Sperren hinter jedem Song und die Buttons Diese Liste übernehmen und Als Textdatei speichern"></p>
 
 ### Im Terminal
 

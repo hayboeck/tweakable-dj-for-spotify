@@ -8,7 +8,7 @@ Spotify’s own AI DJ talks between the songs, and its voice can’t be turned o
 You decide how much variety you want, how many favorites, and how often the same artist comes up.
 The interface is available in English and German; switch at the top right (DE | EN).
 
-<p align="center"><img src="docs/screenshot-main.en.png" width="440" alt="The Tweakable DJ interface: presets such as Discover and My current phase, the playlist settings, the sliders Followed artists and Artist variety (with Details for experts), and the buttons Test run and Rebuild playlist"></p>
+<p align="center"><img src="docs/screenshot-main.en.png" width="440" alt="The Tweakable DJ interface: presets such as Discover and My current phase, the groups Selection (with Adventure and Followed artists) and Variety (Artist variety with Details for experts), and the buttons Test run and Rebuild playlist"></p>
 
 Tweakable DJ is an independent project and not an official Spotify product (more in [section 12](#12-data-sources-trademarks-and-license)).
 
@@ -274,11 +274,13 @@ The group *Block list* has three parts. Like every setting, changes are only wri
 - **Artists that are never played**: enter a name and click *Add*. Remove it again with ×.
 - **Songs that are never played**: after a test run, every song in the list has a small **×**. Clicking it blocks the song: it is struck through, appears as a chip under *Songs that are never played* and stays out of every run from then on, including other versions of it (remaster, live, a single with its own link). **↺** next to a struck-through song, or × on the chip, unblocks it. A test run shows e.g. “2 blocked songs left out”.
 
+<p align="center"><img src="docs/screenshot-blocklist.en.png" width="560" alt="The groups Block list and Text file: the switch No explicit songs, the blocked artists Imagine Dragons and The Killers and the blocked songs Tame Impala – The Less I Know the Better and Glass Animals – Heat Waves as chips with ×, the buttons Save as text file and Import text file …, and at the bottom v0.1.2 · Check for updates"></p>
+
 If you block a song from the list of a test run, *Use this list* is disabled (that list contains the song). Start a new test run; it saves your changes first.
 
 The block list doesn’t apply to an import from a text file: it’s your list. The preview names the songs a run of the DJ would leave out (“on your block list”, “explicit”), and they still go in.
 
-<p align="center"><img src="docs/screenshot-run.en.png" width="640" alt="Result of a test run: Tweakable DJ with 50 songs, 40 of them new and 34 found via current listening, 10 favorites, followed by the steps of the run (including the followed artists) and the list of picked songs"></p>
+<p align="center"><img src="docs/screenshot-run.en.png" width="640" alt="Result of a test run: Tweakable DJ with 50 songs, 40 new (all found via current listening) and 10 favorites, the steps of the run (including followed artists and 2 blocked songs left out), the start of the song list with a × after each song to block it, and the buttons Use this list and Save as text file"></p>
 
 ### In the terminal
 
