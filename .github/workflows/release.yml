@@ -3,7 +3,8 @@
 #   git tag v1.0.0
 #   git push origin v1.0.0
 # Ergebnis: tweakable-dj-v<Version>.zip mit dem Ordner tweakable-dj, dazu manifest.json als eigene Datei am Release.
-# In die ZIP-Datei kommen nur Dateien, die im Repository sind (git archive), auch die Screenshots in docs/.
+# In die ZIP-Datei kommen nur Dateien, die im Repository sind (git archive), auch die Screenshots in docs/ und das Logo in assets/
+# (dort auch die Symbole für die Verknüpfung auf dem Desktop: logo.ico, logo.icns).
 # Persönliche Dateien (config.jsonc, tokens.json, state.json, lastfm-cache.json, probelauf.json, das Archiv archiv/) sind per
 # .gitignore nie dabei; der Ablauf prüft das zur Sicherheit noch einmal.
 # manifest.json (Version, jede Datei mit Pfad, Größe, SHA-256 und Ausführbar-Bit) liegt auch in der ZIP-Datei. Sie ist
@@ -73,7 +74,7 @@ jobs:
           done
 
           # Die READMEs sollen auch in der ZIP-Datei vollständig sein: Alles, worauf sie relativ verweisen (Screenshots in
-          # docs/, zusammen rund 1,3 MB, overview.*.svg, LICENSE, die README der anderen Sprache …), muss dabei sein.
+          # docs/, zusammen rund 1,3 MB, das Logo assets/logo.png, overview.*.svg, LICENSE, die README der anderen Sprache …), muss dabei sein.
           # Links ins Internet und auf Abschnitte (#…) zählen nicht. LICENSE muss immer mit (MIT: Lizenztext in jeder Kopie).
           (cd "build/${ordner}" && node -e '
             const fs = require("fs");

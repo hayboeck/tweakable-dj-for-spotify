@@ -13,8 +13,10 @@
 *.yml     text eol=lf
 *.cmd     text eol=crlf
 
-# Bilder (Screenshots in docs/) nie umwandeln oder als Text vergleichen
+# Bilder (Screenshots in docs/, Logo in assets/) nie umwandeln oder als Text vergleichen; das SVG-Logo ist Text (oben)
 *.png     binary
+*.ico     binary
+*.icns    binary
 
 # Nur für GitHub, nicht in der ZIP-Datei zum Herunterladen (git archive).
 /.github        export-ignore

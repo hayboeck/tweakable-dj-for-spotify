@@ -51,6 +51,12 @@ const DAY = 86_400_000;
 const LOGIN_CODES = ['login_expired', 'not_logged_in'];
 const noBrowser = process.argv.includes('--no-browser');
 // Version beim Start: Nach einem Update meldet erst der neu gestartete Server die neue (GET /api/version).
+// Fest erlaubte Dateien für die Seite: Logo im Kopf und Symbol im Browser-Tab (aus assets/). Nur genau diese Pfade –
+// sonst liefert der Server keine Dateien aus dem Ordner (dort liegen config.jsonc, tokens.json usw.).
+const STATIC = {
+  '/assets/logo.png': { file: 'logo.png', type: 'image/png' },
+  '/assets/logo-small.svg': { file: 'logo-small.svg', type: 'image/svg+xml' },
+};
 const VERSION = currentVersion();
 // Von Tweakable DJ.cmd, Tweakable DJ.command bzw. start.sh gestartet? Die starten nach Exit-Code 75 neu.
 const LAUNCHER = process.env.TWEAKABLE_DJ_LAUNCHER === '1';
@@ -294,6 +300,22 @@ const server = http.createServer(async (req, res) => {
 
     // values.language: '' = noch nicht gewählt; systemLang = Sprache, die dann gilt (auch für automatische Läufe).
     // limits: erlaubte Bereiche und Regler der Zahlenwerte; variety: Stufen des Reglers „Abwechslung bei Künstlern“; problems: ungültige Zahlenwerte aus der config.jsonc (Schlüssel → Meldung).
+    // Logo und Symbol (STATIC): eine Stunde im Browser zwischenspeichern; SVG ohne Skripte (Content-Security-Policy).
+    if (req.method === 'GET' && Object.hasOwn(STATIC, url.pathname)) {
+      const { file, type } = STATIC[url.pathname];
+      let data;
+      try {
+        data = fs.readFileSync(path.join(HERE, 'assets', file));
+      } catch {
+        return send(404, { error: t(lang, 'ui.notFound') });
+      }
+      res.writeHead(200, {
+        'Content-Type': type, 'Cache-Control': 'max-age=3600', 'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'",
+      });
+      return res.end(data);
+    }
+
     if (route === 'GET /api/config') {
       const cfg = currentConfig(lang);
       const values = Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, cfg[k]]));

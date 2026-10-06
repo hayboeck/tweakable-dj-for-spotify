@@ -111,7 +111,8 @@ const mockRequests = () => (fs.existsSync(process.env.MOCK_LOG)
 // --- Erlaubnisliste und Pfade ---
 
 test('pathProblem: persönliche Dateien, Pfade außerhalb, Backslash, Laufwerk, unzulässige Namen', () => {
-  for (const p of ['ui.mjs', 'docs/screenshot-main.de.png', 'Tweakable DJ.cmd', '.gitignore', 'README.de.md', 'a/b/c.txt']) {
+  for (const p of ['ui.mjs', 'docs/screenshot-main.de.png', 'Tweakable DJ.cmd', '.gitignore', 'README.de.md', 'a/b/c.txt',
+    'assets/logo.png', 'assets/logo-small.svg', 'assets/logo.ico', 'assets/logo.icns', 'shortcut.mjs']) {
     assert.equal(pathProblem(p), null, p);
   }
   for (const p of ['config.jsonc', 'Config.JSONC', 'tokens.json', 'state.json', 'lastfm-cache.json', 'probelauf.json', 'Probelauf.JSON',

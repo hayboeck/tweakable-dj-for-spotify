@@ -45,6 +45,9 @@ before(async () => {
   }
   fs.writeFileSync(path.join(dir, 'config.jsonc'), `// Test-Einstellungen\n${JSON.stringify(CONFIG, null, 2)}\n`);
   writeTokens('fake-refresh-token');
+  // Logo-Dateien einzeln kopieren (fs.cpSync stürzt unter Windows mit manchen Node-Versionen bei Umlauten im Pfad ab)
+  fs.mkdirSync(path.join(dir, 'assets'));
+  for (const f of fs.readdirSync(path.join(ROOT, 'assets'))) fs.copyFileSync(path.join(ROOT, 'assets', f), path.join(dir, 'assets', f));
   const port = await freePort();
   base = `http://127.0.0.1:${port}`;
   const env = {
@@ -951,5 +954,53 @@ test('notifyOnFailure: Standard an, speichern ohne Zeitplaner, kein Einfluss auf
     assert.deepEqual([bad.status, bad.data.error], [400, 'notifyOnFailure: expected boolean']);
   } finally {
     assert.equal((await api('/api/config', { method: 'POST', body: { notifyOnFailure: true } })).status, 200);
+  }
+});
+
+// Rohe Anfrage (ohne Normalisierung der Adresse durch fetch): erste Zeile der Antwort.
+const rawRequest = (method, target, { host, headers = '' } = {}) => new Promise((resolve, reject) => {
+  const port = Number(new URL(base).port);
+  const s = net.connect(port, '127.0.0.1', () => s.write(`${method} ${target} HTTP/1.1\r\nHost: ${host ?? `127.0.0.1:${port}`}\r\n${headers}`
+    + 'Content-Length: 0\r\nConnection: close\r\n\r\n'));
+  let reply = '';
+  s.on('data', chunk => (reply += chunk));
+  s.on('close', () => resolve(reply.split('\r\n')[0]));
+  s.on('error', reject);
+});
+
+test('Logo und Symbol: genau assets/logo.png und assets/logo-small.svg, sonst keine Datei aus dem Ordner', async () => {
+  for (const [route, type, file] of [['/assets/logo.png', 'image/png', 'logo.png'], ['/assets/logo-small.svg', 'image/svg+xml', 'logo-small.svg']]) {
+    const res = await fetch(base + route);
+    assert.equal(res.status, 200, route);
+    assert.equal(res.headers.get('content-type'), type);
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.match(res.headers.get('cache-control'), /max-age=\d+/);
+    assert.match(res.headers.get('content-security-policy'), /default-src 'none'/);
+    assert.ok(Buffer.from(await res.arrayBuffer()).equals(fs.readFileSync(path.join(ROOT, 'assets', file))), route);
+  }
+  // Die Seite verwendet genau diese beiden (Kopf, Abschnitt „Verknüpfung“ und Browser-Tab), sonst nichts vom eigenen Server
+  const html = await (await fetch(`${base}/`)).text();
+  const own = [...html.matchAll(/\b(?:src|href)="([^"#:$]+)"/g)].map(m => m[1]);
+  assert.deepEqual([...new Set(own)].sort(), ['assets/logo-small.svg', 'assets/logo.png']);
+  assert.doesNotMatch(html, /data:image\/svg/, 'kein eingebettetes Notensymbol mehr');
+
+  fs.writeFileSync(path.join(dir, 'assets', 'geheim.txt'), 'x');
+  try {
+    const blocked = ['/assets/logo.ico', '/assets/logo.icns', '/assets/geheim.txt', '/assets/', '/assets', '/ASSETS/logo.png', '/assets/LOGO.PNG',
+      '/assets/logo.png.bak', '/config.jsonc', '/tokens.json', '/state.json', '/ui.mjs', '/ui.html', '/package.json', '/favicon.ico',
+      '/logo.png', '/assets/logo.png/', '/assets/logo.png%00', '/assets%2flogo.png'];
+    for (const route of blocked) {
+      const res = await fetch(base + route);
+      assert.equal(res.status, 404, route);
+      await res.text();
+    }
+    for (const target of ['/assets/../config.jsonc', '/assets/%2e%2e/tokens.json', '/assets/..%2fconfig.jsonc', '/assets/..\\config.jsonc',
+      '//assets/logo.png', '/./assets/../tokens.json']) {
+      assert.equal(await rawRequest('GET', target), 'HTTP/1.1 404 Not Found', target);
+    }
+    assert.equal(await rawRequest('POST', '/assets/logo.png'), 'HTTP/1.1 404 Not Found');
+    assert.equal(await rawRequest('GET', '/assets/logo.png', { host: 'localhost' }), 'HTTP/1.1 403 Forbidden', 'fremder Host');
+  } finally {
+    fs.rmSync(path.join(dir, 'assets', 'geheim.txt'));
   }
 });

@@ -1,5 +1,7 @@
 **English** · [Deutsch](README.de.md)
 
+<p align="center"><img src="assets/logo.png" width="128" alt="Logo of Tweakable DJ: green sound wave bars in a dark circle, surrounded by a green ring"></p>
+
 # Tweakable DJ for Spotify
 
 **Your personal, tweakable DJ for Spotify – no talking, more variety.**
@@ -109,6 +111,7 @@ The numbers show the order of a run:
 | `overview.en.svg`, `overview.de.svg` | The diagram in section 2, in English and German |
 | `docs/` | Screenshots of the interface for this guide, in English and German |
 | `LICENSE` | The license (MIT), see section 12 |
+| `assets/` | The logo: `logo.png` (interface and this guide), `logo-small.svg` (browser tab), `logo.ico` and `logo.icns` (icon of the desktop shortcut on Windows and Mac) |
 | `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, the files of automatic runs, the result of the update check, `.update/` and the archive `archiv/` are never uploaded |
 | `.gitattributes` | Consistent line endings for Windows, Mac and Linux; marks images as binary. Only in the GitHub repository, not in the ZIP file. |
 | `.github/` | Templates for bug reports and ideas, automated workflows on GitHub (e.g. the ZIP file for new versions). Only in the GitHub repository, not in the ZIP file. |
