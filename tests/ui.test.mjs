@@ -766,7 +766,7 @@ test('ui.html: Spieldauer wie in i18n.mjs, in der Zusammenfassung und beim letzt
   assert.equal(plain(ctx.TEXT.es.auto.ok(50, false, ctx.durationText({ ...r, durationEstimated: true }))), '✓ 50 canciones · ≈ 2 h 58 min');
   ctx.setT('fr');
   assert.match(plain(ctx.TEXT.fr.run.ok(r, false)), /^Terminé\u202f: Mix\u202f: 50 titres · 2 h 58 \(40 nouveaux,/);
-  // Fußzeile: Last.fm und Spotify in einer Zeile, Übersetzungshinweis und Version wie bisher je eigene Zeile
+  // Fußzeile: Last.fm und Spotify in einer Zeile, Übersetzungshinweis wie bisher in eigener Zeile (die Version steht im Tab „Einstellungen“)
   assert.match(html, /<p><span data-html="creditLastfm"><\/span> · <span data-t="creditSpotify"><\/span><\/p>/);
   assert.doesNotMatch(html, /<p data-t="creditSpotify">/);
 });

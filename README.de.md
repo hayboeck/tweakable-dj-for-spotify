@@ -120,7 +120,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `state.json` | Gedächtnis des DJ: welche Songs in den letzten Läufen drin waren, und welche Spotify-Suchen schon erledigt sind. Löschen setzt beides zurück. Das schadet nicht, der nächste Lauf dauert dann nur etwas länger. |
 | `lastfm-cache.json` | Zwischengespeicherte Antworten von Last.fm (ähnliche Songs und Künstler), jeweils 7 Tage gültig. Macht Läufe schneller. Löschen schadet nicht. |
 | `probelauf.json` | Ergebnis des letzten Probelaufs (Songs, Zeitpunkt, Fingerabdruck der Einstellungen) für *Diese Liste übernehmen* bzw. `node dj.mjs --apply`. Ein echter Lauf und das Übernehmen löschen sie. Löschen schadet nicht. |
-| `automatik.json` | Ergebnis des letzten automatischen Laufs (Zeit, ✓ oder Fehlergrund). Die Oberfläche zeigt es unter *Automatisch neu erstellen* an. |
+| `automatik.json` | Ergebnis des letzten automatischen Laufs (Zeit, ✓ oder Fehlergrund). Die Oberfläche zeigt es unter *Automatisch neu erstellen* (Tab *Einstellungen*) an. |
 | `automatik.log` | Die komplette Ausgabe des letzten automatischen Laufs, für die Fehlersuche |
 | `update-check.json` | Ergebnis der letzten [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen) (Zeit und neueste Version). Löschen schadet nicht. |
 | `.update/` | Legt *Jetzt aktualisieren* an: die Sicherung der Programmdateien der vorigen Version (`backup-<Version>`). Löschen schadet nicht. |
@@ -247,6 +247,8 @@ Den Zeitplan selbst (`schedule`, `scheduleTime`, `scheduleDay`) stellst du am ei
 Doppelklick auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac), unter Linux im Terminal `./start.sh`. Überall geht auch `node ui.mjs` im Terminal. Der Browser öffnet <http://127.0.0.1:8899>.
 Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-einrichtung-einmalig), Schritt 3. Ist Tweakable DJ noch nicht eingerichtet, erscheint statt der Regler der Einrichtungs-Assistent.
 
+Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Textdatei, Probelauf) und **Einstellungen** (Automatik, Sperrliste, Zugangsdaten, Version).
+
 - **Sprache** (oben rechts, ein kleines Auswahlfeld, z. B. **DE ▾**, mit Deutsch, English, Español und Français): schaltet die ganze Oberfläche sofort um, auch im Assistenten. Die Wahl wird in `config.jsonc` gespeichert (`language`) und gilt dann auch für Probelauf, Neuerstellung, automatische Läufe und das Terminal. Solange du nichts wählst, richtet sich die Oberfläche nach der Sprache deines Browsers. Spanisch und Französisch sind maschinell übersetzt; eine Zeile ganz unten auf der Seite weist darauf hin und verlinkt die [Issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), wo Korrekturen willkommen sind.
 - **Voreinstellungen**: Vier Buttons setzen alle Regel-Regler auf einmal:
   - *Entdecken*: viel Neues, auch weiter weg von deinem Geschmack
@@ -258,16 +260,16 @@ Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-e
 - **Regler**: Jede Einstellung hat einen Regler, eine Erklärung und einen grünen Hinweis, was der Wert gerade bewirkt. Weicht ein Wert vom Standard ab, bringt „Standard: …“ ihn per Klick zurück. Einen Wert aus `config.jsonc` außerhalb des erlaubten Bereichs markiert die Oberfläche rot ([Regeln und Einstellungen](#5-regeln-und-einstellungen)).
 - **Abwechslung bei Künstlern**: Ein Regler mit vier Stufen (*wenig* bis *sehr viel*) setzt alle vier Künstler-Regeln auf einmal. Die Einzelwerte stehen unter *Details für Fortgeschrittene*; passen sie zu keiner Stufe, zeigt der Regler *Eigene Einstellung*, und die Details sind aufgeklappt.
 - **Quelle deiner Favoriten**: Auswahlliste mit deinen Lieblingssongs und deinen Playlists. Zur Auswahl stehen nur Playlists, die dir gehören oder bei denen du mitarbeitest, weil Spotify nur deren Inhalt herausgibt.
-- **Sperrliste**: Künstler, einzelne Songs und explizite Songs, siehe [Sperrliste](#sperrliste-künstler-und-songs) weiter unten.
-- **Speichern / Verwerfen**: Änderungen werden erst mit *Speichern* in `config.jsonc` geschrieben.
+- **Sperrliste** (Tab *Einstellungen*): Künstler, einzelne Songs und explizite Songs, siehe [Sperrliste](#sperrliste-künstler-und-songs) weiter unten.
+- **Speichern / Verwerfen**: Änderungen werden erst mit *Speichern* in `config.jsonc` geschrieben. Beides gilt für beide Tabs; ein Punkt am anderen Tab zeigt dort ungespeicherte Änderungen. Im Tab *Einstellungen* gibt es nur diese zwei Buttons.
 - **Probelauf**: Zeigt die Auswahl an, ohne die Playlist zu ändern. Darunter:
   - **Diese Liste übernehmen**: schreibt genau diese Songs in dieser Reihenfolge in „Tweakable DJ“, ohne neu zu losen, samt Beschreibung. Das zählt wie ein Lauf (die Songs sind danach für *Vorige Läufe sperren* gemerkt). Der Button gilt 24 Stunden und nur, solange die Einstellungen so bleiben wie beim Probelauf; danach, nach einer Neuerstellung (auch durch die Automatik) oder wenn `probelauf.json` fehlt, ist er gesperrt und sagt, warum. Dann einfach einen neuen Probelauf starten. Zurückgestellte Regler machen ihn wieder frei.
   - **Als Textdatei speichern**: lädt die Liste des Probelaufs herunter, auch wenn sie (noch) nicht in der Playlist steht.
 - **Playlist neu erstellen**: Lost neu aus, befüllt „Tweakable DJ“ und zeigt danach einen Link zu Spotify.
 - **Textdatei**: *Als Textdatei speichern* lädt „Tweakable DJ“ so herunter, wie die Playlist gerade in Spotify ist. *Textdatei importieren …* füllt sie mit einer eigenen Liste: erst eine Vorschau („38 von 40 gefunden“ und die Zeilen, die nicht passen), dann *In Playlist „Tweakable DJ“ schreiben (ersetzt den Inhalt)*. Mehr unter [Textdatei](#textdatei-speichern-und-importieren).
-- **Zugangsdaten ändern** (oben rechts): Öffnet den Einrichtungs-Assistenten mit deinen bisherigen Angaben.
+- **Zugangsdaten** (Tab *Einstellungen*): zeigt, ob du bei Spotify angemeldet bist, und deinen Last.fm-Benutzernamen. **Zugangsdaten ändern** öffnet den Einrichtungs-Assistenten mit deinen bisherigen Angaben.
 - **Mit Spotify anmelden**: Erscheint, wenn die Spotify-Anmeldung bald abläuft oder abgelaufen ist. Spotify verlangt alle 6 Monate eine neue Anmeldung. Außerdem, wenn *Gefolgte Künstler* nicht auf „egal“ steht und deine Anmeldung älter ist als diese Einstellung.
-- **Automatisch neu erstellen**: *Aus*, *Täglich* oder *Wöchentlich*, dazu Uhrzeit und gegebenenfalls Wochentag. Beim *Speichern* trägt sich Tweakable DJ in den Zeitplaner deines Systems ein und erstellt die Playlist dann von selbst neu, auch wenn die Oberfläche geschlossen ist. Darunter stehen der nächste Lauf und das Ergebnis des letzten automatischen Laufs (✓ mit Anzahl Songs oder ✗ mit Grund). Was passiert, wenn der Rechner zur eingestellten Zeit aus ist:
+- **Automatisch neu erstellen** (Tab *Einstellungen*): *Aus*, *Täglich* oder *Wöchentlich*, dazu Uhrzeit und gegebenenfalls Wochentag. Beim *Speichern* trägt sich Tweakable DJ in den Zeitplaner deines Systems ein und erstellt die Playlist dann von selbst neu, auch wenn die Oberfläche geschlossen ist. Darunter stehen der nächste Lauf und das Ergebnis des letzten automatischen Laufs (✓ mit Anzahl Songs oder ✗ mit Grund). Was passiert, wenn der Rechner zur eingestellten Zeit aus ist:
   - Windows: Der Lauf wird beim nächsten Einschalten nachgeholt.
   - Mac: Der Lauf wird nach dem Aufwachen aus dem Ruhezustand nachgeholt, nach dem Ausschalten nicht.
   - Linux: Der Lauf entfällt.
@@ -278,13 +280,13 @@ Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-e
   - Linux: `notify-send` (Paket `libnotify-bin` bzw. `libnotify`). Ohne das Paket oder ohne Desktop-Sitzung gibt es einfach keine Benachrichtigung.
 
   Lässt sich eine Benachrichtigung nicht anzeigen, zählt der Lauf trotzdem wie sonst; in `automatik.log` steht dann ein kurzer Hinweis, warum.
-- **Neue Version**: Gibt es eine neuere Version von Tweakable DJ, erscheint oben ein Hinweis mit Link zum Download und der Schaltfläche **Jetzt aktualisieren** (siehe [Aktualisieren](#8-aktualisieren)). Mit × blendest du ihn aus; er kommt erst bei der nächsten Version wieder. Ganz unten auf der Seite steht, welche Version du hast (z. B. *v0.1.3*), daneben **Nach Updates suchen**: Das fragt sofort bei GitHub nach und meldet dann *Du hast die neueste Version ✓*, zeigt den Hinweis wieder an (auch wenn du ihn ausgeblendet hattest) oder sagt *GitHub nicht erreichbar*. Mehr unter [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen).
+- **Neue Version**: Gibt es eine neuere Version von Tweakable DJ, erscheint oben ein Hinweis mit Link zum Download und der Schaltfläche **Jetzt aktualisieren** (siehe [Aktualisieren](#8-aktualisieren)). Mit × blendest du ihn aus; er kommt erst bei der nächsten Version wieder. Im Tab *Einstellungen* steht unter *Version*, welche Version du hast (z. B. *v0.1.3*), daneben **Nach Updates suchen**: Das fragt sofort bei GitHub nach und meldet dann *Du hast die neueste Version ✓*, zeigt den Hinweis wieder an (auch wenn du ihn ausgeblendet hattest) oder sagt *GitHub nicht erreichbar*. Mehr unter [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen).
 
 *Probelauf* und *Playlist neu erstellen* speichern vorher automatisch. Die Oberfläche ist nur auf deinem PC erreichbar, andere Geräte im Netzwerk und fremde Webseiten haben keinen Zugriff.
 
 ### Sperrliste: Künstler und Songs
 
-Die Gruppe *Sperrliste* hat drei Teile. Wie bei jeder Einstellung kommen Änderungen erst mit *Speichern* in die `config.jsonc` (ein Probelauf speichert vorher von selbst).
+Die Gruppe *Sperrliste* (Tab *Einstellungen*) hat drei Teile. Wie bei jeder Einstellung kommen Änderungen erst mit *Speichern* in die `config.jsonc` (ein Probelauf speichert vorher von selbst).
 
 - **Keine Songs mit expliziten Texten**: ein Schalter. Ist er an, kommt kein Song in die Playlist, den Spotify als explizit kennzeichnet ([Regeln und Einstellungen](#5-regeln-und-einstellungen)). Ein Probelauf zeigt dann z. B. „4 explizite Songs ausgelassen“.
 - **Künstler, die nie gespielt werden**: Namen eintragen und auf *Hinzufügen* klicken. Mit × wieder entfernen.
@@ -354,7 +356,7 @@ Hauptkünstler, Gast – Titel	https://open.spotify.com/track/…
 
 Wenn du die Oberfläche öffnest, schaut Tweakable DJ **höchstens einmal am Tag** nach, ob eine neue Version erschienen ist. Dafür geht eine einzige Anfrage an die GitHub-Releases-API (`api.github.com`), die nach dem neuesten Release von Tweakable DJ fragt. **Persönliche Daten werden nicht gesendet**: keine Einstellungen, Zugangsdaten, Songs oder Kennungen. Die Antwort wird in `update-check.json` gemerkt; klappt die Prüfung nicht (z. B. offline), versucht sie es frühestens eine Stunde später wieder. Nur die Oberfläche prüft, nicht die Läufe im Terminal und nicht die Automatik. Sie zeigt nur einen Hinweis an und lädt oder installiert nie von selbst etwas; aktualisiert wird nur, wenn du auf *Jetzt aktualisieren* klickst (siehe [Aktualisieren](#8-aktualisieren)).
 
-**Nach Updates suchen** ganz unten auf der Seite, neben der Versionsnummer, fragt sofort bei GitHub nach, unabhängig vom Tagesrhythmus – höchstens einmal pro Minute; ein weiterer Klick in dieser Minute zeigt wieder das letzte Ergebnis.
+**Nach Updates suchen** im Tab *Einstellungen*, neben der Versionsnummer, fragt sofort bei GitHub nach, unabhängig vom Tagesrhythmus – höchstens einmal pro Minute; ein weiterer Klick in dieser Minute zeigt wieder das letzte Ergebnis.
 
 Abschalten lässt sich die Prüfung mit der Umgebungsvariablen `TWEAKABLE_DJ_NO_UPDATE_CHECK=1` vor dem Start:
 
@@ -381,7 +383,7 @@ Diese Schritte machst du einmal, bevor du Tweakable DJ zum ersten Mal benutzt, u
    4. **Quelle deiner Favoriten** wählen: deine Lieblingssongs oder eine deiner Playlists.
    5. **Fertig**: Die Regler erscheinen, und du kannst den ersten Probelauf starten.
 
-   Dabei legt der Assistent die Datei `config.jsonc` selbst an, mit Erklärungen in der Sprache, die du gerade eingestellt hast (bei Spanisch und Französisch auf Englisch). Später erreichst du ihn über *Zugangsdaten ändern* oben rechts.
+   Dabei legt der Assistent die Datei `config.jsonc` selbst an, mit Erklärungen in der Sprache, die du gerade eingestellt hast (bei Spanisch und Französisch auf Englisch). Später erreichst du ihn über *Zugangsdaten ändern* im Tab *Einstellungen*.
 
    <p align="center"><img src="docs/screenshot-setup.de.png" width="560" alt="Schritt 1 des Einrichtungs-Assistenten: Spotify-App anlegen, mit der Redirect URI, einem Kopieren-Button und einem Feld für die Client ID; darunter die Schritte 2 bis 5"></p>
 
@@ -431,7 +433,7 @@ Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie
 
 ## 9. Deinstallieren
 
-1. **Zuerst die Automatik ausschalten:** In der Oberfläche *Automatisch neu erstellen* auf *Aus* stellen und *Speichern* klicken. Damit verschwindet der Eintrag aus dem Zeitplaner deines Systems.
+1. **Zuerst die Automatik ausschalten:** In der Oberfläche im Tab *Einstellungen* *Automatisch neu erstellen* auf *Aus* stellen und *Speichern* klicken. Damit verschwindet der Eintrag aus dem Zeitplaner deines Systems.
 2. Das Fenster von Tweakable DJ schließen und den Ordner `tweakable-dj` löschen. Deine persönlichen Dateien (Einstellungen, Spotify-Anmeldung, Verlauf) sind damit auch weg.
 3. Wenn du magst: die Playlist in Spotify löschen (standardmäßig „Tweakable DJ“) und deine Spotify-App im [Spotify-Dashboard](https://developer.spotify.com/dashboard).
 

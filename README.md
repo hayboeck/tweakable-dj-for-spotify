@@ -120,7 +120,7 @@ The numbers show the order of a run:
 | `state.json` | The DJ’s memory: which songs were in the last runs and which Spotify searches are already done. Deleting it resets both. That does no harm; the next run just takes a little longer. |
 | `lastfm-cache.json` | Cached answers from Last.fm (similar songs and artists), each valid for 7 days. Makes runs faster. Deleting it does no harm. |
 | `probelauf.json` | Result of the last test run (songs, time, fingerprint of the settings) for *Use this list* or `node dj.mjs --apply`. A real run and applying it delete the file. Deleting it does no harm. |
-| `automatik.json` | Result of the last automatic run (time, ✓ or the reason it failed). The interface shows it under *Rebuild automatically*. |
+| `automatik.json` | Result of the last automatic run (time, ✓ or the reason it failed). The interface shows it under *Rebuild automatically* (tab *Settings*). |
 | `automatik.log` | The complete output of the last automatic run, for troubleshooting |
 | `update-check.json` | Result of the last [update check](#update-check) (time and newest version). Deleting it does no harm. |
 | `.update/` | Created by *Update now*: the backup of the program files of the previous version (`backup-<version>`). Deleting it does no harm. |
@@ -247,6 +247,8 @@ The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to se
 Double-click `Tweakable DJ.cmd` (Windows) or `Tweakable DJ.command` (Mac); on Linux, run `./start.sh` in a terminal. `node ui.mjs` in a terminal works everywhere too. Your browser opens <http://127.0.0.1:8899>.
 On the very first start, your system may ask for confirmation, see [setup](#7-setup-one-time), step 3. If Tweakable DJ isn’t set up yet, the setup wizard appears instead of the controls.
 
+The page has two tabs: **Playlist** (presets, controls, text file, test run) and **Settings** (automatic runs, block list, credentials, version).
+
 - **Language** (top right, a small selection field, e.g. **EN ▾**, with Deutsch, English, Español and Français): switches the whole interface immediately, including the wizard. Your choice is saved in `config.jsonc` (`language`) and then also applies to test runs, rebuilds, automatic runs and the terminal. Until you choose, the interface follows your browser’s language. Spanish and French are machine translated; a line at the bottom of the page says so and links to the [issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), where corrections are welcome.
 - **Presets**: four buttons set all rule controls at once:
   - *Discover*: lots of new songs, also further from your taste
@@ -258,16 +260,16 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
 - **Controls**: each setting has a control, an explanation and a green hint showing what the value does right now. If a value differs from the default, clicking “Default: …” resets it. A value from `config.jsonc` outside the allowed range is marked in red ([Rules and settings](#5-rules-and-settings)).
 - **Artist variety**: one slider with four steps (*low* to *very high*) sets all four artist rules at once. The individual values are under *Details for experts*; if they don’t match any step, the slider shows *Custom* and the details open.
 - **Source of your favorites**: a list with your Liked Songs and your playlists. Only playlists you own or collaborate on are offered, because Spotify only shares the contents of those.
-- **Block list**: artists, single songs and explicit songs, see [Block list](#block-list-artists-and-songs) below.
-- **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*.
+- **Block list** (tab *Settings*): artists, single songs and explicit songs, see [Block list](#block-list-artists-and-songs) below.
+- **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*. They apply to both tabs; a dot on the other tab shows unsaved changes there. The tab *Settings* shows only these two buttons.
 - **Test run**: shows the selection without changing the playlist. Below it:
   - **Use this list**: writes exactly these songs, in this order, to “Tweakable DJ” without drawing again, including the description. It counts like a run (the songs are then remembered for *Block previous runs*). The button is valid for 24 hours and only as long as the settings stay as they were for the test run; after that, after a rebuild (also by automatic runs) or if `probelauf.json` is missing, it is disabled and says why. Then just start a new test run. Setting the controls back makes it available again.
   - **Save as text file**: downloads the list of the test run, even if it isn’t in the playlist (yet).
 - **Rebuild playlist**: draws again, refills “Tweakable DJ” and then shows a link to Spotify.
 - **Text file**: *Save as text file* downloads “Tweakable DJ” as it currently is in Spotify. *Import text file …* fills it with your own list: first a preview (“38 of 40 found” and the lines that don’t match), then *Write to playlist “Tweakable DJ” (replaces its contents)*. More under [Text file](#text-file-save-and-import).
-- **Change credentials** (top right): opens the setup wizard with your previous entries.
+- **Credentials** (tab *Settings*): shows whether you’re logged in to Spotify and your Last.fm username. **Change credentials** opens the setup wizard with your previous entries.
 - **Log in with Spotify**: appears when your Spotify login expires soon or has expired. Spotify requires a new login every 6 months. It also appears if *Followed artists* isn’t at “no preference” and your login is from before that setting existed.
-- **Rebuild automatically**: *Off*, *Daily* or *Weekly*, plus the time and, if needed, the day of the week. When you click *Save*, Tweakable DJ adds itself to your system’s scheduler and then rebuilds the playlist by itself, even when the interface is closed. Below, you see the next run and the result of the last automatic run (✓ with the number of songs or ✗ with the reason). What happens if your computer is off at the set time:
+- **Rebuild automatically** (tab *Settings*): *Off*, *Daily* or *Weekly*, plus the time and, if needed, the day of the week. When you click *Save*, Tweakable DJ adds itself to your system’s scheduler and then rebuilds the playlist by itself, even when the interface is closed. Below, you see the next run and the result of the last automatic run (✓ with the number of songs or ✗ with the reason). What happens if your computer is off at the set time:
   - Windows: the run is made up the next time you turn it on.
   - Mac: the run is made up after waking from sleep, but not after being switched off.
   - Linux: the run is skipped.
@@ -278,13 +280,13 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
   - Linux: `notify-send` (package `libnotify-bin` or `libnotify`). Without it, or without a desktop session, there is simply no notification.
 
   If a notification can’t be shown, the run still counts as usual; `automatik.log` then contains a short note why.
-- **New version**: if a newer version of Tweakable DJ has been released, a notice appears at the top with a download link and the button **Update now** (see [Updating](#8-updating)). Close it with ×; it only comes back for the next version. The bottom of the page shows which version you have (e.g. *v0.1.3*), next to it **Check for updates**: it asks GitHub right away and then says *You’re up to date ✓*, shows the notice again (even if you closed it) or says *GitHub not reachable*. More in [Update check](#update-check).
+- **New version**: if a newer version of Tweakable DJ has been released, a notice appears at the top with a download link and the button **Update now** (see [Updating](#8-updating)). Close it with ×; it only comes back for the next version. The tab *Settings* shows under *Version* which version you have (e.g. *v0.1.3*), next to it **Check for updates**: it asks GitHub right away and then says *You’re up to date ✓*, shows the notice again (even if you closed it) or says *GitHub not reachable*. More in [Update check](#update-check).
 
 *Test run* and *Rebuild playlist* save first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
 
 ### Block list: artists and songs
 
-The group *Block list* has three parts. Like every setting, changes are only written to `config.jsonc` when you click *Save* (a test run saves first by itself).
+The group *Block list* (tab *Settings*) has three parts. Like every setting, changes are only written to `config.jsonc` when you click *Save* (a test run saves first by itself).
 
 - **No explicit songs**: a switch. When it’s on, no song that Spotify marks as explicit goes into the playlist ([Rules and settings](#5-rules-and-settings)). A test run then shows e.g. “4 explicit songs left out”.
 - **Artists that are never played**: enter a name and click *Add*. Remove it again with ×.
@@ -354,7 +356,7 @@ Main artist, Guest – Title	https://open.spotify.com/track/…
 
 When you open the interface, Tweakable DJ checks **at most once a day** whether a new version has been released. For this, it sends a single request to the GitHub Releases API (`api.github.com`) that asks for the newest release of Tweakable DJ. **No personal data is sent**: no settings, credentials, songs or IDs. The answer is stored in `update-check.json`; if the check fails (e.g. offline), it tries again an hour later at the earliest. Only the interface checks, not runs in the terminal or automatic runs. It only shows a notice and never downloads or installs anything by itself; an update only happens when you click *Update now* (see [Updating](#8-updating)).
 
-**Check for updates** at the bottom of the page, next to the version number, asks GitHub right away, regardless of the daily rhythm – at most once a minute; another click within that minute shows the last result again.
+**Check for updates** in the tab *Settings*, next to the version number, asks GitHub right away, regardless of the daily rhythm – at most once a minute; another click within that minute shows the last result again.
 
 To turn the check off, set the environment variable `TWEAKABLE_DJ_NO_UPDATE_CHECK=1` before starting:
 
@@ -381,7 +383,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
    4. Choose the **source of your favorites**: your Liked Songs or one of your playlists.
    5. **Done**: the controls appear and you can start your first test run.
 
-   The wizard creates the file `config.jsonc` by itself, with explanations in the language you have selected (in English for Spanish and French). Later, you can reach it via *Change credentials* at the top right.
+   The wizard creates the file `config.jsonc` by itself, with explanations in the language you have selected (in English for Spanish and French). Later, you can reach it via *Change credentials* in the tab *Settings*.
 
    <p align="center"><img src="docs/screenshot-setup.en.png" width="560" alt="Step 1 of the setup wizard: create a Spotify app, with the redirect URI, a Copy button and a field for the Client ID; below it steps 2 to 5"></p>
 
@@ -431,7 +433,7 @@ Your personal files aren’t in the ZIP file, so they stay as they are, and auto
 
 ## 9. Uninstalling
 
-1. **First turn automatic runs off:** in the interface, set *Rebuild automatically* to *Off* and click *Save*. That removes the entry from your system’s scheduler.
+1. **First turn automatic runs off:** in the interface, in the tab *Settings*, set *Rebuild automatically* to *Off* and click *Save*. That removes the entry from your system’s scheduler.
 2. Close the Tweakable DJ window and delete the `tweakable-dj` folder. Your personal files (settings, Spotify login, history) go with it.
 3. If you like: delete the playlist in Spotify (by default “Tweakable DJ”) and your Spotify app in the [Spotify dashboard](https://developer.spotify.com/dashboard).
 

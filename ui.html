@@ -43,7 +43,7 @@
   a { color: var(--accent); }
   main { max-width: 760px; margin: 0 auto; padding: 24px 16px 120px; }
   main.no-bar { padding-bottom: 32px; }
-  /* Kopf: Titel | Zugangsdaten + Status | Sprache. Auf schmalen Bildschirmen rutscht die Mitte in die zweite Zeile. */
+  /* Kopf: Titel | Status | Sprache. Auf schmalen Bildschirmen rutscht die Mitte in die zweite Zeile. */
   header { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px 14px; margin-bottom: 20px; }
   h1 { font-size: 26px; margin: 0; letter-spacing: -.01em; }
   .tagline { margin: 2px 0 0; font-size: 14px; }
@@ -86,6 +86,16 @@
     .update > .close { grid-column: 2; grid-row: 1; }
   }
   button.link { font: inherit; font-size: 13.5px; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
+  button.link:disabled { opacity: .6; cursor: default; }
+
+  /* Tabs „Playlist“ | „Einstellungen“ (Hauptansicht); Punkt = ungespeicherte Änderungen in diesem Tab */
+  .tabs { display: flex; gap: 4px; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
+  .tabs [role=tab] { font: inherit; font-weight: 600; padding: 9px 14px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); cursor: pointer; }
+  .tabs [role=tab]:hover { color: var(--text); }
+  .tabs [role=tab][aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  .tabs [role=tab]:focus-visible { outline-offset: -2px; }
+  .tab-dot { display: inline-block; width: 7px; height: 7px; margin-left: 7px; border-radius: 50%; background: var(--warn); vertical-align: middle; }
+  @media (max-width: 480px) { .tabs [role=tab] { flex: 1; } }
 
   section { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 6px 18px; margin-bottom: 16px; box-shadow: var(--shadow); }
   section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 4px; }
@@ -226,12 +236,11 @@
   .credit { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); text-align: center; }
   .credit p { margin: 2px 0; }
   .credit a { color: inherit; }
-  .credit .version { margin-top: 6px; opacity: .85; }
   .credit .mt-note { margin-bottom: 6px; font-style: italic; }
   .credit .mt-note:empty { display: none; }
-  /* „Nach Updates suchen“: dezent wie ein Link, Ergebnis gleich daneben */
-  .credit button.link { font-size: inherit; color: inherit; }
-  .credit button.link:disabled { opacity: .6; cursor: default; }
+  /* Tab „Einstellungen“: Zugangsdaten und Version; „Nach Updates suchen“ wie ein Link, Ergebnis gleich daneben */
+  #credentials .row > p, #version .row > p { margin: 0; }
+  #credentials .actions { margin-top: 10px; }
   #update-check-msg.ok { color: var(--accent); }
   #update-check-msg.err { color: var(--danger); }
 </style>
@@ -246,7 +255,6 @@
       <p class="sub" id="sub"></p>
     </div>
     <div class="head-side">
-      <button type="button" class="link" id="open-setup" data-t="openSetup" hidden></button>
       <span id="status" class="chip" role="status"></span>
     </div>
     <!-- Sprachwahl: Namen der Sprachen in der jeweiligen Sprache; Beschriftung (aria-label, title) aus TEXT (page.language) -->
@@ -366,56 +374,83 @@
     <p><button type="button" class="link" id="w-close" data-t="close" hidden></button></p>
   </div>
 
-  <!-- Regler -->
-  <div id="settings" hidden>
-    <section aria-labelledby="presets-title">
-      <h2 id="presets-title" data-t="presets"></h2>
-      <p class="help" data-t="presetsHelp"></p>
-      <div class="preset-grid" id="preset-grid"></div>
-      <p class="hint" id="preset-state" role="status"></p>
-    </section>
-    <div id="groups"></div>
-    <!-- Playlist als Textdatei speichern (GET /api/export) bzw. aus einer Textdatei befüllen: Vorschau (POST /api/import/preview),
-         nach der Rückfrage schreiben (POST /api/import) -->
-    <section id="files" aria-labelledby="files-title">
-      <h2 id="files-title" data-t="files"></h2>
-      <div class="row">
-        <p class="help" id="files-help"></p>
-        <div class="actions">
-          <button type="button" class="btn" id="export" data-t="saveText"></button>
-          <button type="button" class="btn" id="import" data-t="importFile"></button>
-          <input type="file" id="import-file" accept=".txt,text/plain" hidden>
-        </div>
-        <p class="msg" id="files-msg" role="status" aria-live="polite"></p>
-        <div class="import-preview" id="import-preview" hidden>
-          <p class="summary" id="import-found"></p>
-          <p class="help" id="import-missing-head"></p>
-          <ul class="import-missing" id="import-missing"></ul>
-          <!-- Gesperrte bzw. explizite Songs aus der Datei: nur ein Hinweis, sie kommen trotzdem hinein -->
-          <p class="help" id="import-hints-head" hidden></p>
-          <ul class="import-missing" id="import-hints" hidden></ul>
+  <!-- Hauptansicht (view 'main') mit zwei Tabs: „Playlist“ (Regler, Textdatei, Ausgabe) und „Einstellungen“ (Automatik,
+       Sperrliste, Zugangsdaten, Version). Aktiver Tab im Adress-Hash: ohne = Playlist, #settings = Einstellungen. -->
+  <div id="main-view" hidden>
+    <div class="tabs" role="tablist" id="tabs">
+      <button type="button" role="tab" id="tab-playlist" aria-controls="panel-playlist"><span data-t="tabPlaylist"></span><span class="tab-dot" aria-hidden="true" hidden></span></button>
+      <button type="button" role="tab" id="tab-settings" aria-controls="panel-settings"><span data-t="tabSettings"></span><span class="tab-dot" aria-hidden="true" hidden></span></button>
+    </div>
+    <div id="panel-playlist" role="tabpanel" aria-labelledby="tab-playlist">
+      <section aria-labelledby="presets-title">
+        <h2 id="presets-title" data-t="presets"></h2>
+        <p class="help" data-t="presetsHelp"></p>
+        <div class="preset-grid" id="preset-grid"></div>
+        <p class="hint" id="preset-state" role="status"></p>
+      </section>
+      <div id="groups"></div>
+      <!-- Playlist als Textdatei speichern (GET /api/export) bzw. aus einer Textdatei befüllen: Vorschau (POST /api/import/preview),
+           nach der Rückfrage schreiben (POST /api/import) -->
+      <section id="files" aria-labelledby="files-title">
+        <h2 id="files-title" data-t="files"></h2>
+        <div class="row">
+          <p class="help" id="files-help"></p>
           <div class="actions">
-            <button type="button" class="btn primary" id="import-go"></button>
-            <button type="button" class="btn" id="import-cancel"></button>
+            <button type="button" class="btn" id="export" data-t="saveText"></button>
+            <button type="button" class="btn" id="import" data-t="importFile"></button>
+            <input type="file" id="import-file" accept=".txt,text/plain" hidden>
+          </div>
+          <p class="msg" id="files-msg" role="status" aria-live="polite"></p>
+          <div class="import-preview" id="import-preview" hidden>
+            <p class="summary" id="import-found"></p>
+            <p class="help" id="import-missing-head"></p>
+            <ul class="import-missing" id="import-missing"></ul>
+            <!-- Gesperrte bzw. explizite Songs aus der Datei: nur ein Hinweis, sie kommen trotzdem hinein -->
+            <p class="help" id="import-hints-head" hidden></p>
+            <ul class="import-missing" id="import-hints" hidden></ul>
+            <div class="actions">
+              <button type="button" class="btn primary" id="import-go"></button>
+              <button type="button" class="btn" id="import-cancel"></button>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
-    <section id="out" hidden>
-      <div class="out-head">
-        <span id="summary" class="summary"></span>
-        <a id="open" class="open" target="_blank" rel="noopener" data-t="open" hidden></a>
-      </div>
-      <pre id="log"></pre>
-      <!-- Nach einem Probelauf: genau diese Liste übernehmen (POST /api/apply) oder als Textdatei speichern -->
-      <div id="trial" hidden>
-        <div class="actions">
-          <button type="button" class="btn primary" id="trial-apply" data-t="trialApply"></button>
-          <button type="button" class="btn" id="trial-export" data-t="saveText"></button>
+      </section>
+      <section id="out" hidden>
+        <div class="out-head">
+          <span id="summary" class="summary"></span>
+          <a id="open" class="open" target="_blank" rel="noopener" data-t="open" hidden></a>
         </div>
-        <p class="msg" id="trial-msg" role="status"></p>
-      </div>
-    </section>
+        <pre id="log"></pre>
+        <!-- Nach einem Probelauf: genau diese Liste übernehmen (POST /api/apply) oder als Textdatei speichern -->
+        <div id="trial" hidden>
+          <div class="actions">
+            <button type="button" class="btn primary" id="trial-apply" data-t="trialApply"></button>
+            <button type="button" class="btn" id="trial-export" data-t="saveText"></button>
+          </div>
+          <p class="msg" id="trial-msg" role="status"></p>
+        </div>
+      </section>
+    </div>
+    <div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+      <!-- Gruppen auto und blocked (siehe GROUPS, tab: 'settings') -->
+      <div id="groups-settings"></div>
+      <!-- Stand der Zugangsdaten (nur angemeldet ja/nein und Last.fm-Benutzer, keine Schlüssel) und der Assistent -->
+      <section id="credentials" aria-labelledby="credentials-title">
+        <h2 id="credentials-title" data-t="credentials"></h2>
+        <div class="row">
+          <p id="cred-state"></p>
+          <div class="actions"><button type="button" class="btn" id="open-setup" data-t="openSetup"></button></div>
+        </div>
+      </section>
+      <!-- Eigene Version und „Nach Updates suchen“ (GET /api/update?force=1) mit dem Ergebnis daneben -->
+      <section id="version" aria-labelledby="version-title" hidden>
+        <h2 id="version-title" data-t="version"></h2>
+        <div class="row">
+          <p><span id="version-text"></span><span id="update-check-box"> · <button type="button" class="link" id="update-check"></button></span>
+            <span id="update-check-msg" role="status" aria-live="polite"></span></p>
+        </div>
+      </section>
+    </div>
   </div>
 
   <footer class="credit">
@@ -423,9 +458,6 @@
     <p class="mt-note" id="mt-note" data-html="mtNote"></p>
     <!-- Last.fm und der Hinweis zu Spotify in einer Zeile (darf auf schmalen Bildschirmen umbrechen) -->
     <p><span data-html="creditLastfm"></span> · <span data-t="creditSpotify"></span></p>
-    <!-- Eigene Version und „Nach Updates suchen“ (GET /api/update?force=1) mit dem Ergebnis daneben -->
-    <p class="version" id="version" hidden><span id="version-text"></span><span id="update-check-box"> · <button type="button" class="link" id="update-check"></button></span>
-      <span id="update-check-msg" role="status" aria-live="polite"></span></p>
   </footer>
 </main>
 <div class="bar" id="bar" hidden>
@@ -465,13 +497,17 @@ const TEXT = {
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h}:${two(m)} Std.` : `${m} Min.`)),
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Einrichtung' : 'Tweakable DJ for Spotify'),
-    sub: { setup: 'Einrichtung in 5 Schritten', settings: 'Einstellungen für deine Playlist' },
+    sub: { setup: 'Einrichtung in 5 Schritten', main: 'Einstellungen für deine Playlist' },
     status: { loading: 'Lädt …', setup: 'Einrichtung', running: 'Läuft …', updating: 'Update läuft …', importing: 'Import läuft …', dirty: 'Ungespeicherte Änderungen', saved: 'Gespeichert', error: 'Fehler' },
     // "Mo 06.10., 07:00"
     when: d => `${['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][d.getDay()]} ${two(d.getDate())}.${two(d.getMonth() + 1)}., ${two(d.getHours())}:${two(d.getMinutes())}`,
     page: {
       tagline: 'Dein persönlicher, einstellbarer DJ für Spotify – ohne Ansagen, mit mehr Abwechslung.',
       openSetup: 'Zugangsdaten ändern',
+      tabPlaylist: 'Playlist',
+      tabSettings: 'Einstellungen',
+      credentials: 'Zugangsdaten',
+      version: 'Version',
       intro: 'Du brauchst Spotify Premium, ein kostenloses Last.fm-Konto und etwa 10 Minuten.',
       step1: 'Spotify-App anlegen',
       step2: 'Last.fm verbinden',
@@ -502,7 +538,7 @@ const TEXT = {
       s4Text: 'Aus diesen Songs wählt der DJ seine Ausgangspunkte und Favoriten.',
       s4Help: 'Nur Lieblingssongs und eigene oder gemeinsame Playlists – andere gibt Spotify nicht heraus.',
       finish: 'Zu den Reglern',
-      close: '← Zurück zu den Reglern',
+      close: '← Zurück zu den Einstellungen',
       presets: 'Voreinstellungen',
       presetsHelp: 'Setzen mehrere Regler auf einmal; Name, Quelle, Anzahl Songs, gefolgte Künstler und Sperrliste bleiben.',
       open: 'In Spotify öffnen ↗',
@@ -713,6 +749,13 @@ const TEXT = {
       savedUnchecked: 'Gespeichert, aber nicht geprüft. ',
       loadFailed: msg => `Einstellungen konnten nicht geladen werden: ${msg}`,
     },
+    // Abschnitt „Zugangsdaten“ im Tab „Einstellungen“: nur angemeldet ja/nein und Last.fm-Benutzer (keine Client ID, kein API-Key)
+    cred: {
+      loggedIn: 'Spotify: angemeldet ✓',
+      loggedOut: 'Spotify: nicht angemeldet',
+      user: name => `Last.fm: ${name}`,
+      noUser: 'Last.fm: kein Benutzer',
+    },
     // Hinweis auf eine neue Version
     update: {
       text: (latest, current) => (current ? `Neue Version ${latest} verfügbar (du hast ${current})` : `Neue Version ${latest} verfügbar`),
@@ -790,13 +833,17 @@ const TEXT = {
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`)),
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Setup' : 'Tweakable DJ for Spotify'),
-    sub: { setup: 'Setup in 5 steps', settings: 'Settings for your playlist' },
+    sub: { setup: 'Setup in 5 steps', main: 'Settings for your playlist' },
     status: { loading: 'Loading …', setup: 'Setup', running: 'Running …', updating: 'Updating …', importing: 'Importing …', dirty: 'Unsaved changes', saved: 'Saved', error: 'Error' },
     // "Mon, Oct 6, 07:00" (amerikanische Reihenfolge wie en-US; Uhrzeit mit 24 Stunden wie bei der Automatik)
     when: d => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]}, ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]} ${d.getDate()}, ${two(d.getHours())}:${two(d.getMinutes())}`,
     page: {
       tagline: 'Your personal, tweakable DJ for Spotify – no talking, more variety.',
       openSetup: 'Change credentials',
+      tabPlaylist: 'Playlist',
+      tabSettings: 'Settings',
+      credentials: 'Credentials',
+      version: 'Version',
       intro: 'You need Spotify Premium, a free Last.fm account and about 10 minutes.',
       step1: 'Create a Spotify app',
       step2: 'Connect Last.fm',
@@ -827,7 +874,7 @@ const TEXT = {
       s4Text: 'The DJ picks its starting points and favorites from these songs.',
       s4Help: 'Only Liked Songs and playlists you own or collaborate on – Spotify doesn’t share others.',
       finish: 'Go to the controls',
-      close: '← Back to the controls',
+      close: '← Back to settings',
       presets: 'Presets',
       presetsHelp: 'Set several controls at once; name, source, number of songs, followed artists and block list stay.',
       open: 'Open in Spotify ↗',
@@ -1035,6 +1082,12 @@ const TEXT = {
       savedUnchecked: 'Saved, but not checked. ',
       loadFailed: msg => `Settings couldn’t be loaded: ${msg}`,
     },
+    cred: {
+      loggedIn: 'Spotify: logged in ✓',
+      loggedOut: 'Spotify: not logged in',
+      user: name => `Last.fm: ${name}`,
+      noUser: 'Last.fm: no user',
+    },
     update: {
       text: (latest, current) => (current ? `New version ${latest} available (you have ${current})` : `New version ${latest} available`),
       link: 'download ↗',
@@ -1108,13 +1161,17 @@ const TEXT = {
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`)),
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Configuración' : 'Tweakable DJ for Spotify'),
-    sub: { setup: 'Configuración en 5 pasos', settings: 'Ajustes de tu playlist' },
+    sub: { setup: 'Configuración en 5 pasos', main: 'Ajustes de tu playlist' },
     status: { loading: 'Cargando …', setup: 'Configuración', running: 'En curso …', updating: 'Actualizando …', importing: 'Importando …', dirty: 'Cambios sin guardar', saved: 'Guardado', error: 'Error' },
     // "lun 6 oct, 07:00"
     when: d => `${['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][d.getDay()]} ${d.getDate()} ${['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'][d.getMonth()]}, ${two(d.getHours())}:${two(d.getMinutes())}`,
     page: {
       tagline: 'Tu DJ personal y ajustable para Spotify: sin locutor y con más variedad.',
       openSetup: 'Cambiar credenciales',
+      tabPlaylist: 'Playlist',
+      tabSettings: 'Ajustes',
+      credentials: 'Credenciales',
+      version: 'Versión',
       intro: 'Necesitas Spotify Premium, una cuenta gratuita de Last.fm y unos 10 minutos.',
       step1: 'Crear una app de Spotify',
       step2: 'Conectar Last.fm',
@@ -1145,7 +1202,7 @@ const TEXT = {
       s4Text: 'De estas canciones, el DJ elige sus puntos de partida y sus favoritas.',
       s4Help: 'Solo Tus me gusta y las playlists tuyas o en las que colaboras: Spotify no da otras.',
       finish: 'Ir a los controles',
-      close: '← Volver a los controles',
+      close: '← Volver a los ajustes',
       presets: 'Ajustes predefinidos',
       presetsHelp: 'Cambian varios controles a la vez; el nombre, la fuente, el número de canciones, los artistas que sigues y la lista de bloqueo no cambian.',
       open: 'Abrir en Spotify ↗',
@@ -1353,6 +1410,12 @@ const TEXT = {
       savedUnchecked: 'Guardado, pero sin comprobar. ',
       loadFailed: msg => `No se pudieron cargar los ajustes: ${msg}`,
     },
+    cred: {
+      loggedIn: 'Spotify: sesión iniciada ✓',
+      loggedOut: 'Spotify: sin iniciar sesión',
+      user: name => `Last.fm: ${name}`,
+      noUser: 'Last.fm: ningún usuario',
+    },
     update: {
       text: (latest, current) => (current ? `Nueva versión ${latest} disponible (tienes la ${current})` : `Nueva versión ${latest} disponible`),
       link: 'descargar ↗',
@@ -1427,13 +1490,17 @@ const TEXT = {
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${two(m)}` : ''}` : `${m} min`)),
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Configuration' : 'Tweakable DJ for Spotify'),
-    sub: { setup: 'Configuration en 5 étapes', settings: 'Réglages de ta playlist' },
+    sub: { setup: 'Configuration en 5 étapes', main: 'Réglages de ta playlist' },
     status: { loading: 'Chargement …', setup: 'Configuration', running: 'En cours …', updating: 'Mise à jour …', importing: 'Importation …', dirty: 'Modifications non enregistrées', saved: 'Enregistré', error: 'Erreur' },
     // "lun. 6 oct., 07:00"
     when: d => `${['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'][d.getDay()]} ${d.getDate()} ${['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'][d.getMonth()]}, ${two(d.getHours())}:${two(d.getMinutes())}`,
     page: {
       tagline: 'Ton DJ personnel et réglable pour Spotify – sans animateur, avec plus de variété.',
       openSetup: 'Modifier les identifiants',
+      tabPlaylist: 'Playlist',
+      tabSettings: 'Paramètres',
+      credentials: 'Identifiants',
+      version: 'Version',
       intro: 'Il te faut Spotify Premium, un compte Last.fm gratuit et une dizaine de minutes.',
       step1: 'Créer une app Spotify',
       step2: 'Connecter Last.fm',
@@ -1464,7 +1531,7 @@ const TEXT = {
       s4Text: 'C’est parmi ces titres que le DJ choisit ses points de départ et ses favoris.',
       s4Help: 'Seulement tes Titres likés et les playlists qui t’appartiennent ou auxquelles tu collabores – Spotify ne fournit pas les autres.',
       finish: 'Aller aux réglages',
-      close: '← Retour aux réglages',
+      close: '← Retour aux paramètres',
       presets: 'Préréglages',
       presetsHelp: 'Changent plusieurs réglages à la fois ; le nom, la source, le nombre de titres, les artistes suivis et la liste de blocage restent.',
       open: 'Ouvrir dans Spotify ↗',
@@ -1672,6 +1739,12 @@ const TEXT = {
       savedUnchecked: 'Enregistré, mais non vérifié. ',
       loadFailed: msg => `Impossible de charger les réglages : ${msg}`,
     },
+    cred: {
+      loggedIn: 'Spotify : connecté ✓',
+      loggedOut: 'Spotify : non connecté',
+      user: name => `Last.fm : ${name}`,
+      noUser: 'Last.fm : aucun utilisateur',
+    },
     update: {
       text: (latest, current) => (current ? `Nouvelle version ${latest} disponible (tu as la ${current})` : `Nouvelle version ${latest} disponible`),
       link: 'télécharger ↗',
@@ -1829,19 +1902,22 @@ const GROUPS = [
     { key: 'excludeRecentDays' },
     { key: 'noRepeatRuns' },
   ]},
-  { id: 'blocked', items: [
-    { key: 'excludeExplicit', type: 'toggle' },
-    { key: 'blockedArtists', type: 'list' },
-    { key: 'blockedTracks', type: 'tracks' },
-  ]},
-  { id: 'auto', status: true, items: [
+  // Gruppen mit tab: 'settings' stehen im Tab „Einstellungen“ (in dieser Reihenfolge), alle anderen im Tab „Playlist“.
+  { id: 'auto', tab: 'settings', status: true, items: [
     { key: 'schedule', type: 'choice', options: ['off', 'daily', 'weekly'] },
     { key: 'scheduleDay', type: 'select', options: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'], show: c => c.schedule === 'weekly' },
     { key: 'scheduleTime', type: 'time', show: c => c.schedule !== 'off' },
     // Mit „Testbenachrichtigung senden“ (notifyTestBox) darunter.
     { key: 'notifyOnFailure', type: 'toggle', show: c => c.schedule !== 'off', test: true },
   ]},
+  { id: 'blocked', tab: 'settings', items: [
+    { key: 'excludeExplicit', type: 'toggle' },
+    { key: 'blockedArtists', type: 'list' },
+    { key: 'blockedTracks', type: 'tracks' },
+  ]},
 ];
+const TABS = ['playlist', 'settings'];
+const tabOf = group => group.tab ?? 'playlist';
 // Texte eines Reglers in der aktuellen Sprache; Auswahllisten zeigen ohne eigenes fmt den Namen der Option.
 function textOf(item) {
   const t = T.items[item.key];
@@ -1887,7 +1963,8 @@ let defaults = {};
 let limits = {};             // erlaubte Bereiche und Regler der Zahlenwerte (LIMITS in config.mjs)
 let problems = {};           // ungültige Zahlenwerte aus der config.jsonc: Schlüssel → Meldung des Servers
 let setup = null;           // Stand der Einrichtung vom Server
-let view = '';              // 'setup' oder 'settings'
+let view = '';              // 'setup' (Assistent) oder 'main' (Hauptansicht)
+let tab = 'playlist';       // Tab der Hauptansicht: 'playlist' oder 'settings' (Adress-Hash #settings)
 let activeStep = 1;
 let busy = false;
 let loaded = false;         // Einstellungen geladen?
@@ -1926,6 +2003,7 @@ async function apiJson(path, options) {
   return data;
 }
 const dirty = () => ITEMS.some(i => !same(current[i.key], saved[i.key]));
+const tabDirty = t => GROUPS.some(g => tabOf(g) === t && g.items.some(i => !same(current[i.key], saved[i.key])));
 const showError = msg => { $('banner').textContent = msg; $('banner').hidden = !msg; };
 function setMsg(node, kind, ...content) {
   node.className = `msg ${kind}`;
@@ -1967,7 +2045,7 @@ function setLang(next, { save = true } = {}) {
     T = TEXT[lang];
     renderLang();
     // Meldungen des Servers zur Automatik bzw. zu ungültigen Zahlenwerten in der neuen Sprache holen.
-    if (save && view === 'settings') loadSchedule();
+    if (save && view === 'main') loadSchedule();
     if (Object.keys(problems).length) loadProblems();
   }
   if (save) saveLang();
@@ -2019,8 +2097,8 @@ function build() {
     return p.button;
   }));
 
-  const root = $('groups');
-  root.replaceChildren();
+  const roots = { playlist: $('groups'), settings: $('groups-settings') };
+  for (const root of Object.values(roots)) root.replaceChildren();
   const detailsOpen = varietyControl?.details.open ?? false; // bleibt beim Umschalten der Sprache, wie er war
   for (const group of GROUPS) {
     const section = el('section', {}, [el('h2', { textContent: T.groups[group.id] })]);
@@ -2108,7 +2186,7 @@ function build() {
       controls[item.key] = control;
     }
     if (group.status) section.append(scheduleBox());
-    root.append(section);
+    roots[tabOf(group)].append(section);
   }
 }
 
@@ -2334,6 +2412,12 @@ function refresh(skipInput) {
   $('status').textContent = view === 'setup' ? T.status.setup : busy ? T.status.running : updating() ? T.status.updating
     : importRunning ? T.status.importing : isDirty ? T.status.dirty : T.status.saved;
   $('status').classList.toggle('dirty', view !== 'setup' && isDirty && !working);
+  // Punkt am anderen Tab, wenn dort ungespeicherte Änderungen sind (Speichern und Verwerfen gelten für beide Tabs)
+  for (const t of TABS) {
+    const dot = $(`tab-${t}`).querySelector('.tab-dot');
+    dot.hidden = t === tab || !tabDirty(t);
+    dot.title = T.status.dirty;
+  }
   $('save').disabled = working || !isDirty;
   $('discard').disabled = working || !isDirty;
   $('dry').disabled = working;
@@ -2522,7 +2606,7 @@ function watchSchedule() {
   const running = last?.startedAt && last.ok === null && Date.now() - Date.parse(last.startedAt) < 35 * 60_000;
   const untilNext = scheduleInfo?.nextRun ? Date.parse(scheduleInfo.nextRun) - Date.now() + 30_000 : NaN;
   const wait = running ? 10_000 : untilNext > 0 && untilNext < 24 * 3600_000 ? untilNext : null;
-  if (wait != null) scheduleTimer = setTimeout(() => { if (view === 'settings') loadSchedule(); }, wait);
+  if (wait != null) scheduleTimer = setTimeout(() => { if (view === 'main') loadSchedule(); }, wait);
 }
 
 // "Automatik speichern" bzw. "Eintrag entfernen": gespeicherte Einstellung neu eintragen.
@@ -3012,7 +3096,7 @@ function scopeNeeded() {
 function renderNotice() {
   const age = setup?.authAgeDays;
   const reason = noticeReason ?? (loginNeeded(scheduleInfo?.lastRun) ? 'auto' : scopeNeeded() ? 'scope' : age != null && age >= 170 ? 'age' : null);
-  $('notice').hidden = view !== 'settings' || !reason;
+  $('notice').hidden = view !== 'main' || !reason;
   $('notice-login').hidden = reason === 'done';
   const left = 180 - (age ?? 0);
   $('notice-text').textContent = reason === 'done' ? T.notice.done
@@ -3075,7 +3159,7 @@ function renderUpdate() {
     : phase === 'slow' ? T.update.slow
     : phase === 'error' ? upd.text || T.update.failed : '';
   setMsg($('update-msg'), { done: 'ok', manual: 'ok', slow: 'warn', error: 'err' }[phase] ?? '', msg);
-  // Eigene Version dezent unten auf der Seite, sobald sie bekannt ist, daneben „Nach Updates suchen“ (nur, wenn die
+  // Eigene Version im Tab „Einstellungen“, sobald sie bekannt ist, daneben „Nach Updates suchen“ (nur, wenn die
   // Prüfung nicht abgeschaltet ist) und dessen Ergebnis.
   const version = typeof u?.current === 'string' ? bare(u.current) : '';
   $('version').hidden = !version;
@@ -3196,13 +3280,44 @@ function renderHeader() {
 function showView(name) {
   view = name;
   $('setup').hidden = name !== 'setup';
-  $('settings').hidden = name !== 'settings';
-  $('bar').hidden = name !== 'settings';
-  $('main').classList.toggle('no-bar', name !== 'settings');
-  $('open-setup').hidden = name !== 'settings';
+  $('main-view').hidden = name !== 'main';
+  $('bar').hidden = name !== 'main';
+  $('main').classList.toggle('no-bar', name !== 'main');
   renderHeader();
+  renderTabs();
   refresh();
   renderNotice();
+}
+
+// --- Tabs der Hauptansicht: „Playlist“ (ohne Hash) und „Einstellungen“ (#settings) ---
+
+const tabHash = t => (t === 'settings' ? '#settings' : '');
+const hashTab = () => (location.hash === '#settings' ? 'settings' : 'playlist');
+
+// push: neuer Eintrag im Verlauf (Klick, Pfeiltasten), damit „Zurück“ den vorigen Tab zeigt; sonst nur die Adresse anpassen.
+function showTab(next, { push = false, focus = false } = {}) {
+  tab = TABS.includes(next) ? next : 'playlist';
+  if (location.hash !== tabHash(tab)) history[push ? 'pushState' : 'replaceState'](null, '', location.pathname + location.search + tabHash(tab));
+  renderTabs();
+  if (loaded) refresh(); // Punkt am anderen Tab
+  if (focus) $(`tab-${tab}`).focus();
+}
+
+function renderTabs() {
+  for (const t of TABS) {
+    const active = t === tab;
+    $(`tab-${t}`).setAttribute('aria-selected', String(active));
+    $(`tab-${t}`).tabIndex = active ? 0 : -1;
+    $(`panel-${t}`).hidden = !active;
+  }
+  // Im Tab „Einstellungen“ nur Verwerfen und Speichern; Probelauf und Neuerstellung gehören zur Playlist.
+  $('dry').hidden = $('run').hidden = tab !== 'playlist';
+}
+
+// Abschnitt „Zugangsdaten“: Stand in einer Zeile – angemeldet ja/nein und Last.fm-Benutzer, nie Client ID oder API-Key.
+function renderCredentials() {
+  const { loggedIn, credentials } = setup;
+  $('cred-state').textContent = `${loggedIn ? T.cred.loggedIn : T.cred.loggedOut} · ${credentials.user ? T.cred.user(credentials.user) : T.cred.noUser}`;
 }
 
 function openSetup(step, manual = false) {
@@ -3244,6 +3359,7 @@ function renderSetup() {
   $('w-finish').disabled = setup.needsSetup;
   $('w-close').hidden = setup.needsSetup || !fromSettings;
   renderLogin();
+  renderCredentials();
 }
 
 async function saveSetup(values) {
@@ -3371,9 +3487,24 @@ function wireSetup() {
   loginBox($('notice-login'), () => T.login.start);
   $('w-login-next').onclick = () => openStep(4, true);
   $('w-seed-save').onclick = saveSeed;
-  $('w-finish').onclick = () => { showView('settings'); scrollTo(0, 0); };
-  $('w-close').onclick = () => { showView('settings'); scrollTo(0, 0); };
+  // „Zu den Reglern“ führt in den Tab „Playlist“, „Zurück zu den Einstellungen“ dorthin, woher der Knopf kam.
+  $('w-finish').onclick = () => { showTab('playlist'); showView('main'); scrollTo(0, 0); };
+  $('w-close').onclick = () => { showTab('settings'); showView('main'); scrollTo(0, 0); };
   $('open-setup').onclick = () => openSetup(1, true);
+}
+
+function wireTabs() {
+  for (const t of TABS) $(`tab-${t}`).onclick = () => showTab(t, { push: true });
+  // Pfeiltasten, Pos1 und Ende wechseln zwischen den Tabs (übliche Bedienung von role="tablist")
+  $('tabs').onkeydown = e => {
+    const i = TABS.indexOf(tab);
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    showTab(TABS[(next + TABS.length) % TABS.length], { push: true, focus: true });
+  };
+  // Zurück/Vor im Browser bzw. Hash von Hand geändert: Tab aus der Adresse
+  window.addEventListener('popstate', () => { if (view === 'main') showTab(hashTab()); });
 }
 
 $('lang').onchange = () => setLang($('lang').value);
@@ -3406,16 +3537,20 @@ $('update-go').onclick = installUpdate;
 window.addEventListener('beforeunload', e => { if (dirty() && !reloading) e.preventDefault(); });
 // Zurück auf der Seite (z. B. am nächsten Morgen): Stand der Automatik und letzten Lauf neu holen.
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden || view !== 'settings') return;
+  if (document.hidden || view !== 'main') return;
   loadSchedule();
   if (trial) refreshTrial();
 });
 
 wireSetup();
+wireTabs();
 renderLang();
 load().then(async () => {
   if (setup.needsSetup || ['#einrichtung', '#setup'].includes(location.hash)) openSetup(undefined, !setup.needsSetup);
-  else showView('settings');
+  else {
+    tab = hashTab();
+    showView('main');
+  }
   loadPlaylists();
   loadSchedule();
   // Läuft noch eine Anmeldung (z. B. nach Neuladen der Seite)? Dann weiter verfolgen.
