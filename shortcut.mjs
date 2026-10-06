@@ -399,7 +399,7 @@ export async function createShortcut(opts = {}) {
   if (current.entry && !platform.check(current.entry, o).own) throw tError(o.lang, 'shortcut.foreign', { file: current.file });
   await platform.write(o, current);
   const status = await shortcutStatus(opts);
-  if (!status.matches) throw new Error(status.message || t(o.lang, 'shortcut.notMatching', { problem: status.state }));
+  if (!status.matches) throw new Error(status.message || t(o.lang, 'shortcut.notMatching', { problem: t(o.lang, `shortcut.state.${status.state}`) }));
   return status;
 }
 

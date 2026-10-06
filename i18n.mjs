@@ -237,6 +237,10 @@ export const MESSAGES = {
     'shortcut.reports': '{who} meldet: {message}',
     'shortcut.exitCode': 'Fehlercode {code}',
     'shortcut.notMatching': 'Die Verknüpfung stimmt danach nicht ({problem}).',
+    'shortcut.state.missing': 'keine Verknüpfung gefunden',
+    'shortcut.state.otherFolder': 'zeigt auf einen anderen Ordner',
+    'shortcut.state.outdated': 'Einzelheiten wie Ziel oder Symbol weichen ab',
+    'shortcut.state.foreign': 'eine andere Datei gleichen Namens',
     'shortcut.description': 'Startet Tweakable DJ for Spotify (Ordner: {dir})',
 
     // --- notify.mjs (Systembenachrichtigungen) ---
@@ -509,6 +513,10 @@ export const MESSAGES = {
     'shortcut.reports': '{who} reports: {message}',
     'shortcut.exitCode': 'exit code {code}',
     'shortcut.notMatching': 'The shortcut still doesn’t match afterwards ({problem}).',
+    'shortcut.state.missing': 'no shortcut found',
+    'shortcut.state.otherFolder': 'points to a different folder',
+    'shortcut.state.outdated': 'details such as target or icon differ',
+    'shortcut.state.foreign': 'another file with the same name',
     'shortcut.description': 'Starts Tweakable DJ for Spotify (folder: {dir})',
 
     // --- notify.mjs (system notifications) ---
@@ -782,6 +790,10 @@ export const MESSAGES = {
     'shortcut.reports': '{who} informa: {message}',
     'shortcut.exitCode': 'código de error {code}',
     'shortcut.notMatching': 'El acceso directo sigue sin coincidir ({problem}).',
+    'shortcut.state.missing': 'no se encontró el acceso directo',
+    'shortcut.state.otherFolder': 'apunta a otra carpeta',
+    'shortcut.state.outdated': 'difieren detalles como el destino o el icono',
+    'shortcut.state.foreign': 'otro archivo con el mismo nombre',
     'shortcut.description': 'Inicia Tweakable DJ for Spotify (carpeta: {dir})',
 
     // --- notify.mjs (Systembenachrichtigungen) ---
@@ -1056,6 +1068,10 @@ export const MESSAGES = {
     'shortcut.reports': '{who} signale : {message}',
     'shortcut.exitCode': 'code d’erreur {code}',
     'shortcut.notMatching': 'Le raccourci ne correspond toujours pas ({problem}).',
+    'shortcut.state.missing': 'raccourci introuvable',
+    'shortcut.state.otherFolder': 'pointe vers un autre dossier',
+    'shortcut.state.outdated': 'des détails comme la cible ou l’icône diffèrent',
+    'shortcut.state.foreign': 'un autre fichier du même nom',
     'shortcut.description': 'Lance Tweakable DJ for Spotify (dossier : {dir})',
 
     // --- notify.mjs (Systembenachrichtigungen) ---
