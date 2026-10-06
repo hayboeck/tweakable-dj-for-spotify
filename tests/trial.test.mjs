@@ -33,8 +33,9 @@ test('settingsHash: nur Einstellungen, die die Auswahl bestimmen, dazu Spotify-A
   const base = settingsHash(cfg());
   assert.match(base, /^[0-9a-f]{16}$/);
   assert.equal(settingsHash(cfg()), base, 'gleich bei gleichen Werten');
-  // Automatik und Sprache ändern nichts an der Auswahl
-  for (const extra of [{ schedule: 'daily' }, { scheduleTime: '05:30' }, { scheduleDay: 'FRI' }, { language: 'en' }]) {
+  // Automatik, Sprache, Archiv und Aussehen ändern nichts an der Auswahl
+  for (const extra of [{ schedule: 'daily' }, { scheduleTime: '05:30' }, { scheduleDay: 'FRI' }, { language: 'en' }, { archiveCount: 5 },
+    { theme: 'dark' }, { accent: 'blue' }]) {
     assert.equal(settingsHash(cfg(extra)), base, JSON.stringify(extra));
   }
   assert.deepEqual(TRIAL_KEYS.filter(k => ['schedule', 'scheduleTime', 'scheduleDay', 'language'].includes(k)), []);

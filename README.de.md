@@ -243,6 +243,15 @@ Den Zeitplan selbst (`schedule`, `scheduleTime`, `scheduleDay`) stellst du am ei
 |---|---|---|
 | Frühere Playlists aufheben (`archiveCount`): Nach jedem Schreiben der Playlist kommt sie als Textdatei in den Ordner `archiv`; so viele der neuesten bleiben, ältere löscht Tweakable DJ selbst. 0 = aus: Es wird nichts gespeichert, vorhandene Dateien bleiben. Siehe [Playlist-Archiv](#playlist-archiv). | 20 | 0–200 |
 
+**Aussehen**
+
+| Einstellung | Standard | Erlaubt |
+|---|---|---|
+| Modus der Oberfläche (`theme`): `"system"` richtet sich nach deinem Gerät, `"light"` = immer hell, `"dark"` = immer dunkel | `"system"` | `"system"`, `"light"`, `"dark"` |
+| Akzentfarbe der Oberfläche (`accent`): Farbe von Links, Reglern und Buttons | `"green"` | `"green"`, `"blue"`, `"violet"`, `"pink"`, `"red"`, `"orange"`, `"gold"`, `"teal"` |
+
+Beide ändern nur die Oberfläche, nicht die Playlist; ein Probelauf bleibt deshalb übernehmbar.
+
 **Sprache**
 
 | Einstellung | Standard |
@@ -258,7 +267,7 @@ Den Zeitplan selbst (`schedule`, `scheduleTime`, `scheduleDay`) stellst du am ei
 Doppelklick auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac), unter Linux im Terminal `./start.sh`. Überall geht auch `node ui.mjs` im Terminal. Der Browser öffnet <http://127.0.0.1:8899>.
 Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-einrichtung-einmalig), Schritt 3. Ist Tweakable DJ noch nicht eingerichtet, erscheint statt der Regler der Einrichtungs-Assistent.
 
-Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Textdatei und Probelauf) und **Einstellungen** (Automatik, Sperrliste, Archiv, Zugangsdaten, Version).
+Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Textdatei und Probelauf) und **Einstellungen** (Automatik, Sperrliste, Archiv, Aussehen, Zugangsdaten, Version).
 
 - **Sprache** (oben rechts, ein kleines Auswahlfeld, z. B. **DE ▾**, mit Deutsch, English, Español und Français): schaltet die ganze Oberfläche sofort um, auch im Assistenten. Die Wahl wird in `config.jsonc` gespeichert (`language`) und gilt dann auch für Probelauf, Neuerstellung, automatische Läufe und das Terminal. Solange du nichts wählst, richtet sich die Oberfläche nach der Sprache deines Browsers. Spanisch und Französisch sind maschinell übersetzt; eine Zeile ganz unten auf der Seite weist darauf hin und verlinkt die [Issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), wo Korrekturen willkommen sind.
 - **Voreinstellungen**: Vier Buttons setzen alle Regel-Regler auf einmal:
@@ -273,6 +282,7 @@ Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Tex
 - **Quelle deiner Favoriten**: Auswahlliste mit deinen Lieblingssongs und deinen Playlists. Zur Auswahl stehen nur Playlists, die dir gehören oder bei denen du mitarbeitest, weil Spotify nur deren Inhalt herausgibt.
 - **Sperrliste** (Tab *Einstellungen*): Künstler, einzelne Songs und explizite Songs, siehe [Sperrliste](#sperrliste-künstler-und-songs) weiter unten.
 - **Archiv** (Tab *Einstellungen*): wie viele frühere Playlists als Textdatei aufgehoben werden, siehe [Playlist-Archiv](#playlist-archiv).
+- **Aussehen** (Tab *Einstellungen*): *Modus* (*System*, *Hell*, *Dunkel*; *System* folgt der Einstellung deines Geräts) und eine von 8 *Akzentfarben* als runde Farbfelder (Grün ist der Standard). Eine Änderung siehst du sofort; *Speichern* behält sie, *Verwerfen* holt die bisherige zurück. Damit beim Öffnen nichts aufblitzt, merkt sich der Browser zusätzlich die gespeicherte Wahl.
 - **Speichern / Verwerfen**: Änderungen werden erst mit *Speichern* in `config.jsonc` geschrieben. Beides gilt für beide Tabs; ein Punkt am anderen Tab zeigt dort ungespeicherte Änderungen. Im Tab *Einstellungen* gibt es nur diese zwei Buttons.
 - **Probelauf**: Zeigt die Auswahl an, ohne die Playlist zu ändern. Darunter:
   - **Diese Liste übernehmen**: schreibt genau diese Songs in dieser Reihenfolge in „Tweakable DJ“, ohne neu zu losen, samt Beschreibung. Das zählt wie ein Lauf (die Songs sind danach für *Vorige Läufe sperren* gemerkt). Der Button gilt 24 Stunden und nur, solange die Einstellungen so bleiben wie beim Probelauf; danach, nach einer Neuerstellung (auch durch die Automatik) oder wenn `probelauf.json` fehlt, ist er gesperrt und sagt, warum. Dann einfach einen neuen Probelauf starten. Zurückgestellte Regler machen ihn wieder frei.

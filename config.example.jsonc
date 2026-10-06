@@ -48,6 +48,10 @@
   "scheduleDay": "MON",               // Day of the week for "weekly": "MON", "TUE", "WED", "THU", "FRI", "SAT" or "SUN"
   "notifyOnFailure": true,            // Show a system notification when an automatic run fails (e.g. Spotify login expired); false = off
 
+  // --- Appearance ---
+  "theme": "system",                  // Mode of the interface: "system" = like your device, "light" or "dark"
+  "accent": "green",                  // Accent color of the interface: "green", "blue", "violet", "pink", "red", "orange", "gold" or "teal"
+
   // --- Language ---
   "language": ""                      // Language of the interface and output: "en" = English, "de" = German, "es" = Spanish, "fr" = French, "" = not chosen yet (system language)
 }

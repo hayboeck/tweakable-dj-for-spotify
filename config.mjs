@@ -44,6 +44,8 @@ export const DEFAULTS = {
   scheduleTime: '07:00',
   scheduleDay: 'MON',
   notifyOnFailure: true, // Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt (notify.mjs)
+  theme: 'system', // Aussehen der Oberfläche: 'system', 'light' oder 'dark' (THEMES)
+  accent: 'green', // Akzentfarbe der Oberfläche (ACCENTS); beide ändern die Playlist nicht
   language: '', // '' = noch nicht gewählt, dann gilt die Systemsprache
 };
 
@@ -102,6 +104,10 @@ export const varietyLevel = cfg => VARIETY_LEVELS.find(l => VARIETY_KEYS.every(k
 export const SCHEDULES = ['off', 'daily', 'weekly'];
 export const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// Aussehen der Oberfläche (ui.html): Modus und Akzentfarbe. Die Farbwerte je Modus stehen im CSS von ui.html.
+export const THEMES = ['system', 'light', 'dark'];
+export const ACCENTS = ['green', 'blue', 'violet', 'pink', 'red', 'orange', 'gold', 'teal'];
 
 // "liked" oder eine Spotify-Playlist (Link, URI oder ID) – so versteht es dj.mjs.
 const SEED = /^(liked|https:\/\/open\.spotify\.com\/playlist\/[A-Za-z0-9]+(\?\S*)?|spotify:playlist:[A-Za-z0-9]+|[A-Za-z0-9]{22})$/;
@@ -275,6 +281,8 @@ export function checkValue(key, value, lang) {
   if (key === 'schedule' && !SCHEDULES.includes(value)) throw tError(lang, 'config.badSchedule');
   if (key === 'scheduleTime' && !TIME.test(value)) throw tError(lang, 'config.badTime');
   if (key === 'scheduleDay' && !WEEKDAYS.includes(value)) throw tError(lang, 'config.badDay', { days: WEEKDAYS.join(', ') });
+  if (key === 'theme' && !THEMES.includes(value)) throw tError(lang, 'config.badChoice', { key, values: THEMES.join(', ') });
+  if (key === 'accent' && !ACCENTS.includes(value)) throw tError(lang, 'config.badChoice', { key, values: ACCENTS.join(', ') });
   return value;
 }
 

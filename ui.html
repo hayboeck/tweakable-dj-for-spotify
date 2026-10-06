@@ -5,32 +5,60 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tweakable DJ for Spotify</title>
 <style>
+  /* Farben: hell als Standard, dunkel mit data-mode="dark" am <html>. Das setzt applyLook() (Skript im <head>, vor dem ersten
+     Zeichnen): Modus „System“ folgt prefers-color-scheme, „Hell“ bzw. „Dunkel“ gelten fest (Einstellung theme).
+     Akzentfarbe über data-accent (ohne = Grün, Einstellung accent): je Farbe --a-<name> für Text, Links und Knöpfe und
+     --a-<name>-soft für markierte Flächen, beide je Modus; --on-accent = Schrift auf Knöpfen in der Akzentfarbe.
+     Kontrast als Text auf Hintergrund, Karte und Soft-Fläche sowie der Knopfschrift mind. 4,6:1 (WCAG AA) – außer beim
+     bisherigen Grün im hellen Modus (unverändert, 3,8:1 auf dem Hintergrund). */
   :root {
     --bg: #f5f6f8;
     --card: #ffffff;
     --text: #16181d;
     --muted: #5d6470;
     --border: #e1e4e9;
-    --accent: #1b8f4d;
-    --accent-soft: #e6f4ec;
     --warn: #a66300;
     --danger: #b3261e;
     --shadow: 0 1px 2px rgba(0, 0, 0, .05);
+    --a-green: #1b8f4d; --a-green-soft: #e6f4ec;
+    --a-blue: #1d69c5; --a-blue-soft: #e8f0f9;
+    --a-violet: #7c4dd8; --a-violet-soft: #f2edfb;
+    --a-pink: #bc2f7a; --a-pink-soft: #f8eaf2;
+    --a-red: #c42b3c; --a-red-soft: #f9eaec;
+    --a-orange: #a85100; --a-orange-soft: #f6eee6;
+    --a-gold: #876600; --a-gold-soft: #f3f0e6;
+    --a-teal: #007872; --a-teal-soft: #e6f2f1;
+    --on-accent: #fff;
+    --accent: var(--a-green);
+    --accent-soft: var(--a-green-soft);
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f1115;
-      --card: #171a21;
-      --text: #e8eaed;
-      --muted: #9aa1ad;
-      --border: #2a2f3a;
-      --accent: #3ecf7a;
-      --accent-soft: #1b2c22;
-      --warn: #f0b049;
-      --danger: #ff8a80;
-      --shadow: none;
-    }
+  :root[data-mode="dark"] {
+    --bg: #0f1115;
+    --card: #171a21;
+    --text: #e8eaed;
+    --muted: #9aa1ad;
+    --border: #2a2f3a;
+    --warn: #f0b049;
+    --danger: #ff8a80;
+    --shadow: none;
+    --a-green: #3ecf7a; --a-green-soft: #1b2c22;
+    --a-blue: #6aa8ff; --a-blue-soft: #232e40;
+    --a-violet: #b39bff; --a-violet-soft: #2d2c40;
+    --a-pink: #ff8cc6; --a-pink-soft: #372a38;
+    --a-red: #ff7a8a; --a-red-soft: #372730;
+    --a-orange: #ffa24d; --a-orange-soft: #372d27;
+    --a-gold: #e8c14a; --a-gold-soft: #343127;
+    --a-teal: #3fd1c6; --a-teal-soft: #1d3438;
+    --on-accent: #0f1115;
   }
+  :root[data-mode="dark"]:not([data-accent]) { --on-accent: #0b1a11; }
+  :root[data-accent="blue"] { --accent: var(--a-blue); --accent-soft: var(--a-blue-soft); }
+  :root[data-accent="violet"] { --accent: var(--a-violet); --accent-soft: var(--a-violet-soft); }
+  :root[data-accent="pink"] { --accent: var(--a-pink); --accent-soft: var(--a-pink-soft); }
+  :root[data-accent="red"] { --accent: var(--a-red); --accent-soft: var(--a-red-soft); }
+  :root[data-accent="orange"] { --accent: var(--a-orange); --accent-soft: var(--a-orange-soft); }
+  :root[data-accent="gold"] { --accent: var(--a-gold); --accent-soft: var(--a-gold-soft); }
+  :root[data-accent="teal"] { --accent: var(--a-teal); --accent-soft: var(--a-teal-soft); }
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -61,7 +89,7 @@
   .lang { position: relative; display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); padding: 4px 9px 4px 11px; font-size: 13px; font-weight: 600; letter-spacing: .03em; line-height: 1.5; color: var(--muted); white-space: nowrap; }
   .lang .caret { font-size: 10px; letter-spacing: 0; }
   .lang:hover { color: var(--accent); border-color: var(--accent); }
-  .lang select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 999px; opacity: 0; cursor: pointer; font-size: 16px; color-scheme: light dark; }
+  .lang select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 999px; opacity: 0; cursor: pointer; font-size: 16px; color-scheme: light; }
   .lang:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
   .lang:focus-within:not(:has(select:focus-visible)) { outline: none; }
   .banner { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--danger); color: var(--danger); }
@@ -162,7 +190,7 @@
   .seg input:checked + span { background: var(--accent-soft); color: var(--accent); }
   .seg input:disabled + span { opacity: .5; }
   .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
-  input[type=time] { margin-top: 8px; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; color-scheme: light dark; }
+  input[type=time] { margin-top: 8px; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; color-scheme: light; }
   select.short, input[type=time] { display: block; width: auto; min-width: 160px; max-width: 100%; }
   .facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: 14px; }
   .facts dt { color: var(--muted); }
@@ -211,8 +239,7 @@
   .bar-inner { max-width: 760px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
   button.btn { font: inherit; font-weight: 600; padding: 9px 14px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
   button.btn.small { padding: 5px 10px; font-size: 13.5px; }
-  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  @media (prefers-color-scheme: dark) { button.btn.primary { color: #0b1a11; } }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   button.btn:disabled { opacity: .5; cursor: default; }
 
   .out-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 8px; }
@@ -249,12 +276,49 @@
   .credit a { color: inherit; }
   .credit .mt-note { margin-bottom: 6px; font-style: italic; }
   .credit .mt-note:empty { display: none; }
+  /* Bedienelemente des Systems (Auswahlliste der Sprache, Uhrzeit) im Modus der Seite */
+  :root[data-mode="dark"] .lang select, :root[data-mode="dark"] input[type=time] { color-scheme: dark; }
+  /* Aussehen: Akzentfarben als runde Farbfelder (Radio-Gruppe, Pfeiltasten wählen); die gewählte mit Ring und ✓ */
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .swatch { position: relative; width: 36px; height: 36px; }
+  .swatch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .swatch span { position: absolute; inset: 4px; display: grid; place-items: center; border-radius: 50%; font-size: 15px; font-weight: 700; color: #fff; pointer-events: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); }
+  :root[data-mode="dark"] .swatch span { color: #0f1115; }
+  .swatch input:checked + span { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--text); }
+  .swatch input:checked + span::after { content: "✓"; }
+  .swatch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 5px; }
   /* Tab „Einstellungen“: Zugangsdaten und Version; „Nach Updates suchen“ wie ein Link, Ergebnis gleich daneben */
   #credentials .row > p, #version .row > p { margin: 0; }
   #credentials .actions { margin-top: 10px; }
   #update-check-msg.ok { color: var(--accent); }
   #update-check-msg.err { color: var(--danger); }
 </style>
+<script>
+// Aussehen (Einstellungen theme und accent) auf die Seite anwenden: data-mode ('light' oder 'dark'; bei 'system' nach der
+// Einstellung des Systems, auch wenn sie sich ändert) und data-accent (fehlt bei Grün) am <html>. Läuft vor dem ersten
+// Zeichnen mit den zuletzt gespeicherten Werten aus diesem Browser, damit beim Laden nichts aufblitzt; danach ruft das
+// Skript unten applyLook() mit den Werten der Regler auf (Vorschau) und merkt sich gespeicherte Werte (rememberLook).
+// Erlaubte Werte wie ACCENTS bzw. THEMES in config.mjs (auch für die Regler unten); unbekannte zählen wie der Standard.
+const ACCENT_NAMES = ['green', 'blue', 'violet', 'pink', 'red', 'orange', 'gold', 'teal'];
+const THEME_NAMES = ['system', 'light', 'dark'];
+const LOOK_KEY = 'tweakable-dj-look';
+const darkQuery = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+let look = { theme: 'system', accent: 'green' };
+function applyLook(theme, accent) {
+  look = { theme, accent };
+  const root = document.documentElement;
+  root.dataset.mode = theme === 'dark' || (theme !== 'light' && darkQuery?.matches) ? 'dark' : 'light';
+  if (ACCENT_NAMES.includes(accent) && accent !== 'green') root.dataset.accent = accent;
+  else delete root.dataset.accent;
+}
+darkQuery?.addEventListener?.('change', () => applyLook(look.theme, look.accent));
+try {
+  const saved = JSON.parse(localStorage.getItem(LOOK_KEY)) ?? {};
+  applyLook(saved.theme, saved.accent);
+} catch {
+  applyLook('system', 'green'); // kein Speicher im Browser (z. B. privates Fenster): Standard
+}
+</script>
 </head>
 <body>
 <!-- Alle Texte stehen unten im Skript in TEXT.de, TEXT.en, TEXT.es und TEXT.fr (page): data-t = Text, data-html = Text mit Auszeichnung, data-ph = Platzhalter. -->
@@ -609,6 +673,7 @@ const TEXT = {
       blocked: 'Sperrliste',
       auto: 'Automatisch neu erstellen',
       archive: 'Archiv',
+      appearance: 'Aussehen',
     },
     items: {
       playlistName: { label: 'Name der Playlist', help: 'Wird angelegt, falls es sie noch nicht gibt.' },
@@ -649,6 +714,10 @@ const TEXT = {
         help: 'Sperren mit × in der Liste eines Probelaufs; andere Versionen (z. B. Live) sind mitgesperrt.' },
       archiveCount: { label: 'Frühere Playlists aufheben', fmt: v => (v ? plural(v, 'Playlist', 'Playlists') : 'aus'),
         help: 'Jede geschriebene Playlist als Textdatei im Ordner „archiv“ von Tweakable DJ; zurückholen mit „Importieren … → Frühere Playlist …“.' },
+      theme: { label: 'Modus', options: { system: 'System', light: 'Hell', dark: 'Dunkel' },
+        help: '„System“ folgt deinem Gerät. Änderungen siehst du sofort; „Speichern“ behält sie.' },
+      accent: { label: 'Akzentfarbe',
+        options: { green: 'Grün', blue: 'Blau', violet: 'Violett', pink: 'Pink', red: 'Rot', orange: 'Orange', gold: 'Gold', teal: 'Türkis' } },
       schedule: { label: 'Wie oft', options: { off: 'Aus', daily: 'Täglich', weekly: 'Wöchentlich' },
         help: 'Erstellt die Playlist zur eingestellten Zeit von selbst neu.' },
       scheduleDay: { label: 'Wochentag',
@@ -966,6 +1035,7 @@ const TEXT = {
       blocked: 'Block list',
       auto: 'Rebuild automatically',
       archive: 'Archive',
+      appearance: 'Appearance',
     },
     items: {
       playlistName: { label: 'Playlist name', help: 'Created if it doesn’t exist yet.' },
@@ -1006,6 +1076,10 @@ const TEXT = {
         help: 'Block with the × in the list of a test run; other versions (e.g. live) are blocked too.' },
       archiveCount: { label: 'Keep earlier playlists', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'off'),
         help: 'Each written playlist as a text file in the “archiv” folder of Tweakable DJ; restore it with “Import … → Earlier playlist …”.' },
+      theme: { label: 'Mode', options: { system: 'System', light: 'Light', dark: 'Dark' },
+        help: '“System” follows your device. You see changes right away; “Save” keeps them.' },
+      accent: { label: 'Accent color',
+        options: { green: 'Green', blue: 'Blue', violet: 'Violet', pink: 'Pink', red: 'Red', orange: 'Orange', gold: 'Gold', teal: 'Teal' } },
       schedule: { label: 'How often', options: { off: 'Off', daily: 'Daily', weekly: 'Weekly' },
         help: 'Rebuilds the playlist by itself at the set time.' },
       scheduleDay: { label: 'Day of the week',
@@ -1315,6 +1389,7 @@ const TEXT = {
       blocked: 'Lista de bloqueo',
       auto: 'Recrear automáticamente',
       archive: 'Historial',
+      appearance: 'Apariencia',
     },
     items: {
       playlistName: { label: 'Nombre de la playlist', help: 'Se crea si todavía no existe.' },
@@ -1355,6 +1430,10 @@ const TEXT = {
         help: 'Se bloquea con la × en la lista de una prueba; también otras versiones (p. ej. en directo).' },
       archiveCount: { label: 'Guardar playlists anteriores', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'no'),
         help: 'Cada playlist escrita, como archivo de texto en la carpeta «archiv» de Tweakable DJ; se recupera con «Importar … → Playlist anterior …».' },
+      theme: { label: 'Modo', options: { system: 'Sistema', light: 'Claro', dark: 'Oscuro' },
+        help: '«Sistema» sigue la configuración de tu dispositivo. Los cambios se ven al instante; «Guardar» los conserva.' },
+      accent: { label: 'Color de acento',
+        options: { green: 'Verde', blue: 'Azul', violet: 'Violeta', pink: 'Rosa', red: 'Rojo', orange: 'Naranja', gold: 'Dorado', teal: 'Turquesa' } },
       schedule: { label: 'Con qué frecuencia', options: { off: 'No', daily: 'A diario', weekly: 'Cada semana' },
         help: 'Recrea la playlist por sí solo a la hora indicada.' },
       scheduleDay: { label: 'Día de la semana',
@@ -1665,6 +1744,7 @@ const TEXT = {
       blocked: 'Liste de blocage',
       auto: 'Recréer automatiquement',
       archive: 'Archives',
+      appearance: 'Apparence',
     },
     items: {
       playlistName: { label: 'Nom de la playlist', help: 'Créée si elle n’existe pas encore.' },
@@ -1705,6 +1785,10 @@ const TEXT = {
         help: 'Bloque avec le × dans la liste d’un essai ; les autres versions (p. ex. live) sont bloquées aussi.' },
       archiveCount: { label: 'Garder les playlists précédentes', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'désactivé'),
         help: 'Chaque playlist écrite, en fichier texte dans le dossier « archiv » de Tweakable DJ – à récupérer via « Importer … → Playlist précédente … ».' },
+      theme: { label: 'Mode', options: { system: 'Système', light: 'Clair', dark: 'Sombre' },
+        help: '« Système » suit le réglage de ton appareil. Les changements s’affichent tout de suite – « Enregistrer » les garde.' },
+      accent: { label: 'Couleur d’accent',
+        options: { green: 'Vert', blue: 'Bleu', violet: 'Violet', pink: 'Rose', red: 'Rouge', orange: 'Orange', gold: 'Or', teal: 'Turquoise' } },
       schedule: { label: 'Fréquence', options: { off: 'Désactivé', daily: 'Tous les jours', weekly: 'Chaque semaine' },
         help: 'Recrée la playlist tout seul à l’heure choisie.' },
       scheduleDay: { label: 'Jour de la semaine',
@@ -1918,6 +2002,10 @@ const store = key => ({
 });
 // Wahl, die noch nicht in der config.jsonc steht (Speichern fehlgeschlagen) – wird beim nächsten Laden nachgereicht.
 const pendingLang = store('tweakable-dj-language');
+// Gespeichertes Aussehen (theme, accent aus der config.jsonc) auch im Browser merken: So färbt das Skript im <head> die
+// Seite beim nächsten Laden gleich richtig, bevor die Einstellungen da sind.
+const lookStore = store(LOOK_KEY);
+const rememberLook = () => lookStore.set(JSON.stringify({ theme: saved.theme, accent: saved.accent }));
 // Sprache des Browsers: de*, es*, fr* → diese Sprache, alles andere Englisch.
 const browserLang = () => {
   const code = (navigator.language || '').slice(0, 2).toLowerCase();
@@ -2027,10 +2115,15 @@ const GROUPS = [
   { id: 'archive', tab: 'settings', items: [
     { key: 'archiveCount' },
   ]},
+  // Aussehen: Modus und Akzentfarbe (Werte aus dem Skript im <head>); wirken sofort als Vorschau (applyLook in refresh)
+  { id: 'appearance', tab: 'settings', items: [
+    { key: 'theme', type: 'choice', options: THEME_NAMES },
+    { key: 'accent', type: 'swatches', options: ACCENT_NAMES },
+  ]},
 ];
 // Einstellungen, die die Auswahl eines Probelaufs nicht ändern (wie NOT_RELEVANT in trial.mjs): Ändert man sie, bleibt
 // „Diese Liste übernehmen“ möglich.
-const NOT_FOR_TRIAL = [...SCHEDULE_KEYS, 'notifyOnFailure', 'archiveCount'];
+const NOT_FOR_TRIAL = [...SCHEDULE_KEYS, 'notifyOnFailure', 'archiveCount', 'theme', 'accent'];
 const TABS = ['playlist', 'settings'];
 const tabOf = group => group.tab ?? 'playlist';
 // Texte eines Reglers in der aktuellen Sprache; Auswahllisten zeigen ohne eigenes fmt den Namen der Option.
@@ -2258,6 +2351,15 @@ function build() {
         input = attr(el('div', { className: 'seg', id }, control.radios.map((r, i) => el('label', {}, [r, el('span', { textContent: text.options[item.options[i]] })]))),
           { role: 'radiogroup', 'aria-labelledby': `${id}-label` });
         control.row = el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, hint, help, reset]);
+      } else if (item.type === 'swatches') {
+        // Runde Farbfelder, technisch eine Gruppe von Radio-Buttons mit dem Namen der Farbe (Pfeiltasten wählen)
+        label = el('span', { className: 'label', id: `${id}-label`, textContent: text.label });
+        control.radios = item.options.map(value => attr(el('input', { type: 'radio', name: id, value, onchange: () => set(item.key, value) }),
+          { 'aria-label': text.options[value] }));
+        input = attr(el('div', { className: 'swatches', id }, control.radios.map((r, i) => el('label', { className: 'swatch', title: text.options[item.options[i]] }, [
+          r, attr(el('span'), { style: `background: var(--a-${item.options[i]})` }),
+        ]))), { role: 'radiogroup', 'aria-labelledby': `${id}-label` });
+        control.row = el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label, out]), input, hint, help, reset]);
       } else if (item.type === 'select') {
         input = el('select', { id, className: 'short', onchange: () => set(item.key, input.value) },
           item.options.map(value => el('option', { value, textContent: text.options[value] })));
@@ -2502,7 +2604,7 @@ function refresh(skipInput) {
       else if (item.type === 'seed') fillSeedSelect(input, v);
       else if (item.type === 'list') renderTags(control, v ?? []);
       else if (item.type === 'tracks') renderTrackTags(control, v ?? []);
-      else if (item.type === 'choice') control.radios.forEach(r => { r.checked = r.value === v; });
+      else if (item.type === 'choice' || item.type === 'swatches') control.radios.forEach(r => { r.checked = r.value === v; });
       else if (!item.type) setSlider(control, v);
       else input.value = v;
     }
@@ -2510,7 +2612,7 @@ function refresh(skipInput) {
     if (control.problem) control.problem.textContent = same(v, saved[item.key]) ? problems[item.key] ?? '' : '';
     if (control.row) control.row.hidden = Boolean(item.show) && !item.show(current);
     if (item.type === 'seed') control.note.textContent = seedNoteText();
-    out.textContent = item.type ? '' : item.key === 'size' ? sizeText(v) : text.fmt(v);
+    out.textContent = item.type === 'swatches' ? text.fmt(v) : item.type ? '' : item.key === 'size' ? sizeText(v) : text.fmt(v);
     hint.textContent = text.hint ? text.hint(v, current) : '';
     if (item.type === 'list' || item.type === 'tracks') continue;
     reset.hidden = same(v, defaults[item.key]);
@@ -2518,6 +2620,7 @@ function refresh(skipInput) {
     reset.textContent = T.reset(item.type === 'toggle' ? (d ? T.on : T.off) : item.type === 'text' ? d : text.fmt(d));
   }
   renderVariety();
+  if (loaded) applyLook(current.theme, current.accent); // Vorschau; „Verwerfen“ setzt current zurück
   if (loaded) renderNotice(); // Hinweis zu „Gefolgte Künstler“ hängt am Regler
   const match = matchingPreset();
   for (const p of PRESETS) p.button.setAttribute('aria-pressed', String(p === match));
@@ -2568,6 +2671,7 @@ async function load(keepEdits = false) {
   variety = data.variety ?? variety;
   varietyOverwritten = false;
   loaded = true;
+  rememberLook();
   adoptLang(data);
   refresh();
   if (varietyControl && (varietyIndex(current) < 0 || variety.keys.some(k => problems[k]))) varietyControl.details.open = true;
@@ -2587,6 +2691,7 @@ async function save() {
     throw e;
   }
   saved = { ...current };
+  rememberLook();
   for (const key of Object.keys(changes)) delete problems[key]; // jetzt gültig gespeichert
   if (res.schedule) {
     scheduleInfo = res.schedule;

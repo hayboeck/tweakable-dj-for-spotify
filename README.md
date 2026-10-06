@@ -243,6 +243,15 @@ The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to se
 |---|---|---|
 | Keep earlier playlists (`archiveCount`): after each write, the playlist is saved as a text file in the folder `archiv`; this many of the newest stay, Tweakable DJ deletes older ones itself. 0 = off: nothing is saved, existing files stay. See [Playlist archive](#playlist-archive). | 20 | 0–200 |
 
+**Appearance**
+
+| Setting | Default | Allowed |
+|---|---|---|
+| Mode of the interface (`theme`): `"system"` follows your device, `"light"` = always light, `"dark"` = always dark | `"system"` | `"system"`, `"light"`, `"dark"` |
+| Accent color of the interface (`accent`): color of links, controls and buttons | `"green"` | `"green"`, `"blue"`, `"violet"`, `"pink"`, `"red"`, `"orange"`, `"gold"`, `"teal"` |
+
+Both only change the interface, not the playlist, so a test run can still be used.
+
 **Language**
 
 | Setting | Default |
@@ -258,7 +267,7 @@ The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to se
 Double-click `Tweakable DJ.cmd` (Windows) or `Tweakable DJ.command` (Mac); on Linux, run `./start.sh` in a terminal. `node ui.mjs` in a terminal works everywhere too. Your browser opens <http://127.0.0.1:8899>.
 On the very first start, your system may ask for confirmation, see [setup](#7-setup-one-time), step 3. If Tweakable DJ isn’t set up yet, the setup wizard appears instead of the controls.
 
-The page has two tabs: **Playlist** (presets, controls, output with text file and test run) and **Settings** (automatic runs, block list, archive, credentials, version).
+The page has two tabs: **Playlist** (presets, controls, output with text file and test run) and **Settings** (automatic runs, block list, archive, appearance, credentials, version).
 
 - **Language** (top right, a small selection field, e.g. **EN ▾**, with Deutsch, English, Español and Français): switches the whole interface immediately, including the wizard. Your choice is saved in `config.jsonc` (`language`) and then also applies to test runs, rebuilds, automatic runs and the terminal. Until you choose, the interface follows your browser’s language. Spanish and French are machine translated; a line at the bottom of the page says so and links to the [issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), where corrections are welcome.
 - **Presets**: four buttons set all rule controls at once:
@@ -273,6 +282,7 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
 - **Source of your favorites**: a list with your Liked Songs and your playlists. Only playlists you own or collaborate on are offered, because Spotify only shares the contents of those.
 - **Block list** (tab *Settings*): artists, single songs and explicit songs, see [Block list](#block-list-artists-and-songs) below.
 - **Archive** (tab *Settings*): how many earlier playlists are kept as text files, see [Playlist archive](#playlist-archive).
+- **Appearance** (tab *Settings*): *Mode* (*System*, *Light*, *Dark*; *System* follows your device) and one of 8 *accent colors* as round swatches (green is the default). You see a change right away; *Save* keeps it, *Discard* brings back the previous one. So that nothing flashes when the page opens, the browser also remembers the saved choice.
 - **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*. They apply to both tabs; a dot on the other tab shows unsaved changes there. The tab *Settings* shows only these two buttons.
 - **Test run**: shows the selection without changing the playlist. Below it:
   - **Use this list**: writes exactly these songs, in this order, to “Tweakable DJ” without drawing again, including the description. It counts like a run (the songs are then remembered for *Block previous runs*). The button is valid for 24 hours and only as long as the settings stay as they were for the test run; after that, after a rebuild (also by automatic runs) or if `probelauf.json` is missing, it is disabled and says why. Then just start a new test run. Setting the controls back makes it available again.

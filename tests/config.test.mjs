@@ -89,6 +89,15 @@ test('Spracheinstellung: Standard "", gültig "", "de", "en", "es", "fr"; Meldun
   assert.throws(() => checkValue('useLastfmTopTracks', 'ja', 'en'), /^Error: useLastfmTopTracks: expected boolean$/);
 });
 
+test('Aussehen: theme und accent nur aus den Listen, Standard System und Grün', () => {
+  assert.deepEqual([DEFAULTS.theme, DEFAULTS.accent], ['system', 'green']);
+  for (const v of ['system', 'light', 'dark']) assert.equal(checkValue('theme', v), v);
+  for (const v of ['blue', 'teal', 'gold']) assert.equal(checkValue('accent', v), v);
+  assert.throws(() => checkValue('accent', 'lila', 'en'), /^Error: accent: expected one of green, blue, violet, pink, red, orange, gold, teal$/);
+  assert.throws(() => checkValue('theme', 'Dark', 'de'), /^Error: theme: einer von system, light, dark erwartet$/);
+  assert.throws(() => checkValue('theme', 1, 'en'), /^Error: theme: expected string$/);
+});
+
 test('Zahlenwerte: Grenzen aus LIMITS, ganze Zahlen, Meldung mit Schlüssel, Bereich, Datei und Wert', () => {
   const numbers = Object.keys(DEFAULTS).filter(k => typeof DEFAULTS[k] === 'number');
   assert.deepEqual(Object.keys(LIMITS).sort(), numbers.sort(), 'jeder Zahlenwert hat genau einen Eintrag');
