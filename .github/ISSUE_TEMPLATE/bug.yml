@@ -72,8 +72,8 @@ body:
     attributes:
       label: Version of Tweakable DJ for Spotify / Version von Tweakable DJ for Spotify
       description: |
-        Shown at the very bottom of the interface and in the name of the ZIP file, e.g. v0.1.0. If you don’t know it, leave the field empty.
-        Steht ganz unten in der Oberfläche und im Namen der ZIP-Datei, z. B. v0.1.0. Weißt du es nicht, lass das Feld leer.
+        Shown in the tab Settings under Version (up to 0.1.4: at the very bottom of the interface) and in the name of the ZIP file, e.g. v0.2.0. If you don’t know it, leave the field empty.
+        Steht im Tab Einstellungen unter Version (bis 0.1.4 ganz unten in der Oberfläche) und im Namen der ZIP-Datei, z. B. v0.2.0. Weißt du es nicht, lass das Feld leer.
 
   - type: checkboxes
     id: credentials
