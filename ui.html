@@ -4,13 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tweakable DJ for Spotify</title>
+<!-- Symbol im Browser-Tab: Note auf dem Grün der Akzentfarbe (eingebettet, sonst fragt der Browser vergeblich nach /favicon.ico) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%231ed760'/%3E%3Cg fill='%23000'%3E%3Ccircle cx='12.5' cy='21.5' r='3.5'/%3E%3Crect x='14' y='8' width='2.2' height='14'/%3E%3Cpath d='M14 8h7.5v4H14z'/%3E%3C/g%3E%3C/svg%3E">
 <style>
   /* Farben: hell als Standard, dunkel mit data-mode="dark" am <html>. Das setzt applyLook() (Skript im <head>, vor dem ersten
      Zeichnen): Modus „System“ folgt prefers-color-scheme, „Hell“ bzw. „Dunkel“ gelten fest (Einstellung theme).
-     Akzentfarbe über data-accent (ohne = Grün, Einstellung accent): je Farbe --a-<name> für Text, Links und Knöpfe und
-     --a-<name>-soft für markierte Flächen, beide je Modus; --on-accent = Schrift auf Knöpfen in der Akzentfarbe.
-     Kontrast als Text auf Hintergrund, Karte und Soft-Fläche sowie der Knopfschrift mind. 4,6:1 (WCAG AA) – außer beim
-     bisherigen Grün im hellen Modus (unverändert, 3,8:1 auf dem Hintergrund). */
+     Akzentfarbe über data-accent (ohne = Grün, Einstellung accent), je Farbe und Modus vier Werte:
+       --a-<name>       Text in der Akzentfarbe (Links, ✓-Meldungen, Werte der Regler, Rahmen, Fokusrahmen)
+       --a-<name>-fill  Fläche (Primärknopf, Strich unter dem aktiven Tab, Regler, Schalter, Farbfeld der Auswahl)
+       --a-<name>-on    Schrift auf dieser Fläche
+       --a-<name>-soft  zart markierte Flächen hinter Text in der Akzentfarbe
+     Die gewählte Farbe steht in --accent, --accent-fill, --on-accent und --accent-soft. Grün ist das Grün des Spotify-Logos
+     (#1ED760) als Fläche mit schwarzer Schrift – wie bei Spotify; als Text im hellen Modus ein dunkleres Grün desselben
+     Farbtons (#127D38), weil #1ED760 auf Weiß nur 1,9:1 erreicht. Bei den übrigen Farben sind Text und Fläche gleich,
+     die Schrift auf der Fläche weiß bzw. im dunklen Modus fast schwarz (--on-fill).
+     Kontrast (WCAG AA, mind. 4,5:1) bei allen Farben und in beiden Modi: Text auf Hintergrund, Karte und Soft-Fläche sowie
+     Schrift auf der Fläche. */
   :root {
     --bg: #f5f6f8;
     --card: #ffffff;
@@ -20,7 +29,7 @@
     --warn: #a66300;
     --danger: #b3261e;
     --shadow: 0 1px 2px rgba(0, 0, 0, .05);
-    --a-green: #1b8f4d; --a-green-soft: #e6f4ec;
+    --a-green: #127d38; --a-green-soft: #e6f4ec;
     --a-blue: #1d69c5; --a-blue-soft: #e8f0f9;
     --a-violet: #7c4dd8; --a-violet-soft: #f2edfb;
     --a-pink: #bc2f7a; --a-pink-soft: #f8eaf2;
@@ -28,8 +37,19 @@
     --a-orange: #a85100; --a-orange-soft: #f6eee6;
     --a-gold: #876600; --a-gold-soft: #f3f0e6;
     --a-teal: #007872; --a-teal-soft: #e6f2f1;
-    --on-accent: #fff;
+    --on-fill: #fff;
+    /* Fläche und Schrift darauf (gelten in beiden Modi; var() greift den Wert des jeweiligen Modus) */
+    --a-green-fill: #1ed760; --a-green-on: #000;
+    --a-blue-fill: var(--a-blue); --a-blue-on: var(--on-fill);
+    --a-violet-fill: var(--a-violet); --a-violet-on: var(--on-fill);
+    --a-pink-fill: var(--a-pink); --a-pink-on: var(--on-fill);
+    --a-red-fill: var(--a-red); --a-red-on: var(--on-fill);
+    --a-orange-fill: var(--a-orange); --a-orange-on: var(--on-fill);
+    --a-gold-fill: var(--a-gold); --a-gold-on: var(--on-fill);
+    --a-teal-fill: var(--a-teal); --a-teal-on: var(--on-fill);
     --accent: var(--a-green);
+    --accent-fill: var(--a-green-fill);
+    --on-accent: var(--a-green-on);
     --accent-soft: var(--a-green-soft);
   }
   :root[data-mode="dark"] {
@@ -41,7 +61,7 @@
     --warn: #f0b049;
     --danger: #ff8a80;
     --shadow: none;
-    --a-green: #3ecf7a; --a-green-soft: #1b2c22;
+    --a-green: #1ed760; --a-green-soft: #1b2c22;
     --a-blue: #6aa8ff; --a-blue-soft: #232e40;
     --a-violet: #b39bff; --a-violet-soft: #2d2c40;
     --a-pink: #ff8cc6; --a-pink-soft: #372a38;
@@ -49,16 +69,15 @@
     --a-orange: #ffa24d; --a-orange-soft: #372d27;
     --a-gold: #e8c14a; --a-gold-soft: #343127;
     --a-teal: #3fd1c6; --a-teal-soft: #1d3438;
-    --on-accent: #0f1115;
+    --on-fill: #0f1115;
   }
-  :root[data-mode="dark"]:not([data-accent]) { --on-accent: #0b1a11; }
-  :root[data-accent="blue"] { --accent: var(--a-blue); --accent-soft: var(--a-blue-soft); }
-  :root[data-accent="violet"] { --accent: var(--a-violet); --accent-soft: var(--a-violet-soft); }
-  :root[data-accent="pink"] { --accent: var(--a-pink); --accent-soft: var(--a-pink-soft); }
-  :root[data-accent="red"] { --accent: var(--a-red); --accent-soft: var(--a-red-soft); }
-  :root[data-accent="orange"] { --accent: var(--a-orange); --accent-soft: var(--a-orange-soft); }
-  :root[data-accent="gold"] { --accent: var(--a-gold); --accent-soft: var(--a-gold-soft); }
-  :root[data-accent="teal"] { --accent: var(--a-teal); --accent-soft: var(--a-teal-soft); }
+  :root[data-accent="blue"] { --accent: var(--a-blue); --accent-fill: var(--a-blue-fill); --on-accent: var(--a-blue-on); --accent-soft: var(--a-blue-soft); }
+  :root[data-accent="violet"] { --accent: var(--a-violet); --accent-fill: var(--a-violet-fill); --on-accent: var(--a-violet-on); --accent-soft: var(--a-violet-soft); }
+  :root[data-accent="pink"] { --accent: var(--a-pink); --accent-fill: var(--a-pink-fill); --on-accent: var(--a-pink-on); --accent-soft: var(--a-pink-soft); }
+  :root[data-accent="red"] { --accent: var(--a-red); --accent-fill: var(--a-red-fill); --on-accent: var(--a-red-on); --accent-soft: var(--a-red-soft); }
+  :root[data-accent="orange"] { --accent: var(--a-orange); --accent-fill: var(--a-orange-fill); --on-accent: var(--a-orange-on); --accent-soft: var(--a-orange-soft); }
+  :root[data-accent="gold"] { --accent: var(--a-gold); --accent-fill: var(--a-gold-fill); --on-accent: var(--a-gold-on); --accent-soft: var(--a-gold-soft); }
+  :root[data-accent="teal"] { --accent: var(--a-teal); --accent-fill: var(--a-teal-fill); --on-accent: var(--a-teal-on); --accent-soft: var(--a-teal-soft); }
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -120,7 +139,7 @@
   .tabs { display: flex; gap: 4px; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
   .tabs [role=tab] { font: inherit; font-weight: 600; padding: 9px 14px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); cursor: pointer; }
   .tabs [role=tab]:hover { color: var(--text); }
-  .tabs [role=tab][aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  .tabs [role=tab][aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent-fill); }
   .tabs [role=tab]:focus-visible { outline-offset: -2px; }
   .tab-dot { display: inline-block; width: 7px; height: 7px; margin-left: 7px; border-radius: 50%; background: var(--warn); vertical-align: middle; }
   @media (max-width: 480px) { .tabs [role=tab] { flex: 1; } }
@@ -132,7 +151,7 @@
   .row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
   .row-head label { font-weight: 600; }
   output { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); white-space: nowrap; }
-  input[type=range] { width: 100%; margin: 10px 0 2px; accent-color: var(--accent); }
+  input[type=range] { width: 100%; margin: 10px 0 2px; accent-color: var(--accent-fill); }
   .scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
   .hint { margin: 6px 0 0; font-size: 13.5px; color: var(--accent); }
   .hint:empty { display: none; }
@@ -145,7 +164,7 @@
   .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
   .switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--border); transition: background .15s; pointer-events: none; }
   .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .15s; }
-  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span { background: var(--accent-fill); }
   .switch input:checked + span::after { transform: translateX(18px); }
   .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -216,7 +235,7 @@
   .step-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: none; border: 0; border-radius: 14px; font: inherit; font-weight: 600; color: var(--text); text-align: left; cursor: pointer; }
   .num { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--border); font-size: 14px; color: var(--muted); }
   .step.active .num { border-color: var(--accent); color: var(--accent); }
-  .step.done .num { background: var(--accent); border-color: var(--accent); color: var(--card); }
+  .step.done .num { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
   .step-state { margin-left: auto; font-size: 13px; font-weight: 400; color: var(--muted); white-space: nowrap; }
   .step.done .step-state { color: var(--accent); }
   .step-body { padding: 0 18px 18px; }
@@ -239,7 +258,7 @@
   .bar-inner { max-width: 760px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
   button.btn { font: inherit; font-weight: 600; padding: 9px 14px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
   button.btn.small { padding: 5px 10px; font-size: 13.5px; }
-  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  button.btn.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
   button.btn:disabled { opacity: .5; cursor: default; }
 
   .out-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 8px; }
@@ -278,12 +297,12 @@
   .credit .mt-note:empty { display: none; }
   /* Bedienelemente des Systems (Auswahlliste der Sprache, Uhrzeit) im Modus der Seite */
   :root[data-mode="dark"] .lang select, :root[data-mode="dark"] input[type=time] { color-scheme: dark; }
-  /* Aussehen: Akzentfarben als runde Farbfelder (Radio-Gruppe, Pfeiltasten wählen); die gewählte mit Ring und ✓ */
+  /* Aussehen: Akzentfarben als runde Farbfelder (Radio-Gruppe, Pfeiltasten wählen) in --a-<name>-fill, das ✓ der gewählten
+     in --a-<name>-on (Stil am Feld, siehe Aufbau der Regler), dazu ein Ring */
   .swatches { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
   .swatch { position: relative; width: 36px; height: 36px; }
   .swatch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-  .swatch span { position: absolute; inset: 4px; display: grid; place-items: center; border-radius: 50%; font-size: 15px; font-weight: 700; color: #fff; pointer-events: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); }
-  :root[data-mode="dark"] .swatch span { color: #0f1115; }
+  .swatch span { position: absolute; inset: 4px; display: grid; place-items: center; border-radius: 50%; font-size: 15px; font-weight: 700; pointer-events: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); }
   .swatch input:checked + span { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--text); }
   .swatch input:checked + span::after { content: "✓"; }
   .swatch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 5px; }
@@ -2357,7 +2376,7 @@ function build() {
         control.radios = item.options.map(value => attr(el('input', { type: 'radio', name: id, value, onchange: () => set(item.key, value) }),
           { 'aria-label': text.options[value] }));
         input = attr(el('div', { className: 'swatches', id }, control.radios.map((r, i) => el('label', { className: 'swatch', title: text.options[item.options[i]] }, [
-          r, attr(el('span'), { style: `background: var(--a-${item.options[i]})` }),
+          r, attr(el('span'), { style: `background: var(--a-${item.options[i]}-fill); color: var(--a-${item.options[i]}-on)` }),
         ]))), { role: 'radiogroup', 'aria-labelledby': `${id}-label` });
         control.row = el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label, out]), input, hint, help, reset]);
       } else if (item.type === 'select') {
