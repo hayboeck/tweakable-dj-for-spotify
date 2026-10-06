@@ -247,7 +247,7 @@ The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to se
 Double-click `Tweakable DJ.cmd` (Windows) or `Tweakable DJ.command` (Mac); on Linux, run `./start.sh` in a terminal. `node ui.mjs` in a terminal works everywhere too. Your browser opens <http://127.0.0.1:8899>.
 On the very first start, your system may ask for confirmation, see [setup](#7-setup-one-time), step 3. If Tweakable DJ isn’t set up yet, the setup wizard appears instead of the controls.
 
-The page has two tabs: **Playlist** (presets, controls, text file, test run) and **Settings** (automatic runs, block list, credentials, version).
+The page has two tabs: **Playlist** (presets, controls, output with text file and test run) and **Settings** (automatic runs, block list, credentials, version).
 
 - **Language** (top right, a small selection field, e.g. **EN ▾**, with Deutsch, English, Español and Français): switches the whole interface immediately, including the wizard. Your choice is saved in `config.jsonc` (`language`) and then also applies to test runs, rebuilds, automatic runs and the terminal. Until you choose, the interface follows your browser’s language. Spanish and French are machine translated; a line at the bottom of the page says so and links to the [issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), where corrections are welcome.
 - **Presets**: four buttons set all rule controls at once:
@@ -264,9 +264,9 @@ The page has two tabs: **Playlist** (presets, controls, text file, test run) and
 - **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*. They apply to both tabs; a dot on the other tab shows unsaved changes there. The tab *Settings* shows only these two buttons.
 - **Test run**: shows the selection without changing the playlist. Below it:
   - **Use this list**: writes exactly these songs, in this order, to “Tweakable DJ” without drawing again, including the description. It counts like a run (the songs are then remembered for *Block previous runs*). The button is valid for 24 hours and only as long as the settings stay as they were for the test run; after that, after a rebuild (also by automatic runs) or if `probelauf.json` is missing, it is disabled and says why. Then just start a new test run. Setting the controls back makes it available again.
-  - **Save as text file**: downloads the list of the test run, even if it isn’t in the playlist (yet).
+  - **Save as text file** (below the output): after a test run, it downloads the list of the test run, even if it isn’t in the playlist (yet); the file name ends in `-test-run`.
 - **Rebuild playlist**: draws again, refills “Tweakable DJ” and then shows a link to Spotify.
-- **Text file**: *Save as text file* downloads “Tweakable DJ” as it currently is in Spotify. *Import text file …* fills it with your own list: first a preview (“38 of 40 found” and the lines that don’t match), then *Write to playlist “Tweakable DJ” (replaces its contents)*. More under [Text file](#text-file-save-and-import).
+- **Output**: always visible; before the first run it shows a short placeholder. Below it are the buttons for the text file: *Save as text file* downloads “Tweakable DJ” as it currently is in Spotify (after a test run: the list of the test run, see above). *Import … → From file …* fills it with your own list: first a preview (“38 of 40 found” and the lines that don’t match), then *Write to playlist “Tweakable DJ” (replaces its contents)*. More under [Text file](#text-file-save-and-import).
 - **Credentials** (tab *Settings*): shows whether you’re logged in to Spotify and your Last.fm username. **Change credentials** opens the setup wizard with your previous entries.
 - **Log in with Spotify**: appears when your Spotify login expires soon or has expired. Spotify requires a new login every 6 months. It also appears if *Followed artists* isn’t at “no preference” and your login is from before that setting existed.
 - **Rebuild automatically** (tab *Settings*): *Off*, *Daily* or *Weekly*, plus the time and, if needed, the day of the week. When you click *Save*, Tweakable DJ adds itself to your system’s scheduler and then rebuilds the playlist by itself, even when the interface is closed. Below, you see the next run and the result of the last automatic run (✓ with the number of songs or ✗ with the reason). What happens if your computer is off at the set time:
@@ -342,7 +342,7 @@ Main artist, Guest – Title	https://open.spotify.com/track/…
 - Lines starting with `#` are comments. The artists are listed as Spotify names them: the main artist first, guests after it, separated by commas.
 - A tab separates the title from the link: it never appears in names or titles (two spaces can), and spreadsheet programs turn it into two columns.
 
-*Import text file …* (or `node dj.mjs import <file.txt>`) reads such a file, but also a list of your own:
+*Import … → From file …* (or `node dj.mjs import <file.txt>`) reads such a file, but also a list of your own:
 
 - Empty lines and lines starting with `#` don’t count. (Exception: `#` directly before a name on a line with a link to a song, so artists like “#1 Dads” aren’t lost.)
 - A link or URI to a song (`https://open.spotify.com/track/…`, also with `?si=…`, or `spotify:track:…`) is used directly, whatever else is on the line. That way a saved file comes back exactly the same.

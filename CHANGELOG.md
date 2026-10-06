@@ -18,6 +18,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 - **Shorter help texts**: the explanations under the controls and in the setup are now mostly one short sentence.
 - **More compact footer**: the Spotify notice is on the same line as the Last.fm credit.
 - **Tab *Settings***: the page now has two tabs. *Playlist* keeps the presets, controls, text file and test run; *Settings* holds *Rebuild automatically*, the *Block list*, *Credentials* (logged in to Spotify or not, your Last.fm username and *Change credentials*, which used to be at the top right) and *Version* with *Check for updates* (previously in the footer). The tab is part of the address (`#settings`), so reloading and the back button keep it. *Save* and *Discard* apply to both tabs; a dot on the other tab shows unsaved changes there.
+- **Text file below the output**: the separate *Text file* section is gone. *Save as text file* and *Import …* (with *From file …*) are now a row of buttons right below the output; after a test run, *Save as text file* saves the list of the test run, so there is only one such button. The output is always visible, with a short placeholder before the first run.
 
 ### Deutsch
 
@@ -32,6 +33,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 - **Kürzere Hilfetexte**: Die Erklärungen unter den Reglern und in der Einrichtung sind jetzt meist ein kurzer Satz.
 - **Kompaktere Fußzeile**: Der Hinweis zu Spotify steht in derselben Zeile wie der zu Last.fm.
 - **Tab *Einstellungen***: Die Seite hat jetzt zwei Tabs. *Playlist* behält Voreinstellungen, Regler, Textdatei und Probelauf; *Einstellungen* enthält *Automatisch neu erstellen*, die *Sperrliste*, *Zugangsdaten* (bei Spotify angemeldet oder nicht, dein Last.fm-Benutzername und *Zugangsdaten ändern*, bisher oben rechts) und *Version* mit *Nach Updates suchen* (bisher in der Fußzeile). Der Tab steht in der Adresse (`#settings`), Neuladen und der Zurück-Button behalten ihn. *Speichern* und *Verwerfen* gelten für beide Tabs; ein Punkt am anderen Tab zeigt dort ungespeicherte Änderungen.
+- **Textdatei unter der Ausgabe**: Der eigene Abschnitt *Textdatei* ist weg. *Als Textdatei speichern* und *Importieren …* (mit *Aus Datei …*) stehen jetzt als Knopfreihe direkt unter der Ausgabe; nach einem Probelauf speichert *Als Textdatei speichern* dessen Liste, es gibt also nur noch einen solchen Button. Die Ausgabe ist immer sichtbar, vor dem ersten Lauf mit einem kurzen Platzhalter.
 
 ## [0.1.4] – 2026-10-06
 

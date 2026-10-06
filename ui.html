@@ -218,11 +218,15 @@
   .out-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 8px; }
   .summary { font-weight: 600; }
   .open { font-weight: 600; color: var(--accent); }
-  /* Probelauf übernehmen (unter der Ausgabe) und Textdatei */
-  #trial { margin: -4px 0 16px; }
-  #trial .actions, #files .actions { margin-top: 0; }
-  #files .row > .help { margin: 0 0 10px; }
-  .import-preview { margin-top: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
+  /* Unter der Ausgabe: Probelauf übernehmen, Textdatei speichern und importieren */
+  #out-actions { margin: 0 0 14px; }
+  #out .msg { margin: -6px 0 14px; }
+  .import-menu { margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
+  .import-menu .actions { margin-top: 0; }
+  .import-menu .help { margin: 8px 0 0; }
+  /* Platzhalter, solange noch nichts gelaufen ist */
+  #log:empty::before { content: attr(data-empty); color: var(--muted); font: 13.5px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .import-preview { margin: 0 0 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
   .import-preview > p { margin: 0 0 8px; }
   .import-missing { margin: 0 0 10px; padding-left: 20px; max-height: 220px; overflow: auto; font-size: 13.5px; overflow-wrap: anywhere; }
   .import-missing li { margin-bottom: 2px; }
@@ -374,7 +378,7 @@
     <p><button type="button" class="link" id="w-close" data-t="close" hidden></button></p>
   </div>
 
-  <!-- Hauptansicht (view 'main') mit zwei Tabs: „Playlist“ (Regler, Textdatei, Ausgabe) und „Einstellungen“ (Automatik,
+  <!-- Hauptansicht (view 'main') mit zwei Tabs: „Playlist“ (Regler, Ausgabe mit Textdatei) und „Einstellungen“ (Automatik,
        Sperrliste, Zugangsdaten, Version). Aktiver Tab im Adress-Hash: ohne = Playlist, #settings = Einstellungen. -->
   <div id="main-view" hidden>
     <div class="tabs" role="tablist" id="tabs">
@@ -389,45 +393,41 @@
         <p class="hint" id="preset-state" role="status"></p>
       </section>
       <div id="groups"></div>
-      <!-- Playlist als Textdatei speichern (GET /api/export) bzw. aus einer Textdatei befüllen: Vorschau (POST /api/import/preview),
-           nach der Rückfrage schreiben (POST /api/import) -->
-      <section id="files" aria-labelledby="files-title">
-        <h2 id="files-title" data-t="files"></h2>
-        <div class="row">
-          <p class="help" id="files-help"></p>
-          <div class="actions">
-            <button type="button" class="btn" id="export" data-t="saveText"></button>
-            <button type="button" class="btn" id="import" data-t="importFile"></button>
-            <input type="file" id="import-file" accept=".txt,text/plain" hidden>
-          </div>
-          <p class="msg" id="files-msg" role="status" aria-live="polite"></p>
-          <div class="import-preview" id="import-preview" hidden>
-            <p class="summary" id="import-found"></p>
-            <p class="help" id="import-missing-head"></p>
-            <ul class="import-missing" id="import-missing"></ul>
-            <!-- Gesperrte bzw. explizite Songs aus der Datei: nur ein Hinweis, sie kommen trotzdem hinein -->
-            <p class="help" id="import-hints-head" hidden></p>
-            <ul class="import-missing" id="import-hints" hidden></ul>
-            <div class="actions">
-              <button type="button" class="btn primary" id="import-go"></button>
-              <button type="button" class="btn" id="import-cancel"></button>
-            </div>
-          </div>
-        </div>
-      </section>
-      <section id="out" hidden>
+      <!-- Ausgabe von Probelauf und Neuerstellung (immer sichtbar, vor dem ersten Lauf mit Platzhalter), darunter eine Knopfreihe:
+           nach einem Probelauf „Diese Liste übernehmen“ (POST /api/apply); „Als Textdatei speichern“ (GET /api/export, nach einem
+           Probelauf dessen Liste); „Importieren …“ mit der Auswahl „Aus Datei …“: Vorschau (POST /api/import/preview), nach der
+           Rückfrage schreiben (POST /api/import) -->
+      <section id="out">
         <div class="out-head">
           <span id="summary" class="summary"></span>
           <a id="open" class="open" target="_blank" rel="noopener" data-t="open" hidden></a>
         </div>
         <pre id="log"></pre>
-        <!-- Nach einem Probelauf: genau diese Liste übernehmen (POST /api/apply) oder als Textdatei speichern -->
-        <div id="trial" hidden>
+        <div class="actions" id="out-actions">
+          <button type="button" class="btn primary" id="trial-apply" data-t="trialApply" hidden></button>
+          <button type="button" class="btn" id="export" data-t="saveText"></button>
+          <button type="button" class="btn" id="import" data-t="importFile" aria-expanded="false" aria-controls="import-menu"></button>
+          <input type="file" id="import-file" accept=".txt,text/plain" hidden>
+        </div>
+        <div class="import-menu" id="import-menu" hidden>
           <div class="actions">
-            <button type="button" class="btn primary" id="trial-apply" data-t="trialApply"></button>
-            <button type="button" class="btn" id="trial-export" data-t="saveText"></button>
+            <button type="button" class="btn small" id="import-from-file" data-t="importFromFile"></button>
           </div>
-          <p class="msg" id="trial-msg" role="status"></p>
+          <p class="help" id="files-help"></p>
+        </div>
+        <p class="msg" id="trial-msg" role="status" hidden></p>
+        <p class="msg" id="files-msg" role="status" aria-live="polite"></p>
+        <div class="import-preview" id="import-preview" hidden>
+          <p class="summary" id="import-found"></p>
+          <p class="help" id="import-missing-head"></p>
+          <ul class="import-missing" id="import-missing"></ul>
+          <!-- Gesperrte bzw. explizite Songs aus der Datei: nur ein Hinweis, sie kommen trotzdem hinein -->
+          <p class="help" id="import-hints-head" hidden></p>
+          <ul class="import-missing" id="import-hints" hidden></ul>
+          <div class="actions">
+            <button type="button" class="btn primary" id="import-go"></button>
+            <button type="button" class="btn" id="import-cancel"></button>
+          </div>
         </div>
       </section>
     </div>
@@ -550,8 +550,9 @@ const TEXT = {
       run: 'Playlist neu erstellen',
       trialApply: 'Diese Liste übernehmen',
       saveText: 'Als Textdatei speichern',
-      files: 'Textdatei',
-      importFile: 'Textdatei importieren …',
+      importFile: 'Importieren …',
+      importFromFile: 'Aus Datei …',
+      outEmpty: 'Hier erscheint die Ausgabe von Probelauf und Playlist-Erstellung.',
       language: 'Sprache',
       mtNote: '',
     },
@@ -682,7 +683,7 @@ const TEXT = {
     },
     // Als Textdatei speichern und Textdatei importieren
     files: {
-      help: name => `Speichert „${name}“ als Textdatei – oder füllt sie aus einer (je Zeile „Künstler – Titel“ oder ein Spotify-Link).`,
+      help: name => `Ersetzt den Inhalt von „${name}“ nach einer Vorschau. Textdatei: je Zeile „Künstler – Titel“ oder ein Spotify-Link.`,
       loading: 'Lese die Playlist aus Spotify …',
       saved: (file, n) => `${file} heruntergeladen (${plural(n, 'Song', 'Songs')}).`,
       tooLarge: 'Die Datei ist größer als 1 MB. Mehr als 500 Songs passen ohnehin nicht in die Playlist.',
@@ -886,8 +887,9 @@ const TEXT = {
       run: 'Rebuild playlist',
       trialApply: 'Use this list',
       saveText: 'Save as text file',
-      files: 'Text file',
-      importFile: 'Import text file …',
+      importFile: 'Import …',
+      importFromFile: 'From file …',
+      outEmpty: 'The output of test runs and playlist builds appears here.',
       language: 'Language',
       mtNote: '',
     },
@@ -1015,7 +1017,7 @@ const TEXT = {
       blocked: 'Can no longer be applied: you blocked a song from this list. Start a new test run – it saves first.',
     },
     files: {
-      help: name => `Saves “${name}” as a text file – or fills it from one (one “artist – title” or Spotify link per line).`,
+      help: name => `Replaces the content of “${name}” after a preview. Text file: one “artist – title” or Spotify link per line.`,
       loading: 'Reading the playlist from Spotify …',
       saved: (file, n) => `Downloaded ${file} (${plural(n, 'song', 'songs')}).`,
       tooLarge: 'The file is larger than 1 MB. The playlist can’t hold more than 500 songs anyway.',
@@ -1214,8 +1216,9 @@ const TEXT = {
       run: 'Recrear playlist',
       trialApply: 'Usar esta lista',
       saveText: 'Guardar como texto',
-      files: 'Archivo de texto',
-      importFile: 'Importar archivo de texto …',
+      importFile: 'Importar …',
+      importFromFile: 'Desde archivo …',
+      outEmpty: 'Aquí aparece el resultado de las pruebas y de la creación de la playlist.',
       language: 'Idioma',
       mtNote: `Traducción automática – ${ext(ISSUES, 'las correcciones son bienvenidas')}`,
     },
@@ -1343,7 +1346,7 @@ const TEXT = {
       blocked: 'Ya no se puede usar: has bloqueado una canción de esta lista. Haz una prueba nueva (antes se guarda todo).',
     },
     files: {
-      help: name => `Guarda «${name}» como archivo de texto, o la rellena desde uno (una línea por canción: «artista – título» o un enlace de Spotify).`,
+      help: name => `Sustituye el contenido de «${name}» tras una vista previa. Archivo de texto: una línea por canción, «artista – título» o un enlace de Spotify.`,
       loading: 'Leyendo la playlist de Spotify …',
       saved: (file, n) => `${file} descargado (${plural(n, 'canción', 'canciones')}).`,
       tooLarge: 'El archivo ocupa más de 1 MB. De todos modos, en la playlist no caben más de 500 canciones.',
@@ -1543,8 +1546,9 @@ const TEXT = {
       run: 'Recréer la playlist',
       trialApply: 'Utiliser cette liste',
       saveText: 'Enregistrer en texte',
-      files: 'Fichier texte',
-      importFile: 'Importer un fichier texte …',
+      importFile: 'Importer …',
+      importFromFile: 'Depuis un fichier …',
+      outEmpty: 'Ici s’affiche le résultat des essais et de la création de la playlist.',
       language: 'Langue',
       mtNote: `Traduction automatique – ${ext(ISSUES, 'les corrections sont les bienvenues')}`,
     },
@@ -1672,7 +1676,7 @@ const TEXT = {
       blocked: 'Ne peut plus être utilisée : tu as bloqué un titre de cette liste. Lance un nouvel essai – il enregistre d’abord.',
     },
     files: {
-      help: name => `Enregistre « ${name} » dans un fichier texte – ou la remplit à partir d’un fichier (une ligne par titre : « artiste – titre » ou un lien Spotify).`,
+      help: name => `Remplace le contenu de « ${name} » après un aperçu. Fichier texte : une ligne par titre, « artiste – titre » ou un lien Spotify.`,
       loading: 'Lecture de la playlist depuis Spotify …',
       saved: (file, n) => `${file} téléchargé (${plural(n, 'titre', 'titres')}).`,
       tooLarge: 'Le fichier dépasse 1 Mo. De toute façon, la playlist ne peut pas contenir plus de 500 titres.',
@@ -2018,6 +2022,7 @@ function renderLang() {
   for (const node of document.querySelectorAll('[data-t]')) node.textContent = T.page[node.dataset.t];
   for (const node of document.querySelectorAll('[data-html]')) node.innerHTML = T.page[node.dataset.html]; // nur feste Texte aus TEXT
   for (const node of document.querySelectorAll('[data-ph]')) node.placeholder = T.page[node.dataset.ph];
+  $('log').dataset.empty = T.page.outEmpty; // Platzhalter, solange die Ausgabe leer ist (CSS #log:empty)
   $('lang').value = lang;
   $('lang-code').textContent = lang.toUpperCase();
   $('lang').setAttribute('aria-label', T.page.language);
@@ -2425,6 +2430,7 @@ function refresh(skipInput) {
   $('update-install').disabled = working;
   $('export').disabled = working;
   $('import').disabled = working;
+  $('import-from-file').disabled = working;
   $('import-go').disabled = working;
   $('files-help').textContent = T.files.help(saved.playlistName ?? '');
   renderSchedule();
@@ -2705,7 +2711,6 @@ async function run(kind) {
   const settings = { ...current }; // Einstellungen dieses Probelaufs
   busy = true;
   refresh();
-  $('out').hidden = false;
   runState = { phase: 'running', kind, dry, result: null };
   renderSummary();
   let text = '';
@@ -2767,19 +2772,20 @@ function trialReason() {
   return null;
 }
 
+// Steht gerade ein Probelauf in der Ausgabe? Dann gibt es „Diese Liste übernehmen“, und „Als Textdatei speichern“ speichert seine Liste.
+const trialShown = () => Boolean(trial) && runState?.phase === 'done' && (runState.kind === 'dry' || runState.kind === 'apply');
+// Speichern geht, solange probelauf.json zu diesem Probelauf gehört (auch mit geänderten Einstellungen).
+const trialExportable = () => trialShown() && !['missing', 'replaced', 'invalid', 'server'].includes(trial.serverReason);
+
 function renderTrial() {
-  const show = Boolean(trial) && runState?.phase === 'done' && (runState.kind === 'dry' || runState.kind === 'apply');
-  $('trial').hidden = !show;
+  const show = trialShown();
+  $('trial-apply').hidden = $('trial-msg').hidden = !show;
   clearTimeout(trialTimer);
   if (!show) return;
   const reason = trialReason();
-  const working = isWorking();
-  $('trial-apply').disabled = working || Boolean(reason);
-  // Speichern geht, solange probelauf.json zu diesem Probelauf gehört (auch mit geänderten Einstellungen).
-  $('trial-export').disabled = working || ['missing', 'replaced', 'invalid', 'server'].includes(trial.serverReason);
+  $('trial-apply').disabled = isWorking() || Boolean(reason);
   const msg = $('trial-msg');
   if (reason) setMsg(msg, 'warn', T.trial[reason] ?? trial.message);
-  else if (trial.exported) setMsg(msg, 'ok', trial.exported);
   else setMsg(msg, '', T.trial.help(saved.playlistName ?? '', when(trial.expiresAt)));
   // Nach Ablauf der 24 Stunden von selbst sperren
   const left = Date.parse(trial.expiresAt) - Date.now();
@@ -2804,7 +2810,6 @@ async function refreshTrial() {
 }
 
 async function applyTrial() {
-  delete trial.exported;
   await refreshTrial();
   if (!trialReason()) run('apply');
 }
@@ -2819,35 +2824,37 @@ function download(text, filename) {
   setTimeout(() => URL.revokeObjectURL(href), 10_000);
 }
 
-async function exportTrial() {
-  try {
-    const r = await apiJson(`/api/export?trial=${encodeURIComponent(trial.id)}`);
-    download(r.text, r.filename);
-    trial.exported = T.files.saved(r.filename, r.songs);
-  } catch (e) {
-    if (e.data?.reason) Object.assign(trial, { serverReason: e.data.reason, message: e.message });
-    else showError(e.message);
-  }
-  renderTrial();
-}
+// --- Textdatei: speichern und importieren (Knopfreihe unter der Ausgabe) ---
 
-// --- Textdatei: Playlist speichern und importieren ---
-
-// Playlist, wie sie gerade in Spotify ist (GET /api/export)
-async function exportPlaylist() {
+// „Als Textdatei speichern“ (GET /api/export): nach einem Probelauf dessen Liste (Dateiname mit „-probelauf“), sonst die
+// Playlist, wie sie gerade in Spotify ist. So gibt es nur einen Knopf, und er speichert, was die Ausgabe gerade zeigt.
+async function exportList() {
+  const id = trialExportable() ? trial.id : null;
   setImport(null);
-  setMsg($('files-msg'), '', T.files.loading);
+  setMsg($('files-msg'), '', id ? '' : T.files.loading);
   $('export').disabled = true;
   try {
-    const r = await apiJson('/api/export');
+    const r = await apiJson(id ? `/api/export?trial=${encodeURIComponent(id)}` : '/api/export');
     download(r.text, r.filename);
     setMsg($('files-msg'), 'ok', T.files.saved(r.filename, r.songs));
   } catch (e) {
-    setMsg($('files-msg'), 'err', e.message);
-    if (e.data?.login && setup?.loggedIn) showNotice('expired');
+    if (id && e.data?.reason && trial?.id === id) {
+      // Probelauf inzwischen ersetzt o. Ä.: Der Grund steht beim Probelauf, der nächste Klick speichert die Playlist.
+      Object.assign(trial, { serverReason: e.data.reason, message: e.message });
+      setMsg($('files-msg'), '', '');
+    } else {
+      setMsg($('files-msg'), 'err', e.message);
+      if (e.data?.login && setup?.loggedIn) showNotice('expired');
+    }
   } finally {
     refresh();
   }
+}
+
+// „Importieren …“ klappt die Auswahl der Quellen auf bzw. zu (open: true = auf, false = zu).
+function toggleImportMenu(open = $('import-menu').hidden) {
+  $('import-menu').hidden = !open;
+  $('import').setAttribute('aria-expanded', String(open));
 }
 
 function setImport(state) {
@@ -3513,9 +3520,12 @@ $('discard').onclick = () => { current = { ...saved }; refresh(); };
 $('dry').onclick = () => run('dry');
 $('run').onclick = () => run('run');
 $('trial-apply').onclick = applyTrial;
-$('trial-export').onclick = exportTrial;
-$('export').onclick = exportPlaylist;
-$('import').onclick = () => $('import-file').click();
+$('export').onclick = exportList;
+$('import').onclick = () => toggleImportMenu();
+$('import-from-file').onclick = () => {
+  toggleImportMenu(false);
+  $('import-file').click();
+};
 $('import-file').onchange = () => {
   const file = $('import-file').files[0];
   $('import-file').value = ''; // dieselbe Datei noch einmal wählen löst wieder change aus

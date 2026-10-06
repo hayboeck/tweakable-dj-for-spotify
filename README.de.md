@@ -247,7 +247,7 @@ Den Zeitplan selbst (`schedule`, `scheduleTime`, `scheduleDay`) stellst du am ei
 Doppelklick auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac), unter Linux im Terminal `./start.sh`. Überall geht auch `node ui.mjs` im Terminal. Der Browser öffnet <http://127.0.0.1:8899>.
 Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-einrichtung-einmalig), Schritt 3. Ist Tweakable DJ noch nicht eingerichtet, erscheint statt der Regler der Einrichtungs-Assistent.
 
-Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Textdatei, Probelauf) und **Einstellungen** (Automatik, Sperrliste, Zugangsdaten, Version).
+Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Textdatei und Probelauf) und **Einstellungen** (Automatik, Sperrliste, Zugangsdaten, Version).
 
 - **Sprache** (oben rechts, ein kleines Auswahlfeld, z. B. **DE ▾**, mit Deutsch, English, Español und Français): schaltet die ganze Oberfläche sofort um, auch im Assistenten. Die Wahl wird in `config.jsonc` gespeichert (`language`) und gilt dann auch für Probelauf, Neuerstellung, automatische Läufe und das Terminal. Solange du nichts wählst, richtet sich die Oberfläche nach der Sprache deines Browsers. Spanisch und Französisch sind maschinell übersetzt; eine Zeile ganz unten auf der Seite weist darauf hin und verlinkt die [Issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), wo Korrekturen willkommen sind.
 - **Voreinstellungen**: Vier Buttons setzen alle Regel-Regler auf einmal:
@@ -264,9 +264,9 @@ Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Textdatei, Prob
 - **Speichern / Verwerfen**: Änderungen werden erst mit *Speichern* in `config.jsonc` geschrieben. Beides gilt für beide Tabs; ein Punkt am anderen Tab zeigt dort ungespeicherte Änderungen. Im Tab *Einstellungen* gibt es nur diese zwei Buttons.
 - **Probelauf**: Zeigt die Auswahl an, ohne die Playlist zu ändern. Darunter:
   - **Diese Liste übernehmen**: schreibt genau diese Songs in dieser Reihenfolge in „Tweakable DJ“, ohne neu zu losen, samt Beschreibung. Das zählt wie ein Lauf (die Songs sind danach für *Vorige Läufe sperren* gemerkt). Der Button gilt 24 Stunden und nur, solange die Einstellungen so bleiben wie beim Probelauf; danach, nach einer Neuerstellung (auch durch die Automatik) oder wenn `probelauf.json` fehlt, ist er gesperrt und sagt, warum. Dann einfach einen neuen Probelauf starten. Zurückgestellte Regler machen ihn wieder frei.
-  - **Als Textdatei speichern**: lädt die Liste des Probelaufs herunter, auch wenn sie (noch) nicht in der Playlist steht.
+  - **Als Textdatei speichern** (unter der Ausgabe): lädt nach einem Probelauf dessen Liste herunter, auch wenn sie (noch) nicht in der Playlist steht; der Dateiname endet auf `-probelauf`.
 - **Playlist neu erstellen**: Lost neu aus, befüllt „Tweakable DJ“ und zeigt danach einen Link zu Spotify.
-- **Textdatei**: *Als Textdatei speichern* lädt „Tweakable DJ“ so herunter, wie die Playlist gerade in Spotify ist. *Textdatei importieren …* füllt sie mit einer eigenen Liste: erst eine Vorschau („38 von 40 gefunden“ und die Zeilen, die nicht passen), dann *In Playlist „Tweakable DJ“ schreiben (ersetzt den Inhalt)*. Mehr unter [Textdatei](#textdatei-speichern-und-importieren).
+- **Ausgabe**: immer sichtbar, vor dem ersten Lauf mit einem kurzen Platzhalter. Darunter stehen die Buttons für die Textdatei: *Als Textdatei speichern* lädt „Tweakable DJ“ so herunter, wie die Playlist gerade in Spotify ist (nach einem Probelauf: dessen Liste, siehe oben). *Importieren … → Aus Datei …* füllt sie mit einer eigenen Liste: erst eine Vorschau („38 von 40 gefunden“ und die Zeilen, die nicht passen), dann *In Playlist „Tweakable DJ“ schreiben (ersetzt den Inhalt)*. Mehr unter [Textdatei](#textdatei-speichern-und-importieren).
 - **Zugangsdaten** (Tab *Einstellungen*): zeigt, ob du bei Spotify angemeldet bist, und deinen Last.fm-Benutzernamen. **Zugangsdaten ändern** öffnet den Einrichtungs-Assistenten mit deinen bisherigen Angaben.
 - **Mit Spotify anmelden**: Erscheint, wenn die Spotify-Anmeldung bald abläuft oder abgelaufen ist. Spotify verlangt alle 6 Monate eine neue Anmeldung. Außerdem, wenn *Gefolgte Künstler* nicht auf „egal“ steht und deine Anmeldung älter ist als diese Einstellung.
 - **Automatisch neu erstellen** (Tab *Einstellungen*): *Aus*, *Täglich* oder *Wöchentlich*, dazu Uhrzeit und gegebenenfalls Wochentag. Beim *Speichern* trägt sich Tweakable DJ in den Zeitplaner deines Systems ein und erstellt die Playlist dann von selbst neu, auch wenn die Oberfläche geschlossen ist. Darunter stehen der nächste Lauf und das Ergebnis des letzten automatischen Laufs (✓ mit Anzahl Songs oder ✗ mit Grund). Was passiert, wenn der Rechner zur eingestellten Zeit aus ist:
@@ -342,7 +342,7 @@ Hauptkünstler, Gast – Titel	https://open.spotify.com/track/…
 - Zeilen mit `#` am Anfang sind Kommentare. Die Künstler stehen so, wie Spotify sie nennt: der Hauptkünstler zuerst, Gäste mit Komma dahinter.
 - Zwischen Titel und Link steht ein Tabulator: Er kommt in Namen und Titeln nicht vor (zwei Leerzeichen schon), und Tabellenprogramme machen daraus zwei Spalten.
 
-*Textdatei importieren …* (bzw. `node dj.mjs import <datei.txt>`) liest so eine Datei, aber auch eine eigene Liste:
+*Importieren … → Aus Datei …* (bzw. `node dj.mjs import <datei.txt>`) liest so eine Datei, aber auch eine eigene Liste:
 
 - Leere Zeilen und Zeilen mit `#` am Anfang zählen nicht. (Ausnahme: `#` direkt vor einem Namen in einer Zeile mit Link zu einem Song, damit Künstler wie „#1 Dads“ nicht verloren gehen.)
 - Ein Link oder eine URI zu einem Song (`https://open.spotify.com/track/…`, auch mit `?si=…`, oder `spotify:track:…`) gilt direkt, egal was sonst in der Zeile steht. Eine gespeicherte Datei kommt so genau gleich zurück.
