@@ -652,6 +652,51 @@ test('Gefolgte Künstler ohne Berechtigung (ältere Anmeldung): Warnung, Lauf ge
 // --- Gesperrte Songs (blockedTracks) und „Keine Songs mit expliziten Texten“ (excludeExplicit) ---
 
 // URI eines Songs im Mock (gleiche Formel wie spotifyTrack() in tests/mock-apis.mjs)
+// Neuere / ältere Songs: Der Mock gibt jedem Song ein festes Erscheinungsjahr (1975 bis 2026). Gleicher Zufall über
+// eine Vorschaltdatei (Math.random mit festem Startwert), damit die Läufe vergleichbar sind.
+test('Neuere / ältere Songs: +1 wählt neuere, −1 ältere; 0 = das Jahr spielt keine Rolle (gleiche Liste wie ohne Jahr)', () => {
+  const dir = setup();
+  const seed = path.join(dir, 'zufall.mjs');
+  fs.writeFileSync(seed, 'let a = Number(process.env.TEST_SEED) >>> 0;\nMath.random = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; '
+    + 't = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };\n');
+  const statePath = path.join(dir, 'state.json');
+  const lastfmCache = path.join(dir, 'lastfm-cache.json');
+  let lastfmWarm;
+  const runWith = (preferNewer, testSeed, state) => {
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, size: 30, noRepeatRuns: 0, preferNewer }));
+    fs.writeFileSync(statePath, state);
+    fs.writeFileSync(lastfmCache, lastfmWarm); // gleicher Stand für jeden Lauf (sonst ändert sich die Reihenfolge der Kandidaten)
+    const r = run(dir, { NODE_OPTIONS: `--import=${pathToFileURL(seed).href}`, TEST_SEED: String(testSeed) });
+    assert.equal(r.code, 0, r.all);
+    return trialTracks(dir);
+  };
+  try {
+    // Erster Lauf füllt den Such-Cache mit Erscheinungsjahr; jeder weitere Lauf startet von diesem Stand.
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, ...ALL }));
+    assert.equal(run(dir).code, 0);
+    const warm = JSON.stringify({ ...JSON.parse(fs.readFileSync(statePath, 'utf8')), history: [] });
+    lastfmWarm = fs.readFileSync(lastfmCache, 'utf8');
+    const years = new Map(Object.values(JSON.parse(warm).cache).filter(e => e?.year).map(e => [e.uri, e.year]));
+    assert.ok(years.size >= 30, `nur ${years.size} Jahre im Cache`);
+    // Mittleres Jahr der neuen Songs (deren Jahr im Cache steht) über drei Läufe
+    const meanYear = v => {
+      const ys = [1, 2, 3].flatMap(s => runWith(v, s, warm).map(t => years.get(t.uri)).filter(Boolean));
+      return ys.reduce((a, b) => a + b, 0) / ys.length;
+    };
+    const [older, neutral, newer] = [-1, 0, 1].map(meanYear);
+    assert.ok(older < neutral && neutral < newer, `${older} / ${neutral} / ${newer}`);
+    assert.ok(newer - older >= 5, `nur ${(newer - older).toFixed(1)} Jahre Unterschied`);
+    // 0: dieselbe Liste, ob der Cache das Jahr kennt oder nicht (wie vor dieser Einstellung)
+    const noYears = JSON.parse(warm);
+    for (const e of Object.values(noYears.cache)) if (e && typeof e === 'object') delete e.year;
+    for (const s of [4, 5]) {
+      assert.deepEqual(runWith(0, s, warm).map(t => t.uri), runWith(0, s, JSON.stringify(noYears)).map(t => t.uri), `Startwert ${s}`);
+    }
+  } finally {
+    cleanup(dir);
+  }
+});
+
 const mockUri = (artist, name, variant = '') => {
   const h = [...`${artist}|${name}${variant ? `|${variant}` : ''}`].reduce((x, c) => (x * 31 + c.charCodeAt(0)) >>> 0, 7);
   return `spotify:track:${`mock${h.toString(36)}`.padEnd(22, '0')}`;

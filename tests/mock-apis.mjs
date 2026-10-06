@@ -98,8 +98,14 @@ const spotifyTrack = (artist, name, { explicit = EXPLICIT_LIKED.has(`${artist}|$
   explicit,
   // Spieldauer 2:30 bis 4:29, fest je Song
   duration_ms: 150_000 + (hash(`${artist}|${name}|${variant}`) % 120) * 1000,
+  // Erscheinungsjahr 1975 bis 2026, fest je Song (für „Neuere / ältere Songs“); Genauigkeit wie bei Spotify mal Tag, mal nur Jahr
+  album: { release_date: releaseDate(hash(`${artist}|${name}|jahr`)) },
   is_local: false,
 });
+function releaseDate(h) {
+  const year = 1975 + (h % 52);
+  return h % 5 === 0 ? String(year) : `${year}-${String(1 + (h % 12)).padStart(2, '0')}-${String(1 + (h % 28)).padStart(2, '0')}`;
+}
 
 // --- Playlists des Testbenutzers (MOCK_SPOTIFY_STORE) ---
 

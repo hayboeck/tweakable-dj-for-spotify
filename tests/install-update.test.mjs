@@ -43,6 +43,11 @@ const PERSONAL = {
   'update-check.json': '{"repo":"x"}\n',
   'eigene-notizen.txt': 'Bitte nicht anfassen.\n',
   'docs/mein-bild.png': Buffer.from([1, 2, 3, 4]),
+  // Playlist-Archiv: eigene Dateien (auch mit BOM und CRLF), eine fremde Datei und ein Unterordner
+  'archiv/2026-10-01 05-00-00 Tweakable DJ.txt': '# Tweakable DJ – exportiert\nNordlicht – Polarnacht\n',
+  'archiv/2026-10-02 05-00-00 Tweakable DJ 2.txt': Buffer.from('\ufeff# zweite\r\nStadtkind – Asphalt\r\n'),
+  'archiv/meine-liste.txt': 'fremd\n',
+  'archiv/alt/2026-01-01 00-00-00 Tweakable DJ.txt': 'im Unterordner\n',
 };
 
 // Programmordner der Version 0.1.0 mit persönlichen Dateien; Ergebnis: { dir, release (Ordner für Releases) }.

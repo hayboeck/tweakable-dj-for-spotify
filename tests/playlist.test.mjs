@@ -378,6 +378,30 @@ test('Archiv: ablegen, aufräumen, auflisten und lesen', async () => {
     for (const bad of ['eigene Notiz.txt', '../2026-10-06 08-00-05 Tweakable DJ.txt', '2026-10-01 00-00-00 Tweakable DJ.txt', null]) {
       assert.equal(readArchive(dir, bad), null, String(bad));
     }
+    // Pfade in jeder Form, Unterordner und Namen, die dem Muster nur ähneln: nie gelesen, nie gelöscht
+    const sub = path.join(dir, ARCHIVE_DIR, 'alt');
+    fs.mkdirSync(sub);
+    fs.writeFileSync(path.join(sub, '2026-01-01 00-00-00 Tweakable DJ.txt'), 'im Unterordner');
+    const lookalikes = ['2026-01-01 00-00-00 Tweakable DJ (Kopie).txt', '2026-01-01 00-00-00 Tweakable DJ 1.txt', '2026-01-01 00-00-00 tweakable dj.txt',
+      '2026-01-01 00-00-00 Tweakable DJ.txt.bak'];
+    for (const f of lookalikes) fs.writeFileSync(path.join(dir, ARCHIVE_DIR, f), 'fremd');
+    for (const bad of ['alt/2026-01-01 00-00-00 Tweakable DJ.txt', 'alt\\2026-01-01 00-00-00 Tweakable DJ.txt', '..\\2026-10-06 08-00-05 Tweakable DJ.txt',
+      path.join(dir, ARCHIVE_DIR, '2026-10-06 08-00-05 Tweakable DJ.txt'), './2026-10-06 08-00-05 Tweakable DJ.txt', '2026-10-06 08-00-05 Tweakable DJ.txt\0',
+      ...lookalikes, 42, { id: 'x' }]) {
+      assert.equal(readArchive(dir, bad), null, String(bad));
+    }
+    // ungültige Anzahl = aus: nichts ablegen, nichts löschen
+    for (const keep of [-1, 2.5, '5', NaN, null, undefined]) {
+      assert.equal(saveArchive(dir, { name: 'Mix', tracks: TRACKS, lang: 'de', keep, now: new Date(2026, 9, 7) }), null, String(keep));
+      assert.deepEqual(pruneArchive(dir, keep), [], String(keep));
+    }
+    // Weniger aufheben: beim nächsten Ablegen bleibt nur die neueste eigene Datei, alles Fremde bleibt
+    const last = saveArchive(dir, { name: 'Mix', tracks: TRACKS, lang: 'de', keep: 1, now: new Date(2026, 9, 7, 9, 0, 0) });
+    assert.deepEqual(last.removed, ['2026-10-06 08-00-05 Tweakable DJ.txt', '2026-10-05 14-03-00 Tweakable DJ 2.txt']);
+    assert.deepEqual(fs.readdirSync(path.join(dir, ARCHIVE_DIR)).sort(),
+      ['2026-10-07 09-00-00 Tweakable DJ.txt', ...lookalikes, 'alt', 'eigene Notiz.txt'].sort());
+    assert.ok(fs.existsSync(path.join(sub, '2026-01-01 00-00-00 Tweakable DJ.txt')), 'Unterordner bleibt');
+    assert.deepEqual(listArchive(dir).map(e => e.id), ['2026-10-07 09-00-00 Tweakable DJ.txt']);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
   }

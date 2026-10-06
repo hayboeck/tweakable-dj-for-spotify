@@ -724,6 +724,44 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungs
   assert.match(html, /<p class="mt-note" id="mt-note" data-html="mtNote"><\/p>/);
 });
 
+// Aussehen: Listen wie in config.mjs; je Akzentfarbe und Modus Text, Fläche, Schrift auf der Fläche und Soft-Fläche
+// (CSS-Variablen in ui.html), Kontrast nach WCAG mindestens 4,5:1.
+test('ui.html: Akzentfarben und Modi wie in config.mjs, jede Farbe mit genug Kontrast im hellen und dunklen Modus', async () => {
+  const html = fs.readFileSync(path.join(ROOT, 'ui.html'), 'utf8');
+  const { ACCENTS, THEMES } = await import('../config.mjs');
+  const list = name => JSON.parse(html.match(new RegExp(`const ${name} = (\\[[^\\]]*\\]);`))[1].replace(/'/g, '"'));
+  assert.deepEqual(list('ACCENT_NAMES'), ACCENTS);
+  assert.deepEqual(list('THEME_NAMES'), THEMES);
+  const vars = sel => Object.fromEntries([...html.match(new RegExp(`\\n {2}${sel} \\{([^}]*)\\}`))[1].matchAll(/--([\w-]+):\s*([^;]+);/g)]
+    .map(m => [m[1], m[2].trim()]));
+  const light = vars(':root');
+  const dark = { ...light, ...vars(':root\\[data-mode="dark"\\]') };
+  const resolve = (mode, name) => {
+    let v = mode[name];
+    while (v?.startsWith('var(--')) v = mode[v.slice(6, -1)];
+    assert.match(v ?? '', /^#([0-9a-f]{3}|[0-9a-f]{6})$/i, name);
+    return v.length === 4 ? `#${[...v.slice(1)].map(c => c + c).join('')}` : v;
+  };
+  const lum = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  for (const [modeName, mode] of [['hell', light], ['dunkel', dark]]) {
+    for (const a of ACCENTS) {
+      const [text, fill, on, soft] = ['', '-fill', '-on', '-soft'].map(s => resolve(mode, `a-${a}${s}`));
+      for (const [what, fg, bg] of [['Text/Hintergrund', text, resolve(mode, 'bg')], ['Text/Karte', text, resolve(mode, 'card')],
+        ['Text/Soft-Fläche', text, soft], ['Schrift/Fläche', on, fill]]) {
+        assert.ok(ratio(fg, bg) >= 4.5, `${a} ${modeName} ${what}: ${fg} auf ${bg} = ${ratio(fg, bg).toFixed(2)}:1`);
+      }
+    }
+    assert.equal(resolve(mode, 'a-green-fill'), '#1ed760', 'Grün des Spotify-Logos als Fläche');
+  }
+  // Grün ist der Standard (ohne data-accent), jede andere Farbe setzt alle vier Werte
+  assert.deepEqual(['accent', 'accent-fill', 'on-accent', 'accent-soft'].map(k => light[k]), ['var(--a-green)', 'var(--a-green-fill)', 'var(--a-green-on)', 'var(--a-green-soft)']);
+  for (const a of ACCENTS.filter(x => x !== 'green')) {
+    assert.ok(html.includes(`:root[data-accent="${a}"] { --accent: var(--a-${a}); --accent-fill: var(--a-${a}-fill); --on-accent: var(--a-${a}-on); --accent-soft: var(--a-${a}-soft); }`), a);
+  }
+});
+
 // Spieldauer in der Oberfläche: dieselben Formen wie formatDuration() in i18n.mjs (Schätzung bei „Anzahl Songs“, echte Dauer
 // nach einem Lauf und beim letzten automatischen Lauf), dazu die Fußzeile mit Last.fm und Spotify in einer Zeile.
 test('ui.html: Spieldauer wie in i18n.mjs, in der Zusammenfassung und beim letzten automatischen Lauf; Fußzeile', async () => {
@@ -860,10 +898,19 @@ test('Playlist-Archiv: Übernehmen und Import legen die Liste ab; Liste und Eint
   const newest = (await api(`/api/archive/entry?id=${encodeURIComponent(entries[0].id)}`)).data;
   assert.match(newest.text, /^# Test-DJ – /);
   assert.ok(fs.existsSync(path.join(dir, 'archiv', entries[0].id)));
-  for (const bad of ['../config.jsonc', 'config.jsonc', `..%2F${entries[0].id}`, '']) {
+  // Pfade aller Art (auch kodiert, mit Backslash, absolut, in einem Unterordner, mit Nullbyte) und fremde Namen: nie gelesen
+  fs.mkdirSync(path.join(dir, 'archiv', 'alt'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'archiv', 'alt', entries[0].id), 'im Unterordner');
+  fs.writeFileSync(path.join(dir, 'archiv', 'notiz.txt'), 'fremd');
+  const id = encodeURIComponent(entries[0].id);
+  for (const bad of ['../config.jsonc', 'config.jsonc', `..%2F${entries[0].id}`, '', '%2e%2e%2fconfig.jsonc', '%2E%2E%5Ctokens.json',
+    '..%5Cconfig.jsonc', 'C%3A%5CWindows%5Cwin.ini', '%2Fetc%2Fpasswd', `alt%2F${id}`, `alt%5C${id}`, `..%2Farchiv%2F${id}`, `${id}%00`,
+    `.%2F${id}`, 'notiz.txt', encodeURIComponent('2026-01-01 00-00-00 Tweakable DJ.txt')]) {
     const r = await api(`/api/archive/entry?id=${bad}`, { lang: 'en' });
     assert.deepEqual([r.status, r.data.error], [404, 'This entry isn’t in the archive (anymore).'], bad);
   }
+  assert.ok(fs.existsSync(path.join(dir, 'archiv', 'notiz.txt')) && fs.existsSync(path.join(dir, 'archiv', 'alt', entries[0].id)), 'fremde Dateien bleiben');
+  assert.ok(!(await api('/api/archive')).data.entries.some(e => /notiz|alt/.test(e.id)), 'fremde Dateien nicht in der Liste');
 });
 
 // --- Systembenachrichtigungen: „Bei Fehlern benachrichtigen“ und „Testbenachrichtigung senden“ ---
