@@ -60,12 +60,17 @@ function run(dir, env = {}, args = []) {
     timeout: 60_000,
     env: fullEnv,
   });
-  const requests = fs.existsSync(logFile)
+  const entries = fs.existsSync(logFile)
     ? fs.readFileSync(logFile, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line))
     : [];
+  // Systembenachrichtigungen (vom Mock nur protokolliert) getrennt von den Anfragen an die APIs
+  const requests = entries.filter(r => !r.notify);
+  const notifications = entries.filter(r => r.notify).map(r => r.notify);
   const unknown = requests.filter(r => r.unknown);
   assert.deepEqual(unknown, [], 'unerwartete Adressen');
-  return { code: res.status, out: res.stdout, err: res.stderr, all: res.stdout + res.stderr, requests, result: resultOf(res.stdout) };
+  return {
+    code: res.status, out: res.stdout, err: res.stderr, all: res.stdout + res.stderr, requests, notifications, result: resultOf(res.stdout),
+  };
 }
 
 // Letzte Zeile auf stdout: "@@RESULT {…}" mit genau den vereinbarten Feldern in dieser Reihenfolge.
@@ -266,6 +271,109 @@ test('Automatischer Lauf (--auto --dry): automatik.json und automatik.log, auch 
   }
 });
 
+// Titel und Text einer vom Mock abgefangenen Systembenachrichtigung: unter Windows aus dem Toast-XML, sonst die letzten
+// beiden Argumente (notify-send bekommt den Text mit maskiertem <, > und &).
+function noticeOf(n) {
+  const unescape = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  const [title, text] = n.toast ? [...n.toast.matchAll(/<text>([^<]*)<\/text>/g)].map(m => unescape(m[1])) : n.args.slice(-2);
+  return { title, text: n.toast ? text : unescape(text) };
+}
+
+test('Systembenachrichtigung: nur bei einem fehlgeschlagenen automatischen Lauf, abschaltbar; Fehler beim Senden stören nicht', () => {
+  const dir = setup();
+  const autoJson = () => fs.readFileSync(path.join(dir, 'automatik.json'), 'utf8');
+  const log = () => fs.readFileSync(path.join(dir, 'automatik.log'), 'utf8');
+  try {
+    // Erfolgreicher automatischer Lauf: keine
+    const ok = run(dir, {}, ['--auto']);
+    assert.equal(ok.code, 0, ok.all);
+    assert.deepEqual(ok.notifications, []);
+
+    // Fehlgeschlagen, aber nicht automatisch (Oberfläche, Terminal): keine
+    fs.writeFileSync(path.join(dir, 'tokens.json'), JSON.stringify({ access_token: 'alt', refresh_token: 'widerrufen', expires_at: 0 }));
+    const manual = run(dir);
+    assert.equal(manual.code, 1, manual.all);
+    assert.deepEqual(manual.notifications, []);
+
+    // Fehlgeschlagener automatischer Lauf: genau eine, in der Sprache des Laufs, mit Grund und Rat
+    const failed = run(dir, {}, ['--auto']);
+    assert.equal(failed.code, 1, failed.all);
+    assert.equal(failed.notifications.length, 1);
+    assert.deepEqual(noticeOf(failed.notifications[0]), {
+      title: 'Tweakable DJ: automatischer Lauf fehlgeschlagen',
+      text: 'Die Spotify-Anmeldung ist abgelaufen.\nÖffne Tweakable DJ und melde dich neu bei Spotify an.',
+    });
+    const before = JSON.parse(autoJson());
+    const english = run(dir, { TWEAKABLE_DJ_LANG: 'en' }, ['--auto']);
+    assert.deepEqual(noticeOf(english.notifications[0]), {
+      title: 'Tweakable DJ: automatic run failed', text: 'Your Spotify login has expired.\nOpen Tweakable DJ and log in to Spotify again.',
+    });
+
+    // Senden scheitert: nur ein Hinweis in automatik.log; automatik.json, Exit-Code und @@RESULT wie sonst
+    const broken = run(dir, { MOCK_NOTIFY: 'fail' }, ['--auto']);
+    assert.equal(broken.code, 1, broken.all);
+    assert.equal(broken.notifications.length, 1);
+    assert.match(log(), /^Hinweis: Systembenachrichtigung nicht gesendet – Senden fehlgeschlagen: Simulierter Fehler beim Senden$/m);
+    const after = JSON.parse(autoJson());
+    for (const key of ['startedAt', 'finishedAt']) delete before[key], delete after[key];
+    assert.deepEqual(after, before);
+    assert.deepEqual([broken.result.ok, broken.result.errorCode], [false, 'login_expired']);
+
+    // Schalter aus: keine, auch nicht bei einem Fehler
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, notifyOnFailure: false }));
+    const off = run(dir, {}, ['--auto']);
+    assert.equal(off.code, 1, off.all);
+    assert.deepEqual(off.notifications, []);
+    assert.doesNotMatch(log(), /Systembenachrichtigung/);
+
+    // Kaputte config.jsonc: Der Schalter ist nicht lesbar, also meldet der Lauf (Standard: an)
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), '{ "seed": "liked", }}');
+    const invalid = run(dir, {}, ['--auto']);
+    assert.equal(invalid.code, 1, invalid.all);
+    const notice = noticeOf(invalid.notifications[0]);
+    assert.match(notice.text, /^config\.jsonc ist fehlerhaft \(/);
+    assert.match(notice.text, /\nÖffne Tweakable DJ; Details stehen in automatik\.log im Ordner von Tweakable DJ\.$/);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('Erinnerung an die Spotify-Anmeldung: ab Tag 170 nach einem erfolgreichen automatischen Lauf, höchstens einmal am Tag', () => {
+  const dir = setup();
+  const auto = path.join(dir, 'automatik.json');
+  const loggedIn = days => fs.writeFileSync(path.join(dir, 'tokens.json'), JSON.stringify({
+    access_token: 'abgelaufen', refresh_token: 'fake-refresh-token', expires_at: 0, authorized_at: Date.now() - days * 86_400_000 - 60_000,
+  }));
+  try {
+    loggedIn(169);
+    const early = run(dir, {}, ['--auto']);
+    assert.equal(early.code, 0, early.all);
+    assert.deepEqual(early.notifications, [], 'Tag 169: noch keine');
+    // Tag 175, aber der vorige automatische Lauf war heute: keine zweite am selben Tag
+    loggedIn(175);
+    assert.deepEqual(run(dir, {}, ['--auto']).notifications, []);
+    // Voriger automatischer Lauf gestern: Erinnerung
+    fs.writeFileSync(auto, JSON.stringify({ ...JSON.parse(fs.readFileSync(auto, 'utf8')), startedAt: new Date(Date.now() - 86_400_000).toISOString() }));
+    const due = run(dir, {}, ['--auto']);
+    assert.equal(due.code, 0, due.all);
+    assert.deepEqual(noticeOf(due.notifications[0]), {
+      title: 'Tweakable DJ: Spotify-Anmeldung läuft bald ab',
+      text: 'Die Spotify-Anmeldung läuft in 5 Tagen ab. Öffne Tweakable DJ und melde dich neu bei Spotify an, damit die automatischen Läufe weiter klappen.',
+    });
+    assert.equal(JSON.parse(fs.readFileSync(auto, 'utf8')).ok, true);
+    // Erster automatischer Lauf überhaupt (ohne automatik.json): ebenfalls; ohne --auto nie
+    fs.rmSync(auto);
+    assert.equal(run(dir, { TWEAKABLE_DJ_LANG: 'en' }, ['--auto']).notifications.length, 1);
+    fs.rmSync(auto);
+    assert.deepEqual(run(dir).notifications, []);
+    // Schalter aus: auch keine Erinnerung
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, notifyOnFailure: false }));
+    assert.deepEqual(run(dir, {}, ['--auto']).notifications, []);
+  } finally {
+    cleanup(dir);
+  }
+});
+
 test('Seed-Playlist per Link; Last.fm-Benutzer ohne Scrobbles', () => {
   const dir = setup({ seed: 'https://open.spotify.com/playlist/TestListe42?si=abc', lastfm: { user: 'stillerhoerer' } });
   try {
@@ -399,11 +507,14 @@ test('Ohne config.jsonc: Vorlage der Laufsprache wird angelegt (errorCode setup_
 test('Zu alte Node-Version: klare Meldung (errorCode node_version)', () => {
   const dir = setup();
   try {
-    const { code, err, requests, result } = run(dir, { MOCK_NODE_VERSION: '16.20.2' }, ['--auto']);
+    const { code, err, requests, notifications, result } = run(dir, { MOCK_NODE_VERSION: '16.20.2' }, ['--auto']);
     assert.equal(code, 1, err);
     assert.match(err, /Tweakable DJ braucht Node\.js 18 oder neuer, installiert ist 16\.20\.2/);
     assert.equal(requests.length, 0);
     assert.deepEqual([result.ok, result.errorCode], [false, 'node_version']);
+    assert.deepEqual(noticeOf(notifications[0]), {
+      title: 'Tweakable DJ: automatischer Lauf fehlgeschlagen', text: 'Node.js ist zu alt.\nInstalliere die aktuelle LTS-Version von https://nodejs.org.',
+    });
     // Auch dann gibt es ein Ergebnis für die Oberfläche
     const auto = JSON.parse(fs.readFileSync(path.join(dir, 'automatik.json'), 'utf8'));
     assert.deepEqual([auto.ok, auto.errorCode], [false, 'node_version']);

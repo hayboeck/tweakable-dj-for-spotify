@@ -157,6 +157,8 @@
   .facts .ok { color: var(--accent); }
   .facts .err { color: var(--danger); }
   #auto-status > * + * { margin-top: 8px; }
+  .notify-test { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-top: 8px; }
+  .notify-test .msg { margin: 0; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
   .auto-problem { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--warn); }
   .auto-problem p { margin: 0 0 8px; font-size: 14px; }
   @media (max-width: 480px) {
@@ -560,6 +562,8 @@ const TEXT = {
         options: { MON: 'Montag', TUE: 'Dienstag', WED: 'Mittwoch', THU: 'Donnerstag', FRI: 'Freitag', SAT: 'Samstag', SUN: 'Sonntag' } },
       scheduleTime: { label: 'Uhrzeit', fmt: v => `${v} Uhr`,
         hint: (v, c) => `${c.schedule === 'weekly' ? `Jeden ${T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay}` : 'Jeden Tag'} um ${v} Uhr` },
+      notifyOnFailure: { label: 'Bei Fehlern benachrichtigen',
+        help: 'Schlägt ein automatischer Lauf fehl (z. B. Spotify-Anmeldung abgelaufen, Last.fm-Key ungültig, keine Verbindung), zeigt dein System eine Benachrichtigung mit dem Grund und was zu tun ist. Außerdem erinnert sie dich ab 10 Tagen vorher, höchstens einmal am Tag, an die neue Anmeldung bei Spotify.' },
     },
     list: {
       add: 'Hinzufügen',
@@ -699,6 +703,13 @@ const TEXT = {
       latest: 'Du hast die neueste Version ✓',
       found: v => `Version ${v} ist verfügbar – siehe Hinweis oben`,
       offline: 'GitHub nicht erreichbar',
+    },
+    // „Testbenachrichtigung senden“ beim Schalter „Bei Fehlern benachrichtigen“
+    notify: {
+      test: 'Testbenachrichtigung senden',
+      sending: 'Wird gesendet …',
+      sent: 'Gesendet – siehe Benachrichtigungen. Nichts zu sehen? Prüfe „Nicht stören“ und die Benachrichtigungseinstellungen deines Systems.',
+      failed: msg => `Nicht gesendet: ${msg}`,
     },
     // Automatik (platform wie in Node: win32, darwin, linux)
     auto: {
@@ -872,6 +883,8 @@ const TEXT = {
         options: { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' } },
       scheduleTime: { label: 'Time', fmt: v => v,
         hint: (v, c) => `${c.schedule === 'weekly' ? `Every ${T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay}` : 'Every day'} at ${v}` },
+      notifyOnFailure: { label: 'Notify on failures',
+        help: 'If an automatic run fails (e.g. Spotify login expired, invalid Last.fm key, no connection), your system shows a notification with the reason and what to do. It also reminds you to log in to Spotify again, starting 10 days before the login expires, at most once a day.' },
     },
     list: {
       add: 'Add',
@@ -1008,6 +1021,12 @@ const TEXT = {
       found: v => `Version ${v} is available – see the notice at the top`,
       offline: 'GitHub not reachable',
     },
+    notify: {
+      test: 'Send test notification',
+      sending: 'Sending …',
+      sent: 'Sent – see your notifications. Nothing there? Check Do Not Disturb and your system’s notification settings.',
+      failed: msg => `Not sent: ${msg}`,
+    },
     auto: {
       background: 'Automatic runs also work when the Tweakable DJ window and this page are closed.',
       beforeDelete: 'Before deleting the Tweakable DJ folder, turn automatic runs off here.',
@@ -1134,6 +1153,8 @@ const GROUPS = [
     { key: 'schedule', type: 'choice', options: ['off', 'daily', 'weekly'] },
     { key: 'scheduleDay', type: 'select', options: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'], show: c => c.schedule === 'weekly' },
     { key: 'scheduleTime', type: 'time', show: c => c.schedule !== 'off' },
+    // Mit „Testbenachrichtigung senden“ (notifyTestBox) darunter.
+    { key: 'notifyOnFailure', type: 'toggle', show: c => c.schedule !== 'off', test: true },
   ]},
 ];
 // Texte eines Reglers in der aktuellen Sprache; Auswahllisten zeigen ohne eigenes fmt den Namen der Option.
@@ -1336,9 +1357,10 @@ function build() {
       let input;
       if (item.type === 'toggle') {
         input = el('input', { type: 'checkbox', id, onchange: () => set(item.key, input.checked) });
-        parent.append(el('div', { className: 'row' }, [
-          el('div', { className: 'row-head' }, [label, el('label', { className: 'switch' }, [input, el('span')])]), help, reset,
-        ]));
+        control.row = el('div', { className: 'row' }, [
+          el('div', { className: 'row-head' }, [label, el('label', { className: 'switch' }, [input, el('span')])]), help,
+          ...(item.test ? [notifyTestBox()] : []), reset,
+        ]);
       } else if (item.type === 'text') {
         input = el('input', { type: 'text', id, maxLength: 200, oninput: () => set(item.key, input.value, false) });
         parent.append(el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [label]), input, help, reset]));
@@ -1695,6 +1717,26 @@ function scheduleBox() {
   ]);
 }
 
+// „Testbenachrichtigung senden“: zeigt sofort eine Systembenachrichtigung (POST /api/notify/test), damit man sieht, ob
+// Benachrichtigungen auf diesem Gerät ankommen. Das Ergebnis steht gleich daneben.
+function notifyTestBox() {
+  const msg = attr(el('p', { className: 'msg', id: 'notify-msg' }), { role: 'status' });
+  const button = el('button', { type: 'button', className: 'btn small', id: 'notify-test', textContent: T.notify.test });
+  button.onclick = async () => {
+    button.disabled = true;
+    setMsg(msg, '', T.notify.sending);
+    try {
+      const r = await apiJson('/api/notify/test', { method: 'POST', body: '{}' });
+      setMsg(msg, r.ok ? 'ok' : 'err', r.ok ? T.notify.sent : T.notify.failed(r.error));
+    } catch (e) {
+      setMsg(msg, 'err', T.notify.failed(e.message));
+    } finally {
+      button.disabled = false;
+    }
+  };
+  return el('div', { className: 'notify-test' }, [button, msg]);
+}
+
 // Letzter automatischer Lauf aus automatik.json: Zeit · ✓ 50 Songs bzw. ✗ Grund – aus den Zahlen und errorCode in der
 // Sprache der Seite; bei errorCode 'other' die erste Zeile von error, so wie sie dort steht.
 function lastRunView(r) {
@@ -1925,8 +1967,8 @@ async function run(kind) {
 
 // --- Probelauf übernehmen ---
 
-// Einstellungen, die die Auswahl bestimmen (die Automatik nicht): Weichen sie vom Probelauf ab, passt seine Liste nicht mehr.
-const trialChanged = () => ITEMS.some(i => !SCHEDULE_KEYS.includes(i.key) && !same(current[i.key], trial.settings[i.key]));
+// Einstellungen, die die Auswahl bestimmen (die Automatik und ihre Benachrichtigungen nicht): Weichen sie vom Probelauf ab, passt seine Liste nicht mehr.
+const trialChanged = () => ITEMS.some(i => !SCHEDULE_KEYS.includes(i.key) && i.key !== 'notifyOnFailure' && !same(current[i.key], trial.settings[i.key]));
 
 // Warum sich der Probelauf nicht mehr übernehmen lässt: 'blocked' (Song daraus gesperrt), 'dirty' (Einstellungen geändert), 'old' (älter als 24 Stunden),
 // sonst ein Grund vom Server (dann steht der Text in trial.message); null = geht.

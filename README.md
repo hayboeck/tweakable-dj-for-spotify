@@ -97,6 +97,7 @@ The numbers show the order of a run:
 | `ui.mjs` | Small web server for the interface; starts the DJ at the push of a button |
 | `ui.html` | The interface itself (setup wizard, controls, buttons, output), with all texts in English and German |
 | `schedule.mjs` | Automatic runs: adds Tweakable DJ to your system’s scheduler (Windows Task Scheduler, macOS launchd, Linux cron) and reads its status |
+| `notify.mjs` | System notification when an automatic run fails, using only what your system has built in (Windows: PowerShell, Mac: `osascript`, Linux: `notify-send`) |
 | `update.mjs` | Checks at most once a day whether a new version is available on GitHub (see [Update check](#update-check)) |
 | `install-update.mjs` | Installs a new version when you click *Update now* (see [Updating](#8-updating)) |
 | `manifest.json` | List of all program files of this version with their checksums. *Update now* only replaces files listed there. Only in the ZIP file, not in the GitHub repository. |
@@ -223,6 +224,14 @@ Every step works with 50 songs and a typical library. If the source of your favo
 - For the order, “3 in 20” takes priority over the minimum gap.
 - If a rule is still broken, the DJ shows a warning (⚠).
 
+**Automatic runs**
+
+The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to set in the interface, see [Using Tweakable DJ](#with-the-interface).
+
+| Setting | Default | Allowed |
+|---|---|---|
+| Notify on failures (`notifyOnFailure`): if an automatic run fails, your system shows a notification with the reason and what to do (e.g. “Your Spotify login has expired. Open Tweakable DJ and log in to Spotify again.”). From 10 days before your Spotify login expires, a successful automatic run also reminds you, at most once a day. Runs from the interface or the terminal never notify. | on | `true` or `false` |
+
 **Language**
 
 | Setting | Default |
@@ -262,7 +271,14 @@ On the very first start, your system may ask for confirmation, see [setup](#7-se
   - Windows: the run is made up the next time you turn it on.
   - Mac: the run is made up after waking from sleep, but not after being switched off.
   - Linux: the run is skipped.
-- **New version**: if a newer version of Tweakable DJ has been released, a notice appears at the top with a download link and the button **Update now** (see [Updating](#8-updating)). Close it with ×; it only comes back for the next version. The bottom of the page shows which version you have (e.g. *v0.1.2*), next to it **Check for updates**: it asks GitHub right away and then says *You’re up to date ✓*, shows the notice again (even if you closed it) or says *GitHub not reachable*. More in [Update check](#update-check).
+
+  **Notify on failures** (on by default, shown while automatic runs are on): if an automatic run fails – Spotify login expired, Last.fm key invalid or suspended, no internet, setup or `config.jsonc` broken – your system shows a notification: “Tweakable DJ: automatic run failed”, the reason and what to do. From 10 days before the Spotify login expires, it also reminds you to log in again (at most once a day). **Send test notification** shows one right away, so you can check that notifications get through; the result appears next to the button. Tweakable DJ only uses what your system has built in:
+  - Windows: a notification from *Windows PowerShell* (that’s the sender shown). If none appears, check *Do not disturb* and *Settings › System › Notifications › Windows PowerShell*.
+  - Mac: a notification from *Script Editor* (`osascript`). The first time, macOS may ask whether it may show notifications.
+  - Linux: `notify-send` (package `libnotify-bin` or `libnotify`). Without it, or without a desktop session, there is simply no notification.
+
+  If a notification can’t be shown, the run still counts as usual; `automatik.log` then contains a short note why.
+- **New version**: if a newer version of Tweakable DJ has been released, a notice appears at the top with a download link and the button **Update now** (see [Updating](#8-updating)). Close it with ×; it only comes back for the next version. The bottom of the page shows which version you have (e.g. *v0.1.3*), next to it **Check for updates**: it asks GitHub right away and then says *You’re up to date ✓*, shows the notice again (even if you closed it) or says *GitHub not reachable*. More in [Update check](#update-check).
 
 *Test run* and *Rebuild playlist* save first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
 
@@ -466,6 +482,7 @@ There is only ever one entry: it always has the same name, whichever folder it c
 | A particular song is never found | If Spotify can’t find a song, the DJ remembers that in `state.json` (search errors, e.g. without internet, are not remembered). Delete `state.json` to search again. |
 | Similar songs should come fresh from Last.fm | Delete `lastfm-cache.json`. Otherwise the DJ keeps using Last.fm’s answers for up to 7 days. |
 | An automatic run didn’t happen | Under *Rebuild automatically* you see the reason for the last run. Common causes: the computer was off (see [Using Tweakable DJ](#with-the-interface)), or the Spotify login has expired (then click *Log in with Spotify*). Details are in `automatik.log`. |
+| No notification after a failed automatic run | Is *Notify on failures* on? Click *Send test notification*: if it reports an error, that says why; if it says *Sent* but nothing appears, check *Do not disturb* and the notification settings of your system (Windows: *Windows PowerShell*, Mac: *Script Editor*). On Linux, `notify-send` must be installed. |
 | “Automatic runs still point to a different folder” | The folder was moved or copied. Click *Save automatic runs* once, and the scheduler entry points to the right folder again. |
 | “The scheduler still has an entry under the old name …” | Automatic runs were set up under the project’s former name. Click *Save automatic runs* once (or *Remove entry* if automatic runs are off), and Tweakable DJ replaces the old entry. |
 | Interface or output in the wrong language | Choose **DE** or **EN** at the top right. That saves `language` in `config.jsonc`, which from the next run on also applies to automatic runs and the terminal. |

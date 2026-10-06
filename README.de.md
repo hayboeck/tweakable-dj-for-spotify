@@ -97,6 +97,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `ui.mjs` | Kleiner Webserver für die Oberfläche; startet den DJ auf Knopfdruck |
 | `ui.html` | Die Oberfläche selbst (Einrichtungs-Assistent, Regler, Buttons, Ausgabe), mit allen Texten auf Deutsch und Englisch |
 | `schedule.mjs` | Die Automatik: trägt Tweakable DJ in den Zeitplaner deines Systems ein (Windows-Aufgabenplanung, macOS launchd, Linux cron) und liest den Stand aus |
+| `notify.mjs` | Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt – nur mit Bordmitteln deines Systems (Windows: PowerShell, Mac: `osascript`, Linux: `notify-send`) |
 | `update.mjs` | Prüft höchstens einmal am Tag, ob es auf GitHub eine neue Version gibt (siehe [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen)) |
 | `install-update.mjs` | Installiert eine neue Version, wenn du auf *Jetzt aktualisieren* klickst (siehe [Aktualisieren](#8-aktualisieren)) |
 | `manifest.json` | Liste aller Programmdateien dieser Version mit Prüfsummen. *Jetzt aktualisieren* ersetzt nur Dateien, die dort stehen. Nur in der ZIP-Datei, nicht im GitHub-Repository. |
@@ -223,6 +224,14 @@ Jede Stufe klappt mit 50 Songs und einer üblichen Bibliothek. Hat die Quelle de
 - Bei der Reihenfolge hat „3 aus 20“ Vorrang vor dem Mindestabstand.
 - Wird eine Regel trotzdem verletzt, zeigt der DJ eine Warnung (⚠).
 
+**Automatik**
+
+Den Zeitplan selbst (`schedule`, `scheduleTime`, `scheduleDay`) stellst du am einfachsten in der Oberfläche ein, siehe [Bedienung](#mit-der-oberfläche).
+
+| Einstellung | Standard | Erlaubt |
+|---|---|---|
+| Bei Fehlern benachrichtigen (`notifyOnFailure`): Schlägt ein automatischer Lauf fehl, zeigt dein System eine Benachrichtigung mit dem Grund und was zu tun ist (z. B. „Die Spotify-Anmeldung ist abgelaufen. Öffne Tweakable DJ und melde dich neu bei Spotify an.“). Ab 10 Tagen bevor die Spotify-Anmeldung abläuft, erinnert auch ein erfolgreicher automatischer Lauf daran, höchstens einmal am Tag. Läufe aus der Oberfläche oder dem Terminal melden sich nie. | an | `true` oder `false` |
+
 **Sprache**
 
 | Einstellung | Standard |
@@ -262,7 +271,14 @@ Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-e
   - Windows: Der Lauf wird beim nächsten Einschalten nachgeholt.
   - Mac: Der Lauf wird nach dem Aufwachen aus dem Ruhezustand nachgeholt, nach dem Ausschalten nicht.
   - Linux: Der Lauf entfällt.
-- **Neue Version**: Gibt es eine neuere Version von Tweakable DJ, erscheint oben ein Hinweis mit Link zum Download und der Schaltfläche **Jetzt aktualisieren** (siehe [Aktualisieren](#8-aktualisieren)). Mit × blendest du ihn aus; er kommt erst bei der nächsten Version wieder. Ganz unten auf der Seite steht, welche Version du hast (z. B. *v0.1.2*), daneben **Nach Updates suchen**: Das fragt sofort bei GitHub nach und meldet dann *Du hast die neueste Version ✓*, zeigt den Hinweis wieder an (auch wenn du ihn ausgeblendet hattest) oder sagt *GitHub nicht erreichbar*. Mehr unter [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen).
+
+  **Bei Fehlern benachrichtigen** (standardmäßig an, sichtbar, solange die Automatik an ist): Schlägt ein automatischer Lauf fehl – Spotify-Anmeldung abgelaufen, Last.fm-Key ungültig oder gesperrt, kein Internet, Einrichtung oder `config.jsonc` kaputt –, zeigt dein System eine Benachrichtigung: „Tweakable DJ: automatischer Lauf fehlgeschlagen“, dazu der Grund und was zu tun ist. Ab 10 Tagen bevor die Spotify-Anmeldung abläuft, erinnert sie außerdem an die neue Anmeldung (höchstens einmal am Tag). **Testbenachrichtigung senden** zeigt sofort eine an, damit du siehst, ob Benachrichtigungen ankommen; das Ergebnis steht neben dem Button. Tweakable DJ nutzt nur Bordmittel deines Systems:
+  - Windows: eine Benachrichtigung von *Windows PowerShell* (so heißt der Absender). Kommt keine, prüfe *Nicht stören* und *Einstellungen › System › Benachrichtigungen › Windows PowerShell*.
+  - Mac: eine Benachrichtigung vom *Skripteditor* (`osascript`). Beim ersten Mal fragt macOS eventuell, ob er Mitteilungen zeigen darf.
+  - Linux: `notify-send` (Paket `libnotify-bin` bzw. `libnotify`). Ohne das Paket oder ohne Desktop-Sitzung gibt es einfach keine Benachrichtigung.
+
+  Lässt sich eine Benachrichtigung nicht anzeigen, zählt der Lauf trotzdem wie sonst; in `automatik.log` steht dann ein kurzer Hinweis, warum.
+- **Neue Version**: Gibt es eine neuere Version von Tweakable DJ, erscheint oben ein Hinweis mit Link zum Download und der Schaltfläche **Jetzt aktualisieren** (siehe [Aktualisieren](#8-aktualisieren)). Mit × blendest du ihn aus; er kommt erst bei der nächsten Version wieder. Ganz unten auf der Seite steht, welche Version du hast (z. B. *v0.1.3*), daneben **Nach Updates suchen**: Das fragt sofort bei GitHub nach und meldet dann *Du hast die neueste Version ✓*, zeigt den Hinweis wieder an (auch wenn du ihn ausgeblendet hattest) oder sagt *GitHub nicht erreichbar*. Mehr unter [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen).
 
 *Probelauf* und *Playlist neu erstellen* speichern vorher automatisch. Die Oberfläche ist nur auf deinem PC erreichbar, andere Geräte im Netzwerk und fremde Webseiten haben keinen Zugriff.
 
@@ -466,6 +482,7 @@ Es gibt immer nur einen Eintrag: Er hat stets denselben Namen, egal aus welchem 
 | Ein bestimmter Song wird nie gefunden | Findet Spotify einen Song nicht, merkt sich der DJ das in `state.json` (Suchfehler, z. B. ohne Internet, werden nicht gemerkt). `state.json` löschen, dann wird neu gesucht. |
 | Ähnliche Songs sollen frisch von Last.fm kommen | `lastfm-cache.json` löschen. Sonst nutzt der DJ Antworten von Last.fm bis zu 7 Tage lang weiter. |
 | Die Automatik ist nicht gelaufen | Unter *Automatisch neu erstellen* steht der Grund des letzten Laufs. Häufige Ursachen: Der Rechner war aus (siehe [Bedienung](#mit-der-oberfläche)), oder die Spotify-Anmeldung ist abgelaufen (dann auf *Mit Spotify anmelden* klicken). Details stehen in `automatik.log`. |
+| Keine Benachrichtigung nach einem fehlgeschlagenen automatischen Lauf | Ist *Bei Fehlern benachrichtigen* an? *Testbenachrichtigung senden* klicken: Meldet es einen Fehler, steht dort der Grund; heißt es *Gesendet*, aber nichts erscheint, prüfe *Nicht stören* und die Benachrichtigungseinstellungen deines Systems (Windows: *Windows PowerShell*, Mac: *Skripteditor*). Unter Linux muss `notify-send` installiert sein. |
 | „Die Automatik zeigt noch auf einen anderen Ordner“ | Der Ordner wurde verschoben oder kopiert. Einmal *Automatik speichern* klicken, dann zeigt der Eintrag im Zeitplaner wieder auf den richtigen Ordner. |
 | „Im Zeitplaner steht noch ein Eintrag unter dem alten Namen …“ | Die Automatik wurde noch unter dem früheren Namen eingetragen. Einmal *Automatik speichern* (bzw. *Eintrag entfernen*, wenn die Automatik aus ist) klicken, dann ersetzt Tweakable DJ den alten Eintrag. |
 | Oberfläche oder Ausgabe in der falschen Sprache | Oben rechts **DE** oder **EN** wählen. Das speichert `language` in `config.jsonc` und gilt ab dem nächsten Lauf auch für die Automatik und das Terminal. |

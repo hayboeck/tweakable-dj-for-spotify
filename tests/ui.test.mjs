@@ -689,3 +689,43 @@ test('Import-Vorschau: gesperrte und explizite Songs als Hinweis, trotzdem in de
     assert.equal((await api('/api/config', { method: 'POST', body: { excludeExplicit: false, blockedTracks: [] } })).status, 200);
   }
 });
+
+// --- Systembenachrichtigungen: „Bei Fehlern benachrichtigen“ und „Testbenachrichtigung senden“ ---
+
+const notifications = () => {
+  const file = path.join(dir, 'mock-anfragen.jsonl');
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(e => e.notify).map(e => e.notify) : [];
+};
+
+test('POST /api/notify/test: sendet sofort (hier nur simuliert), Text in der Sprache der Anfrage; ohne X-Tweakable-DJ 403', async () => {
+  const before = notifications().length;
+  const plain = await fetch(`${base}/api/notify/test`, { method: 'POST', headers: { 'X-Lang': 'de' } });
+  assert.deepEqual([plain.status, await plain.json()], [403, { error: 'Nicht erlaubt' }]);
+  const foreign = await api('/api/notify/test', { lang: 'en', method: 'POST', headers: { 'X-Tweakable-DJ': '0' }, body: {} });
+  assert.deepEqual([foreign.status, foreign.data], [403, { error: 'Not allowed' }]);
+  assert.equal(notifications().length, before, 'ohne Header nichts gesendet');
+
+  for (const [lang, title] of [['de', 'Tweakable DJ: Testbenachrichtigung'], ['en', 'Tweakable DJ: test notification']]) {
+    const r = await api('/api/notify/test', { lang, method: 'POST', body: {} });
+    assert.deepEqual([r.status, r.data], [200, { ok: true }]);
+    const sent = notifications().at(-1);
+    assert.ok(JSON.stringify(sent).includes(title), JSON.stringify(sent));
+  }
+  assert.equal(notifications().length, before + 2);
+});
+
+test('notifyOnFailure: Standard an, speichern ohne Zeitplaner, kein Einfluss auf den Probelauf; ungültig → 400', async () => {
+  const get = async () => (await api('/api/config')).data;
+  const cfg = await get();
+  assert.deepEqual([cfg.defaults.notifyOnFailure, cfg.values.notifyOnFailure], [true, true]);
+  try {
+    const saved = await api('/api/config', { method: 'POST', body: { notifyOnFailure: false } });
+    assert.deepEqual([saved.status, saved.data], [200, { ok: true }], 'ohne schedule: Zeitplaner nicht angefasst');
+    assert.equal((await get()).values.notifyOnFailure, false);
+    assert.match(fs.readFileSync(path.join(dir, 'config.jsonc'), 'utf8'), /"notifyOnFailure": false/);
+    const bad = await api('/api/config', { lang: 'en', method: 'POST', body: { notifyOnFailure: 'ja' } });
+    assert.deepEqual([bad.status, bad.data.error], [400, 'notifyOnFailure: expected boolean']);
+  } finally {
+    assert.equal((await api('/api/config', { method: 'POST', body: { notifyOnFailure: true } })).status, 200);
+  }
+});

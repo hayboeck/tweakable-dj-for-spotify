@@ -41,6 +41,7 @@ export const DEFAULTS = {
   schedule: 'off',
   scheduleTime: '07:00',
   scheduleDay: 'MON',
+  notifyOnFailure: true, // Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt (notify.mjs)
   language: '', // '' = noch nicht gewählt, dann gilt die Systemsprache
 };
 
@@ -152,6 +153,16 @@ export function configLanguage() {
     return LANGS.includes(value) ? value : '';
   } catch {
     return '';
+  }
+}
+
+// notifyOnFailure aus der config.jsonc, ohne sie anzulegen oder zu prüfen: Nur ein ausdrückliches false schaltet die
+// Benachrichtigungen aus. Fehlt die Datei oder ist sie kaputt, meldet ein fehlgeschlagener automatischer Lauf trotzdem.
+export function notifyOnFailure() {
+  try {
+    return JSON.parse(stripComments(fs.readFileSync(CONFIG, 'utf8'))).notifyOnFailure !== false;
+  } catch {
+    return true;
   }
 }
 

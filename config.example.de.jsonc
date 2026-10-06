@@ -42,6 +42,7 @@
   "schedule": "off",                  // Playlist automatisch neu erstellen: "off" = aus, "daily" = täglich, "weekly" = wöchentlich
   "scheduleTime": "07:00",            // Uhrzeit (24 Stunden, HH:MM)
   "scheduleDay": "MON",               // Wochentag bei "weekly": "MON", "TUE", "WED", "THU", "FRI", "SAT" oder "SUN"
+  "notifyOnFailure": true,            // Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt (z. B. Spotify-Anmeldung abgelaufen); false = aus
 
   // --- Sprache ---
   "language": ""                      // Sprache der Oberfläche und der Ausgabe: "de" = Deutsch, "en" = Englisch, "" = noch nicht gewählt (Systemsprache)

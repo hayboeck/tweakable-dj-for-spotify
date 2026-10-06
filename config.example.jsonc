@@ -42,6 +42,7 @@
   "schedule": "off",                  // Recreate the playlist automatically: "off", "daily" or "weekly"
   "scheduleTime": "07:00",            // Time of day (24-hour clock, HH:MM)
   "scheduleDay": "MON",               // Day of the week for "weekly": "MON", "TUE", "WED", "THU", "FRI", "SAT" or "SUN"
+  "notifyOnFailure": true,            // Show a system notification when an automatic run fails (e.g. Spotify login expired); false = off
 
   // --- Language ---
   "language": ""                      // Language of the interface and output: "en" = English, "de" = German, "" = not chosen yet (system language)

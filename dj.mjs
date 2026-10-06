@@ -8,16 +8,18 @@
 //   node dj.mjs export [datei.txt]   Playlist als Textdatei speichern (ohne Angabe: tweakable-dj-<Datum>.txt hier im Ordner)
 //   node dj.mjs import <datei.txt>   Songs aus einer Textdatei in die Playlist schreiben (mit --dry nur anzeigen);
 //                       zählt nicht als Lauf des DJ, der Verlauf in state.json bleibt unverändert
-//   node dj.mjs --auto  Lauf aus dem Zeitplaner: Ausgabe zusätzlich in automatik.log, Ergebnis in automatik.json
+//   node dj.mjs --auto  Lauf aus dem Zeitplaner: Ausgabe zusätzlich in automatik.log, Ergebnis in automatik.json; schlägt er
+//                       fehl, meldet er sich mit einer Systembenachrichtigung (notifyOnFailure, notify.mjs)
 // Sprache der Ausgabe: TWEAKABLE_DJ_LANG (de/en), sonst "language" in config.jsonc, sonst die Systemsprache.
 // Letzte Zeile auf stdout (nicht im Terminal): "@@RESULT " + JSON mit dem Ergebnis für die Oberfläche.
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { HERE, configLanguage, loadConfig } from './config.mjs';
+import { HERE, configLanguage, loadConfig, notifyOnFailure } from './config.mjs';
 import { resolveLang, t, tError } from './i18n.mjs';
 import { createLastfm } from './lastfm.mjs';
-import { recordAutoRun } from './schedule.mjs';
+import { autoRunNotice, notify, notifyProblem } from './notify.mjs';
+import { lastRun, recordAutoRun } from './schedule.mjs';
 import { createSpotify, FOLLOW_SCOPE, isScopeError, login, REDIRECT_URI } from './spotify.mjs';
 import {
   dateTime, exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, mapLimit, parseImport, readPlaylist,
@@ -35,8 +37,11 @@ const apply = process.argv.includes('--apply');
 // Befehl (login, export, import) und dessen Datei; sonst ein Lauf.
 const [command, fileArg] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 
-// Automatischer Lauf (--auto, auch zusammen mit --dry): Ausgabe und Ergebnis mitschreiben.
-const auto = process.argv.includes('--auto') ? recordAutoRun(HERE, lang) : null;
+// Automatischer Lauf (--auto, auch zusammen mit --dry): Ausgabe und Ergebnis mitschreiben. Beginn des vorigen automatischen
+// Laufs vorher merken (recordAutoRun überschreibt automatik.json): Die Erinnerung an die Anmeldung kommt höchstens einmal am Tag.
+const isAuto = process.argv.includes('--auto');
+const previousAutoStart = isAuto ? lastRun(HERE)?.startedAt ?? null : null;
+const auto = isAuto ? recordAutoRun(HERE, lang) : null;
 
 const TOKENS = path.join(HERE, 'tokens.json');
 const STATE = path.join(HERE, 'state.json');
@@ -63,6 +68,29 @@ function report(values) {
   };
   auto?.finish({ ...out, summary: summary ?? null });
   if (!process.stdout.isTTY) process.stdout.write(`@@RESULT ${JSON.stringify(out)}\n`);
+  if (auto) notifyAutoRun(out);
+}
+
+// Systembenachrichtigung nach einem automatischen Lauf (nur bei --auto): bei einem Fehler, nach Erfolg nur als Erinnerung
+// an die bald ablaufende Spotify-Anmeldung (autoRunNotice in notify.mjs). Kommt nach dem Ergebnis, wartet höchstens
+// 10 Sekunden und ändert weder automatik.json noch den Exit-Code; klappt sie nicht, steht nur ein Hinweis in automatik.log.
+async function notifyAutoRun(out) {
+  try {
+    let authorizedAt = null;
+    if (out.ok) {
+      try {
+        authorizedAt = Number(readJson(TOKENS, null)?.authorized_at) || null;
+      } catch {
+        // ohne Zeitpunkt der Anmeldung keine Erinnerung
+      }
+    }
+    const notice = autoRunNotice({ result: out, lang, enabled: notifyOnFailure(), authorizedAt, previousStart: previousAutoStart });
+    if (!notice) return;
+    const sent = await notify(notice);
+    if (!sent.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, sent) }));
+  } catch {
+    // Eine Benachrichtigung darf den Lauf nie stören.
+  }
 }
 
 const warn = msg => console.warn(`  ⚠ ${msg}`);

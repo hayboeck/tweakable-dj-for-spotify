@@ -22,8 +22,13 @@
 //                       release-assets.githubusercontent.com weiter; "redirect": "<URL>" ersetzt dieses Ziel (z. B. ein
 //                       fremder Host, den das Update ablehnen muss). tests/mock-release.mjs baut solche Releases.
 //                       Wird bei jeder Anfrage neu gelesen; ohne Datei ist GitHub ebenfalls nicht erreichbar.
+//   MOCK_NOTIFY=fail    Systembenachrichtigungen (notify.mjs) scheitern (Exit-Code 1). Echte Benachrichtigungen gibt es nie:
+//                       execFile für powershell.exe, osascript und notify-send wird nur als { notify: { file, args, toast } }
+//                       in MOCK_LOG geschrieben (toast = XML aus der Umgebungsvariable TWEAKABLE_DJ_TOAST unter Windows).
 
+import childProcess from 'node:child_process';
 import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 
 const ACCESS_TOKEN = 'mock-access-neu';
 const REFRESH_TOKEN = 'fake-refresh-token';
@@ -35,6 +40,24 @@ if (process.env.MOCK_NODE_VERSION) {
 }
 
 const log = entry => process.env.MOCK_LOG && fs.appendFileSync(process.env.MOCK_LOG, `${JSON.stringify(entry)}\n`);
+
+// Systembenachrichtigungen abfangen (siehe oben); alle anderen Programme starten wie gewohnt.
+const NOTIFIERS = /^(powershell\.exe|osascript|notify-send)$/i;
+const realExecFile = childProcess.execFile;
+childProcess.execFile = function execFile(file, ...rest) {
+  const name = String(file).split(/[\\/]/).pop();
+  if (!NOTIFIERS.test(name)) return realExecFile.call(this, file, ...rest);
+  const args = Array.isArray(rest[0]) ? rest[0] : [];
+  const options = rest.find(r => r && typeof r === 'object' && !Array.isArray(r)) ?? {};
+  const callback = rest.find(r => typeof r === 'function');
+  log({ notify: { file: name, args, toast: options.env?.TWEAKABLE_DJ_TOAST ?? null } });
+  setImmediate(() => {
+    if (process.env.MOCK_NOTIFY === 'fail') callback?.(Object.assign(new Error('simuliert'), { code: 1 }), '', 'Simulierter Fehler beim Senden');
+    else callback?.(null, '', '');
+  });
+  return undefined;
+};
+syncBuiltinESMExports();
 const json = (body, status = 200, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
 const hash = s => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);

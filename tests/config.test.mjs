@@ -374,3 +374,30 @@ test('blockedTracks speichern: ein Song pro Zeile, Kommentar hinter "],"; zurüc
     assert.deepEqual(readConfig().excludeExplicit, false, 'Standard');
   });
 });
+
+// --- „Bei Fehlern benachrichtigen“ (notifyOnFailure) ---
+
+test('notifyOnFailure: Standard an, nur true/false; in einer config.jsonc von 0.1.2 kommt er mit Erklärung zur Automatik', async () => {
+  assert.equal(DEFAULTS.notifyOnFailure, true);
+  assert.equal(checkValue('notifyOnFailure', false), false);
+  assert.throws(() => checkValue('notifyOnFailure', 'false', 'de'), /^Error: notifyOnFailure: /);
+  assert.throws(() => checkValue('notifyOnFailure', 0, 'en'), /^Error: notifyOnFailure: expected boolean$/);
+  await withConfig(OLD_CONFIG, async ({ notifyOnFailure, readConfig, updateConfig }, read, dir) => {
+    assert.equal(notifyOnFailure(), true, 'fehlt in der Datei: an');
+    updateConfig({ ...SCHEDULE, language: 'de' }, 'de'); // so sah sie mit 0.1.2 aus
+    const before = read();
+    updateConfig({ notifyOnFailure: false }, 'de');
+    const text = read();
+    assert.match(text, /\n {2}"scheduleDay": "FRI", +\/\/ Wochentag[^\n]*\n {2}"notifyOnFailure": false, +\/\/ Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt[^\n]*\n\n {2}\/\/ --- Sprache ---\n/);
+    assert.equal(text.split('\n').find(l => l.includes('"notifyOnFailure"')).indexOf('//'), 38);
+    assert.equal(text.replace(/\n {2}"notifyOnFailure"[^\n]*/, ''), before, 'sonst unverändert');
+    assert.deepEqual([readConfig().notifyOnFailure, notifyOnFailure()], [false, false]);
+    updateConfig({ notifyOnFailure: true }, 'de');
+    assert.equal(notifyOnFailure(), true);
+    // Kaputte bzw. fehlende Datei: an (ein fehlgeschlagener Lauf soll trotzdem melden)
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), '{ "notifyOnFailure": false, }}');
+    assert.equal(notifyOnFailure(), true);
+    fs.rmSync(path.join(dir, 'config.jsonc'));
+    assert.equal(notifyOnFailure(), true);
+  });
+});

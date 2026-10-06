@@ -3,6 +3,24 @@
 All notable changes to Tweakable DJ for Spotify, newest first. Each version has an English and a German section.
 Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuerst – jeweils auf Englisch und auf Deutsch.
 
+## [0.1.3] – 2026-10-06
+
+### English
+
+**New**
+
+- **Notify on failures**: if an automatic run fails – Spotify login expired, Last.fm key invalid or suspended, no internet, broken setup – your system shows a notification with the reason and what to do, e.g. “Your Spotify login has expired. Open Tweakable DJ and log in to Spotify again.” From 10 days before the Spotify login expires, a successful automatic run also reminds you, at most once a day. Runs from the interface or the terminal never notify. A switch in the *Rebuild automatically* group (`notifyOnFailure`, on by default).
+- **Send test notification**: a button next to the switch shows a notification right away, so you can check that they get through, and otherwise says why not.
+- Only built-in tools are used: Windows PowerShell (the notification comes from *Windows PowerShell*), `osascript` on the Mac and `notify-send` on Linux. If a notification can’t be shown, the run counts as usual and `automatik.log` contains a short note.
+
+### Deutsch
+
+**Neu**
+
+- **Bei Fehlern benachrichtigen**: Schlägt ein automatischer Lauf fehl – Spotify-Anmeldung abgelaufen, Last.fm-Key ungültig oder gesperrt, kein Internet, Einrichtung kaputt –, zeigt dein System eine Benachrichtigung mit dem Grund und was zu tun ist, z. B. „Die Spotify-Anmeldung ist abgelaufen. Öffne Tweakable DJ und melde dich neu bei Spotify an.“ Ab 10 Tagen bevor die Spotify-Anmeldung abläuft, erinnert auch ein erfolgreicher automatischer Lauf daran, höchstens einmal am Tag. Läufe aus der Oberfläche oder dem Terminal melden sich nie. Ein Schalter in der Gruppe *Automatisch neu erstellen* (`notifyOnFailure`, standardmäßig an).
+- **Testbenachrichtigung senden**: Ein Button neben dem Schalter zeigt sofort eine Benachrichtigung an, damit du siehst, ob sie ankommen – sonst sagt er, warum nicht.
+- Nur Bordmittel: Windows PowerShell (die Benachrichtigung kommt von *Windows PowerShell*), `osascript` auf dem Mac und `notify-send` unter Linux. Lässt sich eine Benachrichtigung nicht anzeigen, zählt der Lauf wie sonst, und in `automatik.log` steht ein kurzer Hinweis.
+
 ## [0.1.2] – 2026-10-05
 
 ### English
@@ -87,6 +105,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.1.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.3
 [0.1.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.2
 [0.1.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.1
 [0.1.0]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.0

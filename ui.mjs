@@ -20,6 +20,7 @@ import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
 import { createSpotify, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
 import { autoRunMessage, installBlocker, installUpdate } from './install-update.mjs';
+import { notify, notifyProblem, testNotice } from './notify.mjs';
 import {
   exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, parseImport, readPlaylist, resolveImport, validUris,
   writePlaylist,
@@ -401,6 +402,13 @@ const server = http.createServer(async (req, res) => {
         .sort((a, b) => a.name.localeCompare(b.name, locale(lang)))
         .map(p => ({ value: `https://open.spotify.com/playlist/${p.id}`, name: p.name, tracks: p.tracks, collaborative: p.collaborative }));
       return send(200, { user: me.display_name || me.id, options: [{ value: 'liked', name: t(lang, 'ui.likedSongs'), tracks: liked }, ...options] });
+    }
+
+    // „Testbenachrichtigung senden“: sofort eine Systembenachrichtigung in der Sprache der Anfrage, auch wenn notifyOnFailure
+    // aus ist. Antwortet immer mit 200: { ok: true } bzw. { ok: false, error } (warum nichts angekommen ist).
+    if (route === 'POST /api/notify/test') {
+      const sent = await notify(testNotice(lang));
+      return send(200, sent.ok ? { ok: true } : { ok: false, error: notifyProblem(lang, sent) });
     }
 
     // Lauf starten: Ausgabe von dj.mjs als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".
