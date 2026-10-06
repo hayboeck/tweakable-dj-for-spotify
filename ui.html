@@ -56,11 +56,14 @@
   }
   .chip { font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
   .chip.dirty { color: var(--warn); border-color: currentColor; }
-  .lang { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; background: var(--card); }
-  .lang button { font: inherit; font-size: 13px; font-weight: 600; letter-spacing: .03em; padding: 4px 11px; border: 0; background: none; color: var(--muted); cursor: pointer; }
-  .lang button + button { border-left: 1px solid var(--border); }
-  .lang button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
-  .lang button:focus-visible { outline-offset: -2px; }
+  /* Sprachwahl: sichtbar nur das Kürzel („DE ▾“); darüber liegt unsichtbar ein echtes <select>, das Klicks, Tastatur,
+     Screenreader und auf dem Handy die Auswahlliste des Systems übernimmt. */
+  .lang { position: relative; display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); padding: 4px 9px 4px 11px; font-size: 13px; font-weight: 600; letter-spacing: .03em; line-height: 1.5; color: var(--muted); white-space: nowrap; }
+  .lang .caret { font-size: 10px; letter-spacing: 0; }
+  .lang:hover { color: var(--accent); border-color: var(--accent); }
+  .lang select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 999px; opacity: 0; cursor: pointer; font-size: 16px; color-scheme: light dark; }
+  .lang:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .lang:focus-within:not(:has(select:focus-visible)) { outline: none; }
   .banner { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--danger); color: var(--danger); }
   .notice { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--warn); }
   .notice > p { margin: 0; font-weight: 600; }
@@ -224,6 +227,8 @@
   .credit p { margin: 2px 0; }
   .credit a { color: inherit; }
   .credit .version { margin-top: 6px; opacity: .85; }
+  .credit .mt-note { margin-bottom: 6px; font-style: italic; }
+  .credit .mt-note:empty { display: none; }
   /* „Nach Updates suchen“: dezent wie ein Link, Ergebnis gleich daneben */
   .credit button.link { font-size: inherit; color: inherit; }
   .credit button.link:disabled { opacity: .6; cursor: default; }
@@ -232,7 +237,7 @@
 </style>
 </head>
 <body>
-<!-- Alle Texte stehen unten im Skript in TEXT.de bzw. TEXT.en (page): data-t = Text, data-html = Text mit Auszeichnung, data-ph = Platzhalter. -->
+<!-- Alle Texte stehen unten im Skript in TEXT.de, TEXT.en, TEXT.es und TEXT.fr (page): data-t = Text, data-html = Text mit Auszeichnung, data-ph = Platzhalter. -->
 <main id="main">
   <header>
     <div>
@@ -244,10 +249,16 @@
       <button type="button" class="link" id="open-setup" data-t="openSetup" hidden></button>
       <span id="status" class="chip" role="status"></span>
     </div>
-    <div class="lang" role="group" aria-label="Sprache / Language">
-      <button type="button" data-lang="de" lang="de" title="Deutsch" aria-pressed="false">DE</button>
-      <button type="button" data-lang="en" lang="en" title="English" aria-pressed="false">EN</button>
-    </div>
+    <!-- Sprachwahl: Namen der Sprachen in der jeweiligen Sprache; Beschriftung (aria-label, title) aus TEXT (page.language) -->
+    <label class="lang" id="lang-box">
+      <span id="lang-code" aria-hidden="true">DE</span><span class="caret" aria-hidden="true">▾</span>
+      <select id="lang">
+        <option value="de" lang="de">Deutsch</option>
+        <option value="en" lang="en">English</option>
+        <option value="es" lang="es">Español</option>
+        <option value="fr" lang="fr">Français</option>
+      </select>
+    </label>
   </header>
   <div id="banner" class="banner" role="alert" hidden></div>
   <div id="notice" class="notice" hidden>
@@ -408,6 +419,8 @@
   </div>
 
   <footer class="credit">
+    <!-- Nur bei maschinell übersetzten Sprachen (es, fr): Hinweis mit Link zu den GitHub-Issues; sonst leer und ausgeblendet -->
+    <p class="mt-note" id="mt-note" data-html="mtNote"></p>
     <p data-html="creditLastfm"></p>
     <p data-t="creditSpotify"></p>
     <!-- Eigene Version und „Nach Updates suchen“ (GET /api/update?force=1) mit dem Ergebnis daneben -->
@@ -425,12 +438,15 @@
 </div>
 
 <script>
-// --- Texte auf Deutsch und Englisch ---
-// Beide Sprachen haben dieselben Schlüssel. Funktionen bekommen Zahlen o. Ä. und liefern den fertigen Text.
+// --- Texte auf Deutsch, Englisch, Spanisch und Französisch ---
+// Alle Sprachen haben dieselben Schlüssel. Funktionen bekommen Zahlen o. Ä. und liefern den fertigen Text.
+// Einzahl/Mehrzahl über plural() bzw. isOne() nach den Regeln der Sprache (Französisch: 0 und 1 sind Einzahl).
+// Spanisch und Französisch sind maschinell übersetzt; page.mtNote zeigt dort einen Hinweis mit Link zu den GitHub-Issues.
 // Die Meldungen des Servers (Fehler, Prüfung bei Last.fm, Ausgabe der Läufe) kommen aus i18n.mjs, passend zum Header X-Lang.
 
 const LASTFM_APPS = 'https://www.last.fm/settings/applications';
 const ext = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
+const ISSUES = 'https://github.com/hayboeck/tweakable-dj-for-spotify/issues';
 
 const TEXT = {
   de: {
@@ -488,6 +504,8 @@ const TEXT = {
       saveText: 'Als Textdatei speichern',
       files: 'Textdatei',
       importFile: 'Textdatei importieren …',
+      language: 'Sprache',
+      mtNote: '',
     },
     adventure: {
       similar: x => `Ähnliche Songs haben ein ${x}× größeres Los`,
@@ -622,10 +640,10 @@ const TEXT = {
       tooLarge: 'Die Datei ist größer als 1 MB. Mehr als 500 Songs passen ohnehin nicht in die Playlist.',
       reading: file => `Lese ${file} …`,
       found: (found, total) => `${num(found)} von ${num(total)} gefunden`,
-      missingHead: n => (n === 1 ? 'Diese Zeile kommt nicht in die Playlist:' : `Diese ${num(n)} Zeilen kommen nicht in die Playlist:`),
+      missingHead: n => (isOne(n) ? 'Diese Zeile kommt nicht in die Playlist:' : `Diese ${num(n)} Zeilen kommen nicht in die Playlist:`),
       line: n => `Zeile ${num(n)}: `,
       reasons: { notFound: 'auf Spotify nicht gefunden', format: 'weder Link noch „Künstler – Titel“', link: 'Link zu keinem Song', error: 'Suche fehlgeschlagen' },
-      hintHead: n => (n === 1 ? 'Diesen Song würde der DJ selbst auslassen. Er kommt trotzdem in die Playlist – die Datei ist deine Liste:'
+      hintHead: n => (isOne(n) ? 'Diesen Song würde der DJ selbst auslassen. Er kommt trotzdem in die Playlist – die Datei ist deine Liste:'
         : `Diese ${num(n)} Songs würde der DJ selbst auslassen. Sie kommen trotzdem in die Playlist – die Datei ist deine Liste:`),
       hintReasons: { blocked: 'auf deiner Sperrliste', explicit: 'explizit' },
       write: name => `In Playlist „${name}“ schreiben (ersetzt den Inhalt)`,
@@ -669,7 +687,7 @@ const TEXT = {
       done: 'erledigt ✓',
       loggedIn: age => `Du bist angemeldet ✓${age == null ? '' : age === 0 ? ' (seit heute)' : ` (seit ${plural(age, 'Tag', 'Tagen')})`}. Neu anmelden musst du nur für ein anderes Konto oder wenn die Anmeldung abgelaufen ist.`,
       notLoggedIn: 'Noch nicht angemeldet.',
-      open: steps => `Noch offen: Schritt${steps.length > 1 ? 'e' : ''} ${steps.join(', ')}.`,
+      open: steps => `Noch offen: Schritt${isOne(steps.length) ? '' : 'e'} ${steps.join(', ')}.`,
       allDone: 'Alles eingerichtet ✓ Stelle jetzt die Regler ein und klicke auf „Probelauf“. Er zeigt, welche Songs der DJ auswählen würde, und ändert nichts an deiner Playlist.',
       formatOk: 'Format passt ✓',
       badChars: 'Eine Client ID enthält nur die Zeichen 0–9 und a–f.',
@@ -809,6 +827,8 @@ const TEXT = {
       saveText: 'Save as text file',
       files: 'Text file',
       importFile: 'Import text file …',
+      language: 'Language',
+      mtNote: '',
     },
     adventure: {
       similar: x => `Similar songs are ${x}× as likely to be drawn`,
@@ -940,10 +960,10 @@ const TEXT = {
       tooLarge: 'The file is larger than 1 MB. The playlist can’t hold more than 500 songs anyway.',
       reading: file => `Reading ${file} …`,
       found: (found, total) => `${num(found)} of ${num(total)} found`,
-      missingHead: n => (n === 1 ? 'This line won’t be in the playlist:' : `These ${num(n)} lines won’t be in the playlist:`),
+      missingHead: n => (isOne(n) ? 'This line won’t be in the playlist:' : `These ${num(n)} lines won’t be in the playlist:`),
       line: n => `Line ${num(n)}: `,
       reasons: { notFound: 'not found on Spotify', format: 'neither a link nor “artist – title”', link: 'link to something other than a song', error: 'search failed' },
-      hintHead: n => (n === 1 ? 'The DJ itself would leave out this song. It still goes into the playlist – the file is your list:'
+      hintHead: n => (isOne(n) ? 'The DJ itself would leave out this song. It still goes into the playlist – the file is your list:'
         : `The DJ itself would leave out these ${num(n)} songs. They still go into the playlist – the file is your list:`),
       hintReasons: { blocked: 'on your block list', explicit: 'explicit' },
       write: name => `Write to playlist “${name}” (replaces its contents)`,
@@ -987,7 +1007,7 @@ const TEXT = {
       done: 'done ✓',
       loggedIn: age => `You’re logged in ✓${age == null ? '' : age === 0 ? ' (since today)' : ` (for ${plural(age, 'day', 'days')})`}. You only need to log in again for a different account or when the login has expired.`,
       notLoggedIn: 'Not logged in yet.',
-      open: steps => `Still to do: step${steps.length > 1 ? 's' : ''} ${steps.join(', ')}.`,
+      open: steps => `Still to do: step${isOne(steps.length) ? '' : 's'} ${steps.join(', ')}.`,
       allDone: 'All set ✓ Now adjust the controls and click “Test run”. It shows which songs the DJ would pick and doesn’t change your playlist.',
       formatOk: 'Format looks right ✓',
       badChars: 'A Client ID only contains the characters 0–9 and a–f.',
@@ -1066,6 +1086,639 @@ const TEXT = {
       disabledMac: ' Also check under System Settings → General → Login Items whether “node” is allowed to run in the background.',
     },
   },
+
+  // Spanisch (maschinell übersetzt): „tú“, Begriffe wie in der Spotify-App (Tus me gusta, playlist, canción).
+  es: {
+    locale: 'es-ES',
+    pct: v => `${Math.round(v * 100)} %`,
+    title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Configuración' : 'Tweakable DJ for Spotify'),
+    sub: { setup: 'Configuración en 5 pasos', settings: 'Ajustes de tu playlist' },
+    status: { loading: 'Cargando …', setup: 'Configuración', running: 'En curso …', updating: 'Actualizando …', importing: 'Importando …', dirty: 'Cambios sin guardar', saved: 'Guardado', error: 'Error' },
+    // "lun 6 oct, 07:00"
+    when: d => `${['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][d.getDay()]} ${d.getDate()} ${['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'][d.getMonth()]}, ${two(d.getHours())}:${two(d.getMinutes())}`,
+    page: {
+      tagline: 'Tu DJ personal y ajustable para Spotify: sin locutor y con más variedad.',
+      openSetup: 'Cambiar credenciales',
+      intro: 'Configúralo una vez y después todo se maneja desde esta página. Necesitas Spotify Premium, una cuenta gratuita de Last.fm y unos 10 minutos.',
+      step1: 'Crear una app de Spotify',
+      step2: 'Conectar Last.fm',
+      step3: 'Iniciar sesión en Spotify',
+      step4: 'Fuente de tus favoritas',
+      step5: 'Listo',
+      s1Text: 'Tweakable DJ necesita su propia app en Spotify. Es gratis, solo te pertenece a ti y se crea en unos minutos.',
+      s1Dashboard: `Abre el ${ext('https://developer.spotify.com/dashboard', 'Spotify Developer Dashboard ↗')} e inicia sesión con tu cuenta de Spotify.`,
+      s1Create: 'Haz clic en <b>Create app</b>. El nombre y la descripción pueden ser los que quieras, p. ej. «Tweakable DJ».',
+      s1Redirect: 'En <b>Redirect URIs</b>, introduce esta dirección y haz clic en <b>Add</b>:',
+      copy: 'Copiar',
+      copied: 'Copiado ✓',
+      s1Exact: 'Exactamente así, con 127.0.0.1 y no «localhost».',
+      s1Api: 'Cuando te pregunte qué API vas a usar, marca <b>Web API</b>, acepta las condiciones y haz clic en <b>Save</b>.',
+      s1ClientId: 'En tu app, abre <b>Settings</b> y copia el <b>Client ID</b>. El Client Secret no lo necesitas.',
+      hexPh: '32 caracteres de 0–9 y a–f',
+      saveNext: 'Guardar y seguir',
+      s2Text: 'Last.fm aporta las canciones similares y conoce tu historial de escucha. Para ello necesitas una clave API gratuita.',
+      s2Account: `Abre ${ext('https://www.last.fm/api/account/create', 'Last.fm: crear cuenta de API ↗')} e inicia sesión (o crea allí una cuenta).`,
+      s2Form: 'Elige el nombre y la descripción que quieras, deja vacío <b>Callback URL</b> y envía el formulario.',
+      s2Key: 'Copia la <b>API key</b>. El Shared secret no lo necesitas.',
+      apiKey: 'Clave API',
+      user: 'Usuario de Last.fm',
+      userHelp: 'Aparece en la dirección de tu perfil: last.fm/user/<i>nombre</i>',
+      check: 'Comprobar',
+      s3Text: 'Permite que Tweakable DJ lea Tus me gusta, tus playlists y los artistas que sigues, y que rellene la playlist. El inicio de sesión solo se guarda en este equipo.',
+      next: 'Seguir',
+      s4Text: 'De estas canciones, el DJ elige sus puntos de partida y sus favoritas.',
+      s4Help: 'Puedes elegir Tus me gusta y las playlists que son tuyas o en las que colaboras: Spotify solo da las canciones de esas.',
+      finish: 'Ir a los controles',
+      close: '← Volver a los controles',
+      presets: 'Ajustes predefinidos',
+      presetsHelp: 'Cambian varios controles a la vez. El nombre, la fuente, el número de canciones, los artistas que sigues y la lista de bloqueo no cambian. No se guarda nada hasta que hagas clic en «Guardar».',
+      open: 'Abrir en Spotify ↗',
+      creditLastfm: `Canciones similares e historial de escucha: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · solo uso no comercial · sin relación oficial con Last.fm`,
+      creditSpotify: 'No es un producto oficial de Spotify · Spotify es una marca de Spotify AB',
+      discard: 'Descartar',
+      save: 'Guardar',
+      dry: 'Prueba',
+      run: 'Recrear playlist',
+      trialApply: 'Usar esta lista',
+      saveText: 'Guardar como texto',
+      files: 'Archivo de texto',
+      importFile: 'Importar archivo de texto …',
+      language: 'Idioma',
+      mtNote: `Traducción automática – ${ext(ISSUES, 'las correcciones son bienvenidas')}`,
+    },
+    adventure: {
+      similar: x => `Las canciones similares tienen ${x}× más probabilidades de salir`,
+      distant: x => `Las canciones lejanas tienen ${x}× más probabilidades de salir`,
+      equal: 'La similitud no influye en el sorteo',
+      detours: p => `desvíos en el ${p} de los puntos de partida`,
+    },
+    followed: {
+      levels: ['ninguno', 'menos', 'da igual', 'más', 'muy preferidos'],
+      none: 'Las canciones de artistas que sigues no entran en la playlist (ni siquiera como invitados)',
+      fewer: x => `Los artistas que sigues tienen ${x}× menos probabilidades de salir`,
+      more: x => `Los artistas que sigues tienen ${x}× más probabilidades de salir`,
+      neutral: 'Da igual: ni siquiera se consulta la lista',
+    },
+    variety: {
+      label: 'Variedad de artistas',
+      levels: { low: 'poca', medium: 'media', high: 'mucha', veryHigh: 'muchísima' },
+      custom: 'Personalizado',
+      hint: c => `Como máximo ${plural(c.maxPerArtist, 'canción', 'canciones')} por artista · como máximo ${num(c.maxPerWindow)} de ${num(c.artistWindow)} · ${c.artistGap ? `al menos ${plural(c.artistGap, 'canción', 'canciones')} de separación` : 'sin separación mínima'}`,
+      help: 'Con qué frecuencia puede aparecer el mismo artista. Cada nivel fija a la vez los cuatro valores de «Detalles».',
+      customHint: 'Tus valores no coinciden con ningún nivel (ver «Detalles»). Si mueves el control, se sobrescriben los cuatro.',
+      overwritten: 'Se han sobrescrito los cuatro valores de «Detalles». «Descartar» recupera los guardados.',
+      details: 'Detalles para expertos',
+    },
+    groups: {
+      playlist: 'Playlist',
+      selection: 'Selección',
+      current: 'Lo que escuchas ahora',
+      variety: 'Variedad',
+      repeats: 'Sin repeticiones',
+      blocked: 'Lista de bloqueo',
+      auto: 'Recrear automáticamente',
+    },
+    items: {
+      playlistName: { label: 'Nombre de la playlist', help: 'Esta es la playlist que se rellena. Si todavía no existe, se crea.' },
+      seed: { label: 'Fuente de tus favoritas',
+        help: 'De estas canciones, el DJ saca los puntos de partida y las favoritas. Puedes elegir las playlists que son tuyas o en las que colaboras.' },
+      size: { label: 'Número de canciones', fmt: v => plural(v, 'canción', 'canciones'), help: 'Tantas canciones entran en la playlist en cada ejecución.' },
+      familiarShare: { label: 'Proporción de favoritas', fmt: v => pct(v),
+        hint: (v, c) => `≈ ${plural(Math.round(c.size * v), 'favorita', 'favoritas')} y ${plural(c.size - Math.round(c.size * v), 'canción nueva', 'canciones nuevas')}`,
+        help: 'Las favoritas salen de la fuente de tus favoritas (p. ej. Tus me gusta); el resto son canciones que todavía no están ahí.' },
+      adventure: { label: 'Aventura', fmt: v => num(v), hint: v => adventureHint(v),
+        help: '0 = preferir canciones similares, 0,5 = da igual, 1 = preferir canciones lejanas. También decide con qué frecuencia el DJ se desvía hacia artistas relacionados.' },
+      seedsPerRun: { label: 'Puntos de partida por ejecución', fmt: v => num(v),
+        help: 'Last.fm busca canciones similares a tantas canciones sorteadas. Más = una mezcla más amplia; la ejecución tarda un poco más.' },
+      useLastfmTopTracks: { label: 'Incluir las canciones top de Last.fm', help: 'Usar también como puntos de partida tus canciones más escuchadas de los últimos 3 meses.' },
+      followedArtists: { label: 'Artistas que sigues', fmt: v => followedLabel(v), hint: v => followedHint(v),
+        help: 'Artistas que sigues en Spotify: en canciones nuevas y favoritas, también como invitados («feat.»). Del todo a la derecha salen mucho más a menudo, pero no en exclusiva.' },
+      currentDays: { label: 'Periodo «actual»', fmt: v => (v ? plural(v, 'día', 'días') : 'no'), help: 'Lo que según Last.fm has escuchado en este periodo cuenta como actual.' },
+      currentFactor: { label: 'Peso de lo que escuchas ahora', fmt: v => (v === 1 ? 'no' : `× ${num(v)}`),
+        hint: v => (v === 1 ? '' : `Lo que escuchas ahora tiene ${num(v)}× más probabilidades de salir`),
+        help: 'Se aplica a los puntos de partida, al sorteo de las canciones nuevas y a las favoritas. 1 = no.' },
+      maxPerArtist: { label: 'Canciones por artista', fmt: v => `máx. ${v}`, help: 'Como máximo tantas canciones del mismo artista en toda la playlist.' },
+      artistWindow: { label: 'Tamaño de la ventana', fmt: v => plural(v, 'canción', 'canciones'), help: 'La regla de abajo se aplica a cada tramo de tantas canciones seguidas.' },
+      maxPerWindow: { label: 'Canciones por artista en la ventana', fmt: v => `máx. ${v}`,
+        hint: (v, c) => windowHint(v, c, n => `«${v} de ${c.artistWindow}» → como máximo ${plural(n, 'canción', 'canciones')} por artista en ${plural(c.size, 'canción', 'canciones')}`),
+        help: 'Cuenta las canciones de un artista y las canciones nuevas encontradas a través de él.' },
+      artistGap: { label: 'Separación entre canciones del mismo artista', fmt: v => (v ? plural(v, 'canción', 'canciones') : 'no'),
+        help: 'Al menos tantas canciones distintas entre dos canciones del mismo artista.' },
+      excludeRecentDays: { label: 'Bloquear lo escuchado hace poco', fmt: v => (v ? plural(v, 'día', 'días') : 'no'),
+        help: 'Las canciones que según Last.fm has escuchado en este periodo no entran en la playlist.' },
+      noRepeatRuns: { label: 'Bloquear ejecuciones anteriores', fmt: v => (v ? plural(v, 'ejecución', 'ejecuciones') : 'no'),
+        help: 'Las canciones de tantas ejecuciones anteriores no vuelven a salir.' },
+      excludeExplicit: { label: 'Sin canciones explícitas',
+        help: 'Las canciones que Spotify marca como explícitas no entran en la playlist, ni como favoritas ni como nuevas. Si hay una versión no explícita, el DJ usa esa.' },
+      blockedArtists: { label: 'Artistas que nunca suenan', placeholder: 'Nombre del artista', help: 'Las canciones de estos artistas nunca entran en la playlist.' },
+      blockedTracks: { label: 'Canciones que nunca suenan',
+        help: 'Para bloquear una canción, usa la × que aparece detrás de ella en la lista de una prueba. También se bloquean otras versiones de la misma canción (p. ej. remasterizada o en directo).' },
+      schedule: { label: 'Con qué frecuencia', options: { off: 'No', daily: 'A diario', weekly: 'Cada semana' },
+        help: 'Tweakable DJ recrea la playlist por sí solo a la hora indicada, aunque esta página esté cerrada.' },
+      scheduleDay: { label: 'Día de la semana',
+        options: { MON: 'Lunes', TUE: 'Martes', WED: 'Miércoles', THU: 'Jueves', FRI: 'Viernes', SAT: 'Sábado', SUN: 'Domingo' } },
+      scheduleTime: { label: 'Hora', fmt: v => v,
+        hint: (v, c) => `${c.schedule === 'weekly' ? `Cada ${(T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay).toLowerCase()}` : 'Todos los días'} a las ${v}` },
+      notifyOnFailure: { label: 'Avisar si algo falla',
+        help: 'Si falla una ejecución automática (p. ej. la sesión de Spotify ha caducado, la clave de Last.fm no es válida o no hay conexión), tu sistema muestra una notificación con el motivo y qué hacer. Además, desde 10 días antes, te recuerda como mucho una vez al día que vuelvas a iniciar sesión en Spotify.' },
+    },
+    list: {
+      add: 'Añadir',
+      remove: 'Quitar',
+      removeName: name => `Quitar a ${name}`,
+      empty: 'Todavía no has bloqueado a nadie.',
+      duplicate: name => `«${name}» ya está en la lista.`,
+      tracksEmpty: 'Todavía no has bloqueado ninguna canción.',
+      block: 'Bloquear canción (luego guarda)',
+      blockName: name => `Bloquear «${name}»`,
+      unblock: 'Desbloquear',
+      unblockName: name => `Desbloquear «${name}»`,
+    },
+    reset: d => `Predeterminado: ${d}`,
+    on: 'sí',
+    off: 'no',
+    presets: {
+      discover: ['Descubrir', 'Muchas canciones nuevas, también más alejadas de tus gustos, y casi sin repeticiones.'],
+      familiar: ['Conocido', 'Más favoritas y canciones nuevas muy parecidas, pocas sorpresas.'],
+      current: ['Mi fase actual', 'Se guía mucho por lo que has escuchado en los últimos 7 días.'],
+      standard: ['Predeterminado', 'Los ajustes básicos equilibrados.'],
+    },
+    presetMatch: name => `Coincide exactamente: ${name}`,
+    presetNone: 'Ningún ajuste predefinido coincide exactamente: es tu propia mezcla.',
+    emptyName: 'El nombre de la playlist no puede estar vacío.',
+    errors: {
+      login_expired: 'La sesión de Spotify ha caducado',
+      not_logged_in: 'Todavía no has iniciado sesión en Spotify',
+      forbidden: 'Spotify deniega el acceso (403)',
+      lastfm_key: 'La clave API de Last.fm no es válida o está bloqueada',
+      setup_incomplete: 'La configuración no está terminada',
+      node_version: 'Node.js es demasiado antiguo',
+      trial_expired: 'La prueba ya no se puede usar',
+    },
+    run: {
+      running: kind => (kind === 'dry' ? 'Prueba en curso … (aprox. 1 minuto)' : kind === 'apply' ? 'Usando la lista …' : 'Recreando la playlist … (aprox. 1 minuto)'),
+      ok: (r, dry) => `${dry ? 'Prueba' : 'Listo'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${plural(r.songs, 'canción', 'canciones')} (${plural(r.fresh, 'nueva', 'nuevas')}, ${num(r.freshCurrent)} de ellas por lo que escuchas ahora; ${plural(r.familiar, 'favorita', 'favoritas')})`,
+      unchanged: ' · playlist sin cambios',
+      failedWith: reason => `Error: ${reason} (ver la salida)`,
+      failed: 'Error (ver la salida)',
+      failedShort: 'Error',
+    },
+    trial: {
+      help: (name, until) => `Escribe exactamente estas canciones, en este orden, en «${name}» sin volver a sortear. Funciona hasta el ${until}, mientras los ajustes sigan como estaban en la prueba.`,
+      dirty: 'Ya no se puede usar: has cambiado ajustes desde la prueba. Vuelve a dejarlos como estaban o haz una prueba nueva.',
+      old: 'Ya no se puede usar: la prueba tiene más de 24 horas. Haz una prueba nueva.',
+      blocked: 'Ya no se puede usar: has bloqueado una canción de esta lista. Haz una prueba nueva (antes se guarda todo).',
+    },
+    files: {
+      help: name => `Guarda «${name}», tal como está ahora en Spotify, como archivo de texto, o la rellena con tu propia lista: una línea por canción, «artista – título» o un enlace de Spotify. Una importación sustituye el contenido de la playlist, pero no cuenta como ejecución del DJ (no bloquea nada en «Bloquear ejecuciones anteriores»).`,
+      loading: 'Leyendo la playlist de Spotify …',
+      saved: (file, n) => `${file} descargado (${plural(n, 'canción', 'canciones')}).`,
+      tooLarge: 'El archivo ocupa más de 1 MB. De todos modos, en la playlist no caben más de 500 canciones.',
+      reading: file => `Leyendo ${file} …`,
+      found: (found, total) => `${num(found)} de ${num(total)} encontradas`,
+      missingHead: n => (isOne(n) ? 'Esta línea no entrará en la playlist:' : `Estas ${num(n)} líneas no entrarán en la playlist:`),
+      line: n => `Línea ${num(n)}: `,
+      reasons: { notFound: 'no encontrada en Spotify', format: 'ni enlace ni «artista – título»', link: 'el enlace no lleva a una canción', error: 'falló la búsqueda' },
+      hintHead: n => (isOne(n) ? 'El DJ dejaría fuera esta canción por su cuenta. Aun así entra en la playlist: el archivo es tu lista:'
+        : `El DJ dejaría fuera estas ${num(n)} canciones por su cuenta. Aun así entran en la playlist: el archivo es tu lista:`),
+      hintReasons: { blocked: 'en tu lista de bloqueo', explicit: 'explícita' },
+      write: name => `Escribir en la playlist «${name}» (sustituye su contenido)`,
+      cancel: 'Cancelar',
+      none: 'No se ha encontrado ni una canción: no hay nada que escribir.',
+      writing: name => `Escribiendo en «${name}» …`,
+      done: (name, n) => `«${name}» contiene ahora ${plural(n, 'canción', 'canciones')} del archivo ✓ `,
+      open: 'Abrir en Spotify ↗',
+      failed: 'La importación no ha funcionado.',
+    },
+    seed: {
+      liked: 'Tus me gusta',
+      likedLong: 'Tus me gusta (canciones que te gustan)',
+      songs: n => plural(n, 'canción', 'canciones'),
+      playlist: 'Playlist',
+      collaborative: ' (colaborativa)',
+      other: 'Playlist de tus ajustes (no está en tu lista)',
+      configured: 'Playlist configurada',
+      login: 'Tus playlists aparecerán aquí en cuanto inicies sesión en Spotify.',
+      loading: 'Cargando tus playlists …',
+      error: msg => `Ahora mismo no se pueden cargar tus playlists: ${msg}`,
+    },
+    login: {
+      start: 'Iniciar sesión con Spotify',
+      again: 'Volver a iniciar sesión',
+      cancel: 'Cancelar',
+      openPage: 'Abrir la página de inicio de sesión ↗',
+      help: 'Si Spotify muestra «Invalid client», el Client ID no es correcto. Con «Invalid redirect URI», falta la Redirect URI en el dashboard o está escrita de otra forma (configuración, paso 1).',
+      pending: 'Se ha abierto una pestaña de Spotify en tu navegador. Acepta allí y vuelve aquí. ',
+      noTab: '¿No ves ninguna pestaña? ',
+      newClientId: 'Nuevo Client ID guardado: vuelve a iniciar sesión.',
+    },
+    notice: {
+      done: 'Sesión iniciada ✓ El inicio de sesión de Spotify vuelve a valer 6 meses.',
+      expired: 'Tu sesión de Spotify ha caducado o falta. Vuelve a iniciar sesión y todo funcionará de nuevo.',
+      left: n => `Tu sesión de Spotify caduca dentro de ${plural(n, 'día', 'días')}. Spotify pide iniciar sesión de nuevo cada 6 meses.`,
+      probably: 'Probablemente tu sesión de Spotify ha caducado. Spotify pide iniciar sesión de nuevo cada 6 meses.',
+      scope: 'Para «Artistas que sigues», vuelve a iniciar sesión en Spotify una vez. Tu inicio de sesión actual todavía no permite leer los artistas que sigues.',
+    },
+    setup: {
+      done: 'hecho ✓',
+      loggedIn: age => `Has iniciado sesión ✓${age == null ? '' : age === 0 ? ' (desde hoy)' : ` (desde hace ${plural(age, 'día', 'días')})`}. Solo tienes que volver a iniciar sesión para usar otra cuenta o si la sesión ha caducado.`,
+      notLoggedIn: 'Todavía no has iniciado sesión.',
+      open: steps => `Falta${isOne(steps.length) ? ' el paso' : 'n los pasos'} ${steps.join(', ')}.`,
+      allDone: '¡Todo listo! ✓ Ahora ajusta los controles y haz clic en «Prueba». Te muestra qué canciones elegiría el DJ y no cambia nada en tu playlist.',
+      formatOk: 'El formato es correcto ✓',
+      badChars: 'Un Client ID solo contiene los caracteres 0–9 y a–f.',
+      length: n => `Un Client ID tiene exactamente 32 caracteres; este tiene ${n}.`,
+      pasteId: 'Pega el Client ID.',
+      checking: 'Comprobando con Last.fm …',
+      connect: ' Conecta Spotify con Last.fm: ',
+      connectLink: 'Last.fm → Configuración → Aplicaciones ↗',
+      connectRest: ' y allí haz clic en «Conectar» junto a Spotify. Después, Last.fm registra cada canción que escuchas en Spotify.',
+      saved: 'Guardado. ',
+      savedUnchecked: 'Guardado, pero sin comprobar. ',
+      loadFailed: msg => `No se pudieron cargar los ajustes: ${msg}`,
+    },
+    update: {
+      text: (latest, current) => (current ? `Nueva versión ${latest} disponible (tienes la ${current})` : `Nueva versión ${latest} disponible`),
+      link: 'descargar ↗',
+      close: 'Ocultar aviso',
+      install: 'Actualizar ahora',
+      confirm: (from, to) => `Tweakable DJ se actualizará de la v${from} a la v${to}. Se conservan tus ajustes, el inicio de sesión de Spotify, las credenciales de Last.fm y el historial.`,
+      notes: '¿Qué hay de nuevo? Notas de la versión ↗',
+      go: 'Actualizar',
+      cancel: 'Cancelar',
+      starting: 'Iniciando la actualización …',
+      done: to => `La versión ${to} está instalada ✓ Tweakable DJ se está reiniciando; la página se recargará sola en un momento …`,
+      manual: to => `Actualización a la versión ${to} instalada ✓ Vuelve a iniciar Tweakable DJ (cierra la ventana y ábrela de nuevo). Después, la página se recargará sola.`,
+      slow: 'Tweakable DJ todavía no responde. ¿Sigue abierta la ventana de Tweakable DJ? Si no, vuelve a iniciar Tweakable DJ; la página se recargará sola.',
+      failed: 'La actualización no ha funcionado.',
+      check: 'Buscar actualizaciones',
+      checking: 'Buscando …',
+      latest: 'Tienes la versión más reciente ✓',
+      found: v => `La versión ${v} está disponible: mira el aviso de arriba`,
+      offline: 'No se puede acceder a GitHub',
+    },
+    notify: {
+      test: 'Enviar notificación de prueba',
+      sending: 'Enviando …',
+      sent: 'Enviada: mira tus notificaciones. ¿No ves nada? Revisa el modo «No molestar» y los ajustes de notificaciones de tu sistema.',
+      failed: msg => `No se envió: ${msg}`,
+    },
+    auto: {
+      background: 'Las ejecuciones automáticas también funcionan con la ventana de Tweakable DJ y esta página cerradas.',
+      beforeDelete: 'Antes de borrar la carpeta de Tweakable DJ, desactiva aquí las ejecuciones automáticas.',
+      platform: {
+        win32: 'Tu equipo tiene que estar encendido; si estaba apagado, la ejecución se recupera la próxima vez que lo enciendas.',
+        darwin: 'Tu Mac tiene que estar encendido. Si está en reposo a la hora indicada, la ejecución se recupera al despertar; si estaba apagado, se omite.',
+        linux: 'Tu equipo tiene que estar encendido. Las ejecuciones perdidas (equipo apagado o en reposo) se omiten.',
+      },
+      place: { win32: 'el Programador de tareas de Windows', darwin: 'launchd (macOS)', linux: 'tu crontab' },
+      pendingOn: place => `Se añadirá a ${place ?? 'el programador de tu equipo'} al guardar.`,
+      pendingOff: 'Se desactivará al guardar.',
+      savedOn: place => `Añadido a ${place ?? 'el programador de tu equipo'} ✓`,
+      savedOff: 'Ejecuciones automáticas desactivadas ✓',
+      removed: 'Entrada eliminada ✓',
+      next: 'Próxima ejecución',
+      last: 'Última ejecución automática',
+      running: 'en curso …',
+      aborted: '✗ interrumpida, sin resultado',
+      ok: (songs, dry) => `✓ ${songs != null ? plural(songs, 'canción', 'canciones') : 'listo'}${dry ? ' (prueba)' : ''}`,
+      open: 'Abrir en Spotify ↗',
+      loginAgain: 'Volver a iniciar sesión ahora',
+      loginRenewed: '(ya has vuelto a iniciar sesión ✓)',
+      failed: reason => `✗ ${reason}`,
+      logHint: 'Los detalles están en automatik.log, en la carpeta de Tweakable DJ.',
+      notice: 'La última ejecución automática falló porque la sesión de Spotify ha caducado. Vuelve a iniciar sesión y la próxima ejecución funcionará.',
+      statusError: msg => `Ahora mismo no se puede consultar el estado de las ejecuciones automáticas: ${msg}`,
+      invalid: msg => `${msg} Vuelve a configurar aquí las ejecuciones automáticas y guarda.`,
+      problems: {
+        missing: ['Las ejecuciones automáticas están configuradas pero no registradas, p. ej. tras pasar a otro equipo. Guarda una vez para registrarlas.', 'Guardar ejecuciones automáticas'],
+        folder: ['Las ejecuciones automáticas todavía apuntan a otra carpeta, p. ej. porque has movido Tweakable DJ. Guarda una vez para actualizarlas.', 'Guardar ejecuciones automáticas'],
+        settings: ['Las ejecuciones automáticas están registradas de otra forma que aquí, p. ej. tras una actualización de Node.js. Guarda una vez para actualizarlas.', 'Guardar ejecuciones automáticas'],
+        disabled: ['Las ejecuciones automáticas están desactivadas en el programador. Guarda una vez para volver a activarlas.', 'Guardar ejecuciones automáticas'],
+        leftover: ['En el programador todavía hay una entrada de Tweakable DJ, aunque aquí las ejecuciones automáticas están desactivadas (p. ej. de una carpeta movida o copiada).', 'Eliminar entrada'],
+      },
+      legacy: (names, on) => `En el programador todavía hay una entrada con el nombre antiguo ${names.map(n => `«${n}»`).join(', ')}. Al guardar una vez, ${on ? 'se sustituye por la nueva' : 'se elimina'}.`,
+      legacyButton: on => (on ? 'Guardar ejecuciones automáticas' : 'Eliminar entrada'),
+      disabledMac: ' Revisa también en Ajustes del Sistema → General → Ítems de inicio si «node» puede ejecutarse en segundo plano.',
+    },
+  },
+
+  // Französisch (maschinell übersetzt): „tu“, Begriffe wie in der Spotify-App (Titres likés, playlist, titre).
+  // Vor Doppelpunkt, Semikolon, Ausrufe- und Fragezeichen sowie innerhalb der Guillemets steht ein schmales geschütztes Leerzeichen (U+202F).
+  fr: {
+    locale: 'fr-FR',
+    pct: v => `${Math.round(v * 100)} %`,
+    title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Configuration' : 'Tweakable DJ for Spotify'),
+    sub: { setup: 'Configuration en 5 étapes', settings: 'Réglages de ta playlist' },
+    status: { loading: 'Chargement …', setup: 'Configuration', running: 'En cours …', updating: 'Mise à jour …', importing: 'Importation …', dirty: 'Modifications non enregistrées', saved: 'Enregistré', error: 'Erreur' },
+    // "lun. 6 oct., 07:00"
+    when: d => `${['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'][d.getDay()]} ${d.getDate()} ${['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'][d.getMonth()]}, ${two(d.getHours())}:${two(d.getMinutes())}`,
+    page: {
+      tagline: 'Ton DJ personnel et réglable pour Spotify – sans animateur, avec plus de variété.',
+      openSetup: 'Modifier les identifiants',
+      intro: 'Configure-le une fois, ensuite tout se passe sur cette page. Il te faut Spotify Premium, un compte Last.fm gratuit et une dizaine de minutes.',
+      step1: 'Créer une app Spotify',
+      step2: 'Connecter Last.fm',
+      step3: 'Se connecter à Spotify',
+      step4: 'Source de tes favoris',
+      step5: 'Terminé',
+      s1Text: 'Tweakable DJ a besoin de sa propre app chez Spotify. Elle est gratuite, n’appartient qu’à toi et se crée en quelques minutes.',
+      s1Dashboard: `Ouvre le ${ext('https://developer.spotify.com/dashboard', 'Spotify Developer Dashboard ↗')} et connecte-toi avec ton compte Spotify.`,
+      s1Create: 'Clique sur <b>Create app</b>. Le nom et la description sont libres, p. ex. « Tweakable DJ ».',
+      s1Redirect: 'Sous <b>Redirect URIs</b>, saisis cette adresse et clique sur <b>Add</b> :',
+      copy: 'Copier',
+      copied: 'Copié ✓',
+      s1Exact: 'Exactement ainsi, avec 127.0.0.1 et non « localhost ».',
+      s1Api: 'Quand on te demande quelle API tu comptes utiliser, coche <b>Web API</b>, accepte les conditions et clique sur <b>Save</b>.',
+      s1ClientId: 'Dans ton app, ouvre <b>Settings</b> et copie le <b>Client ID</b>. Tu n’as pas besoin du Client Secret.',
+      hexPh: '32 caractères parmi 0–9 et a–f',
+      saveNext: 'Enregistrer et continuer',
+      s2Text: 'Last.fm fournit les titres similaires et connaît ton historique d’écoute. Il te faut pour cela une clé API gratuite.',
+      s2Account: `Ouvre ${ext('https://www.last.fm/api/account/create', 'Last.fm : créer un compte API ↗')} et connecte-toi (ou crée un compte).`,
+      s2Form: 'Choisis librement le nom et la description, laisse <b>Callback URL</b> vide et envoie le formulaire.',
+      s2Key: 'Copie la <b>API key</b>. Tu n’as pas besoin du Shared secret.',
+      apiKey: 'Clé API',
+      user: 'Nom d’utilisateur Last.fm',
+      userHelp: 'Il figure dans l’adresse de ton profil : last.fm/user/<i>nom</i>',
+      check: 'Vérifier',
+      s3Text: 'Autorise Tweakable DJ à lire tes Titres likés, tes playlists et les artistes que tu suis, et à remplir la playlist. La connexion n’est enregistrée que sur cet ordinateur.',
+      next: 'Continuer',
+      s4Text: 'C’est parmi ces titres que le DJ choisit ses points de départ et ses favoris.',
+      s4Help: 'Tu peux choisir tes Titres likés et les playlists qui t’appartiennent ou auxquelles tu collabores – Spotify ne fournit les titres que de celles-ci.',
+      finish: 'Aller aux réglages',
+      close: '← Retour aux réglages',
+      presets: 'Préréglages',
+      presetsHelp: 'Changent plusieurs réglages à la fois. Le nom, la source, le nombre de titres, les artistes suivis et la liste de blocage ne changent pas. Rien n’est enregistré avant que tu cliques sur « Enregistrer ».',
+      open: 'Ouvrir dans Spotify ↗',
+      creditLastfm: `Titres similaires et historique d’écoute : ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · usage non commercial uniquement · pas une offre officielle de Last.fm`,
+      creditSpotify: 'Pas un produit officiel de Spotify · Spotify est une marque de Spotify AB',
+      discard: 'Rétablir',
+      save: 'Enregistrer',
+      dry: 'Essai',
+      run: 'Recréer la playlist',
+      trialApply: 'Utiliser cette liste',
+      saveText: 'Enregistrer en texte',
+      files: 'Fichier texte',
+      importFile: 'Importer un fichier texte …',
+      language: 'Langue',
+      mtNote: `Traduction automatique – ${ext(ISSUES, 'les corrections sont les bienvenues')}`,
+    },
+    adventure: {
+      similar: x => `Les titres similaires ont ${x}× plus de chances d’être tirés`,
+      distant: x => `Les titres éloignés ont ${x}× plus de chances d’être tirés`,
+      equal: 'La similarité ne joue aucun rôle dans le tirage',
+      detours: p => `détours pour ${p} des points de départ`,
+    },
+    followed: {
+      levels: ['aucun', 'moins', 'peu importe', 'plus', 'très favorisés'],
+      none: 'Les titres des artistes que tu suis n’entrent pas dans la playlist (même pas en invité)',
+      fewer: x => `Les artistes suivis ont ${x}× moins de chances d’être tirés`,
+      more: x => `Les artistes suivis ont ${x}× plus de chances d’être tirés`,
+      neutral: 'Aucune importance – la liste n’est même pas consultée',
+    },
+    variety: {
+      label: 'Variété des artistes',
+      levels: { low: 'faible', medium: 'moyenne', high: 'grande', veryHigh: 'très grande' },
+      custom: 'Personnalisé',
+      hint: c => `Au plus ${plural(c.maxPerArtist, 'titre', 'titres')} par artiste · au plus ${num(c.maxPerWindow)} sur ${num(c.artistWindow)} · ${c.artistGap ? `au moins ${plural(c.artistGap, 'titre', 'titres')} d’écart` : 'sans écart minimal'}`,
+      help: 'À quelle fréquence le même artiste peut revenir. Chaque niveau fixe ensemble les quatre valeurs sous « Détails ».',
+      customHint: 'Tes valeurs ne correspondent à aucun niveau (voir « Détails »). Si tu bouges le curseur, les quatre sont écrasées.',
+      overwritten: 'Les quatre valeurs sous « Détails » ont été écrasées. « Rétablir » remet les valeurs enregistrées.',
+      details: 'Détails pour les experts',
+    },
+    groups: {
+      playlist: 'Playlist',
+      selection: 'Sélection',
+      current: 'Ce que tu écoutes en ce moment',
+      variety: 'Variété',
+      repeats: 'Pas de répétitions',
+      blocked: 'Liste de blocage',
+      auto: 'Recréer automatiquement',
+    },
+    items: {
+      playlistName: { label: 'Nom de la playlist', help: 'C’est cette playlist qui est remplie. Si elle n’existe pas encore, elle est créée.' },
+      seed: { label: 'Source de tes favoris',
+        help: 'C’est dans ces titres que le DJ puise ses points de départ et ses favoris. Tu peux choisir les playlists qui t’appartiennent ou auxquelles tu collabores.' },
+      size: { label: 'Nombre de titres', fmt: v => plural(v, 'titre', 'titres'), help: 'Autant de titres entrent dans la playlist à chaque exécution.' },
+      familiarShare: { label: 'Part de favoris', fmt: v => pct(v),
+        hint: (v, c) => `≈ ${plural(Math.round(c.size * v), 'favori', 'favoris')} et ${plural(c.size - Math.round(c.size * v), 'nouveau titre', 'nouveaux titres')}`,
+        help: 'Les favoris viennent de la source de tes favoris (p. ex. tes Titres likés) ; le reste, ce sont des titres qui n’y sont pas encore.' },
+      adventure: { label: 'Aventure', fmt: v => num(v), hint: v => adventureHint(v),
+        help: '0 = préférer les titres similaires, 0,5 = peu importe, 1 = préférer les titres éloignés. Détermine aussi à quelle fréquence le DJ fait un détour par des artistes proches.' },
+      seedsPerRun: { label: 'Points de départ par exécution', fmt: v => num(v),
+        help: 'Last.fm cherche des titres similaires à autant de titres tirés au sort. Plus = un mélange plus large ; l’exécution dure un peu plus longtemps.' },
+      useLastfmTopTracks: { label: 'Inclure les top titres Last.fm', help: 'Utiliser aussi comme points de départ tes titres les plus écoutés des 3 derniers mois.' },
+      followedArtists: { label: 'Artistes suivis', fmt: v => followedLabel(v), hint: v => followedHint(v),
+        help: 'Les artistes que tu suis sur Spotify – pour les nouveaux titres et les favoris, aussi en invité (« feat. »). Tout à droite, ils reviennent beaucoup plus souvent, mais pas exclusivement.' },
+      currentDays: { label: 'Période « actuelle »', fmt: v => (v ? plural(v, 'jour', 'jours') : 'désactivé'), help: 'Ce que tu as écouté pendant cette période selon Last.fm compte comme actuel.' },
+      currentFactor: { label: 'Poids de l’écoute actuelle', fmt: v => (v === 1 ? 'désactivé' : `× ${num(v)}`),
+        hint: v => (v === 1 ? '' : `Ce que tu écoutes en ce moment a ${num(v)}× plus de chances d’être tiré`),
+        help: 'S’applique aux points de départ, au tirage des nouveaux titres et aux favoris. 1 = désactivé.' },
+      maxPerArtist: { label: 'Titres par artiste', fmt: v => `max. ${v}`, help: 'Au plus autant de titres du même artiste dans toute la playlist.' },
+      artistWindow: { label: 'Taille de la fenêtre', fmt: v => plural(v, 'titre', 'titres'), help: 'La règle ci-dessous s’applique à chaque série d’autant de titres consécutifs.' },
+      maxPerWindow: { label: 'Titres par artiste dans la fenêtre', fmt: v => `max. ${v}`,
+        hint: (v, c) => windowHint(v, c, n => `« ${v} sur ${c.artistWindow} » → au plus ${plural(n, 'titre', 'titres')} par artiste sur ${plural(c.size, 'titre', 'titres')}`),
+        help: 'Compte les titres d’un artiste et les nouveaux titres trouvés grâce à lui.' },
+      artistGap: { label: 'Écart entre titres du même artiste', fmt: v => (v ? plural(v, 'titre', 'titres') : 'désactivé'),
+        help: 'Au moins autant d’autres titres entre deux titres du même artiste.' },
+      excludeRecentDays: { label: 'Bloquer les écoutes récentes', fmt: v => (v ? plural(v, 'jour', 'jours') : 'désactivé'),
+        help: 'Les titres que tu as écoutés pendant cette période selon Last.fm n’entrent pas dans la playlist.' },
+      noRepeatRuns: { label: 'Bloquer les exécutions précédentes', fmt: v => (v ? plural(v, 'exécution', 'exécutions') : 'désactivé'),
+        help: 'Les titres d’autant d’exécutions précédentes ne reviennent pas.' },
+      excludeExplicit: { label: 'Pas de titres explicites',
+        help: 'Les titres que Spotify marque comme explicites n’entrent pas dans la playlist – ni comme favoris ni comme nouveaux titres. S’il existe une version non explicite, le DJ prend celle-ci.' },
+      blockedArtists: { label: 'Artistes jamais joués', placeholder: 'Nom de l’artiste', help: 'Les titres de ces artistes n’entrent jamais dans la playlist.' },
+      blockedTracks: { label: 'Titres jamais joués',
+        help: 'Pour bloquer un titre, utilise le × qui suit le titre dans la liste d’un essai. Les autres versions du même titre (p. ex. remaster ou live) sont bloquées aussi.' },
+      schedule: { label: 'Fréquence', options: { off: 'Désactivé', daily: 'Tous les jours', weekly: 'Chaque semaine' },
+        help: 'Tweakable DJ recrée la playlist tout seul à l’heure choisie, même si cette page est fermée.' },
+      scheduleDay: { label: 'Jour de la semaine',
+        options: { MON: 'Lundi', TUE: 'Mardi', WED: 'Mercredi', THU: 'Jeudi', FRI: 'Vendredi', SAT: 'Samedi', SUN: 'Dimanche' } },
+      scheduleTime: { label: 'Heure', fmt: v => v,
+        hint: (v, c) => `${c.schedule === 'weekly' ? `Chaque ${(T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay).toLowerCase()}` : 'Tous les jours'} à ${v}` },
+      notifyOnFailure: { label: 'Prévenir en cas d’échec',
+        help: 'Si une exécution automatique échoue (p. ex. connexion Spotify expirée, clé Last.fm non valide, pas de connexion), ton système affiche une notification avec la raison et ce qu’il faut faire. Elle te rappelle aussi, à partir de 10 jours avant et au plus une fois par jour, de te reconnecter à Spotify.' },
+    },
+    list: {
+      add: 'Ajouter',
+      remove: 'Retirer',
+      removeName: name => `Retirer ${name}`,
+      empty: 'Personne n’est encore bloqué.',
+      duplicate: name => `« ${name} » est déjà dans la liste.`,
+      tracksEmpty: 'Aucun titre bloqué pour l’instant.',
+      block: 'Bloquer le titre (puis enregistrer)',
+      blockName: name => `Bloquer « ${name} »`,
+      unblock: 'Débloquer',
+      unblockName: name => `Débloquer « ${name} »`,
+    },
+    reset: d => `Par défaut : ${d}`,
+    on: 'activé',
+    off: 'désactivé',
+    presets: {
+      discover: ['Découvrir', 'Beaucoup de nouveaux titres, y compris plus éloignés de tes goûts, et presque pas de répétitions.'],
+      familiar: ['Familier', 'Plus de favoris et des nouveaux titres très proches, peu de surprises.'],
+      current: ['Ma période du moment', 'Suit de près ce que tu as écouté ces 7 derniers jours.'],
+      standard: ['Par défaut', 'Les réglages de base, équilibrés.'],
+    },
+    presetMatch: name => `Correspond exactement : ${name}`,
+    presetNone: 'Aucun préréglage ne correspond exactement – c’est ton propre mélange.',
+    emptyName: 'Le nom de la playlist ne peut pas être vide.',
+    errors: {
+      login_expired: 'Connexion Spotify expirée',
+      not_logged_in: 'Pas encore de connexion à Spotify',
+      forbidden: 'Spotify refuse l’accès (403)',
+      lastfm_key: 'La clé API Last.fm n’est pas valide ou a été suspendue',
+      setup_incomplete: 'Configuration inachevée',
+      node_version: 'Node.js est trop ancien',
+      trial_expired: 'L’essai ne peut plus être utilisé',
+    },
+    run: {
+      running: kind => (kind === 'dry' ? 'Essai en cours … (environ 1 minute)' : kind === 'apply' ? 'Utilisation de la liste …' : 'Recréation de la playlist … (environ 1 minute)'),
+      ok: (r, dry) => `${dry ? 'Essai' : 'Terminé'} : ${r.playlistName ? `${r.playlistName} : ` : ''}${plural(r.songs, 'titre', 'titres')} (${plural(r.fresh, 'nouveau', 'nouveaux')}, dont ${num(r.freshCurrent)} via ce que tu écoutes en ce moment ; ${plural(r.familiar, 'favori', 'favoris')})`,
+      unchanged: ' · playlist inchangée',
+      failedWith: reason => `Échec : ${reason} – voir la sortie`,
+      failed: 'Échec – voir la sortie',
+      failedShort: 'Échec',
+    },
+    trial: {
+      help: (name, until) => `Écrit exactement ces titres, dans cet ordre, dans « ${name} », sans nouveau tirage. Possible jusqu’au ${until}, tant que les réglages restent ceux de l’essai.`,
+      dirty: 'Ne peut plus être utilisée : tu as modifié des réglages depuis l’essai. Remets-les comme avant ou lance un nouvel essai.',
+      old: 'Ne peut plus être utilisée : l’essai date de plus de 24 heures. Lance un nouvel essai.',
+      blocked: 'Ne peut plus être utilisée : tu as bloqué un titre de cette liste. Lance un nouvel essai – il enregistre d’abord.',
+    },
+    files: {
+      help: name => `Enregistre « ${name} », telle qu’elle est actuellement dans Spotify, dans un fichier texte – ou la remplit avec ta propre liste : une ligne par titre, « artiste – titre » ou un lien Spotify. Une importation remplace le contenu de la playlist, mais ne compte pas comme une exécution du DJ (rien n’est bloqué par « Bloquer les exécutions précédentes »).`,
+      loading: 'Lecture de la playlist depuis Spotify …',
+      saved: (file, n) => `${file} téléchargé (${plural(n, 'titre', 'titres')}).`,
+      tooLarge: 'Le fichier dépasse 1 Mo. De toute façon, la playlist ne peut pas contenir plus de 500 titres.',
+      reading: file => `Lecture de ${file} …`,
+      found: (found, total) => `${num(found)} sur ${num(total)} trouvé${isOne(found) ? '' : 's'}`,
+      missingHead: n => (isOne(n) ? 'Cette ligne n’entrera pas dans la playlist :' : `Ces ${num(n)} lignes n’entreront pas dans la playlist :`),
+      line: n => `Ligne ${num(n)} : `,
+      reasons: { notFound: 'introuvable sur Spotify', format: 'ni lien ni « artiste – titre »', link: 'le lien ne mène pas à un titre', error: 'échec de la recherche' },
+      hintHead: n => (isOne(n) ? 'Le DJ laisserait ce titre de côté de lui-même. Il entre quand même dans la playlist – le fichier est ta liste :'
+        : `Le DJ laisserait ces ${num(n)} titres de côté de lui-même. Ils entrent quand même dans la playlist – le fichier est ta liste :`),
+      hintReasons: { blocked: 'dans ta liste de blocage', explicit: 'explicite' },
+      write: name => `Écrire dans la playlist « ${name} » (remplace son contenu)`,
+      cancel: 'Annuler',
+      none: 'Aucun titre trouvé – il n’y a rien à écrire.',
+      writing: name => `Écriture dans « ${name} » …`,
+      done: (name, n) => `« ${name} » contient maintenant ${plural(n, 'titre', 'titres')} du fichier ✓ `,
+      open: 'Ouvrir dans Spotify ↗',
+      failed: 'L’importation n’a pas fonctionné.',
+    },
+    seed: {
+      liked: 'Titres likés',
+      likedLong: 'Titres likés (titres avec un cœur)',
+      songs: n => plural(n, 'titre', 'titres'),
+      playlist: 'Playlist',
+      collaborative: ' (collaborative)',
+      other: 'Playlist de tes réglages (absente de ta liste)',
+      configured: 'Playlist configurée',
+      login: 'Tes playlists apparaîtront ici dès que la connexion à Spotify sera établie.',
+      loading: 'Chargement de tes playlists …',
+      error: msg => `Tes playlists ne peuvent pas être chargées pour le moment : ${msg}`,
+    },
+    login: {
+      start: 'Se connecter avec Spotify',
+      again: 'Se reconnecter',
+      cancel: 'Annuler',
+      openPage: 'Ouvrir la page de connexion ↗',
+      help: 'Si Spotify affiche « Invalid client », le Client ID est incorrect. Avec « Invalid redirect URI », la Redirect URI manque dans le dashboard ou est écrite autrement (configuration, étape 1).',
+      pending: 'Un onglet Spotify s’est ouvert dans ton navigateur. Accepte là-bas, puis reviens ici. ',
+      noTab: 'Pas d’onglet visible ? ',
+      newClientId: 'Nouveau Client ID enregistré – reconnecte-toi.',
+    },
+    notice: {
+      done: 'Connexion réussie ✓ La connexion Spotify est de nouveau valable 6 mois.',
+      expired: 'Ta connexion Spotify a expiré ou manque. Reconnecte-toi et tout fonctionnera à nouveau.',
+      left: n => `Ta connexion Spotify expire dans ${plural(n, 'jour', 'jours')}. Spotify demande une nouvelle connexion tous les 6 mois.`,
+      probably: 'Ta connexion Spotify a probablement expiré. Spotify demande une nouvelle connexion tous les 6 mois.',
+      scope: 'Pour « Artistes suivis », reconnecte-toi une fois à Spotify. Ta connexion actuelle ne permet pas encore de lire les artistes que tu suis.',
+    },
+    setup: {
+      done: 'fait ✓',
+      loggedIn: age => `Connexion active ✓${age == null ? '' : age === 0 ? ' (depuis aujourd’hui)' : ` (depuis ${plural(age, 'jour', 'jours')})`}. Tu ne dois te reconnecter que pour un autre compte ou si la connexion a expiré.`,
+      notLoggedIn: 'Pas encore de connexion.',
+      open: steps => `Reste à faire : étape${isOne(steps.length) ? '' : 's'} ${steps.join(', ')}.`,
+      allDone: 'Tout est prêt ✓ Règle maintenant les curseurs et clique sur « Essai ». Il montre les titres que le DJ choisirait, sans rien changer à ta playlist.',
+      formatOk: 'Format correct ✓',
+      badChars: 'Un Client ID ne contient que les caractères 0–9 et a–f.',
+      length: n => `Un Client ID compte exactement 32 caractères – celui-ci en a ${n}.`,
+      pasteId: 'Colle le Client ID.',
+      checking: 'Vérification auprès de Last.fm …',
+      connect: ' Connecte Spotify à Last.fm : ',
+      connectLink: 'Last.fm → Paramètres → Applications ↗',
+      connectRest: ', puis clique sur « Connecter » à côté de Spotify. Ensuite, Last.fm enregistre chaque titre que tu écoutes sur Spotify.',
+      saved: 'Enregistré. ',
+      savedUnchecked: 'Enregistré, mais non vérifié. ',
+      loadFailed: msg => `Impossible de charger les réglages : ${msg}`,
+    },
+    update: {
+      text: (latest, current) => (current ? `Nouvelle version ${latest} disponible (tu as la ${current})` : `Nouvelle version ${latest} disponible`),
+      link: 'télécharger ↗',
+      close: 'Masquer l’avis',
+      install: 'Mettre à jour',
+      confirm: (from, to) => `Tweakable DJ va passer de la v${from} à la v${to}. Tes réglages, ta connexion Spotify, tes identifiants Last.fm et l’historique sont conservés.`,
+      notes: 'Quoi de neuf ? Notes de version ↗',
+      go: 'Mettre à jour',
+      cancel: 'Annuler',
+      starting: 'Démarrage de la mise à jour …',
+      done: to => `La version ${to} est installée ✓ Tweakable DJ redémarre, la page va se recharger toute seule dans un instant …`,
+      manual: to => `Mise à jour vers la version ${to} installée ✓ Redémarre Tweakable DJ (ferme la fenêtre et rouvre-la). La page se rechargera ensuite toute seule.`,
+      slow: 'Tweakable DJ ne répond pas encore. La fenêtre de Tweakable DJ est-elle toujours ouverte ? Sinon, redémarre Tweakable DJ – la page se rechargera ensuite toute seule.',
+      failed: 'La mise à jour n’a pas fonctionné.',
+      check: 'Rechercher des mises à jour',
+      checking: 'Recherche …',
+      latest: 'Tu as la dernière version ✓',
+      found: v => `La version ${v} est disponible – voir l’avis en haut`,
+      offline: 'GitHub injoignable',
+    },
+    notify: {
+      test: 'Envoyer une notification de test',
+      sending: 'Envoi …',
+      sent: 'Envoyée – regarde tes notifications. Rien ? Vérifie le mode « Ne pas déranger » et les réglages de notification de ton système.',
+      failed: msg => `Non envoyée : ${msg}`,
+    },
+    auto: {
+      background: 'Les exécutions automatiques fonctionnent aussi quand la fenêtre de Tweakable DJ et cette page sont fermées.',
+      beforeDelete: 'Avant de supprimer le dossier de Tweakable DJ, désactive ici les exécutions automatiques.',
+      platform: {
+        win32: 'Ton PC doit être allumé ; s’il était éteint, l’exécution est rattrapée au prochain démarrage.',
+        darwin: 'Ton Mac doit être allumé. S’il est en veille à l’heure choisie, l’exécution est rattrapée au réveil ; s’il était éteint, elle est sautée.',
+        linux: 'Ton PC doit être allumé. Les exécutions manquées (PC éteint ou en veille) sont sautées.',
+      },
+      place: { win32: 'le Planificateur de tâches Windows', darwin: 'launchd (macOS)', linux: 'ta crontab' },
+      pendingOn: place => `Sera inscrit dans ${place ?? 'le planificateur de ton ordinateur'} à l’enregistrement.`,
+      pendingOff: 'Sera désactivé à l’enregistrement.',
+      savedOn: place => `Inscrit dans ${place ?? 'le planificateur de ton ordinateur'} ✓`,
+      savedOff: 'Exécutions automatiques désactivées ✓',
+      removed: 'Entrée supprimée ✓',
+      next: 'Prochaine exécution',
+      last: 'Dernière exécution automatique',
+      running: 'en cours …',
+      aborted: '✗ interrompue, sans résultat',
+      ok: (songs, dry) => `✓ ${songs != null ? plural(songs, 'titre', 'titres') : 'terminé'}${dry ? ' (essai)' : ''}`,
+      open: 'Ouvrir dans Spotify ↗',
+      loginAgain: 'Se reconnecter maintenant',
+      loginRenewed: '(nouvelle connexion entre-temps ✓)',
+      failed: reason => `✗ ${reason}`,
+      logHint: 'Les détails sont dans automatik.log, dans le dossier de Tweakable DJ.',
+      notice: 'La dernière exécution automatique a échoué parce que la connexion Spotify a expiré. Reconnecte-toi et la prochaine exécution fonctionnera.',
+      statusError: msg => `L’état des exécutions automatiques n’est pas disponible pour le moment : ${msg}`,
+      invalid: msg => `${msg} Configure à nouveau ici les exécutions automatiques et enregistre.`,
+      problems: {
+        missing: ['Les exécutions automatiques sont réglées mais pas inscrites, p. ex. après un passage à un nouvel ordinateur. Enregistre une fois pour les inscrire.', 'Enregistrer les exécutions automatiques'],
+        folder: ['Les exécutions automatiques pointent encore vers un autre dossier, p. ex. parce que tu as déplacé Tweakable DJ. Enregistre une fois pour les mettre à jour.', 'Enregistrer les exécutions automatiques'],
+        settings: ['Les exécutions automatiques sont inscrites autrement que réglées ici, p. ex. après une mise à jour de Node.js. Enregistre une fois pour les mettre à jour.', 'Enregistrer les exécutions automatiques'],
+        disabled: ['Les exécutions automatiques sont désactivées dans le planificateur. Enregistre une fois pour les réactiver.', 'Enregistrer les exécutions automatiques'],
+        leftover: ['Le planificateur contient encore une entrée de Tweakable DJ, alors que les exécutions automatiques sont désactivées ici (p. ex. d’un dossier déplacé ou copié).', 'Supprimer l’entrée'],
+      },
+      legacy: (names, on) => `Le planificateur contient encore une entrée sous l’ancien nom ${names.map(n => `« ${n} »`).join(', ')}. Enregistrer une fois ${on ? 'la remplace par la nouvelle' : 'la supprime'}.`,
+      legacyButton: on => (on ? 'Enregistrer les exécutions automatiques' : 'Supprimer l’entrée'),
+      disabledMac: ' Vérifie aussi sous Réglages Système → Général → Ouverture, si « node » a le droit de s’exécuter en arrière-plan.',
+    },
+  },
 };
 
 // --- Sprache: Config (language) → vorgemerkte Wahl in diesem Browser → Sprache des Browsers ---
@@ -1077,14 +1730,28 @@ const store = key => ({
 });
 // Wahl, die noch nicht in der config.jsonc steht (Speichern fehlgeschlagen) – wird beim nächsten Laden nachgereicht.
 const pendingLang = store('tweakable-dj-language');
-const browserLang = () => (/^de\b/i.test(navigator.language || '') ? 'de' : 'en');
+// Sprache des Browsers: de*, es*, fr* → diese Sprache, alles andere Englisch.
+const browserLang = () => {
+  const code = (navigator.language || '').slice(0, 2).toLowerCase();
+  return Object.hasOwn(TEXT, code) ? code : 'en';
+};
 let lang = TEXT[pendingLang.get()] ? pendingLang.get() : browserLang();
 let T = TEXT[lang];
 
 const two = n => String(n).padStart(2, '0');
 const num = v => Number(v).toLocaleString(T.locale, { maximumFractionDigits: 2 });
 const pct = v => T.pct(v);
-const plural = (n, one, many) => `${num(n)} ${n === 1 ? one : many}`;
+// Einzahl nach den Regeln der Sprache (Intl.PluralRules): de, en, es nur 1; fr 0 und 1. Ohne Intl: genau 1.
+const pluralRules = {};
+const isOne = n => {
+  try {
+    pluralRules[T.locale] ??= new Intl.PluralRules(T.locale);
+    return pluralRules[T.locale].select(Number(n)) === 'one';
+  } catch {
+    return Number(n) === 1;
+  }
+};
+const plural = (n, one, many) => `${num(n)} ${isOne(n) ? one : many}`;
 // Hinweis zur Fensterregel mit der Höchstzahl pro Künstler in der ganzen Playlist; leer bei ungültigen Werten (z. B. Fenster 0).
 const windowHint = (v, c, text) => {
   const n = Math.ceil(c.size * v / c.artistWindow);
@@ -1255,7 +1922,10 @@ function renderLang() {
   for (const node of document.querySelectorAll('[data-t]')) node.textContent = T.page[node.dataset.t];
   for (const node of document.querySelectorAll('[data-html]')) node.innerHTML = T.page[node.dataset.html]; // nur feste Texte aus TEXT
   for (const node of document.querySelectorAll('[data-ph]')) node.placeholder = T.page[node.dataset.ph];
-  for (const b of document.querySelectorAll('.lang button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+  $('lang').value = lang;
+  $('lang-code').textContent = lang.toUpperCase();
+  $('lang').setAttribute('aria-label', T.page.language);
+  $('lang-box').title = T.page.language;
   $('w-lastfm-save').textContent = $('w-lastfm-save').dataset.saved ? T.page.next : T.page.saveNext;
   build();
   renderHeader();
@@ -2675,7 +3345,7 @@ function wireSetup() {
   $('open-setup').onclick = () => openSetup(1, true);
 }
 
-for (const b of document.querySelectorAll('.lang button')) b.onclick = () => setLang(b.dataset.lang);
+$('lang').onchange = () => setLang($('lang').value);
 $('save').onclick = () => save().catch(e => showError(e.message));
 $('discard').onclick = () => { current = { ...saved }; refresh(); };
 $('dry').onclick = () => run('dry');

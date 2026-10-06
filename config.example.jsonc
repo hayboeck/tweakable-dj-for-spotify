@@ -45,5 +45,5 @@
   "notifyOnFailure": true,            // Show a system notification when an automatic run fails (e.g. Spotify login expired); false = off
 
   // --- Language ---
-  "language": ""                      // Language of the interface and output: "en" = English, "de" = German, "" = not chosen yet (system language)
+  "language": ""                      // Language of the interface and output: "en" = English, "de" = German, "es" = Spanish, "fr" = French, "" = not chosen yet (system language)
 }

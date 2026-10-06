@@ -3,6 +3,30 @@
 All notable changes to Tweakable DJ for Spotify, newest first. Each version has an English and a German section.
 Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuerst – jeweils auf Englisch und auf Deutsch.
 
+## [0.1.4] – 2026-10-06
+
+### English
+
+**New**
+
+- **Spanish and French**: the interface, all messages, the output of runs, notifications, the Spotify login pages and the playlist description are now also available in Spanish (*Español*) and French (*Français*). They are machine translated; a small line at the bottom of the page says so and links to the [issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues) – corrections are very welcome. The `language` setting and `TWEAKABLE_DJ_LANG` accept `de`, `en`, `es` and `fr`; without a choice, Spanish and French browsers or systems get their language automatically. For Spanish and French, `config.jsonc` is created with English explanations.
+
+**Changed**
+
+- **Language selection field**: the DE | EN switch at the top right is now a small selection field (e.g. *EN ▾*) that lists the languages by their own names. It switches immediately, without reloading the page, works with the keyboard and screen readers, and shows the system’s own list on phones.
+- Singular and plural follow the rules of each language (in French, 0 and 1 are singular).
+
+### Deutsch
+
+**Neu**
+
+- **Spanisch und Französisch**: Oberfläche, alle Meldungen, die Ausgabe der Läufe, Benachrichtigungen, die Anmeldeseiten von Spotify und die Beschreibung der Playlist gibt es jetzt auch auf Spanisch (*Español*) und Französisch (*Français*). Sie sind maschinell übersetzt; eine kleine Zeile ganz unten auf der Seite weist darauf hin und verlinkt die [Issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues) – Korrekturen sind sehr willkommen. Die Einstellung `language` und `TWEAKABLE_DJ_LANG` nehmen `de`, `en`, `es` und `fr`; ohne Wahl bekommen spanisch- und französischsprachige Browser bzw. Systeme ihre Sprache von selbst. Bei Spanisch und Französisch wird `config.jsonc` mit englischen Erklärungen angelegt.
+
+**Geändert**
+
+- **Sprachwahl als Auswahlfeld**: Statt des Umschalters DE | EN steht oben rechts ein kleines Auswahlfeld (z. B. *DE ▾*), das die Sprachen in ihrer eigenen Schreibweise nennt. Es schaltet sofort um, ohne die Seite neu zu laden, lässt sich mit der Tastatur und mit Screenreadern bedienen und zeigt auf dem Handy die Auswahlliste des Systems.
+- Einzahl und Mehrzahl richten sich nach den Regeln der jeweiligen Sprache (im Französischen sind 0 und 1 Einzahl).
+
 ## [0.1.3] – 2026-10-06
 
 ### English
@@ -105,6 +129,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.1.4]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.4
 [0.1.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.3
 [0.1.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.2
 [0.1.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.1

@@ -106,7 +106,10 @@ test('Schutz: nur mit X-Tweakable-DJ, Meldung in der Sprache der Anfrage', async
   assert.deepEqual([old.status, await old.json()], [403, { error: 'Not allowed' }]);
   assert.deepEqual((await api('/api/gibtsnicht', { lang: 'en' })).data, { error: 'Not found' });
   assert.deepEqual((await api('/api/gibtsnicht', { lang: 'de' })).data, { error: 'Nicht gefunden' });
-  assert.deepEqual((await api('/api/gibtsnicht', { lang: 'fr' })).data, { error: 'Nicht gefunden' }, 'ungültig = Systemsprache');
+  assert.deepEqual((await api('/api/gibtsnicht', { lang: 'es' })).data, { error: 'No encontrado' });
+  assert.deepEqual((await api('/api/gibtsnicht', { lang: 'fr' })).data, { error: 'Introuvable' });
+  assert.deepEqual((await api('/api/config', { lang: 'fr', headers: { 'X-Tweakable-DJ': '0' } })).data, { error: 'Non autorisé' });
+  assert.deepEqual((await api('/api/gibtsnicht', { lang: 'it' })).data, { error: 'Nicht gefunden' }, 'ungültig = Systemsprache');
 });
 
 test('Schutz: Seite nicht einbettbar; kaputte Adresse beendet den Server nicht', async () => {
@@ -167,11 +170,13 @@ test('POST /api/lastfm und /api/setup: Meldungen in der Sprache der Anfrage', as
   assert.deepEqual([setup.status, setup.data.error], [400, 'The Client ID has exactly 32 characters from 0–9 and a–f.']);
 });
 
-test('GET /api/playlists: "Lieblingssongs" bzw. "Liked Songs"', async () => {
+test('GET /api/playlists: "Lieblingssongs", "Liked Songs", "Tus me gusta" bzw. "Titres likés"', async () => {
   const de = await api('/api/playlists', { lang: 'de' });
   assert.equal(de.status, 200, de.text);
   assert.deepEqual(de.data.options[0], { value: 'liked', name: 'Lieblingssongs', tracks: 12 });
   assert.equal((await api('/api/playlists', { lang: 'en' })).data.options[0].name, 'Liked Songs');
+  assert.equal((await api('/api/playlists', { lang: 'es' })).data.options[0].name, 'Tus me gusta');
+  assert.equal((await api('/api/playlists', { lang: 'fr' })).data.options[0].name, 'Titres likés');
 });
 
 test('POST /api/run: Ausgabe und @@RESULT in der Sprache der Anfrage', async () => {
@@ -209,8 +214,8 @@ test('POST /api/run: abgelaufene Anmeldung → errorCode login_expired, Fehlerze
 });
 
 test('POST /api/config: language speichern; danach gilt sie für Anfragen ohne X-Lang', async () => {
-  const bad = await api('/api/config', { lang: 'en', method: 'POST', body: { language: 'fr' } });
-  assert.deepEqual([bad.status, bad.data.error], [400, 'language: expected "de", "en" or ""']);
+  const bad = await api('/api/config', { lang: 'en', method: 'POST', body: { language: 'it' } });
+  assert.deepEqual([bad.status, bad.data.error], [400, 'language: expected "de", "en", "es", "fr" or ""']);
   const unknown = await api('/api/config', { lang: 'de', method: 'POST', body: { sprache: 'en' } });
   assert.equal(unknown.data.error, 'Unbekannte Einstellung: sprache');
 
@@ -223,6 +228,15 @@ test('POST /api/config: language speichern; danach gilt sie für Anfragen ohne X
   assert.deepEqual((await api('/api/gibtsnicht', { lang: 'de' })).data, { error: 'Nicht gefunden' }, 'X-Lang geht vor');
   // Lauf ohne X-Lang: Sprache aus config.jsonc
   assert.match((await api('/api/run?dry=1', { method: 'POST' })).text, /^Loading your favorites …$/m);
+
+  // Spanisch bzw. Französisch: nur der Wert ändert sich (Vorlage bleibt die englische); Ausgabe der Läufe in dieser Sprache
+  for (const [language, notFound, loading] of [['es', 'No encontrado', /^Cargando tus favoritas …$/m], ['fr', 'Introuvable', /^Chargement de tes favoris …$/m]]) {
+    assert.deepEqual((await api('/api/config', { lang: language, method: 'POST', body: { language } })).data, { ok: true });
+    assert.equal(fs.readFileSync(path.join(dir, 'config.jsonc'), 'utf8'), text.replace('"language": "en"', `"language": "${language}"`));
+    assert.equal((await api('/api/config')).data.values.language, language);
+    assert.deepEqual((await api('/api/gibtsnicht')).data, { error: notFound }, 'ohne X-Lang: cfg.language');
+    assert.match((await api('/api/run?dry=1', { method: 'POST' })).text, loading);
+  }
 
   assert.deepEqual((await api('/api/config', { lang: 'en', method: 'POST', body: { language: '' } })).data, { ok: true });
   assert.equal((await api('/api/config')).data.values.language, '');
@@ -595,21 +609,116 @@ test('Sperre: kein Import während eines Laufs; kein Lauf, Übernehmen, Anmelden
   assert.equal((await preview('Nordlicht – Polarnacht')).status, 200);
 });
 
-// Beide Texttabellen in ui.html haben dieselben Schlüssel (auch verschachtelt), damit beim Umschalten nichts fehlt.
-test('ui.html: TEXT.de und TEXT.en haben dieselben Schlüssel', async () => {
+// Alle Texttabellen in ui.html haben dieselben Schlüssel (auch verschachtelt) und Funktionen mit gleich vielen Parametern,
+// damit beim Umschalten nichts fehlt.
+test('ui.html: TEXT.de, TEXT.en, TEXT.es und TEXT.fr haben dieselben Schlüssel', async () => {
   const vm = await import('node:vm');
   const html = fs.readFileSync(path.join(ROOT, 'ui.html'), 'utf8');
   const start = html.indexOf('const LASTFM_APPS');
   const end = html.indexOf('\n};\n', html.indexOf('const TEXT = {'));
   assert.ok(start > 0 && end > start, 'TEXT nicht gefunden');
   const TEXT = vm.runInNewContext(`${html.slice(start, end + 3)}\nTEXT`);
-  const shape = v => (typeof v === 'function' ? 'function'
+  const shape = v => (typeof v === 'function' ? `function(${v.length})`
     : Array.isArray(v) ? v.map(shape)
     : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, shape(v[k])]))
     : typeof v);
-  assert.deepEqual(Object.keys(TEXT), ['de', 'en']);
-  assert.deepEqual(shape(TEXT.en), shape(TEXT.de));
+  assert.deepEqual(Object.keys(TEXT), ['de', 'en', 'es', 'fr']);
+  for (const lang of ['en', 'es', 'fr']) assert.deepEqual(shape(TEXT[lang]), shape(TEXT.de), lang);
   assert.equal(typeof TEXT.de.update.text('0.2.0', '0.1.0'), 'string');
+  // Die Sprachwahl bietet genau diese Sprachen an, jeweils mit ihrem eigenen Namen
+  const options = [...html.matchAll(/<option value="(\w+)" lang="(\w+)">([^<]+)<\/option>/g)].map(m => [m[1], m[2], m[3]]);
+  assert.deepEqual(options, [['de', 'de', 'Deutsch'], ['en', 'en', 'English'], ['es', 'es', 'Español'], ['fr', 'fr', 'Français']]);
+  assert.doesNotMatch(html, /data-lang=|\.lang button/, 'kein Umschalter DE | EN mehr');
+});
+
+// Alle Texte aus TEXT ausrechnen (Funktionen mit Beispielwerten): keine Ausnahme, kein undefined, Französisch mit
+// schmalem geschütztem Leerzeichen vor : ; ! ? und in « », Spanisch mit ¿…? und ¡…!; Hinweis auf die Übersetzung nur es/fr.
+test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungshinweis nur bei es und fr', async () => {
+  const vm = await import('node:vm');
+  const html = fs.readFileSync(path.join(ROOT, 'ui.html'), 'utf8');
+  const start = html.indexOf('const LASTFM_APPS');
+  const end = html.indexOf('\n};\n', html.indexOf('const TEXT = {'));
+  const helpers = `
+    let T;
+    const two = n => String(n).padStart(2, '0');
+    const num = v => Number(v).toLocaleString(T.locale, { maximumFractionDigits: 2 });
+    const pct = v => T.pct(v);
+    const isOne = n => new Intl.PluralRules(T.locale).select(Number(n)) === 'one';
+    const plural = (n, one, many) => \`\${num(n)} \${isOne(n) ? one : many}\`;
+    const windowHint = (v, c, text) => text(Math.ceil(c.size * v / c.artistWindow));
+    const adventureHint = () => '';
+    const followedLabel = () => '';
+    const followedHint = () => '';`;
+  const ctx = vm.createContext({});
+  vm.runInContext(`${helpers}\n${html.slice(start, end + 3)}\nthis.TEXT = TEXT; this.setT = l => { T = TEXT[l]; };`, ctx);
+  const c = { size: 50, artistWindow: 20, maxPerArtist: 2, maxPerWindow: 3, artistGap: 4, schedule: 'weekly', scheduleDay: 'WED',
+    playlistName: 'Mix', songs: 1, fresh: 0, freshCurrent: 0, familiar: 2 };
+  // Funktionen mit besonderen Parametern (Pfad ohne Sprache) → Aufrufe; alle anderen: (2, c), (0, c ohne Abstand), (1, c)
+  const CALLS = {
+    when: [[new Date(2026, 9, 6, 7, 5)]],
+    'auto.legacy': [[['Alt'], true], [['Alt', 'Älter'], false]],
+    'setup.open': [[[1, 2]], [[4]]],
+    'run.ok': [[c, true], [{ ...c, songs: 0, familiar: 1, playlistName: '' }, false]],
+    'auto.ok': [[3, true], [null, false], [1, false]],
+    'variety.hint': [[c], [{ ...c, artistGap: 0, maxPerArtist: 1 }]],
+    'trial.help': [['Mix', '07:05']],
+    'items.scheduleTime.fmt': [['07:05']],
+    'items.scheduleTime.hint': [['07:05', c], ['07:05', { ...c, schedule: 'daily' }]],
+    'files.saved': [['mix.txt', 3], ['mix.txt', 1]],
+    'files.done': [['Mix', 3], ['Mix', 0]],
+    'files.found': [[2, 3], [0, 1]],
+    'update.text': [['0.2.0', '0.1.0'], ['0.2.0', null]],
+    'update.confirm': [['0.1.0', '0.2.0']],
+  };
+  const texts = {};
+  const collect = (lang, v, key) => {
+    if (typeof v === 'function') {
+      const calls = CALLS[key.slice(lang.length + 1)] ?? [[2, c], [0, { ...c, schedule: 'daily', artistGap: 0 }], [1, c]];
+      for (const a of calls) {
+        const out = v(...a);
+        assert.equal(typeof out, 'string', `${key}`);
+        assert.doesNotMatch(out, /undefined|NaN|\[object/, `${key}: ${out}`);
+        texts[lang].push([key, out]);
+      }
+    } else if (v && typeof v === 'object') {
+      for (const [k, x] of Object.entries(v)) collect(lang, x, `${key}.${k}`);
+    } else if (typeof v === 'string') texts[lang].push([key, v]);
+  };
+  for (const lang of Object.keys(ctx.TEXT)) {
+    ctx.setT(lang);
+    texts[lang] = [];
+    collect(lang, ctx.TEXT[lang], lang);
+  }
+  const visible = text => text.replace(/<[^>]*>/g, '');
+  for (const [key, text] of texts.fr) {
+    if (key === 'fr.locale') continue;
+    assert.doesNotMatch(visible(text), /[ \u00a0][:;!?%]/, `fr ${key}: Leerzeichen vor : ; ! ? % muss U+202F sein: ${text}`);
+    assert.doesNotMatch(visible(text), /«(?!\u202f)|(?<!\u202f)»/, `fr ${key}: « » ohne U+202F`);
+    assert.doesNotMatch(visible(text), /[„“”]/, `fr ${key}: deutsche bzw. englische Anführungszeichen`);
+  }
+  for (const [key, text] of texts.es) {
+    assert.equal((text.match(/\?/g) ?? []).length, (text.match(/¿/g) ?? []).length, `es ${key}: ¿…?`);
+    assert.equal((visible(text).match(/!/g) ?? []).length, (text.match(/¡/g) ?? []).length, `es ${key}: ¡…!`);
+    assert.doesNotMatch(visible(text), /[„“”]/, `es ${key}: deutsche bzw. englische Anführungszeichen`);
+  }
+  // Einzahl/Mehrzahl in der Oberfläche: fr 0 = Einzahl, es 0 = Mehrzahl
+  ctx.setT('fr');
+  assert.equal(ctx.TEXT.fr.items.size.fmt(0), '0 titre');
+  assert.equal(ctx.TEXT.fr.items.size.fmt(2), '2 titres');
+  assert.equal(ctx.TEXT.fr.files.missingHead(1), 'Cette ligne n’entrera pas dans la playlist\u202f:');
+  ctx.setT('es');
+  assert.equal(ctx.TEXT.es.items.size.fmt(0), '0 canciones');
+  assert.equal(ctx.TEXT.es.items.size.fmt(1), '1 canción');
+  ctx.setT('de');
+  assert.equal(ctx.TEXT.de.items.size.fmt(1), '1 Song');
+  assert.equal(ctx.TEXT.de.items.size.fmt(0), '0 Songs');
+  // Hinweis auf die maschinelle Übersetzung: nur es und fr, mit Link zu den Issues in neuem Tab
+  assert.equal(ctx.TEXT.de.page.mtNote, '');
+  assert.equal(ctx.TEXT.en.page.mtNote, '');
+  const issues = '<a href="https://github.com/hayboeck/tweakable-dj-for-spotify/issues" target="_blank" rel="noopener">';
+  assert.equal(ctx.TEXT.es.page.mtNote, `Traducción automática – ${issues}las correcciones son bienvenidas</a>`);
+  assert.equal(ctx.TEXT.fr.page.mtNote, `Traduction automatique – ${issues}les corrections sont les bienvenues</a>`);
+  assert.match(html, /<p class="mt-note" id="mt-note" data-html="mtNote"><\/p>/);
 });
 
 // --- „Nach Updates suchen“ (GET /api/update?force=1): am Tages-Cache vorbei, höchstens einmal pro Minute ---
@@ -705,13 +814,14 @@ test('POST /api/notify/test: sendet sofort (hier nur simuliert), Text in der Spr
   assert.deepEqual([foreign.status, foreign.data], [403, { error: 'Not allowed' }]);
   assert.equal(notifications().length, before, 'ohne Header nichts gesendet');
 
-  for (const [lang, title] of [['de', 'Tweakable DJ: Testbenachrichtigung'], ['en', 'Tweakable DJ: test notification']]) {
+  for (const [lang, title] of [['de', 'Tweakable DJ: Testbenachrichtigung'], ['en', 'Tweakable DJ: test notification'],
+    ['es', 'Tweakable DJ: notificación de prueba'], ['fr', 'Tweakable DJ\u202f: notification de test']]) {
     const r = await api('/api/notify/test', { lang, method: 'POST', body: {} });
     assert.deepEqual([r.status, r.data], [200, { ok: true }]);
     const sent = notifications().at(-1);
     assert.ok(JSON.stringify(sent).includes(title), JSON.stringify(sent));
   }
-  assert.equal(notifications().length, before + 2);
+  assert.equal(notifications().length, before + 4);
 });
 
 test('notifyOnFailure: Standard an, speichern ohne Zeitplaner, kein Einfluss auf den Probelauf; ungültig → 400', async () => {

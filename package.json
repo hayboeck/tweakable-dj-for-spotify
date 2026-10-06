@@ -1,8 +1,8 @@
 {
   "name": "tweakable-dj",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
-  "description": "Fills a Spotify playlist with your favorite songs and new, similar songs (via Last.fm). English and German.",
+  "description": "Fills a Spotify playlist with your favorite songs and new, similar songs (via Last.fm). English, German, Spanish and French.",
   "license": "MIT",
   "repository": {
     "type": "git",

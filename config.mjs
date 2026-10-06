@@ -1,5 +1,5 @@
 // Lesen und Schreiben der config.jsonc (gemeinsam für dj.mjs und ui.mjs).
-// Funktionen mit Meldungen bekommen die Sprache (lang: 'de' | 'en') als letzten Parameter; ohne kommen sie auf Englisch.
+// Funktionen mit Meldungen bekommen die Sprache (lang: 'de' | 'en' | 'es' | 'fr') als letzten Parameter; ohne kommen sie auf Englisch.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,10 +10,10 @@ import { trackKey } from './lineup.mjs';
 export const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIG = path.join(HERE, 'config.jsonc');
 
-// Vorlage je Sprache: Englisch ist der Standard, Deutsch liegt daneben.
+// Vorlage je Sprache: Englisch ist der Standard, Deutsch liegt daneben. Spanisch und Französisch nehmen die englische.
 const EXAMPLES = { en: 'config.example.jsonc', de: 'config.example.de.jsonc' };
 export function exampleFile(lang) {
-  const file = path.join(HERE, EXAMPLES[resolveLang(lang)]);
+  const file = path.join(HERE, EXAMPLES[resolveLang(lang)] ?? EXAMPLES.en);
   return fs.existsSync(file) ? file : path.join(HERE, EXAMPLES.en);
 }
 

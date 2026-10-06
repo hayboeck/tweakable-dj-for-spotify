@@ -214,6 +214,18 @@ test('Sprache aus config.jsonc, wenn TWEAKABLE_DJ_LANG fehlt; sonst Systemsprach
     assert.match(de.out, /^Lade deine Favoriten …$/m);
     const sys = run(dir, { TWEAKABLE_DJ_LANG: undefined, LC_ALL: undefined, LC_MESSAGES: undefined, LANG: 'en_US.UTF-8' });
     assert.match(sys.out, /^Loading your favorites …$/m);
+    // Spanisch bzw. Französisch: aus config.jsonc, aus TWEAKABLE_DJ_LANG oder als Systemsprache
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, language: 'es' }));
+    const es = run(dir, { TWEAKABLE_DJ_LANG: undefined, LANG: 'de_AT.UTF-8' });
+    assert.equal(es.code, 0, es.all);
+    assert.match(es.out, /^Cargando tus favoritas …$/m);
+    assert.match(es.out, /^--dry: playlist sin cambios\.$/m);
+    const fr = run(dir, { TWEAKABLE_DJ_LANG: 'fr' });
+    assert.match(fr.out, /^Chargement de tes favoris …$/m);
+    assert.match(fr.out, /^Test-DJ\u202f: \d+ titres \(/m);
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify(CONFIG));
+    const sysFr = run(dir, { TWEAKABLE_DJ_LANG: undefined, LC_ALL: undefined, LC_MESSAGES: undefined, LANG: 'fr_FR.UTF-8' });
+    assert.match(sysFr.out, /^Chargement de tes favoris …$/m);
   } finally {
     cleanup(dir);
   }

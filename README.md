@@ -6,7 +6,7 @@
 
 Spotify’s own AI DJ talks between the songs, and its voice can’t be turned off. Tweakable DJ does without announcements: it fills the playlist **“Tweakable DJ”** with a mix of your Liked Songs and new songs that match your taste, most of all what you’re listening to right now.
 You decide how much variety you want, how many favorites, and how often the same artist comes up.
-The interface is available in English and German; switch at the top right (DE | EN).
+The interface is available in English and German, and also in Spanish and French (machine translated – corrections are welcome as an [issue](https://github.com/hayboeck/tweakable-dj-for-spotify/issues)); choose the language at the top right.
 
 <p align="center"><img src="docs/screenshot-main.en.png" width="440" alt="The Tweakable DJ interface: presets such as Discover and My current phase, the groups Selection (with Adventure and Followed artists) and Variety (Artist variety with Details for experts), and the buttons Test run and Rebuild playlist"></p>
 
@@ -93,9 +93,9 @@ The numbers show the order of a run:
 | `spotify.mjs` | Connection to Spotify: login, reading Liked Songs, finding songs, writing the playlist |
 | `lastfm.mjs` | Connection to Last.fm: similar songs and artists, your listening history |
 | `config.mjs` | Reads and writes `config.jsonc` without destroying the comments |
-| `i18n.mjs` | All messages of the program and the server in English and German (the interface texts are in `ui.html`) |
+| `i18n.mjs` | All messages of the program and the server in English, German, Spanish and French (the interface texts are in `ui.html`) |
 | `ui.mjs` | Small web server for the interface; starts the DJ at the push of a button |
-| `ui.html` | The interface itself (setup wizard, controls, buttons, output), with all texts in English and German |
+| `ui.html` | The interface itself (setup wizard, controls, buttons, output), with all texts in English, German, Spanish and French |
 | `schedule.mjs` | Automatic runs: adds Tweakable DJ to your system’s scheduler (Windows Task Scheduler, macOS launchd, Linux cron) and reads its status |
 | `notify.mjs` | System notification when an automatic run fails, using only what your system has built in (Windows: PowerShell, Mac: `osascript`, Linux: `notify-send`) |
 | `update.mjs` | Checks at most once a day whether a new version is available on GitHub (see [Update check](#update-check)) |
@@ -103,7 +103,7 @@ The numbers show the order of a run:
 | `manifest.json` | List of all program files of this version with their checksums. *Update now* only replaces files listed there. Only in the ZIP file, not in the GitHub repository. |
 | `package.json` | Shortcuts for developers: `npm start` (interface) and `npm test` (tests). Tweakable DJ needs no additional packages. |
 | `tests/` | Automated tests for the rules, the settings, the translations, automatic runs, the update check and *Update now*, the interface, the text file and test runs including applying them, in which Spotify, Last.fm and GitHub are only simulated. Only in the GitHub repository, not in the ZIP file. |
-| `config.example.jsonc` | Empty settings template with English explanations. It becomes your `config.jsonc` when you set up in English. |
+| `config.example.jsonc` | Empty settings template with English explanations. It becomes your `config.jsonc` when you set up in English, Spanish or French. |
 | `config.example.de.jsonc` | The same template with German explanations (for setting up in German) |
 | `overview.en.svg`, `overview.de.svg` | The diagram in section 2, in English and German |
 | `docs/` | Screenshots of the interface for this guide, in English and German |
@@ -236,7 +236,7 @@ The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to se
 
 | Setting | Default |
 |---|---|
-| Language of the interface and the output (`language`): `"en"` = English, `"de"` = German, `""` = not chosen yet. Also applies to automatic runs and the terminal. | `""`: the language of your browser (interface) or your system (terminal, automatic runs) |
+| Language of the interface and the output (`language`): `"en"` = English, `"de"` = German, `"es"` = Spanish, `"fr"` = French, `""` = not chosen yet. Also applies to automatic runs and the terminal. | `""`: the language of your browser (interface) or your system (terminal, automatic runs) |
 
 ---
 
@@ -247,7 +247,7 @@ The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to se
 Double-click `Tweakable DJ.cmd` (Windows) or `Tweakable DJ.command` (Mac); on Linux, run `./start.sh` in a terminal. `node ui.mjs` in a terminal works everywhere too. Your browser opens <http://127.0.0.1:8899>.
 On the very first start, your system may ask for confirmation, see [setup](#7-setup-one-time), step 3. If Tweakable DJ isn’t set up yet, the setup wizard appears instead of the controls.
 
-- **Language** (top right, **DE | EN**): switches the whole interface immediately, including the wizard. Your choice is saved in `config.jsonc` (`language`) and then also applies to test runs, rebuilds, automatic runs and the terminal. Until you choose, the interface follows your browser’s language.
+- **Language** (top right, a small selection field, e.g. **EN ▾**, with Deutsch, English, Español and Français): switches the whole interface immediately, including the wizard. Your choice is saved in `config.jsonc` (`language`) and then also applies to test runs, rebuilds, automatic runs and the terminal. Until you choose, the interface follows your browser’s language. Spanish and French are machine translated; a line at the bottom of the page says so and links to the [issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), where corrections are welcome.
 - **Presets**: four buttons set all rule controls at once:
   - *Discover*: lots of new songs, also further from your taste
   - *Familiar*: more favorites and very similar songs
@@ -319,7 +319,7 @@ The output uses the language from `config.jsonc` (`language`), otherwise your sy
 
 | Variable | Effect |
 |---|---|
-| `TWEAKABLE_DJ_LANG` | `en` or `de`: language of the output for this call, takes priority over `language` |
+| `TWEAKABLE_DJ_LANG` | `en`, `de`, `es` or `fr`: language of the output for this call, takes priority over `language` |
 | `TWEAKABLE_DJ_PORT` | A different port for the interface instead of 8899, e.g. if 8899 is already in use |
 | `TWEAKABLE_DJ_NO_UPDATE_CHECK` | `1`: don’t check for new versions (see [Update check](#update-check)) |
 
@@ -374,14 +374,14 @@ You do these steps once before using Tweakable DJ for the first time, and again 
    - **Mac**: start `Tweakable DJ.command` with **right-click → Open** and choose *Open* again in the dialog. If the dialog offers no *Open* (newer macOS versions), close it and click *Open Anyway* further down under *System Settings → Privacy & Security*. After that, a double-click is enough.
    - **Linux**: in a [terminal in the folder](#open-a-terminal-in-the-folder) `tweakable-dj`, enter `./start.sh`.
    - **Mac and Linux, if “permission denied” appears**: the start file has lost its execute permission (happens e.g. when the folder was copied via Windows). In a [terminal in the folder](#open-a-terminal-in-the-folder) `tweakable-dj`, enter `chmod +x "Tweakable DJ.command" start.sh` once. On Linux, `sh start.sh` also works without that.
-4. **Go through the setup wizard.** It appears in your browser by itself, explains each step with links and checks your entries right away. You can switch between English and German at the top right at any time.
+4. **Go through the setup wizard.** It appears in your browser by itself, explains each step with links and checks your entries right away. You can switch between English, German, Spanish and French at the top right at any time.
    1. **Create a Spotify app** in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard). The redirect URI `http://127.0.0.1:8888/callback` is important – exactly like this, not with `localhost` (the wizard has a copy button for it). You enter the **Client ID** in the wizard. The client secret isn’t needed.
    2. **Last.fm**: [create an API key](https://www.last.fm/api/account/create) (leave the callback URL empty) and enter it together with your Last.fm username. *Check* shows whether both are right and how many scrobbles Last.fm already knows from you. If it says 0, connect Spotify to Last.fm under [last.fm → Settings → Applications](https://www.last.fm/settings/applications).
    3. **Log in with Spotify**: a Spotify page opens; agree there.
    4. Choose the **source of your favorites**: your Liked Songs or one of your playlists.
    5. **Done**: the controls appear and you can start your first test run.
 
-   The wizard creates the file `config.jsonc` by itself, with explanations in the language you have selected. Later, you can reach it via *Change credentials* at the top right.
+   The wizard creates the file `config.jsonc` by itself, with explanations in the language you have selected (in English for Spanish and French). Later, you can reach it via *Change credentials* at the top right.
 
    <p align="center"><img src="docs/screenshot-setup.en.png" width="560" alt="Step 1 of the setup wizard: create a Spotify app, with the redirect URI, a Copy button and a field for the Client ID; below it steps 2 to 5"></p>
 
@@ -392,7 +392,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
    - `lastfm.apiKey`
    - `lastfm.user`: your Last.fm username
    - `seed`: `"liked"` for the songs you saved with the heart, or the link to one of your own playlists
-   - `language`: `"en"` or `"de"` (empty = your system’s language)
+   - `language`: `"en"`, `"de"`, `"es"` or `"fr"` (empty = your system’s language)
 2. Run `node dj.mjs login` and agree in the browser.
 
 <a id="open-a-terminal-in-the-folder"></a>**Open a terminal in the folder**
@@ -485,7 +485,7 @@ There is only ever one entry: it always has the same name, whichever folder it c
 | No notification after a failed automatic run | Is *Notify on failures* on? Click *Send test notification*: if it reports an error, that says why; if it says *Sent* but nothing appears, check *Do not disturb* and the notification settings of your system (Windows: *Windows PowerShell*, Mac: *Script Editor*). On Linux, `notify-send` must be installed. |
 | “Automatic runs still point to a different folder” | The folder was moved or copied. Click *Save automatic runs* once, and the scheduler entry points to the right folder again. |
 | “The scheduler still has an entry under the old name …” | Automatic runs were set up under the project’s former name. Click *Save automatic runs* once (or *Remove entry* if automatic runs are off), and Tweakable DJ replaces the old entry. |
-| Interface or output in the wrong language | Choose **DE** or **EN** at the top right. That saves `language` in `config.jsonc`, which from the next run on also applies to automatic runs and the terminal. |
+| Interface or output in the wrong language | Choose the language at the top right (e.g. **EN ▾**). That saves `language` in `config.jsonc`, which from the next run on also applies to automatic runs and the terminal. |
 | Deleting or moving the folder | First set automatic runs to *Off* and save. Otherwise an entry stays behind in the scheduler that leads nowhere ([Uninstalling](#9-uninstalling)). |
 
 ---
@@ -498,7 +498,7 @@ There is only ever one entry: it always has the same name, whichever folder it c
 - **Listening history:** per run, the DJ fetches at most the 1,000 newest scrobbles from Last.fm, from the longer of the two periods `excludeRecentDays` and `currentDays` (14 days by default). If you listen to more, the oldest days of that period are missing: songs from those days aren’t blocked as recently played and don’t count as current listening. With the defaults, blocking recently played songs (14 days) is affected from about 70 songs a day, “current” (7 days) only from about 140 a day. With long periods (e.g. `excludeRecentDays` 90), the limit is reached much sooner. The line “… scrobbles, …” in the output shows how many were fetched; 1,000 means the limit was reached.
 - **Spotify’s rules:** the Spotify app runs in development mode. This requires a Premium account for the owner, and at most 5 people may use the app.
 - **Last.fm as a source:** how good the suggestions are depends on how much data Last.fm has about a song. For very new or little-known songs, Last.fm often finds nothing similar. The DJ caches similar songs and artists for 7 days, as Last.fm requires. New data from Last.fm therefore arrives with up to a week’s delay. Your listening history, on the other hand, is always fetched fresh.
-- **Two languages:** interface, messages and output are available in English and German. Names of songs, artists and playlists stay as they are on Spotify and Last.fm.
+- **Four languages:** interface, messages and output are available in English and German, and also in Spanish and French (machine translated; corrections are welcome as an [issue](https://github.com/hayboeck/tweakable-dj-for-spotify/issues)). Names of songs, artists and playlists stay as they are on Spotify and Last.fm.
 
 ---
 

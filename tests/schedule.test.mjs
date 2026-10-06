@@ -89,6 +89,13 @@ test('Windows: Aufgaben-XML mit conhost, Pfaden mit Leerzeichen, Umlauten und &'
   assert.match(tag(de, 'Description'), /^Erstellt die Playlist von Tweakable DJ automatisch neu\./);
   // Die Beschreibung (Sprache) zählt beim Abgleich nicht mit
   assert.equal(checkWindowsTask(de, xml), null);
+  // Spanisch und Französisch (XML-Datei in UTF-16, Sonderzeichen bleiben erhalten); ebenfalls ohne Einfluss auf den Abgleich
+  const es = windowsTaskXml(daily(), WIN_NODE, WIN_DIR, { now: local(2026, 10, 1, 8), conhost: CONHOST, lang: 'es' });
+  assert.match(tag(es, 'Description'), /^Recrea automáticamente la playlist de Tweakable DJ\. Carpeta: C:/);
+  const fr = windowsTaskXml(daily(), WIN_NODE, WIN_DIR, { now: local(2026, 10, 1, 8), conhost: CONHOST, lang: 'fr' });
+  assert.match(tag(fr, 'Description'), /^Recrée automatiquement la playlist de Tweakable DJ\. Dossier\u202f: C:/);
+  assert.equal(checkWindowsTask(es, xml), null);
+  assert.equal(checkWindowsTask(fr, xml), null);
   assert.equal(tag(xml, 'Command'), CONHOST);
   assert.equal(tag(xml, 'Arguments'), '--headless "C:\\Program Files\\nodejs\\node.exe" "C:\\Users\\Zoë &amp; Jörg\\Tweakable DJ (neu)\\dj.mjs" --auto');
   assert.equal(tag(xml, 'WorkingDirectory'), 'C:\\Users\\Zoë &amp; Jörg\\Tweakable DJ (neu)');

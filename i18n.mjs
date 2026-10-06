@@ -1,16 +1,19 @@
 // Sprachen und alle Texte, die die Node-Dateien ausgeben (Konsole, Fehlermeldungen, Antworten an die Oberfläche).
 //   t(lang, 'run.summary', { name: 'Tweakable DJ', songs: 50, … }) → Text mit eingesetzten {Platzhaltern}
 // Einzahl und Mehrzahl: {songs|# Song|# Songs} → "1 Song" bzw. "50 Songs"; # = die Zahl im Format der Sprache (de-AT: 1 234 mit geschütztem Leerzeichen, en-US: 1,234).
+// Welche Form gilt, entscheiden die Regeln der Sprache (Intl.PluralRules): im Französischen sind 0 und 1 Einzahl, sonst nur 1.
 // Nur die Zahl im Format der Sprache, ohne Wort danach: {hits|#|#}. {name} allein setzt den Wert unverändert ein (z. B. Fehlercodes).
 
-export const LANGS = ['de', 'en'];
+// Spanisch und Französisch sind maschinell übersetzt (Hinweis in der Oberfläche, Korrekturen über GitHub-Issues).
+export const LANGS = ['de', 'en', 'es', 'fr'];
 
-// Für Zahlen und Datum (z. B. 1 234 bzw. 1,234; 5.10.2026 bzw. 10/5/2026). ui.html verwendet dieselben.
-const LOCALES = { de: 'de-AT', en: 'en-US' };
+// Für Zahlen und Datum (z. B. 1 234, 1,234, 12.345 bzw. 1 234; 5.10.2026 bzw. 10/5/2026). ui.html verwendet dieselben.
+const LOCALES = { de: 'de-AT', en: 'en-US', es: 'es-ES', fr: 'fr-FR' };
 
 const valid = v => (typeof v === 'string' && LANGS.includes(v.toLowerCase()) ? v.toLowerCase() : null);
 
 // Sprache des Systems: TWEAKABLE_DJ_LANG, sonst LC_ALL/LC_MESSAGES/LANG, sonst die Spracheinstellung von Node.js.
+// Werte, die mit de, en, es oder fr beginnen (z. B. es_ES.UTF-8, fr-CA), ergeben diese Sprache, alles andere Englisch.
 export function systemLang(env = process.env) {
   let value = env.TWEAKABLE_DJ_LANG || env.LC_ALL || env.LC_MESSAGES || env.LANG;
   if (!value) {
@@ -20,16 +23,16 @@ export function systemLang(env = process.env) {
       value = '';
     }
   }
-  return /^de/i.test(value) ? 'de' : 'en';
+  return LANGS.find(l => new RegExp(`^${l}`, 'i').test(value ?? '')) ?? 'en';
 }
 
-// 'de'/'en' gewinnt, sonst der Hinweis (z. B. cfg.language), sonst die Systemsprache.
+// 'de', 'en', 'es' oder 'fr' gewinnt, sonst der Hinweis (z. B. cfg.language), sonst die Systemsprache.
 export const resolveLang = (value, hint) => valid(value) ?? valid(hint) ?? systemLang();
 
 export const locale = lang => LOCALES[valid(lang) ?? 'en'];
 
 // Text in der Sprache lang (unbekannt oder fehlend: Englisch); {name} wird durch params.name ersetzt,
-// {name|eins|mehr} durch "eins" (genau 1) bzw. "mehr" (sonst), # darin durch die Zahl.
+// {name|eins|mehr} durch "eins" (Einzahl nach den Regeln der Sprache) bzw. "mehr" (sonst), # darin durch die Zahl.
 export function t(lang, key, params = {}) {
   const l = valid(lang) ?? 'en';
   const text = MESSAGES[l][key] ?? MESSAGES.en[key] ?? key;
@@ -37,8 +40,20 @@ export function t(lang, key, params = {}) {
     if (!(name in params)) return m;
     if (one === undefined) return String(params[name]);
     const n = Number(params[name]);
-    return (n === 1 ? one : many).replace(/#/g, n.toLocaleString(LOCALES[l]));
+    return (isOne(l, n) ? one : many).replace(/#/g, n.toLocaleString(LOCALES[l]));
   });
+}
+
+// Einzahl? Nach den Regeln der Sprache: de, en, es nur 1; fr 0 und 1 (auch 1,5). Ohne Intl-Daten (sehr selten): genau 1.
+const RULES = {};
+export function isOne(lang, n) {
+  const l = valid(lang) ?? 'en';
+  try {
+    RULES[l] ??= new Intl.PluralRules(LOCALES[l]);
+    return RULES[l].select(n) === 'one';
+  } catch {
+    return n === 1;
+  }
 }
 
 // Fehler mit übersetzter Meldung und Zusatzangaben, z. B. { errorCode: 'login_expired' }.
@@ -67,7 +82,7 @@ export const MESSAGES = {
     'config.badSchedule': 'schedule: "off", "daily" oder "weekly" erwartet',
     'config.badTime': 'scheduleTime: Uhrzeit als HH:MM erwartet, z. B. "07:00"',
     'config.badDay': 'scheduleDay: einer von {days} erwartet',
-    'config.badLanguage': 'language: "de", "en" oder "" erwartet',
+    'config.badLanguage': 'language: "de", "en", "es", "fr" oder "" erwartet',
     'config.badClientId': 'Die Client ID hat genau 32 Zeichen aus 0–9 und a–f.',
     'config.badApiKey': 'Der Last.fm-API-Key hat genau 32 Zeichen aus 0–9 und a–f.',
     'config.badUser': 'Ungültiger Last.fm-Benutzername.',
@@ -324,7 +339,7 @@ export const MESSAGES = {
     'config.badSchedule': 'schedule: expected "off", "daily" or "weekly"',
     'config.badTime': 'scheduleTime: expected a time as HH:MM, e.g. "07:00"',
     'config.badDay': 'scheduleDay: expected one of {days}',
-    'config.badLanguage': 'language: expected "de", "en" or ""',
+    'config.badLanguage': 'language: expected "de", "en", "es", "fr" or ""',
     'config.badClientId': 'The Client ID has exactly 32 characters from 0–9 and a–f.',
     'config.badApiKey': 'The Last.fm API key has exactly 32 characters from 0–9 and a–f.',
     'config.badUser': 'Invalid Last.fm username.',
@@ -557,5 +572,522 @@ export const MESSAGES = {
     'update.failedUnchanged': 'Update failed: {message} Nothing was changed.',
     'update.failedRestored': 'Update failed: {message} The old version has been restored; everything is as before.',
     'update.failedRestore': 'Update failed: {message} Restoring the old version ran into problems ({detail}). The old program files are in {backup}. Your personal files were not touched.',
+  },
+
+  // Spanisch (maschinell übersetzt): „tú“, Begriffe wie in der Spotify-App (Tus me gusta, playlist, canción).
+  es: {
+    // --- General ---
+    'node.tooOld': 'Tweakable DJ necesita Node.js 18 o posterior, pero tienes instalada la versión {version}. Instala la versión LTS actual desde https://nodejs.org.',
+
+    // --- config.mjs ---
+    'config.invalid': 'config.jsonc no es válido ({detail}). Causa frecuente: falta una coma o sobra una.',
+    'config.created': 'Se ha creado config.jsonc: configura Tweakable DJ en la interfaz (Tweakable DJ.cmd o .command, en Linux start.sh) o rellena el archivo: {file}',
+    'config.incomplete': 'La configuración no está terminada: complétala en la interfaz (Tweakable DJ.cmd o .command, en Linux start.sh) o rellena config.jsonc: {missing}',
+    'config.userOrEmpty': 'lastfm.user (o déjalo vacío)',
+    'config.unknownSetting': 'Ajuste desconocido: {key}',
+    'config.unknownField': 'Campo desconocido: {name}',
+    'config.listExpected': '{key}: se esperaba una lista de textos',
+    'config.entryTooLong': '{key}: entrada demasiado larga',
+    'config.tracksExpected': '{key}: se esperaba una lista de como máximo {max|# canción|# canciones}',
+    'config.badTrack': '{key}: cada canción necesita "artist" y "name" (texto); "uri" falta o es una URI de Spotify (spotify:track:…).',
+    'config.typeExpected': '{key}: se esperaba {type}',
+    'config.badInteger': '{key} en config.jsonc debe ser un número entero de {min} a {max} (ahora: {value}).',
+    'config.badNumber': '{key} en config.jsonc debe ser un número de {min} a {max} (ahora: {value}).',
+    'config.badText': '{key}: texto no válido',
+    'config.badSchedule': 'schedule: se esperaba "off", "daily" o "weekly"',
+    'config.badTime': 'scheduleTime: se esperaba una hora con el formato HH:MM, p. ej. "07:00"',
+    'config.badDay': 'scheduleDay: se esperaba uno de estos valores: {days}',
+    'config.badLanguage': 'language: se esperaba "de", "en", "es", "fr" o ""',
+    'config.badClientId': 'El Client ID tiene exactamente 32 caracteres de 0–9 y a–f.',
+    'config.badApiKey': 'La clave API de Last.fm tiene exactamente 32 caracteres de 0–9 y a–f.',
+    'config.badUser': 'Nombre de usuario de Last.fm no válido.',
+    'config.badSeed': 'Fuente: se esperaba "liked" o un enlace a una playlist de Spotify.',
+    'config.missing': 'Falta config.jsonc: termina primero la configuración.',
+    'config.unsafe': 'El cambio no se pudo guardar de forma segura; config.jsonc no se ha modificado.',
+    'config.unexpectedChar': 'config.jsonc: carácter inesperado en la posición {pos}',
+    'config.notObject': 'config.jsonc: el nivel superior no es un objeto',
+
+    // --- spotify.mjs ---
+    'spotify.loginAgain': 'Vuelve a iniciar sesión en Spotify desde la interfaz o ejecuta "node dj.mjs login".',
+    'spotify.notLoggedIn': 'Todavía no has iniciado sesión en Spotify. {again}',
+    'spotify.expired': 'La sesión de Spotify ha caducado ({detail}). {again}',
+    'spotify.rateLimit': 'Límite de solicitudes de Spotify: vuelve a intentarlo dentro de {minutes} minutos.',
+    'spotify.tooManyAttempts': 'Spotify {method} {path}: demasiados intentos',
+    'login.tokenFailed': 'Falló el intercambio del token: {detail}',
+    'login.staleTitle': 'Enlace caducado',
+    'login.staleText': 'Este enlace no pertenece a ningún inicio de sesión en curso. Vuelve a iniciar sesión desde Tweakable DJ.',
+    'login.failedTitle': 'No se pudo iniciar sesión',
+    'login.failedText': 'El mensaje aparece en Tweakable DJ o en el terminal. Ya puedes cerrar esta ventana.',
+    'login.denied': 'Has rechazado el inicio de sesión en Spotify.',
+    'login.failed': 'No se pudo iniciar sesión en Spotify: {detail}',
+    'login.noCode': 'sin código',
+    'login.okTitle': 'Sesión iniciada ✓',
+    'login.okText': 'Ya puedes cerrar esta ventana y volver a Tweakable DJ.',
+    'login.aborted': 'Inicio de sesión cancelado.',
+    'login.timeout': 'No has dado tu permiso en {minutes} minutos, así que se ha cancelado el inicio de sesión. Vuelve a intentarlo.',
+    'login.portBusy': 'El puerto 8888 está ocupado. ¿Ya hay un inicio de sesión en curso, p. ej. en un terminal? Ciérralo y vuelve a intentarlo.',
+    'login.browser': 'Se abre el navegador para iniciar sesión en Spotify. Si no se abre, abre este enlace:',
+
+    // --- lastfm.mjs ---
+    'lastfm.suspendedKey': 'Last.fm ha bloqueado tu clave API. Crea una nueva (https://www.last.fm/api/account/create) e introdúcela en la interfaz, en «Cambiar credenciales», o como lastfm.apiKey en config.jsonc.',
+    'lastfm.badKey': 'La clave API de Last.fm no es válida. Revisa lastfm.apiKey en config.jsonc (crear una clave nueva: https://www.last.fm/api/account/create).',
+
+    // --- dj.mjs ---
+    'run.loggedIn': 'Sesión iniciada ✓  Ahora ejecuta "node dj.mjs".',
+    'run.seedEmpty': 'La fuente de tus favoritas (playlist) está vacía o no se puede leer. Spotify solo da el contenido de las playlists que son tuyas o en las que colaboras.',
+    'run.loadingFavorites': 'Cargando tus favoritas …',
+    'run.songs': '  {count|# canción|# canciones}',
+    'run.loadingHistory': 'Cargando el historial de escucha de Last.fm …',
+    'run.userUnknown': 'El usuario de Last.fm "{user}" no existe. Revisa lastfm.user en config.jsonc. Sin historial de escucha, las reglas sobre lo que escuchas ahora no se aplican.',
+    'run.noScrobbles': 'Last.fm no tiene scrobbles de "{user}" {days|en las últimas 24 horas|en los últimos # días}. Probablemente Spotify no está conectado con Last.fm: https://www.last.fm/settings/applications. Sin historial de escucha, las reglas sobre lo que escuchas ahora no se aplican.',
+    'run.scrobbles': '  {total|# scrobble|# scrobbles}, {current|#|#} de ellos {days|en las últimas 24 horas|en los últimos # días} ({artists|# artista|# artistas})',
+    'run.startingPoints': '  {current|#|#} de {total|# punto de partida|# puntos de partida} salen de lo que escuchas ahora (factor {factor|#|#})',
+    'run.searchingSimilar': 'Buscando canciones similares …',
+    'run.cacheNotSaved': 'No se guardó la caché de Last.fm: {message}',
+    'run.candidates': '  {count|# candidata|# candidatas} ({hits|#|#} de {total|# consulta|# consultas} a Last.fm desde la caché)',
+    'run.blocked': '  {count|# canción descartada|# canciones descartadas} por la lista de bloqueo',
+    'run.followed': '  {count|# artista seguido|# artistas seguidos}',
+    'run.followedOut': '  {count|# canción omitida|# canciones omitidas} de artistas que sigues',
+    'run.blockedSongs': '  {count|# canción bloqueada omitida|# canciones bloqueadas omitidas}',
+    'run.explicitOut': '  {count|# canción explícita omitida|# canciones explícitas omitidas}',
+    'run.followedScope': 'Para «Artistas que sigues», vuelve a iniciar sesión en Spotify una vez (en la interfaz o con "node dj.mjs login"). Hasta entonces, los artistas que sigues no cuentan; la ejecución sigue con normalidad.',
+    'run.followedFailed': 'No se pudieron obtener los artistas que sigues ({message}). En esta ejecución no cuentan.',
+    'run.favorite': 'favorita',
+    'run.new': 'nueva, vía {via}',
+    'run.current': ' · actual',
+    'run.searchingSpotify': 'Buscando las canciones en Spotify …',
+    'run.noSongs': 'No se ha encontrado ni una canción; la playlist se queda como está. ¿Está vacía la fuente (p. ej. todavía no hay nada en Tus me gusta) o la lista de bloqueo y las reglas de repetición lo bloquean todo?',
+    'run.summary': '{name}: {songs|# canción|# canciones} ({fresh|# nueva|# nuevas}, {freshCurrent|#|#} de ellas por lo que escuchas ahora; {familiar|# favorita|# favoritas})',
+    'run.windowRule': 'La regla «máx. {max} de {window}» no se pudo cumplir en todas partes.',
+    'run.dry': '--dry: playlist sin cambios.',
+    'run.newPlaylist': 'La rellena Tweakable DJ.',
+    'run.created': 'Playlist "{name}" creada.',
+    'run.description': 'Tweakable DJ · {date}, {time} · {fresh|# canción nueva|# canciones nuevas}, {familiar|# favorita|# favoritas}',
+    'run.descriptionFailed': 'No se pudo poner la descripción: {message}',
+    'run.done': 'Listo ✓  {url}',
+    'run.error': 'Error: {message}',
+    'run.redirectHint': 'Revisa la Redirect URI en el dashboard de Spotify: {uri}',
+    'run.forbidden': 'Spotify deniega el acceso (403). Causas frecuentes:\n'
+      + '  – La persona propietaria de la app de Spotify no tiene Premium. Desde febrero de 2026 es obligatorio para las apps en modo de desarrollo.\n'
+      + '  – Tu cuenta de Spotify no figura en «User Management» del dashboard de tu app: https://developer.spotify.com/dashboard',
+    'run.trialSaved': 'Puedes usar exactamente esta lista durante 24 horas: «Usar esta lista» en la interfaz o "node dj.mjs --apply".',
+    'run.trialNotSaved': 'No se guardó la prueba, así que esta vez «Usar esta lista» no funcionará: {message}',
+
+    // --- Probelauf übernehmen (dj.mjs --apply, trial.mjs) ---
+    'apply.start': 'Usando la prueba del {date}, {time} ({count|# canción|# canciones}) sin volver a sortear …',
+    'trial.missing': 'No hay ninguna prueba que usar: todavía no se ha hecho ninguna o la playlist se ha recreado desde entonces. Haz una prueba nueva.',
+    'trial.invalid': 'probelauf.json está dañado o es de otra versión. Haz una prueba nueva.',
+    'trial.replaced': 'Desde entonces se ha hecho una prueba más reciente (p. ej. en otra ventana). Haz una prueba nueva para que la lista coincida con lo que ves.',
+    'trial.old': 'La prueba tiene más de 24 horas. Haz una prueba nueva.',
+    'trial.settings': 'Los ajustes han cambiado desde la prueba. Haz una prueba nueva.',
+
+    // --- Textdatei (dj.mjs export/import, playlist.mjs) ---
+    'export.header': '{name} – exportada el {date}, {time}',
+    'export.trial': 'Prueba del {date}, {time} – todavía no está en la playlist',
+    'export.format': '{count|# canción|# canciones} · una línea por canción: artista – título, tabulador, enlace de Spotify',
+    'export.trialSuffix': 'prueba',
+    'export.noPlaylist': 'La playlist "{name}" todavía no existe en tu Spotify. Créala primero (Recrear playlist).',
+    'export.txtOnly': 'El nombre del archivo debe terminar en .txt: {file}',
+    'export.saved': 'Guardado: {file} ({count|# canción|# canciones})',
+    'import.usage': 'Uso: node dj.mjs import <archivo.txt> (con --dry solo se muestra el resultado)',
+    'import.fileMissing': 'Archivo no encontrado: {file}',
+    'import.tooLarge': 'El archivo es demasiado grande (como máximo 1 MB).',
+    'import.empty': 'El archivo no contiene canciones. Las líneas vacías y los comentarios no cuentan.',
+    'import.tooMany': 'El archivo contiene {count|# canción|# canciones}; en la playlist caben como máximo {max|#|#}.',
+    'import.reading': 'Buscando {count|# canción|# canciones} del archivo …',
+    'import.searching': '  {done|#|#} de {total|# búsqueda|# búsquedas} en Spotify …',
+    'import.found': '{found|#|#} de {total|# canción encontrada|# canciones encontradas}',
+    'import.notFound': 'No incluidas:',
+    'import.notFoundLine': '  Línea {line}: {text} ({reason})',
+    'import.reason.notFound': 'no encontrada en Spotify',
+    'import.reason.format': 'ni enlace ni «artista – título»',
+    'import.reason.link': 'el enlace no lleva a una canción',
+    'import.reason.error': 'falló la búsqueda',
+    'import.hintBlocked': 'Aviso: {count|# canción está|# canciones están} en tu lista de bloqueo y {count|entra|entran} igualmente; el archivo es tu lista:',
+    'import.hintExplicit': 'Aviso: {count|# canción es explícita|# canciones son explícitas} y {count|entra|entran} igualmente; el archivo es tu lista:',
+    'import.hintLine': '  Línea {line}: {text}',
+    'import.noneFound': 'No se ha encontrado ni una canción; la playlist se queda como está.',
+    'import.badList': 'Lista no válida: se esperaban de 1 a 500 canciones de Spotify (spotify:track:…).',
+    'import.description': 'Tweakable DJ · desde un archivo de texto, {date}, {time} · {count|# canción|# canciones}',
+    'import.done': '"{name}" contiene ahora {count|# canción|# canciones} del archivo ✓  {url}',
+
+    // --- schedule.mjs ---
+    'schedule.off': 'Las ejecuciones automáticas están desactivadas, así que no hay ninguna entrada en el programador.',
+    'schedule.newline': 'La ruta contiene un salto de línea, y cron no sabe manejarlo.',
+    'schedule.reports': '{who} informa: {message}',
+    'schedule.exitCode': 'código de error {code}',
+    'schedule.windows': 'El Programador de tareas',
+    'schedule.noCrontab': 'En este equipo falta el comando «crontab». Instala el paquete «cron» (Debian, Ubuntu) o «cronie» (Fedora, Arch) y reinicia Tweakable DJ.',
+    'schedule.platform': 'Las ejecuciones automáticas solo están disponibles en Windows, macOS y Linux.',
+    'schedule.notMatching': 'La entrada del programador sigue sin coincidir ({problem}).',
+    'schedule.description': 'Recrea automáticamente la playlist de Tweakable DJ. Carpeta: {dir}. Para cambiarlo o desactivarlo, usa la interfaz de Tweakable DJ.',
+    'schedule.aborted': 'Terminó con el código de error {code}',
+
+    // --- notify.mjs (Systembenachrichtigungen) ---
+    'notify.failedTitle': 'Tweakable DJ: falló la ejecución automática',
+    'notify.reason.login_expired': 'Tu sesión de Spotify ha caducado.',
+    'notify.reason.not_logged_in': 'No has iniciado sesión en Spotify.',
+    'notify.reason.forbidden': 'Spotify deniega el acceso (403).',
+    'notify.reason.lastfm_key': 'La clave API de Last.fm no es válida o está bloqueada.',
+    'notify.reason.setup_incomplete': 'La configuración no está terminada.',
+    'notify.reason.node_version': 'Node.js es demasiado antiguo.',
+    'notify.reason.network': 'No hay conexión con Spotify ni con Last.fm.',
+    'notify.reason.other': 'Error desconocido.',
+    'notify.action.login_expired': 'Abre Tweakable DJ y vuelve a iniciar sesión en Spotify.',
+    'notify.action.not_logged_in': 'Abre Tweakable DJ e inicia sesión en Spotify.',
+    'notify.action.forbidden': 'Las causas frecuentes están en automatik.log, en la carpeta de Tweakable DJ.',
+    'notify.action.lastfm_key': 'Abre Tweakable DJ e introduce una clave API válida en «Cambiar credenciales».',
+    'notify.action.setup_incomplete': 'Abre Tweakable DJ y termina la configuración.',
+    'notify.action.node_version': 'Instala la versión LTS actual desde https://nodejs.org.',
+    'notify.action.network': 'Revisa tu conexión a internet. La próxima ejecución automática lo volverá a intentar.',
+    'notify.action.other': 'Abre Tweakable DJ; los detalles están en automatik.log, en la carpeta de Tweakable DJ.',
+    'notify.loginTitle': 'Tweakable DJ: tu sesión de Spotify caduca pronto',
+    'notify.loginText': 'Tu sesión de Spotify caduca {days|dentro de # día|dentro de # días}. Abre Tweakable DJ y vuelve a iniciar sesión en Spotify para que las ejecuciones automáticas sigan funcionando.',
+    'notify.loginTextToday': 'Tu sesión de Spotify caduca hoy. Abre Tweakable DJ y vuelve a iniciar sesión en Spotify para que las ejecuciones automáticas sigan funcionando.',
+    'notify.testTitle': 'Tweakable DJ: notificación de prueba',
+    'notify.testText': 'Así te avisa Tweakable DJ cuando falla una ejecución automática.',
+    'notify.unsupported': 'Las notificaciones solo están disponibles en Windows, macOS y Linux.',
+    'notify.unavailable.win32': 'No se encontró Windows PowerShell.',
+    'notify.unavailable.darwin': 'No se encontró el comando «osascript».',
+    'notify.unavailable.linux': 'Falta el comando «notify-send». Instala el paquete «libnotify-bin» (Debian, Ubuntu) o «libnotify» (Fedora, Arch).',
+    'notify.blocked': 'Windows bloquea las notificaciones de Windows PowerShell ({setting}). Actívalas en Configuración › Sistema › Notificaciones.',
+    'notify.timeout': 'Sin respuesta después de {seconds} segundos.',
+    'notify.failed': 'No se pudo enviar: {detail}',
+    'notify.logNote': 'Aviso: no se envió la notificación del sistema – {problem}',
+
+    // --- ui.mjs ---
+    'ui.tooLarge': 'Solicitud demasiado grande',
+    'ui.wrongHost': 'Host incorrecto',
+    'ui.notAllowed': 'No permitido',
+    'ui.notFound': 'No encontrado',
+    'ui.clientIdFirst': 'Introduce primero el Client ID (paso 1).',
+    'ui.loginFirst': 'Inicia sesión primero en Spotify; luego aparecerán aquí tus playlists.',
+    'ui.likedSongs': 'Tus me gusta',
+    'ui.busy': 'Ya hay una ejecución en curso.',
+    'ui.importBusy': 'Hay una importación desde un archivo de texto en curso. Espera a que termine.',
+    'ui.loginBusy': 'Hay un inicio de sesión en Spotify en curso. Termínalo o cancélalo.',
+    'ui.badRequest': 'Solicitud no válida',
+    'ui.exited': '(terminó con el código de error {code})',
+    'ui.loggedIn': 'Sesión iniciada ✓',
+    'ui.scheduleNotSaved': 'No se pudieron configurar las ejecuciones automáticas, así que no se ha guardado nada. {message}',
+    'ui.scheduleFailed': 'No se pudieron configurar las ejecuciones automáticas. {message}',
+    'ui.alreadyRunning': 'La interfaz ya está en marcha: {url}',
+    'ui.listening': 'Tweakable DJ – la interfaz está en {url}',
+    'ui.stopHint': 'Abre la interfaz en tu navegador con esta dirección.\n'
+      + 'Deja esta ventana abierta mientras uses Tweakable DJ: si la cierras, el programa se detiene.\n'
+      + 'Para salir, pulsa Ctrl+C o cierra esta ventana.',
+    'ui.badPort': 'TWEAKABLE_DJ_PORT debe ser un número de 1 a 65535, no "{value}".',
+    'ui.keyFormat': 'Una clave API tiene exactamente 32 caracteres de 0–9 y a–f.',
+    'ui.userFormat': 'Este nombre de usuario contiene caracteres que Last.fm no admite.',
+    'ui.lastfmOffline': 'Ahora mismo no se puede acceder a Last.fm ({detail}). Revisa tu conexión a internet.',
+    'ui.keyInvalid': 'Esta clave API no es válida. Vuelve a copiarla de Last.fm: el campo «API key», no «Shared secret».',
+    'ui.keySuspended': 'Last.fm ha bloqueado esta clave API. Crea una nueva.',
+    'ui.userUnknown': 'El usuario de Last.fm «{user}» no existe. Revisa cómo está escrito.',
+    'ui.lastfmReports': 'Last.fm informa: {message}',
+    'ui.lastfmError': 'error {code}',
+    'ui.keyOkNoUser': 'La clave API funciona ✓ Sin nombre de usuario, el DJ no puede usar tu historial de escucha.',
+    'ui.lastfmOk': '¡Todo bien! ✓ «{name}» tiene {scrobbles|# scrobble|# scrobbles}.',
+    'ui.noScrobbles': 'La clave API funciona ✓ Pero «{name}» todavía no tiene scrobbles, así que Last.fm aún no sabe qué escuchas.',
+
+    // --- install-update.mjs ---
+    'update.stepCheck': 'Consultando a GitHub la versión más reciente …',
+    'update.stepDownload': 'Descargando {file} ({size}) …',
+    'update.stepVerify': 'Comprobando {count|# archivo|# archivos} (tamaño y SHA-256) …',
+    'update.stepBackup': 'Haciendo copia de {count|# archivo del programa|# archivos del programa} en {dir} …',
+    'update.stepCopy': 'Reemplazando {count|# archivo|# archivos} ({same|# sin cambios|# sin cambios}) …',
+    'update.done': 'La versión {version} está instalada ✓',
+    'update.restarting': 'Actualización a la versión {version} instalada; Tweakable DJ se está reiniciando …',
+    'update.startAgain': 'Actualización a la versión {version} instalada. Vuelve a iniciar Tweakable DJ.',
+    'update.disabled': 'Las actualizaciones están desactivadas (TWEAKABLE_DJ_NO_UPDATE_CHECK) o package.json no indica ningún repositorio de GitHub o ninguna versión.',
+    'update.gitCheckout': 'Esta carpeta es un repositorio git. Actualízala con «git pull».',
+    'update.runBusy': 'Hay una ejecución en curso. Espera a que termine y luego actualiza.',
+    'update.autoBusy': 'Hay una ejecución automática en curso (desde las {time}). Espera a que termine y luego actualiza.',
+    'update.loginBusy': 'Hay un inicio de sesión en Spotify en curso. Termínalo o cancélalo y luego actualiza.',
+    'update.importBusy': 'Hay una importación desde un archivo de texto en curso. Espera a que termine y luego actualiza.',
+    'update.inProgress': 'Hay una actualización en curso. Espera a que termine.',
+    'update.offline': 'Ahora mismo no se puede acceder a GitHub ({detail}). Revisa tu conexión a internet.',
+    'update.rateLimit': 'GitHub no acepta más solicitudes por ahora (límite). Vuelve a intentarlo dentro de una hora.',
+    'update.github': 'GitHub responde con el error {status} para {file}.',
+    'update.noRelease': 'No hay ninguna versión publicada en GitHub.',
+    'update.notNewer': 'La versión {latest} no es más reciente que la tuya ({current}).',
+    'update.otherVersion': 'Ahora hay la versión {latest} en lugar de la {expected}. Recarga la página y vuelve a intentarlo.',
+    'update.noAssets': 'La versión {version} no tiene archivos para la actualización automática (falta {file}). Descárgala a mano (README, sección «Updating»).',
+    'update.missingAsset': '{file} no existe (o ya no existe) en GitHub.',
+    'update.badHost': 'Descarga desde {host} rechazada: solo se permite HTTPS hacia GitHub.',
+    'update.tooLarge': '{file} es más grande de lo permitido ({limit}).',
+    'update.badManifest': 'manifest.json no es válido ({detail}).',
+    'update.forbiddenPath': 'manifest.json incluye «{path}» ({reason}). Una actualización nunca escribe un archivo así.',
+    'update.reasonPersonal': 'archivo personal',
+    'update.reasonOutside': 'fuera de la carpeta',
+    'update.reasonName': 'nombre no permitido',
+    'update.badZip': 'El archivo ZIP está dañado o tiene un formato inesperado ({detail}).',
+    'update.missingFile': 'Falta {file} en el archivo ZIP.',
+    'update.badChecksum': '{file} no coincide con manifest.json (tamaño o SHA-256).',
+    'update.versionMismatch': 'El package.json del archivo ZIP indica la versión {found} en lugar de la {version}.',
+    'update.symlink': '«{path}» es un enlace simbólico. La actualización no escribe a través de enlaces.',
+    'update.notAFile': '«{path}» no es un archivo ni una carpeta normal.',
+    'update.unexpected': 'Error inesperado ({detail}).',
+    'update.failedUnchanged': 'La actualización falló: {message} No se ha cambiado nada.',
+    'update.failedRestored': 'La actualización falló: {message} Se ha restaurado la versión anterior; todo está como antes.',
+    'update.failedRestore': 'La actualización falló: {message} Al restaurar la versión anterior hubo problemas ({detail}). Los archivos anteriores del programa están en {backup}. Tus archivos personales no se han tocado.',
+  },
+
+  // Französisch (maschinell übersetzt): „tu“, Begriffe wie in der Spotify-App (Titres likés, playlist, titre).
+  // Vor Doppelpunkt, Semikolon, Ausrufe- und Fragezeichen sowie innerhalb der Guillemets steht ein schmales geschütztes Leerzeichen (U+202F).
+  fr: {
+    // --- Général ---
+    'node.tooOld': 'Tweakable DJ a besoin de Node.js 18 ou plus récent, mais la version {version} est installée. Installe la version LTS actuelle depuis https://nodejs.org.',
+
+    // --- config.mjs ---
+    'config.invalid': 'config.jsonc n’est pas valide ({detail}). Cause fréquente : une virgule manquante ou en trop.',
+    'config.created': 'config.jsonc a été créé : configure Tweakable DJ dans l’interface (Tweakable DJ.cmd ou .command, sous Linux start.sh) ou remplis le fichier : {file}',
+    'config.incomplete': 'Configuration inachevée : termine-la dans l’interface (Tweakable DJ.cmd ou .command, sous Linux start.sh) ou remplis config.jsonc : {missing}',
+    'config.userOrEmpty': 'lastfm.user (ou laisse-le vide)',
+    'config.unknownSetting': 'Réglage inconnu : {key}',
+    'config.unknownField': 'Champ inconnu : {name}',
+    'config.listExpected': '{key} : liste de textes attendue',
+    'config.entryTooLong': '{key} : entrée trop longue',
+    'config.tracksExpected': '{key} : liste d’au plus {max|# titre|# titres} attendue',
+    'config.badTrack': '{key} : chaque titre a besoin de "artist" et "name" (texte) ; "uri" est absent ou est une URI Spotify (spotify:track:…).',
+    'config.typeExpected': '{key} : {type} attendu',
+    'config.badInteger': '{key} dans config.jsonc doit être un nombre entier de {min} à {max} (actuellement {value}).',
+    'config.badNumber': '{key} dans config.jsonc doit être un nombre de {min} à {max} (actuellement {value}).',
+    'config.badText': '{key} : texte non valide',
+    'config.badSchedule': 'schedule : "off", "daily" ou "weekly" attendu',
+    'config.badTime': 'scheduleTime : heure au format HH:MM attendue, p. ex. "07:00"',
+    'config.badDay': 'scheduleDay : une de ces valeurs attendue : {days}',
+    'config.badLanguage': 'language : "de", "en", "es", "fr" ou "" attendu',
+    'config.badClientId': 'Le Client ID compte exactement 32 caractères parmi 0–9 et a–f.',
+    'config.badApiKey': 'La clé API Last.fm compte exactement 32 caractères parmi 0–9 et a–f.',
+    'config.badUser': 'Nom d’utilisateur Last.fm non valide.',
+    'config.badSeed': 'Source : "liked" ou un lien vers une playlist Spotify attendu.',
+    'config.missing': 'config.jsonc est absent : termine d’abord la configuration.',
+    'config.unsafe': 'La modification n’a pas pu être enregistrée en toute sécurité ; config.jsonc reste inchangé.',
+    'config.unexpectedChar': 'config.jsonc : caractère inattendu à la position {pos}',
+    'config.notObject': 'config.jsonc : le niveau supérieur n’est pas un objet',
+
+    // --- spotify.mjs ---
+    'spotify.loginAgain': 'Reconnecte-toi à Spotify dans l’interface ou lance "node dj.mjs login".',
+    'spotify.notLoggedIn': 'Pas encore de connexion à Spotify. {again}',
+    'spotify.expired': 'Connexion Spotify expirée ({detail}). {again}',
+    'spotify.rateLimit': 'Limite de requêtes Spotify : réessaie dans {minutes} minutes.',
+    'spotify.tooManyAttempts': 'Spotify {method} {path} : trop de tentatives',
+    'login.tokenFailed': 'Échec de l’échange du jeton : {detail}',
+    'login.staleTitle': 'Lien périmé',
+    'login.staleText': 'Ce lien ne correspond à aucune connexion en cours. Relance la connexion dans Tweakable DJ.',
+    'login.failedTitle': 'Échec de la connexion',
+    'login.failedText': 'Le message s’affiche dans Tweakable DJ ou dans le terminal. Tu peux fermer cette fenêtre.',
+    'login.denied': 'Tu as refusé la connexion à Spotify.',
+    'login.failed': 'Échec de la connexion à Spotify : {detail}',
+    'login.noCode': 'pas de code',
+    'login.okTitle': 'Connexion réussie ✓',
+    'login.okText': 'Tu peux fermer cette fenêtre et revenir à Tweakable DJ.',
+    'login.aborted': 'Connexion annulée.',
+    'login.timeout': 'Aucune autorisation en {minutes} minutes : connexion annulée. Réessaie.',
+    'login.portBusy': 'Le port 8888 est occupé. Une connexion est-elle déjà en cours, p. ex. dans un terminal ? Arrête-la et réessaie.',
+    'login.browser': 'Ton navigateur s’ouvre pour la connexion à Spotify. Sinon, ouvre ce lien :',
+
+    // --- lastfm.mjs ---
+    'lastfm.suspendedKey': 'Last.fm a suspendu ta clé API. Crée-en une nouvelle (https://www.last.fm/api/account/create) et saisis-la dans l’interface sous « Modifier les identifiants » ou comme lastfm.apiKey dans config.jsonc.',
+    'lastfm.badKey': 'La clé API Last.fm n’est pas valide. Vérifie lastfm.apiKey dans config.jsonc (créer une nouvelle clé : https://www.last.fm/api/account/create).',
+
+    // --- dj.mjs ---
+    'run.loggedIn': 'Connexion réussie ✓  Lance maintenant "node dj.mjs".',
+    'run.seedEmpty': 'La source de tes favoris (playlist) est vide ou illisible. Spotify ne fournit le contenu que des playlists qui t’appartiennent ou auxquelles tu collabores.',
+    'run.loadingFavorites': 'Chargement de tes favoris …',
+    'run.songs': '  {count|# titre|# titres}',
+    'run.loadingHistory': 'Chargement de l’historique d’écoute depuis Last.fm …',
+    'run.userUnknown': 'L’utilisateur Last.fm "{user}" n’existe pas. Vérifie lastfm.user dans config.jsonc. Sans historique d’écoute, les règles sur ce que tu écoutes en ce moment ne s’appliquent pas.',
+    'run.noScrobbles': 'Last.fm n’a aucun scrobble de "{user}" {days|au cours des dernières 24 heures|au cours des # derniers jours}. Spotify n’est probablement pas connecté à Last.fm : https://www.last.fm/settings/applications. Sans historique d’écoute, les règles sur ce que tu écoutes en ce moment ne s’appliquent pas.',
+    'run.scrobbles': '  {total|# scrobble|# scrobbles}, dont {current|#|#} {days|au cours des dernières 24 heures|au cours des # derniers jours} ({artists|# artiste|# artistes})',
+    'run.startingPoints': '  {current|# point de départ|# points de départ} sur {total|#|#} {current|vient|viennent} de ce que tu écoutes en ce moment (facteur {factor|#|#})',
+    'run.searchingSimilar': 'Recherche de titres similaires …',
+    'run.cacheNotSaved': 'Cache Last.fm non enregistré : {message}',
+    'run.candidates': '  {count|# candidat|# candidats} ({hits|# requête Last.fm|# requêtes Last.fm} sur {total|#|#} depuis le cache)',
+    'run.blocked': '  {count|# titre écarté|# titres écartés} à cause de la liste de blocage',
+    'run.followed': '  {count|# artiste suivi|# artistes suivis}',
+    'run.followedOut': '  {count|# titre omis|# titres omis} d’artistes suivis',
+    'run.blockedSongs': '  {count|# titre bloqué omis|# titres bloqués omis}',
+    'run.explicitOut': '  {count|# titre explicite omis|# titres explicites omis}',
+    'run.followedScope': 'Pour « Artistes suivis », reconnecte-toi une fois à Spotify (dans l’interface ou avec "node dj.mjs login"). D’ici là, les artistes suivis ne comptent pas ; l’exécution continue normalement.',
+    'run.followedFailed': 'Impossible de récupérer tes artistes suivis ({message}). Ils ne comptent pas pour cette exécution.',
+    'run.favorite': 'favori',
+    'run.new': 'nouveau, via {via}',
+    'run.current': ' · actuel',
+    'run.searchingSpotify': 'Recherche des titres sur Spotify …',
+    'run.noSongs': 'Aucun titre trouvé : la playlist reste telle quelle. La source est-elle vide (p. ex. encore aucun titre liké) ou la liste de blocage et les règles anti-répétition bloquent-elles tout ?',
+    'run.summary': '{name} : {songs|# titre|# titres} ({fresh|# nouveau|# nouveaux}, dont {freshCurrent|#|#} via ce que tu écoutes en ce moment ; {familiar|# favori|# favoris})',
+    'run.windowRule': 'La règle « max. {max} sur {window} » n’a pas pu être respectée partout.',
+    'run.dry': '--dry : playlist inchangée.',
+    'run.newPlaylist': 'Remplie par Tweakable DJ.',
+    'run.created': 'Playlist "{name}" créée.',
+    'run.description': 'Tweakable DJ · {date}, {time} · {fresh|# nouveau titre|# nouveaux titres}, {familiar|# favori|# favoris}',
+    'run.descriptionFailed': 'Description non définie : {message}',
+    'run.done': 'Terminé ✓  {url}',
+    'run.error': 'Erreur : {message}',
+    'run.redirectHint': 'Vérifie la Redirect URI dans le dashboard Spotify : {uri}',
+    'run.forbidden': 'Spotify refuse l’accès (403). Causes fréquentes :\n'
+      + '  – Le propriétaire de l’app Spotify n’a pas Premium. Depuis février 2026, c’est obligatoire pour les apps en mode développement.\n'
+      + '  – Ton compte Spotify ne figure pas dans « User Management » du dashboard de ton app : https://developer.spotify.com/dashboard',
+    'run.trialSaved': 'Tu peux utiliser exactement cette liste pendant 24 heures : « Utiliser cette liste » dans l’interface ou "node dj.mjs --apply".',
+    'run.trialNotSaved': 'Essai non enregistré, « Utiliser cette liste » ne marchera donc pas cette fois : {message}',
+
+    // --- Probelauf übernehmen (dj.mjs --apply, trial.mjs) ---
+    'apply.start': 'Utilisation de l’essai du {date}, {time} ({count|# titre|# titres}) sans nouveau tirage …',
+    'trial.missing': 'Il n’y a aucun essai à utiliser : aucun n’a encore été fait, ou la playlist a été recréée depuis. Lance un nouvel essai.',
+    'trial.invalid': 'probelauf.json est endommagé ou provient d’une autre version. Lance un nouvel essai.',
+    'trial.replaced': 'Un essai plus récent a eu lieu depuis (p. ex. dans une autre fenêtre). Lance un nouvel essai pour que la liste corresponde à ce que tu vois.',
+    'trial.old': 'L’essai date de plus de 24 heures. Lance un nouvel essai.',
+    'trial.settings': 'Les réglages ont changé depuis l’essai. Lance un nouvel essai.',
+
+    // --- Textdatei (dj.mjs export/import, playlist.mjs) ---
+    'export.header': '{name} – exportée le {date}, {time}',
+    'export.trial': 'Essai du {date}, {time} – pas encore dans la playlist',
+    'export.format': '{count|# titre|# titres} · une ligne par titre : artiste – titre, tabulation, lien Spotify',
+    'export.trialSuffix': 'essai',
+    'export.noPlaylist': 'La playlist "{name}" n’existe pas encore dans ton Spotify. Crée-la d’abord (Recréer la playlist).',
+    'export.txtOnly': 'Le nom du fichier doit se terminer par .txt : {file}',
+    'export.saved': 'Enregistré : {file} ({count|# titre|# titres})',
+    'import.usage': 'Utilisation : node dj.mjs import <fichier.txt> (avec --dry, affiche seulement le résultat)',
+    'import.fileMissing': 'Fichier introuvable : {file}',
+    'import.tooLarge': 'Le fichier est trop volumineux (1 Mo au maximum).',
+    'import.empty': 'Le fichier ne contient aucun titre. Les lignes vides et les commentaires ne comptent pas.',
+    'import.tooMany': 'Le fichier contient {count|# titre|# titres} ; la playlist en accepte au plus {max|#|#}.',
+    'import.reading': 'Recherche de {count|# titre|# titres} du fichier …',
+    'import.searching': '  Spotify : {done|# recherche|# recherches} sur {total|#|#} …',
+    'import.found': '{found|# titre trouvé|# titres trouvés} sur {total|#|#}',
+    'import.notFound': 'Non repris :',
+    'import.notFoundLine': '  Ligne {line} : {text} ({reason})',
+    'import.reason.notFound': 'introuvable sur Spotify',
+    'import.reason.format': 'ni lien ni « artiste – titre »',
+    'import.reason.link': 'le lien ne mène pas à un titre',
+    'import.reason.error': 'échec de la recherche',
+    'import.hintBlocked': 'Remarque : {count|# titre est|# titres sont} dans ta liste de blocage et {count|entre|entrent} quand même – le fichier est ta liste :',
+    'import.hintExplicit': 'Remarque : {count|# titre est explicite|# titres sont explicites} et {count|entre|entrent} quand même – le fichier est ta liste :',
+    'import.hintLine': '  Ligne {line} : {text}',
+    'import.noneFound': 'Aucun titre trouvé : la playlist reste telle quelle.',
+    'import.badList': 'Liste non valide : de 1 à 500 titres Spotify attendus (spotify:track:…).',
+    'import.description': 'Tweakable DJ · depuis un fichier texte, {date}, {time} · {count|# titre|# titres}',
+    'import.done': '"{name}" contient maintenant {count|# titre|# titres} du fichier ✓  {url}',
+
+    // --- schedule.mjs ---
+    'schedule.off': 'Les exécutions automatiques sont désactivées, il n’y a donc aucune entrée dans le planificateur.',
+    'schedule.newline': 'Le chemin contient un saut de ligne, ce que cron ne sait pas gérer.',
+    'schedule.reports': '{who} signale : {message}',
+    'schedule.exitCode': 'code d’erreur {code}',
+    'schedule.windows': 'Le Planificateur de tâches',
+    'schedule.noCrontab': 'La commande « crontab » manque sur cet ordinateur. Installe le paquet « cron » (Debian, Ubuntu) ou « cronie » (Fedora, Arch) et redémarre Tweakable DJ.',
+    'schedule.platform': 'Les exécutions automatiques ne sont disponibles que sous Windows, macOS et Linux.',
+    'schedule.notMatching': 'L’entrée du planificateur ne correspond toujours pas ({problem}).',
+    'schedule.description': 'Recrée automatiquement la playlist de Tweakable DJ. Dossier : {dir}. Pour modifier ou désactiver, utilise l’interface de Tweakable DJ.',
+    'schedule.aborted': 'Terminé avec le code d’erreur {code}',
+
+    // --- notify.mjs (Systembenachrichtigungen) ---
+    'notify.failedTitle': 'Tweakable DJ : échec de l’exécution automatique',
+    'notify.reason.login_expired': 'Ta connexion Spotify a expiré.',
+    'notify.reason.not_logged_in': 'Aucune connexion à Spotify.',
+    'notify.reason.forbidden': 'Spotify refuse l’accès (403).',
+    'notify.reason.lastfm_key': 'La clé API Last.fm n’est pas valide ou a été suspendue.',
+    'notify.reason.setup_incomplete': 'La configuration n’est pas terminée.',
+    'notify.reason.node_version': 'Node.js est trop ancien.',
+    'notify.reason.network': 'Pas de connexion à Spotify ni à Last.fm.',
+    'notify.reason.other': 'Erreur inconnue.',
+    'notify.action.login_expired': 'Ouvre Tweakable DJ et reconnecte-toi à Spotify.',
+    'notify.action.not_logged_in': 'Ouvre Tweakable DJ et connecte-toi à Spotify.',
+    'notify.action.forbidden': 'Les causes fréquentes sont décrites dans automatik.log, dans le dossier de Tweakable DJ.',
+    'notify.action.lastfm_key': 'Ouvre Tweakable DJ et saisis une clé API valide sous « Modifier les identifiants ».',
+    'notify.action.setup_incomplete': 'Ouvre Tweakable DJ et termine la configuration.',
+    'notify.action.node_version': 'Installe la version LTS actuelle depuis https://nodejs.org.',
+    'notify.action.network': 'Vérifie ta connexion internet. La prochaine exécution automatique réessaiera.',
+    'notify.action.other': 'Ouvre Tweakable DJ ; les détails sont dans automatik.log, dans le dossier de Tweakable DJ.',
+    'notify.loginTitle': 'Tweakable DJ : ta connexion Spotify expire bientôt',
+    'notify.loginText': 'Ta connexion Spotify expire {days|dans # jour|dans # jours}. Ouvre Tweakable DJ et reconnecte-toi à Spotify pour que les exécutions automatiques continuent de fonctionner.',
+    'notify.loginTextToday': 'Ta connexion Spotify expire aujourd’hui. Ouvre Tweakable DJ et reconnecte-toi à Spotify pour que les exécutions automatiques continuent de fonctionner.',
+    'notify.testTitle': 'Tweakable DJ : notification de test',
+    'notify.testText': 'Voici comment Tweakable DJ te prévient quand une exécution automatique échoue.',
+    'notify.unsupported': 'Les notifications ne sont disponibles que sous Windows, macOS et Linux.',
+    'notify.unavailable.win32': 'Windows PowerShell est introuvable.',
+    'notify.unavailable.darwin': 'La commande « osascript » est introuvable.',
+    'notify.unavailable.linux': 'La commande « notify-send » manque. Installe le paquet « libnotify-bin » (Debian, Ubuntu) ou « libnotify » (Fedora, Arch).',
+    'notify.blocked': 'Windows bloque les notifications de Windows PowerShell ({setting}). Active-les sous Paramètres › Système › Notifications.',
+    'notify.timeout': 'Pas de réponse après {seconds} secondes.',
+    'notify.failed': 'Échec de l’envoi : {detail}',
+    'notify.logNote': 'Remarque : notification système non envoyée – {problem}',
+
+    // --- ui.mjs ---
+    'ui.tooLarge': 'Requête trop volumineuse',
+    'ui.wrongHost': 'Hôte incorrect',
+    'ui.notAllowed': 'Non autorisé',
+    'ui.notFound': 'Introuvable',
+    'ui.clientIdFirst': 'Saisis d’abord le Client ID (étape 1).',
+    'ui.loginFirst': 'Connecte-toi d’abord à Spotify, puis tes playlists apparaîtront ici.',
+    'ui.likedSongs': 'Titres likés',
+    'ui.busy': 'Une exécution est déjà en cours.',
+    'ui.importBusy': 'Une importation depuis un fichier texte est en cours. Attends qu’elle soit terminée.',
+    'ui.loginBusy': 'Une connexion à Spotify est en cours. Termine-la ou annule-la.',
+    'ui.badRequest': 'Requête non valide',
+    'ui.exited': '(terminé avec le code d’erreur {code})',
+    'ui.loggedIn': 'Connexion réussie ✓',
+    'ui.scheduleNotSaved': 'Les exécutions automatiques n’ont pas pu être configurées, rien n’a donc été enregistré. {message}',
+    'ui.scheduleFailed': 'Les exécutions automatiques n’ont pas pu être configurées. {message}',
+    'ui.alreadyRunning': 'L’interface tourne déjà : {url}',
+    'ui.listening': 'Tweakable DJ – l’interface tourne sur {url}',
+    'ui.stopHint': 'Ouvre l’interface dans ton navigateur à cette adresse.\n'
+      + 'Laisse cette fenêtre ouverte tant que tu utilises Tweakable DJ : si tu la fermes, le programme s’arrête.\n'
+      + 'Pour arrêter, appuie sur Ctrl+C ou ferme cette fenêtre.',
+    'ui.badPort': 'TWEAKABLE_DJ_PORT doit être un nombre de 1 à 65535, pas "{value}".',
+    'ui.keyFormat': 'Une clé API compte exactement 32 caractères parmi 0–9 et a–f.',
+    'ui.userFormat': 'Ce nom d’utilisateur contient des caractères que Last.fm n’autorise pas.',
+    'ui.lastfmOffline': 'Last.fm est injoignable pour le moment ({detail}). Vérifie ta connexion internet.',
+    'ui.keyInvalid': 'Cette clé API n’est pas valide. Copie-la à nouveau depuis Last.fm : le champ « API key », pas « Shared secret ».',
+    'ui.keySuspended': 'Last.fm a suspendu cette clé API. Crées-en une nouvelle.',
+    'ui.userUnknown': 'L’utilisateur Last.fm « {user} » n’existe pas. Vérifie l’orthographe.',
+    'ui.lastfmReports': 'Last.fm signale : {message}',
+    'ui.lastfmError': 'erreur {code}',
+    'ui.keyOkNoUser': 'La clé API fonctionne ✓ Sans nom d’utilisateur, le DJ ne peut pas utiliser ton historique d’écoute.',
+    'ui.lastfmOk': 'C’est bon ✓ « {name} » a {scrobbles|# scrobble|# scrobbles}.',
+    'ui.noScrobbles': 'La clé API fonctionne ✓ Mais « {name} » n’a encore aucun scrobble – Last.fm ne sait donc pas encore ce que tu écoutes.',
+
+    // --- install-update.mjs ---
+    'update.stepCheck': 'Demande de la version la plus récente à GitHub …',
+    'update.stepDownload': 'Téléchargement de {file} ({size}) …',
+    'update.stepVerify': 'Vérification de {count|# fichier|# fichiers} (taille et SHA-256) …',
+    'update.stepBackup': 'Sauvegarde de {count|# fichier du programme|# fichiers du programme} dans {dir} …',
+    'update.stepCopy': 'Remplacement de {count|# fichier|# fichiers} ({same|# inchangé|# inchangés}) …',
+    'update.done': 'La version {version} est installée ✓',
+    'update.restarting': 'Mise à jour vers la version {version} installée – Tweakable DJ redémarre …',
+    'update.startAgain': 'Mise à jour vers la version {version} installée. Redémarre Tweakable DJ.',
+    'update.disabled': 'Les mises à jour sont désactivées (TWEAKABLE_DJ_NO_UPDATE_CHECK), ou package.json n’indique ni dépôt GitHub ni version.',
+    'update.gitCheckout': 'Ce dossier est un dépôt git. Mets-le à jour avec « git pull ».',
+    'update.runBusy': 'Une exécution est en cours. Attends qu’elle soit terminée, puis mets à jour.',
+    'update.autoBusy': 'Une exécution automatique est en cours (depuis {time}). Attends qu’elle soit terminée, puis mets à jour.',
+    'update.loginBusy': 'Une connexion à Spotify est en cours. Termine-la ou annule-la, puis mets à jour.',
+    'update.importBusy': 'Une importation depuis un fichier texte est en cours. Attends qu’elle soit terminée, puis mets à jour.',
+    'update.inProgress': 'Une mise à jour est en cours. Attends qu’elle soit terminée.',
+    'update.offline': 'GitHub est injoignable pour le moment ({detail}). Vérifie ta connexion internet.',
+    'update.rateLimit': 'GitHub n’accepte plus de requêtes pour le moment (limite). Réessaie dans une heure.',
+    'update.github': 'GitHub répond avec l’erreur {status} pour {file}.',
+    'update.noRelease': 'Il n’y a aucune version publiée sur GitHub.',
+    'update.notNewer': 'La version {latest} n’est pas plus récente que la tienne ({current}).',
+    'update.otherVersion': 'Il y a maintenant la version {latest} au lieu de {expected}. Recharge la page et réessaie.',
+    'update.noAssets': 'La version {version} n’a pas de fichiers pour la mise à jour automatique ({file} manque). Télécharge-la à la main (README, section « Updating »).',
+    'update.missingAsset': '{file} n’existe pas (ou plus) sur GitHub.',
+    'update.badHost': 'Téléchargement depuis {host} refusé : seul HTTPS vers GitHub est autorisé.',
+    'update.tooLarge': '{file} est plus volumineux que permis ({limit}).',
+    'update.badManifest': 'manifest.json n’est pas valide ({detail}).',
+    'update.forbiddenPath': 'manifest.json mentionne « {path} » ({reason}). Une mise à jour n’écrit jamais un tel fichier.',
+    'update.reasonPersonal': 'fichier personnel',
+    'update.reasonOutside': 'hors du dossier',
+    'update.reasonName': 'nom non autorisé',
+    'update.badZip': 'Le fichier ZIP est endommagé ou a un format inattendu ({detail}).',
+    'update.missingFile': '{file} manque dans le fichier ZIP.',
+    'update.badChecksum': '{file} ne correspond pas à manifest.json (taille ou SHA-256).',
+    'update.versionMismatch': 'Le package.json du fichier ZIP indique la version {found} au lieu de {version}.',
+    'update.symlink': '« {path} » est un lien symbolique. La mise à jour n’écrit pas à travers les liens.',
+    'update.notAFile': '« {path} » n’est ni un fichier ni un dossier ordinaire.',
+    'update.unexpected': 'Erreur inattendue ({detail}).',
+    'update.failedUnchanged': 'Échec de la mise à jour : {message} Rien n’a été modifié.',
+    'update.failedRestored': 'Échec de la mise à jour : {message} L’ancienne version a été restaurée, tout est comme avant.',
+    'update.failedRestore': 'Échec de la mise à jour : {message} La restauration de l’ancienne version a rencontré des problèmes ({detail}). Les anciens fichiers du programme se trouvent dans {backup}. Tes fichiers personnels n’ont pas été touchés.',
   },
 };

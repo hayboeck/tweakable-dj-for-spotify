@@ -6,8 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting the bug! Please check **Troubleshooting** in the README first; the solution may already be there. You can write in English or German.
-        Danke, dass du den Fehler meldest! Schau vorher kurz in der README unter **Probleme und Lösungen** nach, vielleicht steht die Lösung schon dort. Du kannst auf Deutsch oder Englisch schreiben.
+        Thanks for reporting the bug! Please check **Troubleshooting** in the README first; the solution may already be there. You can write in English or German; corrections to the Spanish or French translation are also welcome in Spanish or French.
+        Danke, dass du den Fehler meldest! Schau vorher kurz in der README unter **Probleme und Lösungen** nach, vielleicht steht die Lösung schon dort. Du kannst auf Deutsch oder Englisch schreiben; Korrekturen an der spanischen oder französischen Übersetzung gern auch auf Spanisch oder Französisch.
 
         > **Important: this page is public.** Don’t paste a **Client ID**, a **Last.fm API key** or anything from `tokens.json`, `config.jsonc` or `state.json`. If something like that appears in an output, replace it with `***` first.
         >

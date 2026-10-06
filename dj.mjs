@@ -10,7 +10,7 @@
 //                       zählt nicht als Lauf des DJ, der Verlauf in state.json bleibt unverändert
 //   node dj.mjs --auto  Lauf aus dem Zeitplaner: Ausgabe zusätzlich in automatik.log, Ergebnis in automatik.json; schlägt er
 //                       fehl, meldet er sich mit einer Systembenachrichtigung (notifyOnFailure, notify.mjs)
-// Sprache der Ausgabe: TWEAKABLE_DJ_LANG (de/en), sonst "language" in config.jsonc, sonst die Systemsprache.
+// Sprache der Ausgabe: TWEAKABLE_DJ_LANG (de/en/es/fr), sonst "language" in config.jsonc, sonst die Systemsprache.
 // Letzte Zeile auf stdout (nicht im Terminal): "@@RESULT " + JSON mit dem Ergebnis für die Oberfläche.
 
 import fs from 'node:fs';

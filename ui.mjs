@@ -3,7 +3,7 @@
 // Neuerstellung sowie Export und Import als Textdatei im Browser.
 //   node ui.mjs                startet die Oberfläche auf http://127.0.0.1:8899 (anderer Port: TWEAKABLE_DJ_PORT)
 //   node ui.mjs --no-browser   dasselbe, ohne den Browser zu öffnen (so auch beim Neustart nach einem Update)
-// Sprache der Antworten: Header "X-Lang: de|en" der Anfrage, sonst "language" aus config.jsonc, sonst die Systemsprache.
+// Sprache der Antworten: Header "X-Lang: de|en|es|fr" der Anfrage, sonst "language" aus config.jsonc, sonst die Systemsprache.
 // Nach „Jetzt aktualisieren“ (POST /api/update/install) beendet sich der Server mit Exit-Code 75, wenn ihn eine Startdatei
 // gestartet hat (TWEAKABLE_DJ_LAUNCHER=1); die startet ihn dann mit den neuen Dateien neu. Sonst endet er mit 0 und bittet
 // darum, Tweakable DJ neu zu starten.

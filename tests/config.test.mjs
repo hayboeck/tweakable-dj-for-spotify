@@ -46,7 +46,8 @@ async function withConfig(text, fn) {
   }
 }
 
-const readTemplate = lang => fs.readFileSync(path.join(ROOT, TEMPLATES[lang]), 'utf8');
+// Spanisch und Französisch haben keine eigene Vorlage, sie nehmen die englische.
+const readTemplate = lang => fs.readFileSync(path.join(ROOT, TEMPLATES[lang] ?? TEMPLATES.en), 'utf8');
 
 test('Automatik-Einstellungen: Standard und Prüfung', () => {
   assert.equal(DEFAULTS.schedule, 'off');
@@ -71,14 +72,17 @@ test('Namen aus Object.prototype sind weder Einstellung noch Feld des Assistente
   }
 }));
 
-test('Spracheinstellung: Standard "", gültig "", "de", "en"; Meldungen in beiden Sprachen', () => {
+test('Spracheinstellung: Standard "", gültig "", "de", "en", "es", "fr"; Meldungen in allen Sprachen', () => {
   assert.equal(DEFAULTS.language, '');
   assert.equal(DEFAULTS.playlistName, 'Tweakable DJ');
-  for (const v of ['', 'de', 'en']) assert.equal(checkValue('language', v), v);
-  for (const v of ['fr', 'DE', 'de-AT', ' en', null, 1, true]) {
-    assert.throws(() => checkValue('language', v, 'de'), /^Error: language: "de", "en" oder "" erwartet$/, String(v));
-    assert.throws(() => checkValue('language', v, 'en'), /^Error: language: expected "de", "en" or ""$/, String(v));
+  for (const v of ['', 'de', 'en', 'es', 'fr']) assert.equal(checkValue('language', v), v);
+  for (const v of ['it', 'DE', 'FR', 'es-ES', 'fr_FR', ' en', null, 1, true]) {
+    assert.throws(() => checkValue('language', v, 'de'), /^Error: language: "de", "en", "es", "fr" oder "" erwartet$/, String(v));
+    assert.throws(() => checkValue('language', v, 'en'), /^Error: language: expected "de", "en", "es", "fr" or ""$/, String(v));
+    assert.throws(() => checkValue('language', v, 'es'), /^Error: language: se esperaba "de", "en", "es", "fr" o ""$/, String(v));
+    assert.throws(() => checkValue('language', v, 'fr'), /^Error: language : "de", "en", "es", "fr" ou "" attendu$/, String(v));
   }
+  assert.deepEqual(checkValues({ language: 'fr', size: 40 }), { language: 'fr', size: 40 });
   assert.deepEqual(checkValues({ language: 'en', size: 40 }), { language: 'en', size: 40 });
   assert.throws(() => checkValue('size', 'viel', 'de'), /^Error: size in config\.jsonc muss eine ganze Zahl von 1 bis 500 sein \(derzeit "viel"\)\.$/);
   assert.throws(() => checkValue('size', 'viel', 'en'), /^Error: size in config\.jsonc must be a whole number from 1 to 500 \(currently "viel"\)\.$/);
@@ -254,7 +258,7 @@ test('Speichern auf Englisch: fehlende Schlüssel kommen mit englischer Erkläru
     const reset = read();
     assert.equal(reset, text.replace('"language": "en"  ', '"language": ""    '));
     assert.equal(readConfig().language, '');
-    assert.throws(() => updateConfig({ language: 'fr' }, 'en'), /language: expected/);
+    assert.throws(() => updateConfig({ language: 'it' }, 'en'), /language: expected/);
     assert.equal(read(), reset, 'ungültiger Wert: Datei unverändert');
   });
 });
@@ -275,8 +279,8 @@ test('Speichern in eine alte config.jsonc: Sperrliste über mehrere Zeilen, nur 
   });
 });
 
-test('Neue config.jsonc aus der Vorlage der Sprache; configLanguage liest die gewählte Sprache', async () => {
-  for (const lang of ['en', 'de']) {
+test('Neue config.jsonc aus der Vorlage der Sprache (es, fr: englische Vorlage); configLanguage liest die gewählte Sprache', async () => {
+  for (const lang of ['en', 'de', 'es', 'fr']) {
     await withConfig(null, async ({ configLanguage, readConfig, saveCredentials }, read) => {
       assert.equal(configLanguage(), '', 'ohne config.jsonc');
       saveCredentials({ clientId: '0123456789abcdef0123456789abcdef' }, lang);
@@ -304,11 +308,27 @@ test('Neue config.jsonc aus der Vorlage der Sprache; configLanguage liest die ge
     assert.throws(() => readConfig('de'), /^Error: config\.jsonc ist fehlerhaft/);
     assert.throws(() => readConfig('en'), /^Error: config\.jsonc is invalid/);
   });
-  await withConfig('{ "language": "fr" }', async ({ configLanguage }) => assert.equal(configLanguage(), ''));
+  await withConfig('{ "language": "fr" }', async ({ configLanguage }) => assert.equal(configLanguage(), 'fr'));
+  await withConfig('{ "language": "es" }', async ({ configLanguage }) => assert.equal(configLanguage(), 'es'));
+  await withConfig('{ "language": "it" }', async ({ configLanguage }) => assert.equal(configLanguage(), ''));
+  // Spanisch und Französisch: Vorlage mit englischen Erklärungen und ENTER_…-Platzhaltern
+  for (const lang of ['es', 'fr']) {
+    await withConfig(null, async ({ exampleFile, readConfig, missingCredentials }, read) => {
+      assert.equal(path.basename(exampleFile(lang)), 'config.example.jsonc');
+      assert.throws(() => readConfig(lang), e => e.errorCode === 'setup_incomplete');
+      assert.match(read(), /^\/\/ Settings for Tweakable DJ/);
+      assert.match(read(), /"ENTER_CLIENT_ID_HERE"/);
+      assert.deepEqual(missingCredentials(readConfig(lang)), ['spotify.clientId', 'lastfm.apiKey', 'lastfm.user']);
+    });
+  }
 });
 
 test('loadConfig: unvollständige Einrichtung mit errorCode, Platzhalter beider Vorlagen', async () => {
   for (const lang of ['en', 'de']) {
+    await withConfig(readTemplate(lang), async ({ loadConfig }) => {
+      assert.throws(() => loadConfig('es'), e => e.errorCode === 'setup_incomplete' && /^La configuración no está terminada/.test(e.message));
+      assert.throws(() => loadConfig('fr'), e => e.errorCode === 'setup_incomplete' && /lastfm\.user \(ou laisse-le vide\)$/.test(e.message));
+    });
     await withConfig(readTemplate(lang), async ({ loadConfig }) => {
       assert.throws(() => loadConfig('en'), e => e.errorCode === 'setup_incomplete'
         && e.message === 'Setup not finished – complete it in the interface (Tweakable DJ.cmd or .command, on Linux start.sh) or fill in config.jsonc: spotify.clientId, lastfm.apiKey, lastfm.user (or leave it empty)');

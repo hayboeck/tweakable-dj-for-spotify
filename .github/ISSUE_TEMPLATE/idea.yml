@@ -6,8 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for your idea! Please check quickly whether there is already an issue for it. If so, please comment there instead. You can write in English or German.
-        Danke für deine Idee! Bitte schau kurz nach, ob es schon ein Issue dazu gibt. Wenn ja, schreib lieber dort einen Kommentar. Du kannst auf Deutsch oder Englisch schreiben.
+        Thanks for your idea! Please check quickly whether there is already an issue for it. If so, please comment there instead. You can write in English or German; corrections to the Spanish or French translation are also welcome in Spanish or French.
+        Danke für deine Idee! Bitte schau kurz nach, ob es schon ein Issue dazu gibt. Wenn ja, schreib lieber dort einen Kommentar. Du kannst auf Deutsch oder Englisch schreiben; Korrekturen an der spanischen oder französischen Übersetzung gern auch auf Spanisch oder Französisch.
 
   - type: textarea
     id: idea

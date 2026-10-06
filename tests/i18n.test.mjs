@@ -1,10 +1,10 @@
-// Unit-Tests für i18n.mjs: Spracherkennung, Platzhalter und Vollständigkeit der Texte in beiden Sprachen.
+// Unit-Tests für i18n.mjs: Spracherkennung, Platzhalter, Einzahl/Mehrzahl und Vollständigkeit der Texte in allen Sprachen.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LANGS, MESSAGES, locale, resolveLang, systemLang, t, tError } from '../i18n.mjs';
+import { isOne, LANGS, MESSAGES, locale, resolveLang, systemLang, t, tError } from '../i18n.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // Texte in Anführungszeichen, die wie Schlüssel aussehen, aber Dateinamen bzw. Stellen in der config.jsonc sind
@@ -12,17 +12,40 @@ const NOT_KEYS = ['config.jsonc', 'ui.html', 'ui.mjs', 'spotify.clientId', 'last
 // Namen der Platzhalter {name} und {name|eins|mehr} (Einzahl/Mehrzahl braucht nicht jede Sprache, z. B. „1 Künstler“)
 const placeholders = text => [...new Set([...text.matchAll(/\{(\w+)(?:\|[^|{}]*\|[^|{}]*)?\}/g)].map(m => m[1]))].sort();
 
-test('Jeder Text gibt es auf Deutsch und Englisch, mit denselben Platzhaltern', () => {
-  assert.deepEqual(LANGS, ['de', 'en']);
+test('Jeden Text gibt es auf Deutsch, Englisch, Spanisch und Französisch, mit denselben Platzhaltern', () => {
+  assert.deepEqual(LANGS, ['de', 'en', 'es', 'fr']);
   assert.deepEqual(Object.keys(MESSAGES).sort(), [...LANGS].sort());
   const de = Object.keys(MESSAGES.de).sort();
-  const en = Object.keys(MESSAGES.en).sort();
-  assert.deepEqual(de.filter(k => !en.includes(k)), [], 'fehlt auf Englisch');
-  assert.deepEqual(en.filter(k => !de.includes(k)), [], 'fehlt auf Deutsch');
-  for (const key of de) {
-    for (const lang of LANGS) assert.ok(typeof MESSAGES[lang][key] === 'string' && MESSAGES[lang][key].trim(), `${lang} ${key} leer`);
-    assert.deepEqual(placeholders(MESSAGES.en[key]), placeholders(MESSAGES.de[key]), key);
+  for (const lang of LANGS) {
+    const keys = Object.keys(MESSAGES[lang]).sort();
+    assert.deepEqual(de.filter(k => !keys.includes(k)), [], `fehlt in ${lang}`);
+    assert.deepEqual(keys.filter(k => !de.includes(k)), [], `${lang}: nicht auf Deutsch`);
   }
+  for (const key of de) {
+    for (const lang of LANGS) {
+      assert.ok(typeof MESSAGES[lang][key] === 'string' && MESSAGES[lang][key].trim(), `${lang} ${key} leer`);
+      assert.deepEqual(placeholders(MESSAGES[lang][key]), placeholders(MESSAGES.de[key]), `${lang} ${key}`);
+      // Zeilenumbrüche (z. B. run.forbidden, ui.stopHint) wie im Deutschen
+      assert.equal(MESSAGES[lang][key].split('\n').length, MESSAGES.de[key].split('\n').length, `${lang} ${key}: Zeilen`);
+    }
+  }
+});
+
+// Französisch: schmales geschütztes Leerzeichen (U+202F) vor : ; ! ? und innerhalb von « »; Spanisch: ¿…? und ¡…!
+test('Typografie: Französisch mit geschützten Leerzeichen, Spanisch mit ¿ und ¡', () => {
+  for (const [key, text] of Object.entries(MESSAGES.fr)) {
+    assert.doesNotMatch(text, /[ \u00a0][:;!?]/, `fr ${key}: Leerzeichen vor : ; ! ? muss U+202F sein`);
+    assert.doesNotMatch(text, /«(?!\u202f)|(?<!\u202f)»/, `fr ${key}: « » ohne U+202F`);
+    assert.doesNotMatch(text, /[„“”]/, `fr ${key}: deutsche bzw. englische Anführungszeichen`);
+  }
+  for (const [key, text] of Object.entries(MESSAGES.es)) {
+    // Jede Frage bzw. jeder Ausruf beginnt mit ¿ bzw. ¡
+    assert.equal((text.match(/\?/g) ?? []).length, (text.match(/¿/g) ?? []).length, `es ${key}: ¿…?`);
+    assert.equal((text.match(/!/g) ?? []).length, (text.match(/¡/g) ?? []).length, `es ${key}: ¡…!`);
+    assert.doesNotMatch(text, /[„“”]/, `es ${key}: deutsche bzw. englische Anführungszeichen`);
+  }
+  assert.equal(t('fr', 'run.error', { message: 'x' }), 'Erreur\u202f: x');
+  assert.equal(t('fr', 'ui.lastfmOk', { name: 'x', scrobbles: 2 }), 'C’est bon ✓ «\u202fx\u202f» a 2 scrobbles.');
 });
 
 test('Alle Schlüssel, die die Programmdateien verwenden, gibt es', () => {
@@ -40,14 +63,16 @@ test('Alle Schlüssel, die die Programmdateien verwenden, gibt es', () => {
   for (const key of ['missing', 'invalid', 'replaced', 'old', 'settings']) used.add(`trial.${key}`);
   for (const key of ['notFound', 'format', 'link', 'error']) used.add(`import.reason.${key}`);
   assert.ok(used.size > 80, `nur ${used.size} Schlüssel gefunden`);
-  const missing = [...used].filter(k => !(k in MESSAGES.de) || !(k in MESSAGES.en));
+  const missing = [...used].filter(k => LANGS.some(lang => !(k in MESSAGES[lang])));
   assert.deepEqual(missing, []);
 });
 
 test('t: Platzhalter, unbekannte Sprache und unbekannter Schlüssel', () => {
   assert.equal(t('de', 'run.songs', { count: 11 }), '  11 Songs');
   assert.equal(t('en', 'run.songs', { count: 11 }), '  11 songs');
-  assert.equal(t('fr', 'run.songs', { count: 11 }), '  11 songs', 'unbekannte Sprache = Englisch');
+  assert.equal(t('es', 'run.songs', { count: 11 }), '  11 canciones');
+  assert.equal(t('fr', 'run.songs', { count: 11 }), '  11 titres');
+  assert.equal(t('it', 'run.songs', { count: 11 }), '  11 songs', 'unbekannte Sprache = Englisch');
   assert.equal(t('de', 'run.error', {}), 'Fehler: {message}', 'fehlender Wert bleibt sichtbar');
   assert.equal(t('en', 'gibt.es.nicht'), 'gibt.es.nicht');
   assert.equal(t('en', 'run.current'), ' · current');
@@ -58,6 +83,37 @@ test('t: Platzhalter, unbekannte Sprache und unbekannter Schlüssel', () => {
   assert.equal(e.errorCode, 'login_expired');
   assert.equal(locale('de'), 'de-AT');
   assert.equal(locale('en'), 'en-US');
+  assert.equal(locale('es'), 'es-ES');
+  assert.equal(locale('fr'), 'fr-FR');
+  assert.equal(locale('it'), 'en-US');
+});
+
+// Einzahl nach Intl.PluralRules: Französisch 0 und 1 (auch 1,5), Spanisch, Deutsch, Englisch nur genau 1.
+test('Einzahl und Mehrzahl nach den Regeln der Sprache (Intl.PluralRules)', () => {
+  const one = lang => [0, 1, 1.5, 2, 10, 1000000].filter(n => isOne(lang, n));
+  assert.deepEqual(one('de'), [1]);
+  assert.deepEqual(one('en'), [1]);
+  assert.deepEqual(one('es'), [1]);
+  assert.deepEqual(one('fr'), [0, 1, 1.5]);
+  assert.deepEqual(one('xx'), [1], 'unbekannt = Englisch');
+  assert.equal(t('fr', 'run.songs', { count: 0 }), '  0 titre');
+  assert.equal(t('fr', 'run.songs', { count: 1 }), '  1 titre');
+  assert.equal(t('fr', 'run.songs', { count: 2 }), '  2 titres');
+  assert.equal(t('es', 'run.songs', { count: 0 }), '  0 canciones');
+  assert.equal(t('es', 'run.songs', { count: 1 }), '  1 canción');
+  assert.equal(t('de', 'run.songs', { count: 0 }), '  0 Songs');
+  assert.equal(t('en', 'run.songs', { count: 0 }), '  0 songs');
+  // Zahlen im Format der Sprache: es-ES 12.345, fr-FR 12 345 (mit schmalem geschütztem Leerzeichen)
+  assert.equal(t('es', 'run.songs', { count: 12345 }), '  12.345 canciones');
+  assert.equal(t('fr', 'run.songs', { count: 12345 }), `  ${(12345).toLocaleString('fr-FR')} titres`);
+  assert.equal(t('fr', 'run.summary', { name: 'DJ', songs: 1, fresh: 0, freshCurrent: 0, familiar: 0 }),
+    'DJ\u202f: 1 titre (0 nouveau, dont 0 via ce que tu écoutes en ce moment\u202f; 0 favori)');
+  assert.equal(t('es', 'run.summary', { name: 'DJ', songs: 2, fresh: 1, freshCurrent: 0, familiar: 0 }),
+    'DJ: 2 canciones (1 nueva, 0 de ellas por lo que escuchas ahora; 0 favoritas)');
+  assert.equal(t('fr', 'run.startingPoints', { current: 1, total: 20, factor: 3 }), '  1 point de départ sur 20 vient de ce que tu écoutes en ce moment (facteur 3)');
+  assert.equal(t('fr', 'run.startingPoints', { current: 5, total: 20, factor: 1.5 }), '  5 points de départ sur 20 viennent de ce que tu écoutes en ce moment (facteur 1,5)');
+  assert.equal(t('es', 'import.hintBlocked', { count: 1 }), 'Aviso: 1 canción está en tu lista de bloqueo y entra igualmente; el archivo es tu lista:');
+  assert.ok(t('fr', 'notify.loginText', { days: 1 }).startsWith('Ta connexion Spotify expire dans 1 jour.'));
 });
 
 test('t: Einzahl und Mehrzahl mit {name|eins|mehr}, Zahl im Format der Sprache', () => {
@@ -98,8 +154,16 @@ test('systemLang: TWEAKABLE_DJ_LANG vor LC_ALL/LANG vor der Spracheinstellung vo
   assert.equal(systemLang({ LC_ALL: 'de_DE.UTF-8', LANG: 'en_GB.UTF-8' }), 'de');
   assert.equal(systemLang({ LC_ALL: 'C', LANG: 'de_DE.UTF-8' }), 'en');
   assert.equal(systemLang({ LANG: 'de_CH.UTF-8' }), 'de');
-  assert.equal(systemLang({ LANG: 'fr_FR.UTF-8' }), 'en', 'alles außer Deutsch = Englisch');
-  const fromNode = /^de/i.test(Intl.DateTimeFormat().resolvedOptions().locale) ? 'de' : 'en';
+  assert.equal(systemLang({ LANG: 'fr_FR.UTF-8' }), 'fr');
+  assert.equal(systemLang({ LC_ALL: 'fr_CA.UTF-8', LANG: 'de_AT.UTF-8' }), 'fr');
+  assert.equal(systemLang({ LANG: 'es_ES.UTF-8' }), 'es');
+  assert.equal(systemLang({ LC_MESSAGES: 'es_MX', LANG: 'en_US.UTF-8' }), 'es');
+  assert.equal(systemLang({ TWEAKABLE_DJ_LANG: 'es', LANG: 'fr_FR.UTF-8' }), 'es');
+  assert.equal(systemLang({ TWEAKABLE_DJ_LANG: 'FR' }), 'fr');
+  assert.equal(systemLang({ LANG: 'it_IT.UTF-8' }), 'en', 'alles andere = Englisch');
+  assert.equal(systemLang({ LANG: 'pt_BR.UTF-8' }), 'en');
+  const node = Intl.DateTimeFormat().resolvedOptions().locale;
+  const fromNode = LANGS.find(l => node.toLowerCase().startsWith(l)) ?? 'en';
   assert.equal(systemLang({}), fromNode);
 });
 
@@ -108,7 +172,11 @@ test('resolveLang: gültiger Wert, sonst Hinweis, sonst Systemsprache', () => {
   assert.equal(resolveLang('DE', 'en'), 'de');
   assert.equal(resolveLang('', 'en'), 'en');
   assert.equal(resolveLang(undefined, 'de'), 'de');
-  assert.equal(resolveLang('fr', 'xx'), systemLang());
+  assert.equal(resolveLang('fr', 'de'), 'fr');
+  assert.equal(resolveLang('ES', 'en'), 'es');
+  assert.equal(resolveLang('', 'fr'), 'fr');
+  assert.equal(resolveLang('it', 'es'), 'es');
+  assert.equal(resolveLang('it', 'xx'), systemLang());
   assert.equal(resolveLang(), systemLang());
 });
 
@@ -132,6 +200,8 @@ test('Zahlen: Tausender in Ausgabe, Oberfläche und READMEs im selben Format', (
   const html = fs.readFileSync(path.join(ROOT, 'ui.html'), 'utf8');
   assert.match(html, /\n {2}de: \{\n {4}locale: 'de-AT',/);
   assert.match(html, /\n {2}en: \{\n {4}locale: 'en-US',/);
+  assert.match(html, /\n {2}es: \{\n {4}locale: 'es-ES',/);
+  assert.match(html, /\n {2}fr: \{\n {4}locale: 'fr-FR',/);
   const readmeDe = fs.readFileSync(path.join(ROOT, 'README.de.md'), 'utf8');
   const readmeEn = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
   assert.doesNotMatch(readmeDe, /\b\d{1,3}(?:[.,]| (?=\d{3}\b))\d{3}\b/, 'README.de: Tausender mit Punkt, Komma oder normalem Leerzeichen');
