@@ -2,13 +2,14 @@
 // (tests/mock-apis.mjs über NODE_OPTIONS, gilt damit auch für die gestarteten Läufe). Sprache je Anfrage per X-Lang.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { stripComments } from '../config.mjs';
+import { FILE_NAMES } from '../shortcut.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MOCK = pathToFileURL(path.join(ROOT, 'tests', 'mock-apis.mjs')).href;
@@ -25,6 +26,7 @@ const CONFIG = {
 };
 
 let dir;
+let desktop;                  // Desktop-Ordner für die Verknüpfung (TWEAKABLE_DJ_DESKTOP) – nie der echte
 let server;
 let base;
 
@@ -43,17 +45,19 @@ before(async () => {
   for (const f of fs.readdirSync(ROOT)) {
     if (f.endsWith('.mjs') || /^config\.example(\.de)?\.jsonc$/.test(f) || f === 'ui.html') fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
   }
-  fs.writeFileSync(path.join(dir, 'config.jsonc'), `// Test-Einstellungen\n${JSON.stringify(CONFIG, null, 2)}\n`);
-  writeTokens('fake-refresh-token');
   // Logo-Dateien einzeln kopieren (fs.cpSync stürzt unter Windows mit manchen Node-Versionen bei Umlauten im Pfad ab)
   fs.mkdirSync(path.join(dir, 'assets'));
   for (const f of fs.readdirSync(path.join(ROOT, 'assets'))) fs.copyFileSync(path.join(ROOT, 'assets', f), path.join(dir, 'assets', f));
+  desktop = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj desktop ö-'));
+  fs.writeFileSync(path.join(dir, 'config.jsonc'), `// Test-Einstellungen\n${JSON.stringify(CONFIG, null, 2)}\n`);
+  writeTokens('fake-refresh-token');
   const port = await freePort();
   base = `http://127.0.0.1:${port}`;
   const env = {
     ...process.env, TWEAKABLE_DJ_PORT: String(port), TWEAKABLE_DJ_LANG: 'de', NODE_OPTIONS: `--import=${MOCK}`,
     MOCK_LOG: path.join(dir, 'mock-anfragen.jsonl'), MOCK_GITHUB: path.join(dir, 'github-antwort.json'),
     MOCK_SPOTIFY_STORE: path.join(dir, 'store.json'), // Playlists des Testbenutzers: Übernehmen und Import dürfen schreiben
+    TWEAKABLE_DJ_DESKTOP: desktop,
   };
   delete env.TWEAKABLE_DJ_NO_UPDATE_CHECK; // die Prüfung auf neue Versionen soll hier laufen (gegen den simulierten GitHub)
   server = spawn(process.execPath, ['ui.mjs', '--no-browser'], { cwd: dir, env });
@@ -80,6 +84,7 @@ after(async () => {
     await exited;
   }
   fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  fs.rmSync(desktop, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 });
 
 // Anfrage wie von ui.html: X-Tweakable-DJ: 1 und (falls angegeben) X-Lang; body als JSON, raw als Text.
@@ -1002,5 +1007,63 @@ test('Logo und Symbol: genau assets/logo.png und assets/logo-small.svg, sonst ke
     assert.equal(await rawRequest('GET', '/assets/logo.png', { host: 'localhost' }), 'HTTP/1.1 403 Forbidden', 'fremder Host');
   } finally {
     fs.rmSync(path.join(dir, 'assets', 'geheim.txt'));
+  }
+});
+
+// Fremde Datei mit dem Namen der Verknüpfung auf dem (Test-)Desktop anlegen; print() = Abdruck zum Vergleichen.
+function foreignShortcut() {
+  const file = path.join(desktop, FILE_NAMES[process.platform]);
+  if (process.platform === 'win32') {
+    const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const script = "$ProgressPreference = 'SilentlyContinue'; $l = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK); $l.TargetPath = $env:SystemRoot + '\\notepad.exe'; $l.Save()";
+    execFileSync(ps, ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
+      { env: { ...process.env, LNK: file }, stdio: ['ignore', 'pipe', 'pipe'] });
+  } else if (process.platform === 'darwin') {
+    fs.mkdirSync(path.join(file, 'Contents'), { recursive: true });
+    fs.writeFileSync(path.join(file, 'Contents', 'Info.plist'), '<plist><dict><key>CFBundleIdentifier</key><string>com.example.other</string></dict></plist>');
+  } else {
+    fs.writeFileSync(file, '[Desktop Entry]\nType=Application\nName=Etwas anderes\nExec=/usr/bin/true\n');
+  }
+  const print = () => (fs.statSync(file).isDirectory() ? fs.readFileSync(path.join(file, 'Contents', 'Info.plist')) : fs.readFileSync(file)).toString('base64');
+  return { file, print, before: print() };
+}
+
+test('Verknüpfung: nur mit X-Tweakable-DJ; Stand, anlegen, ersetzen, entfernen – im Test-Desktop; fremde Datei bleibt', { skip: !FILE_NAMES[process.platform] }, async () => {
+  const file = path.join(desktop, FILE_NAMES[process.platform]);
+  for (const method of ['GET', 'POST', 'DELETE']) {
+    const r = await api('/api/shortcut', { lang: 'en', method, headers: { 'X-Tweakable-DJ': '0' } });
+    assert.deepEqual([r.status, r.data], [403, { error: 'Not allowed' }], method);
+    const plain = await fetch(`${base}/api/shortcut`, { method, headers: { 'X-Lang': 'de' } });
+    assert.deepEqual([plain.status, await plain.json()], [403, { error: 'Nicht erlaubt' }], `${method} ohne Header`);
+  }
+  assert.equal(await rawRequest('POST', '/api/shortcut', { host: 'localhost', headers: 'X-Tweakable-DJ: 1\r\n' }), 'HTTP/1.1 403 Forbidden', 'fremder Host');
+  assert.deepEqual(fs.readdirSync(desktop), [], 'ohne Header nichts angelegt');
+
+  let r = await api('/api/shortcut');
+  assert.equal(r.status, 200);
+  assert.deepEqual([r.data.supported, r.data.state, r.data.installed, r.data.matches, r.data.file], [true, 'missing', false, false, file]);
+  r = await api('/api/shortcut', { method: 'POST', lang: 'en' });
+  assert.equal(r.status, 200, r.text);
+  assert.deepEqual([r.data.state, r.data.matches], ['ok', true]);
+  assert.ok(fs.existsSync(file));
+  assert.equal((await api('/api/shortcut')).data.state, 'ok');
+  assert.equal((await api('/api/shortcut', { method: 'POST' })).data.state, 'ok', 'erneut anlegen ersetzt sie');
+  assert.deepEqual(fs.readdirSync(desktop), [FILE_NAMES[process.platform]], 'genau eine Verknüpfung');
+  r = await api('/api/shortcut', { method: 'DELETE' });
+  assert.deepEqual([r.status, r.data.state, fs.existsSync(file)], [200, 'missing', false]);
+  assert.equal((await api('/api/shortcut', { method: 'DELETE' })).status, 200, 'nichts da: nichts zu tun');
+
+  const foreign = foreignShortcut();
+  try {
+    assert.equal((await api('/api/shortcut')).data.state, 'foreign');
+    for (const [lang, text] of [['de', 'nicht von Tweakable DJ'], ['en', 'isn’t from Tweakable DJ'], ['es', 'no es de Tweakable DJ'], ['fr', 'ne vient pas de Tweakable DJ']]) {
+      const post = await api('/api/shortcut', { method: 'POST', lang });
+      assert.equal(post.status, 400);
+      assert.ok(post.data.error.includes(text), post.data.error);
+    }
+    assert.equal((await api('/api/shortcut', { method: 'DELETE', lang: 'en' })).status, 400);
+    assert.equal(foreign.print(), foreign.before, 'fremde Datei unverändert');
+  } finally {
+    fs.rmSync(foreign.file, { recursive: true, force: true });
   }
 });

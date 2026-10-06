@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Oberfläche für Tweakable DJ: Einrichtung, Regler für alle Einstellungen, Probelauf, Übernehmen des Probelaufs,
-// Neuerstellung, Export und Import als Textdatei im Browser sowie das Playlist-Archiv (archive.mjs) zum Zurückholen.
+// Neuerstellung, Export und Import als Textdatei im Browser, das Playlist-Archiv (archive.mjs) zum Zurückholen sowie die
+// Verknüpfung auf dem Desktop (shortcut.mjs).
 //   node ui.mjs                startet die Oberfläche auf http://127.0.0.1:8899 (anderer Port: TWEAKABLE_DJ_PORT)
 //   node ui.mjs --no-browser   dasselbe, ohne den Browser zu öffnen (so auch beim Neustart nach einem Update)
 // Sprache der Antworten: Header "X-Lang: de|en|es|fr" der Anfrage, sonst "language" aus config.jsonc, sonst die Systemsprache.
@@ -18,6 +19,7 @@ import {
 } from './config.mjs';
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
+import { createShortcut, removeShortcut, shortcutStatus } from './shortcut.mjs';
 import { createSpotify, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
 import { autoRunMessage, installBlocker, installUpdate } from './install-update.mjs';
 import { notify, notifyProblem, testNotice } from './notify.mjs';
@@ -49,14 +51,14 @@ const TOKENS = path.join(HERE, 'tokens.json');
 const LOGIN_TIMEOUT = 5 * 60_000;
 const DAY = 86_400_000;
 const LOGIN_CODES = ['login_expired', 'not_logged_in'];
-const noBrowser = process.argv.includes('--no-browser');
-// Version beim Start: Nach einem Update meldet erst der neu gestartete Server die neue (GET /api/version).
 // Fest erlaubte Dateien für die Seite: Logo im Kopf und Symbol im Browser-Tab (aus assets/). Nur genau diese Pfade –
 // sonst liefert der Server keine Dateien aus dem Ordner (dort liegen config.jsonc, tokens.json usw.).
 const STATIC = {
   '/assets/logo.png': { file: 'logo.png', type: 'image/png' },
   '/assets/logo-small.svg': { file: 'logo-small.svg', type: 'image/svg+xml' },
 };
+const noBrowser = process.argv.includes('--no-browser');
+// Version beim Start: Nach einem Update meldet erst der neu gestartete Server die neue (GET /api/version).
 const VERSION = currentVersion();
 // Von Tweakable DJ.cmd, Tweakable DJ.command bzw. start.sh gestartet? Die starten nach Exit-Code 75 neu.
 const LAUNCHER = process.env.TWEAKABLE_DJ_LAUNCHER === '1';
@@ -298,8 +300,6 @@ const server = http.createServer(async (req, res) => {
       return send(200, fs.readFileSync(path.join(HERE, 'ui.html'), 'utf8'), 'text/html; charset=utf-8');
     }
 
-    // values.language: '' = noch nicht gewählt; systemLang = Sprache, die dann gilt (auch für automatische Läufe).
-    // limits: erlaubte Bereiche und Regler der Zahlenwerte; variety: Stufen des Reglers „Abwechslung bei Künstlern“; problems: ungültige Zahlenwerte aus der config.jsonc (Schlüssel → Meldung).
     // Logo und Symbol (STATIC): eine Stunde im Browser zwischenspeichern; SVG ohne Skripte (Content-Security-Policy).
     if (req.method === 'GET' && Object.hasOwn(STATIC, url.pathname)) {
       const { file, type } = STATIC[url.pathname];
@@ -316,6 +316,8 @@ const server = http.createServer(async (req, res) => {
       return res.end(data);
     }
 
+    // values.language: '' = noch nicht gewählt; systemLang = Sprache, die dann gilt (auch für automatische Läufe).
+    // limits: erlaubte Bereiche und Regler der Zahlenwerte; variety: Stufen des Reglers „Abwechslung bei Künstlern“; problems: ungültige Zahlenwerte aus der config.jsonc (Schlüssel → Meldung).
     if (route === 'GET /api/config') {
       const cfg = currentConfig(lang);
       const values = Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, cfg[k]]));
@@ -341,6 +343,12 @@ const server = http.createServer(async (req, res) => {
         throw new Error(t(lang, 'ui.scheduleFailed', { message: e.message }));
       }
     }
+
+    // Verknüpfung auf dem Desktop (shortcut.mjs): Stand abfragen, anlegen bzw. die eigene ersetzen, die eigene entfernen.
+    // Antwort: Stand wie shortcutStatus() ({ supported, state, installed, matches, … }); Fehler 400 mit Meldung.
+    if (route === 'GET /api/shortcut') return send(200, await shortcutStatus({ lang }));
+    if (route === 'POST /api/shortcut') return send(200, await serial(() => createShortcut({ lang })));
+    if (route === 'DELETE /api/shortcut') return send(200, await serial(() => removeShortcut({ lang })));
 
     // Zugangsdaten und Quelle aus dem Assistenten: { clientId?, apiKey?, user?, seed? }
     if (route === 'POST /api/setup') {

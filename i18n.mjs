@@ -229,6 +229,16 @@ export const MESSAGES = {
     'schedule.description': 'Erstellt die Playlist von Tweakable DJ automatisch neu. Ordner: {dir}. Ändern oder ausschalten in der Oberfläche von Tweakable DJ.',
     'schedule.aborted': 'Beendet mit Fehlercode {code}',
 
+    // --- shortcut.mjs (Verknüpfung auf dem Desktop) ---
+    'shortcut.platform': 'Eine Verknüpfung auf dem Desktop gibt es nur unter Windows, macOS und Linux.',
+    'shortcut.noDesktop': 'Kein Desktop-Ordner gefunden.',
+    'shortcut.foreign': 'Auf dem Desktop gibt es schon „{file}“, aber nicht von Tweakable DJ – das bleibt, wie es ist. Benenne es um, dann klappt es.',
+    'shortcut.newline': 'Der Pfad des Ordners enthält einen Zeilenumbruch, dafür lässt sich keine Verknüpfung anlegen.',
+    'shortcut.reports': '{who} meldet: {message}',
+    'shortcut.exitCode': 'Fehlercode {code}',
+    'shortcut.notMatching': 'Die Verknüpfung stimmt danach nicht ({problem}).',
+    'shortcut.description': 'Startet Tweakable DJ for Spotify (Ordner: {dir})',
+
     // --- notify.mjs (Systembenachrichtigungen) ---
     'notify.failedTitle': 'Tweakable DJ: automatischer Lauf fehlgeschlagen',
     'notify.reason.login_expired': 'Die Spotify-Anmeldung ist abgelaufen.',
@@ -490,6 +500,16 @@ export const MESSAGES = {
     'schedule.notMatching': 'The scheduler entry still doesn’t match afterwards ({problem}).',
     'schedule.description': 'Recreates the Tweakable DJ playlist automatically. Folder: {dir}. Change or turn off in the Tweakable DJ interface.',
     'schedule.aborted': 'Exited with error code {code}',
+
+    // --- shortcut.mjs (Verknüpfung auf dem Desktop) ---
+    'shortcut.platform': 'A desktop shortcut is only available on Windows, macOS and Linux.',
+    'shortcut.noDesktop': 'No desktop folder found.',
+    'shortcut.foreign': 'There is already “{file}” on the desktop, but it isn’t from Tweakable DJ – it stays as it is. Rename it, then it will work.',
+    'shortcut.newline': 'The folder path contains a line break, so no shortcut can be created for it.',
+    'shortcut.reports': '{who} reports: {message}',
+    'shortcut.exitCode': 'exit code {code}',
+    'shortcut.notMatching': 'The shortcut still doesn’t match afterwards ({problem}).',
+    'shortcut.description': 'Starts Tweakable DJ for Spotify (folder: {dir})',
 
     // --- notify.mjs (system notifications) ---
     'notify.failedTitle': 'Tweakable DJ: automatic run failed',
@@ -754,6 +774,16 @@ export const MESSAGES = {
     'schedule.description': 'Recrea automáticamente la playlist de Tweakable DJ. Carpeta: {dir}. Para cambiarlo o desactivarlo, usa la interfaz de Tweakable DJ.',
     'schedule.aborted': 'Terminó con el código de error {code}',
 
+    // --- shortcut.mjs (Verknüpfung auf dem Desktop) ---
+    'shortcut.platform': 'El acceso directo en el escritorio solo está disponible en Windows, macOS y Linux.',
+    'shortcut.noDesktop': 'No se encontró la carpeta del escritorio.',
+    'shortcut.foreign': 'Ya hay «{file}» en el escritorio, pero no es de Tweakable DJ, así que se queda como está. Cámbiale el nombre y funcionará.',
+    'shortcut.newline': 'La ruta de la carpeta contiene un salto de línea, así que no se puede crear un acceso directo.',
+    'shortcut.reports': '{who} informa: {message}',
+    'shortcut.exitCode': 'código de error {code}',
+    'shortcut.notMatching': 'El acceso directo sigue sin coincidir ({problem}).',
+    'shortcut.description': 'Inicia Tweakable DJ for Spotify (carpeta: {dir})',
+
     // --- notify.mjs (Systembenachrichtigungen) ---
     'notify.failedTitle': 'Tweakable DJ: falló la ejecución automática',
     'notify.reason.login_expired': 'Tu sesión de Spotify ha caducado.',
@@ -1017,6 +1047,16 @@ export const MESSAGES = {
     'schedule.notMatching': 'L’entrée du planificateur ne correspond toujours pas ({problem}).',
     'schedule.description': 'Recrée automatiquement la playlist de Tweakable DJ. Dossier : {dir}. Pour modifier ou désactiver, utilise l’interface de Tweakable DJ.',
     'schedule.aborted': 'Terminé avec le code d’erreur {code}',
+
+    // --- shortcut.mjs (Verknüpfung auf dem Desktop) ---
+    'shortcut.platform': 'Le raccourci sur le bureau n’est disponible que sous Windows, macOS et Linux.',
+    'shortcut.noDesktop': 'Aucun dossier Bureau trouvé.',
+    'shortcut.foreign': 'Il y a déjà « {file} » sur le bureau, mais il ne vient pas de Tweakable DJ – il reste tel quel. Renomme-le, et ça marchera.',
+    'shortcut.newline': 'Le chemin du dossier contient un saut de ligne, impossible d’y créer un raccourci.',
+    'shortcut.reports': '{who} signale : {message}',
+    'shortcut.exitCode': 'code d’erreur {code}',
+    'shortcut.notMatching': 'Le raccourci ne correspond toujours pas ({problem}).',
+    'shortcut.description': 'Lance Tweakable DJ for Spotify (dossier : {dir})',
 
     // --- notify.mjs (Systembenachrichtigungen) ---
     'notify.failedTitle': 'Tweakable DJ : échec de l’exécution automatique',

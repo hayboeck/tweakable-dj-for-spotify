@@ -25,6 +25,8 @@
 //   MOCK_NOTIFY=fail    Systembenachrichtigungen (notify.mjs) scheitern (Exit-Code 1). Echte Benachrichtigungen gibt es nie:
 //                       execFile für powershell.exe, osascript und notify-send wird nur als { notify: { file, args, toast } }
 //                       in MOCK_LOG geschrieben (toast = XML aus der Umgebungsvariable TWEAKABLE_DJ_TOAST unter Windows).
+//                       PowerShell ohne TWEAKABLE_DJ_TOAST (Verknüpfung auf dem Desktop, shortcut.mjs) läuft wirklich,
+//                       aber nur mit einem Test-Desktop (TWEAKABLE_DJ_DESKTOP); ohne ihn scheitert es (Testschutz).
 
 import childProcess from 'node:child_process';
 import fs from 'node:fs';
@@ -46,10 +48,18 @@ const NOTIFIERS = /^(powershell\.exe|osascript|notify-send)$/i;
 const realExecFile = childProcess.execFile;
 childProcess.execFile = function execFile(file, ...rest) {
   const name = String(file).split(/[\\/]/).pop();
-  if (!NOTIFIERS.test(name)) return realExecFile.call(this, file, ...rest);
-  const args = Array.isArray(rest[0]) ? rest[0] : [];
   const options = rest.find(r => r && typeof r === 'object' && !Array.isArray(r)) ?? {};
+  // PowerShell nur für Benachrichtigungen (mit TWEAKABLE_DJ_TOAST) abfangen; die Verknüpfung auf dem Desktop (shortcut.mjs)
+  // legt es wirklich an – in den Tests immer in einem Testordner (TWEAKABLE_DJ_DESKTOP).
+  const toast = !/^powershell\.exe$/i.test(name) || options.env?.TWEAKABLE_DJ_TOAST !== undefined;
   const callback = rest.find(r => typeof r === 'function');
+  if (NOTIFIERS.test(name) && !toast && !options.env?.TWEAKABLE_DJ_SC_DESKTOP) {
+    // Schutz: PowerShell ohne Test-Desktop würde den echten Desktop des Benutzers nehmen – in Tests nie.
+    setImmediate(() => callback?.(Object.assign(new Error('Testschutz'), { code: 1 }), '', 'Testschutz: PowerShell nur mit Test-Desktop (TWEAKABLE_DJ_DESKTOP)'));
+    return undefined;
+  }
+  if (!NOTIFIERS.test(name) || !toast) return realExecFile.call(this, file, ...rest);
+  const args = Array.isArray(rest[0]) ? rest[0] : [];
   log({ notify: { file: name, args, toast: options.env?.TWEAKABLE_DJ_TOAST ?? null } });
   setImmediate(() => {
     if (process.env.MOCK_NOTIFY === 'fail') callback?.(Object.assign(new Error('simuliert'), { code: 1 }), '', 'Simulierter Fehler beim Senden');

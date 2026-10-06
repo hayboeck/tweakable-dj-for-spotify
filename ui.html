@@ -260,6 +260,10 @@
   .msg.err { color: var(--danger); }
   .msg.warn { color: var(--warn); }
   .login-box .actions { margin-top: 10px; }
+  /* Häkchen im letzten Schritt: Verknüpfung auf dem Desktop anlegen */
+  .check { display: flex; align-items: flex-start; gap: 9px; margin-top: 14px; font-weight: 600; cursor: pointer; }
+  .check input { flex: none; width: 17px; height: 17px; margin: 3px 0 0; accent-color: var(--accent-fill); cursor: pointer; }
+  .check + .help { margin: 2px 0 0 26px; }
 
   .bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--border); }
   .bar-inner { max-width: 760px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
@@ -316,6 +320,13 @@
   /* Tab „Einstellungen“: Zugangsdaten und Version; „Nach Updates suchen“ wie ein Link, Ergebnis gleich daneben */
   #credentials .row > p, #version .row > p { margin: 0; }
   #credentials .actions { margin-top: 10px; }
+  /* Abschnitt „Verknüpfung“: vereinfachtes Logo (so sieht die Verknüpfung klein aus) und Stand in einer Zeile */
+  .shortcut-state { display: flex; align-items: center; gap: 10px; }
+  .shortcut-state img { flex: none; width: 32px; height: 32px; }
+  .shortcut-state p { margin: 0; }
+  #shortcut .actions { margin-top: 10px; }
+  /* Kurze Meldung über den Tabs, z. B. nach dem Assistenten (Verknüpfung angelegt) */
+  #main-msg { margin: -8px 0 12px; }
   #update-check-msg.ok { color: var(--accent); }
   #update-check-msg.err { color: var(--danger); }
 </style>
@@ -471,6 +482,14 @@ try {
         <h2><button type="button" class="step-head" aria-controls="step-5"><span class="num">5</span><span data-t="step5"></span><span class="step-state"></span></button></h2>
         <div class="step-body" id="step-5" hidden>
           <p id="w-done-text"></p>
+          <!-- Verknüpfung auf dem Desktop (GET/POST /api/shortcut): Häkchen, falls es noch keine passende gibt; angelegt wird
+               beim Klick auf den Knopf darunter. Gibt es sie schon, nur ein Hinweis. -->
+          <div id="w-shortcut-box" hidden>
+            <label class="check"><input type="checkbox" id="w-shortcut" checked><span id="w-shortcut-label"></span></label>
+            <p class="help" id="w-shortcut-help"></p>
+          </div>
+          <p class="msg ok" id="w-shortcut-done" hidden></p>
+          <p class="msg" id="w-shortcut-msg" role="status"></p>
           <div class="actions"><button type="button" class="btn primary" id="w-finish" data-t="finish"></button></div>
         </div>
       </li>
@@ -479,8 +498,9 @@ try {
   </div>
 
   <!-- Hauptansicht (view 'main') mit zwei Tabs: „Playlist“ (Regler, Ausgabe mit Textdatei) und „Einstellungen“ (Automatik,
-       Sperrliste, Zugangsdaten, Version). Aktiver Tab im Adress-Hash: ohne = Playlist, #settings = Einstellungen. -->
+       Sperrliste, Archiv, Aussehen, Zugangsdaten, Verknüpfung, Version). Aktiver Tab im Adress-Hash: ohne = Playlist, #settings = Einstellungen. -->
   <div id="main-view" hidden>
+    <p class="msg" id="main-msg" role="status" hidden></p>
     <div class="tabs" role="tablist" id="tabs">
       <button type="button" role="tab" id="tab-playlist" aria-controls="panel-playlist"><span data-t="tabPlaylist"></span><span class="tab-dot" aria-hidden="true" hidden></span></button>
       <button type="button" role="tab" id="tab-settings" aria-controls="panel-settings"><span data-t="tabSettings"></span><span class="tab-dot" aria-hidden="true" hidden></span></button>
@@ -546,6 +566,22 @@ try {
         <div class="row">
           <p id="cred-state"></p>
           <div class="actions"><button type="button" class="btn" id="open-setup" data-t="openSetup"></button></div>
+        </div>
+      </section>
+      <!-- Verknüpfung auf dem Desktop (shortcut.mjs): Stand, anlegen bzw. neu anlegen, entfernen. Ausgeblendet, wo es keine gibt. -->
+      <section id="shortcut" aria-labelledby="shortcut-title" hidden>
+        <h2 id="shortcut-title" data-t="shortcut"></h2>
+        <div class="row">
+          <div class="shortcut-state">
+            <img src="assets/logo-small.svg" alt="" aria-hidden="true" width="32" height="32">
+            <p id="shortcut-state" role="status"></p>
+          </div>
+          <p class="help" id="shortcut-help"></p>
+          <div class="actions">
+            <button type="button" class="btn" id="shortcut-create"></button>
+            <button type="button" class="btn" id="shortcut-remove"></button>
+          </div>
+          <p class="msg" id="shortcut-msg" role="status"></p>
         </div>
       </section>
       <!-- Eigene Version und „Nach Updates suchen“ (GET /api/update?force=1) mit dem Ergebnis daneben -->
@@ -614,6 +650,7 @@ const TEXT = {
       tabSettings: 'Einstellungen',
       credentials: 'Zugangsdaten',
       version: 'Version',
+      shortcut: 'Verknüpfung',
       intro: 'Du brauchst Spotify Premium, ein kostenloses Last.fm-Konto und etwa 10 Minuten.',
       step1: 'Spotify-App anlegen',
       step2: 'Last.fm verbinden',
@@ -888,6 +925,32 @@ const TEXT = {
       user: name => `Last.fm: ${name}`,
       noUser: 'Last.fm: kein Benutzer',
     },
+    // Verknüpfung auf dem Desktop (Assistent, letzter Schritt, und Abschnitt „Verknüpfung“ im Tab „Einstellungen“); state wie in shortcut.mjs
+    shortcut: {
+      offer: 'Verknüpfung auf dem Desktop anlegen',
+      offerRenew: 'Verknüpfung auf dem Desktop erneuern',
+      offerHelp: 'Startet Tweakable DJ per Doppelklick, mit dem Logo als Symbol.',
+      have: 'Verknüpfung auf dem Desktop vorhanden ✓',
+      state: {
+        ok: 'Auf dem Desktop vorhanden ✓',
+        missing: 'Keine Verknüpfung auf dem Desktop',
+        otherFolder: 'Zeigt auf einen anderen Ordner',
+        outdated: 'Auf dem Desktop, aber nicht mehr aktuell',
+        foreign: 'Auf dem Desktop gibt es schon etwas anderes namens „Tweakable DJ“',
+      },
+      create: 'Verknüpfung anlegen',
+      recreate: 'Neu anlegen',
+      remove: 'Entfernen',
+      working: 'Einen Moment …',
+      created: 'Angelegt ✓',
+      removed: 'Entfernt ✓',
+      failed: msg => `Nicht geklappt: ${msg}`,
+      statusError: msg => `Der Stand der Verknüpfung ist gerade nicht abrufbar: ${msg}`,
+      help: 'Ordner verschoben? „Neu anlegen“. Vor dem Löschen des Ordners: „Entfernen“.',
+      foreignHelp: 'Tweakable DJ lässt es, wie es ist. Benenne es um, dann kannst du die Verknüpfung hier anlegen.',
+      finishOk: 'Verknüpfung „Tweakable DJ“ auf dem Desktop angelegt ✓',
+      finishFailed: msg => `Die Verknüpfung wurde nicht angelegt: ${msg} Du kannst sie später im Tab „Einstellungen“ anlegen.`,
+    },
     // Hinweis auf eine neue Version
     update: {
       text: (latest, current) => (current ? `Neue Version ${latest} verfügbar (du hast ${current})` : `Neue Version ${latest} verfügbar`),
@@ -976,6 +1039,7 @@ const TEXT = {
       tabSettings: 'Settings',
       credentials: 'Credentials',
       version: 'Version',
+      shortcut: 'Shortcut',
       intro: 'You need Spotify Premium, a free Last.fm account and about 10 minutes.',
       step1: 'Create a Spotify app',
       step2: 'Connect Last.fm',
@@ -1246,6 +1310,32 @@ const TEXT = {
       user: name => `Last.fm: ${name}`,
       noUser: 'Last.fm: no user',
     },
+    // Verknüpfung auf dem Desktop (Assistent, letzter Schritt, und Abschnitt „Verknüpfung“ im Tab „Einstellungen“); state wie in shortcut.mjs
+    shortcut: {
+      offer: 'Create a shortcut on the desktop',
+      offerRenew: 'Renew the shortcut on the desktop',
+      offerHelp: 'Starts Tweakable DJ with a double-click, with the logo as its icon.',
+      have: 'Shortcut on the desktop is there ✓',
+      state: {
+        ok: 'On the desktop ✓',
+        missing: 'No shortcut on the desktop',
+        otherFolder: 'Points to a different folder',
+        outdated: 'On the desktop, but out of date',
+        foreign: 'There is already something else called “Tweakable DJ” on the desktop',
+      },
+      create: 'Create shortcut',
+      recreate: 'Create again',
+      remove: 'Remove',
+      working: 'One moment …',
+      created: 'Created ✓',
+      removed: 'Removed ✓',
+      failed: msg => `Didn’t work: ${msg}`,
+      statusError: msg => `The status of the shortcut isn’t available right now: ${msg}`,
+      help: 'Moved the folder? “Create again”. Before deleting the folder: “Remove”.',
+      foreignHelp: 'Tweakable DJ leaves it as it is. Rename it, then you can create the shortcut here.',
+      finishOk: 'Shortcut “Tweakable DJ” created on the desktop ✓',
+      finishFailed: msg => `The shortcut wasn’t created: ${msg} You can create it later in the “Settings” tab.`,
+    },
     update: {
       text: (latest, current) => (current ? `New version ${latest} available (you have ${current})` : `New version ${latest} available`),
       link: 'download ↗',
@@ -1330,6 +1420,7 @@ const TEXT = {
       tabSettings: 'Ajustes',
       credentials: 'Credenciales',
       version: 'Versión',
+      shortcut: 'Acceso directo',
       intro: 'Necesitas Spotify Premium, una cuenta gratuita de Last.fm y unos 10 minutos.',
       step1: 'Crear una app de Spotify',
       step2: 'Conectar Last.fm',
@@ -1600,6 +1691,32 @@ const TEXT = {
       user: name => `Last.fm: ${name}`,
       noUser: 'Last.fm: ningún usuario',
     },
+    // Verknüpfung auf dem Desktop (Assistent, letzter Schritt, und Abschnitt „Verknüpfung“ im Tab „Einstellungen“); state wie in shortcut.mjs
+    shortcut: {
+      offer: 'Crear un acceso directo en el escritorio',
+      offerRenew: 'Renovar el acceso directo del escritorio',
+      offerHelp: 'Inicia Tweakable DJ con un doble clic, con el logo como icono.',
+      have: 'El acceso directo ya está en el escritorio ✓',
+      state: {
+        ok: 'En el escritorio ✓',
+        missing: 'No hay acceso directo en el escritorio',
+        otherFolder: 'Apunta a otra carpeta',
+        outdated: 'En el escritorio, pero desactualizado',
+        foreign: 'Ya hay otra cosa llamada «Tweakable DJ» en el escritorio',
+      },
+      create: 'Crear acceso directo',
+      recreate: 'Volver a crear',
+      remove: 'Quitar',
+      working: 'Un momento …',
+      created: 'Creado ✓',
+      removed: 'Quitado ✓',
+      failed: msg => `No funcionó: ${msg}`,
+      statusError: msg => `Ahora mismo no se puede consultar el estado del acceso directo: ${msg}`,
+      help: '¿Has movido la carpeta? «Volver a crear». Antes de borrar la carpeta: «Quitar».',
+      foreignHelp: 'Tweakable DJ no lo toca. Cámbiale el nombre y podrás crear el acceso directo aquí.',
+      finishOk: 'Acceso directo «Tweakable DJ» creado en el escritorio ✓',
+      finishFailed: msg => `No se creó el acceso directo: ${msg} Puedes crearlo más tarde en la pestaña «Ajustes».`,
+    },
     update: {
       text: (latest, current) => (current ? `Nueva versión ${latest} disponible (tienes la ${current})` : `Nueva versión ${latest} disponible`),
       link: 'descargar ↗',
@@ -1685,6 +1802,7 @@ const TEXT = {
       tabSettings: 'Paramètres',
       credentials: 'Identifiants',
       version: 'Version',
+      shortcut: 'Raccourci',
       intro: 'Il te faut Spotify Premium, un compte Last.fm gratuit et une dizaine de minutes.',
       step1: 'Créer une app Spotify',
       step2: 'Connecter Last.fm',
@@ -1954,6 +2072,32 @@ const TEXT = {
       loggedOut: 'Spotify : non connecté',
       user: name => `Last.fm : ${name}`,
       noUser: 'Last.fm : aucun utilisateur',
+    },
+    // Verknüpfung auf dem Desktop (Assistent, letzter Schritt, und Abschnitt „Verknüpfung“ im Tab „Einstellungen“); state wie in shortcut.mjs
+    shortcut: {
+      offer: 'Créer un raccourci sur le bureau',
+      offerRenew: 'Renouveler le raccourci sur le bureau',
+      offerHelp: 'Lance Tweakable DJ d’un double-clic, avec le logo comme icône.',
+      have: 'Le raccourci est déjà sur le bureau ✓',
+      state: {
+        ok: 'Sur le bureau ✓',
+        missing: 'Aucun raccourci sur le bureau',
+        otherFolder: 'Pointe vers un autre dossier',
+        outdated: 'Sur le bureau, mais plus à jour',
+        foreign: 'Il y a déjà autre chose nommé « Tweakable DJ » sur le bureau',
+      },
+      create: 'Créer le raccourci',
+      recreate: 'Recréer',
+      remove: 'Supprimer',
+      working: 'Un instant …',
+      created: 'Créé ✓',
+      removed: 'Supprimé ✓',
+      failed: msg => `Échec : ${msg}`,
+      statusError: msg => `L’état du raccourci n’est pas disponible pour le moment : ${msg}`,
+      help: 'Dossier déplacé ? « Recréer ». Avant de supprimer le dossier : « Supprimer ».',
+      foreignHelp: 'Tweakable DJ n’y touche pas. Renomme-le, puis tu pourras créer le raccourci ici.',
+      finishOk: 'Raccourci « Tweakable DJ » créé sur le bureau ✓',
+      finishFailed: msg => `Le raccourci n’a pas été créé : ${msg} Tu pourras le créer plus tard dans l’onglet « Paramètres ».`,
     },
     update: {
       text: (latest, current) => (current ? `Nouvelle version ${latest} disponible (tu as la ${current})` : `Nouvelle version ${latest} disponible`),
@@ -2225,6 +2369,11 @@ let trial = null;
 let trialTimer = null;
 let importRunning = false;  // Import aus einer Textdatei läuft (Suche oder Schreiben)
 let importState = null;     // { phase: 'busy' | 'preview' | 'done' | 'error', text, result, file, written }
+let shortcutInfo = null;    // Stand der Verknüpfung auf dem Desktop vom Server (GET /api/shortcut), null = noch unbekannt
+let shortcutBusy = false;
+let shortcutMsg = null;     // Ergebnis im Abschnitt „Verknüpfung“: { kind: 'ok' | 'err' | '', key: Schlüssel in T.shortcut, msg }
+let shortcutWanted = true;  // Häkchen im letzten Schritt des Assistenten (bleibt, wie man es gesetzt hat)
+let mainMsg = null;         // Meldung über den Tabs nach dem Assistenten: { kind, key, msg } (bis zum nächsten Tab-Wechsel)
 const controls = {};
 const loginBoxes = [];
 
@@ -2273,6 +2422,8 @@ function renderLang() {
   renderImport();
   renderArchive();
   if (runState?.tracks) renderLog(logText); // Knöpfe zum Sperren in der neuen Sprache
+  renderShortcut();
+  renderMainMsg();
   if (trial) refreshTrial(); // Meldung des Servers in der neuen Sprache
   if ($('w-client').value.trim()) checkClientId();
 }
@@ -3623,6 +3774,96 @@ function renderCredentials() {
   $('cred-state').textContent = `${loggedIn ? T.cred.loggedIn : T.cred.loggedOut} · ${credentials.user ? T.cred.user(credentials.user) : T.cred.noUser}`;
 }
 
+// --- Verknüpfung auf dem Desktop (Abschnitt im Tab „Einstellungen“ und letzter Schritt des Assistenten) ---
+
+const shortcutText = m => (!m ? '' : m.key === 'failed' || m.key === 'statusError' || m.key === 'finishFailed' ? T.shortcut[m.key](m.msg) : T.shortcut[m.key]);
+// Im Assistenten anbieten? Nur, wenn es Verknüpfungen gibt und noch keine passende da ist (eine fremde Datei gleichen
+// Namens bleibt unangetastet, dann kein Häkchen).
+const shortcutOffered = () => Boolean(shortcutInfo?.supported) && ['missing', 'otherFolder', 'outdated'].includes(shortcutInfo.state);
+
+function renderShortcut() {
+  const info = shortcutInfo;
+  // Abschnitt im Tab „Einstellungen“: ausgeblendet, solange der Stand unbekannt ist oder es keine Verknüpfungen gibt
+  $('shortcut').hidden = !info?.supported;
+  if (info?.supported) {
+    const state = info.state;
+    $('shortcut-state').textContent = state ? T.shortcut.state[state] : T.shortcut.statusError(info.message);
+    $('shortcut-state').className = state === 'ok' ? 'msg ok' : state ? '' : 'msg err';
+    $('shortcut-help').textContent = state === 'foreign' ? T.shortcut.foreignHelp : info.installed ? T.shortcut.help : T.shortcut.offerHelp;
+    const create = $('shortcut-create');
+    create.textContent = info.installed ? T.shortcut.recreate : T.shortcut.create;
+    create.hidden = state === 'foreign';
+    create.className = `btn${['missing', 'otherFolder', 'outdated'].includes(state) ? ' primary' : ''}`;
+    $('shortcut-remove').textContent = T.shortcut.remove;
+    $('shortcut-remove').hidden = !info.installed;
+    create.disabled = $('shortcut-remove').disabled = shortcutBusy;
+  }
+  setMsg($('shortcut-msg'), shortcutMsg?.kind ?? '', shortcutText(shortcutMsg));
+  // Assistent, letzter Schritt: Häkchen bzw. Hinweis, dass es sie schon gibt
+  const offered = shortcutOffered();
+  $('w-shortcut-box').hidden = !offered;
+  $('w-shortcut-label').textContent = info?.state === 'missing' ? T.shortcut.offer : T.shortcut.offerRenew;
+  $('w-shortcut-help').textContent = T.shortcut.offerHelp;
+  $('w-shortcut').checked = shortcutWanted;
+  $('w-shortcut-done').hidden = info?.state !== 'ok';
+  $('w-shortcut-done').textContent = T.shortcut.have;
+}
+
+async function loadShortcut() {
+  try {
+    shortcutInfo = await apiJson('/api/shortcut');
+  } catch {
+    shortcutInfo = null; // dann eben ohne Abschnitt und ohne Häkchen
+  }
+  renderShortcut();
+}
+
+// „Verknüpfung anlegen“ bzw. „Neu anlegen“ (POST) und „Entfernen“ (DELETE); Ergebnis gleich darunter.
+async function changeShortcut(method) {
+  shortcutBusy = true;
+  shortcutMsg = { kind: '', key: 'working' };
+  renderShortcut();
+  try {
+    shortcutInfo = await apiJson('/api/shortcut', { method });
+    shortcutMsg = { kind: 'ok', key: method === 'POST' ? 'created' : 'removed' };
+  } catch (e) {
+    shortcutMsg = { kind: 'err', key: 'failed', msg: e.message };
+    loadShortcut();
+  } finally {
+    shortcutBusy = false;
+    renderShortcut();
+  }
+}
+
+function renderMainMsg() {
+  $('main-msg').hidden = !mainMsg;
+  setMsg($('main-msg'), mainMsg?.kind ?? '', shortcutText(mainMsg));
+}
+
+// „Zu den Reglern“ im letzten Schritt: zuerst (falls angehakt) die Verknüpfung anlegen; ein Fehler hält nicht auf, er steht
+// danach kurz über den Tabs (wie auch der Erfolg).
+async function finishSetup() {
+  if (shortcutOffered() && shortcutWanted) {
+    $('w-finish').disabled = true;
+    setMsg($('w-shortcut-msg'), '', T.shortcut.working);
+    try {
+      shortcutInfo = await apiJson('/api/shortcut', { method: 'POST' });
+      mainMsg = { kind: 'ok', key: 'finishOk' };
+    } catch (e) {
+      mainMsg = { kind: 'err', key: 'finishFailed', msg: e.message };
+      loadShortcut();
+    } finally {
+      setMsg($('w-shortcut-msg'), '', '');
+      $('w-finish').disabled = setup.needsSetup;
+    }
+  }
+  showTab('playlist');
+  showView('main');
+  renderMainMsg();
+  renderShortcut();
+  scrollTo(0, 0);
+}
+
 function openSetup(step, manual = false) {
   fromSettings = manual;
   $('w-client').value = setup.credentials.clientId;
@@ -3663,6 +3904,7 @@ function renderSetup() {
   $('w-close').hidden = setup.needsSetup || !fromSettings;
   renderLogin();
   renderCredentials();
+  renderShortcut();
 }
 
 async function saveSetup(values) {
@@ -3791,13 +4033,15 @@ function wireSetup() {
   $('w-login-next').onclick = () => openStep(4, true);
   $('w-seed-save').onclick = saveSeed;
   // „Zu den Reglern“ führt in den Tab „Playlist“, „Zurück zu den Einstellungen“ dorthin, woher der Knopf kam.
-  $('w-finish').onclick = () => { showTab('playlist'); showView('main'); scrollTo(0, 0); };
+  $('w-finish').onclick = finishSetup;
+  $('w-shortcut').onchange = () => { shortcutWanted = $('w-shortcut').checked; };
   $('w-close').onclick = () => { showTab('settings'); showView('main'); scrollTo(0, 0); };
   $('open-setup').onclick = () => openSetup(1, true);
 }
 
 function wireTabs() {
-  for (const t of TABS) $(`tab-${t}`).onclick = () => showTab(t, { push: true });
+  // Ein Klick auf einen Tab blendet die Meldung nach dem Assistenten aus.
+  for (const t of TABS) $(`tab-${t}`).onclick = () => { mainMsg = null; renderMainMsg(); showTab(t, { push: true }); };
   // Pfeiltasten, Pos1 und Ende wechseln zwischen den Tabs (übliche Bedienung von role="tablist")
   $('tabs').onkeydown = e => {
     const i = TABS.indexOf(tab);
@@ -3841,11 +4085,14 @@ $('update-cancel').onclick = () => {
   $('update-install').focus();
 };
 $('update-go').onclick = installUpdate;
+$('shortcut-create').onclick = () => changeShortcut('POST');
+$('shortcut-remove').onclick = () => changeShortcut('DELETE');
 window.addEventListener('beforeunload', e => { if (dirty() && !reloading) e.preventDefault(); });
 // Zurück auf der Seite (z. B. am nächsten Morgen): Stand der Automatik und letzten Lauf neu holen.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden || view !== 'main') return;
   loadSchedule();
+  loadShortcut();
   if (trial) refreshTrial();
 });
 
@@ -3860,6 +4107,7 @@ load().then(async () => {
   }
   loadPlaylists();
   loadSchedule();
+  loadShortcut();
   // Läuft noch eine Anmeldung (z. B. nach Neuladen der Seite)? Dann weiter verfolgen.
   const state = await apiJson('/api/login').catch(() => null);
   if (state?.status === 'pending') setLogin(state);

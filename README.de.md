@@ -100,18 +100,19 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `ui.mjs` | Kleiner Webserver für die Oberfläche; startet den DJ auf Knopfdruck |
 | `ui.html` | Die Oberfläche selbst (Einrichtungs-Assistent, Regler, Buttons, Ausgabe), mit allen Texten auf Deutsch, Englisch, Spanisch und Französisch |
 | `schedule.mjs` | Die Automatik: trägt Tweakable DJ in den Zeitplaner deines Systems ein (Windows-Aufgabenplanung, macOS launchd, Linux cron) und liest den Stand aus |
+| `shortcut.mjs` | Die [Verknüpfung auf dem Desktop](#verknüpfung-auf-dem-desktop) mit dem Logo als Symbol: legt sie an, prüft und entfernt sie (Windows: `.lnk`, Mac: ein kleines `.app`, Linux: `.desktop`-Datei) |
 | `notify.mjs` | Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt – nur mit Bordmitteln deines Systems (Windows: PowerShell, Mac: `osascript`, Linux: `notify-send`) |
 | `update.mjs` | Prüft höchstens einmal am Tag, ob es auf GitHub eine neue Version gibt (siehe [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen)) |
 | `install-update.mjs` | Installiert eine neue Version, wenn du auf *Jetzt aktualisieren* klickst (siehe [Aktualisieren](#8-aktualisieren)) |
 | `manifest.json` | Liste aller Programmdateien dieser Version mit Prüfsummen. *Jetzt aktualisieren* ersetzt nur Dateien, die dort stehen. Nur in der ZIP-Datei, nicht im GitHub-Repository. |
 | `package.json` | Kurzbefehle für Entwickler: `npm start` (Oberfläche) und `npm test` (Tests). Tweakable DJ braucht keine zusätzlichen Pakete. |
-| `tests/` | Automatische Tests für die Regeln, die Einstellungen, die Übersetzungen, die Automatik, die Prüfung auf neue Versionen und *Jetzt aktualisieren*, die Oberfläche, die Textdatei und Probeläufe samt Übernehmen, bei denen Spotify, Last.fm und GitHub nur simuliert werden. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
+| `tests/` | Automatische Tests für die Regeln, die Einstellungen, die Übersetzungen, die Automatik, die Verknüpfung auf dem Desktop (nur in Testordnern), die Prüfung auf neue Versionen und *Jetzt aktualisieren*, die Oberfläche, die Textdatei und Probeläufe samt Übernehmen, bei denen Spotify, Last.fm und GitHub nur simuliert werden. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 | `config.example.de.jsonc` | Leere Vorlage der Einstellungen mit deutschen Erklärungen. Daraus wird bei der Einrichtung auf Deutsch deine `config.jsonc`. |
 | `config.example.jsonc` | Dieselbe Vorlage mit englischen Erklärungen (für die Einrichtung auf Englisch, Spanisch oder Französisch) |
 | `overview.de.svg`, `overview.en.svg` | Die Grafik in Abschnitt 2, auf Deutsch und Englisch |
 | `docs/` | Bildschirmfotos der Oberfläche für diese Anleitung, auf Deutsch und Englisch |
-| `LICENSE` | Die Lizenz (MIT), siehe Abschnitt 12 |
 | `assets/` | Das Logo: `logo.png` (Oberfläche und diese Anleitung), `logo-small.svg` (Browser-Tab), `logo.ico` und `logo.icns` (Symbol der Verknüpfung auf dem Desktop unter Windows und auf dem Mac) |
+| `LICENSE` | Die Lizenz (MIT), siehe Abschnitt 12 |
 | `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, die Dateien der Automatik, das Ergebnis der Prüfung auf neue Versionen, `.update/` und das Archiv `archiv/` nie mit hochgeladen werden |
 | `.gitattributes` | Einheitliche Zeilenenden für Windows, Mac und Linux; kennzeichnet Bilder als binär. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 | `.github/` | Vorlagen für Fehlermeldungen und Ideen, automatische Abläufe auf GitHub (z. B. die ZIP-Datei für neue Versionen). Nur im GitHub-Repository, nicht in der ZIP-Datei. |
@@ -270,7 +271,7 @@ Beide ändern nur die Oberfläche, nicht die Playlist; ein Probelauf bleibt desh
 Doppelklick auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac), unter Linux im Terminal `./start.sh`. Überall geht auch `node ui.mjs` im Terminal. Der Browser öffnet <http://127.0.0.1:8899>.
 Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-einrichtung-einmalig), Schritt 3. Ist Tweakable DJ noch nicht eingerichtet, erscheint statt der Regler der Einrichtungs-Assistent.
 
-Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Textdatei und Probelauf) und **Einstellungen** (Automatik, Sperrliste, Archiv, Aussehen, Zugangsdaten, Version).
+Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Textdatei und Probelauf) und **Einstellungen** (Automatik, Sperrliste, Archiv, Aussehen, Zugangsdaten, Verknüpfung, Version).
 
 - **Sprache** (oben rechts, ein kleines Auswahlfeld, z. B. **DE ▾**, mit Deutsch, English, Español und Français): schaltet die ganze Oberfläche sofort um, auch im Assistenten. Die Wahl wird in `config.jsonc` gespeichert (`language`) und gilt dann auch für Probelauf, Neuerstellung, automatische Läufe und das Terminal. Solange du nichts wählst, richtet sich die Oberfläche nach der Sprache deines Browsers. Spanisch und Französisch sind maschinell übersetzt; eine Zeile ganz unten auf der Seite weist darauf hin und verlinkt die [Issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), wo Korrekturen willkommen sind.
 - **Voreinstellungen**: Vier Buttons setzen alle Regel-Regler auf einmal:
@@ -293,6 +294,7 @@ Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Tex
 - **Playlist neu erstellen**: Lost neu aus, befüllt „Tweakable DJ“ und zeigt danach einen Link zu Spotify.
 - **Ausgabe**: immer sichtbar, vor dem ersten Lauf mit einem kurzen Platzhalter. Darunter stehen die Buttons für die Textdatei: *Als Textdatei speichern* lädt „Tweakable DJ“ so herunter, wie die Playlist gerade in Spotify ist (nach einem Probelauf: dessen Liste, siehe oben). *Importieren … → Aus Datei …* füllt sie mit einer eigenen Liste: erst eine Vorschau („38 von 40 gefunden“ und die Zeilen, die nicht passen), dann *In Playlist „Tweakable DJ“ schreiben (ersetzt den Inhalt)*. Mehr unter [Textdatei](#textdatei-speichern-und-importieren). *Importieren … → Frühere Playlist …* holt eine Playlist aus dem [Archiv](#playlist-archiv) zurück, mit derselben Vorschau und Rückfrage.
 - **Zugangsdaten** (Tab *Einstellungen*): zeigt, ob du bei Spotify angemeldet bist, und deinen Last.fm-Benutzernamen. **Zugangsdaten ändern** öffnet den Einrichtungs-Assistenten mit deinen bisherigen Angaben.
+- <a id="verknüpfung-auf-dem-desktop"></a>**Verknüpfung** (Tab *Einstellungen*): zeigt, ob es auf deinem Desktop eine Verknüpfung *Tweakable DJ* mit dem Logo gibt. **Verknüpfung anlegen** legt eine an, die Tweakable DJ per Doppelklick startet (Windows: `Tweakable DJ.lnk`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). Hast du den Ordner verschoben, steht dort *Zeigt auf einen anderen Ordner*; **Neu anlegen** behebt das. **Entfernen** löscht sie. Tweakable DJ fasst nur die eigene Verknüpfung an: Liegt auf dem Desktop etwas anderes unter diesem Namen, bleibt es, wie es ist.
 - **Mit Spotify anmelden**: Erscheint, wenn die Spotify-Anmeldung bald abläuft oder abgelaufen ist. Spotify verlangt alle 6 Monate eine neue Anmeldung. Außerdem, wenn *Gefolgte Künstler* nicht auf „egal“ steht und deine Anmeldung älter ist als diese Einstellung.
 - **Automatisch neu erstellen** (Tab *Einstellungen*): *Aus*, *Täglich* oder *Wöchentlich*, dazu Uhrzeit und gegebenenfalls Wochentag. Beim *Speichern* trägt sich Tweakable DJ in den Zeitplaner deines Systems ein und erstellt die Playlist dann von selbst neu, auch wenn die Oberfläche geschlossen ist. Darunter stehen der nächste Lauf und das Ergebnis des letzten automatischen Laufs (✓ mit Anzahl Songs oder ✗ mit Grund). Was passiert, wenn der Rechner zur eingestellten Zeit aus ist:
   - Windows: Der Lauf wird beim nächsten Einschalten nachgeholt.
@@ -416,7 +418,7 @@ Diese Schritte machst du einmal, bevor du Tweakable DJ zum ersten Mal benutzt, u
    2. **Last.fm**: einen [API-Key anlegen](https://www.last.fm/api/account/create) (Callback URL leer lassen) und zusammen mit deinem Last.fm-Namen eintragen. *Prüfen* zeigt, ob beides stimmt und wie viele Scrobbles Last.fm schon von dir kennt. Steht dort 0, verbinde Spotify unter [last.fm → Einstellungen → Anwendungen](https://www.last.fm/settings/applications) mit Last.fm.
    3. **Mit Spotify anmelden**: Es öffnet sich eine Spotify-Seite, dort zustimmen.
    4. **Quelle deiner Favoriten** wählen: deine Lieblingssongs oder eine deiner Playlists.
-   5. **Fertig**: Die Regler erscheinen, und du kannst den ersten Probelauf starten.
+   5. **Fertig**: Der Assistent bietet *Verknüpfung auf dem Desktop anlegen* an (schon angehakt). Damit startest du Tweakable DJ später per Doppelklick auf das Logo auf deinem Desktop; anlegen oder entfernen kannst du sie auch später im Tab *Einstellungen* ([Verknüpfung](#verknüpfung-auf-dem-desktop)). Danach erscheinen die Regler, und du kannst den ersten Probelauf starten.
 
    Dabei legt der Assistent die Datei `config.jsonc` selbst an, mit Erklärungen in der Sprache, die du gerade eingestellt hast (bei Spanisch und Französisch auf Englisch). Später erreichst du ihn über *Zugangsdaten ändern* im Tab *Einstellungen*.
 
@@ -460,7 +462,7 @@ Das Update schreibt nur die Programmdateien, die im Release stehen (`manifest.js
    - Mac und Linux: im Terminal `unzip -o ~/Downloads/tweakable-dj-v….zip -d <Ordner, in dem tweakable-dj liegt>`. Den neuen Ordner im Finder nicht auf den alten ziehen: Der Finder ersetzt dann den ganzen Ordner, samt deinen persönlichen Dateien.
 3. Tweakable DJ wie gewohnt starten. (Mac: Beim ersten Start ist eventuell wieder Rechtsklick → *Öffnen* nötig.)
 
-Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie sie sind; die Automatik läuft weiter, weil der Ordner derselbe bleibt. **Nicht in einen neuen Ordner entpacken** und dann diesen verwenden: Dort fehlen deine Einstellungen und die Anmeldung, und die Automatik zeigt weiter auf den alten Ordner. Willst du doch in einen neuen Ordner umziehen, kopiere `config.jsonc`, `tokens.json`, `state.json` und `lastfm-cache.json` (und den Ordner `archiv`, wenn du die früheren Playlists behalten willst) aus dem alten in den neuen Ordner, starte Tweakable DJ von dort und klicke einmal *Automatik speichern*.
+Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie sie sind; die Automatik läuft weiter, weil der Ordner derselbe bleibt. **Nicht in einen neuen Ordner entpacken** und dann diesen verwenden: Dort fehlen deine Einstellungen und die Anmeldung, und die Automatik zeigt weiter auf den alten Ordner. Willst du doch in einen neuen Ordner umziehen, kopiere `config.jsonc`, `tokens.json`, `state.json` und `lastfm-cache.json` (und den Ordner `archiv`, wenn du die früheren Playlists behalten willst) aus dem alten in den neuen Ordner, starte Tweakable DJ von dort und klicke einmal *Automatik speichern*. Hast du die Verknüpfung auf dem Desktop, klicke im Tab *Einstellungen* unter *Verknüpfung* auf *Neu anlegen*, damit sie den neuen Ordner startet.
 
 **Mit git**: Hast du das Repository geklont, im Ordner `git pull` ausführen. Deine persönlichen Dateien stehen in `.gitignore`, git fasst sie also nicht an. In einem git-Ordner bietet die Oberfläche *Jetzt aktualisieren* nicht an.
 
@@ -469,8 +471,9 @@ Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie
 ## 9. Deinstallieren
 
 1. **Zuerst die Automatik ausschalten:** In der Oberfläche im Tab *Einstellungen* *Automatisch neu erstellen* auf *Aus* stellen und *Speichern* klicken. Damit verschwindet der Eintrag aus dem Zeitplaner deines Systems.
-2. Das Fenster von Tweakable DJ schließen und den Ordner `tweakable-dj` löschen. Deine persönlichen Dateien (Einstellungen, Spotify-Anmeldung, Verlauf, Playlist-Archiv) sind damit auch weg. Willst du frühere Playlists behalten, kopiere vorher den Ordner `archiv`.
-3. Wenn du magst: die Playlist in Spotify löschen (standardmäßig „Tweakable DJ“) und deine Spotify-App im [Spotify-Dashboard](https://developer.spotify.com/dashboard).
+2. **Die Verknüpfung auf dem Desktop entfernen**, falls du eine hast: im Tab *Einstellungen* unter *Verknüpfung* auf *Entfernen* klicken. Oder sie von Hand vom Desktop löschen (Windows: `Tweakable DJ`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). Sonst bleibt sie auf dem Desktop liegen und führt ins Leere.
+3. Das Fenster von Tweakable DJ schließen und den Ordner `tweakable-dj` löschen. Deine persönlichen Dateien (Einstellungen, Spotify-Anmeldung, Verlauf, Playlist-Archiv) sind damit auch weg. Willst du frühere Playlists behalten, kopiere vorher den Ordner `archiv`.
+4. Wenn du magst: die Playlist in Spotify löschen (standardmäßig „Tweakable DJ“) und deine Spotify-App im [Spotify-Dashboard](https://developer.spotify.com/dashboard).
 
 **Löschst du den Ordner, während die Automatik noch an ist**, bleibt der Eintrag im Zeitplaner. Er startet weiter zur eingestellten Zeit, aber jeder Lauf scheitert unbemerkt, weil der Ordner fehlt, und die Playlist wird nicht mehr neu erstellt. Den Eintrag kannst du von Hand entfernen:
 
@@ -523,7 +526,9 @@ Es gibt immer nur einen Eintrag: Er hat stets denselben Namen, egal aus welchem 
 | „Die Automatik zeigt noch auf einen anderen Ordner“ | Der Ordner wurde verschoben oder kopiert. Einmal *Automatik speichern* klicken, dann zeigt der Eintrag im Zeitplaner wieder auf den richtigen Ordner. |
 | „Im Zeitplaner steht noch ein Eintrag unter dem alten Namen …“ | Die Automatik wurde noch unter dem früheren Namen eingetragen. Einmal *Automatik speichern* (bzw. *Eintrag entfernen*, wenn die Automatik aus ist) klicken, dann ersetzt Tweakable DJ den alten Eintrag. |
 | Oberfläche oder Ausgabe in der falschen Sprache | Oben rechts die Sprache wählen (z. B. **DE ▾**). Das speichert `language` in `config.jsonc` und gilt ab dem nächsten Lauf auch für die Automatik und das Terminal. |
-| Ordner löschen oder verschieben | Vorher die Automatik auf *Aus* stellen und speichern. Sonst bleibt ein Eintrag im Zeitplaner zurück, der ins Leere läuft ([Deinstallieren](#9-deinstallieren)). |
+| Ordner löschen oder verschieben | Vorher die Automatik auf *Aus* stellen und speichern. Sonst bleibt ein Eintrag im Zeitplaner zurück, der ins Leere läuft ([Deinstallieren](#9-deinstallieren)). Ebenso die Verknüpfung auf dem Desktop: vor dem Löschen *Entfernen*, nach dem Verschieben *Neu anlegen* (Tab *Einstellungen*, *Verknüpfung*). |
+| Verknüpfung: „Auf dem Desktop gibt es schon etwas anderes namens ‚Tweakable DJ‘“ | Auf dem Desktop liegt eine Datei mit dem Namen der Verknüpfung, aber nicht von Tweakable DJ; deshalb lässt Tweakable DJ sie in Ruhe. Benenne sie selbst um oder lösche sie, dann *Verknüpfung anlegen* klicken. |
+| Verknüpfung startet unter Linux nicht | Manche Desktops starten nur Verknüpfungen, die du erlaubt hast: Rechtsklick auf `tweakable-dj.desktop` → *Start erlauben* (bzw. *Vertrauen und starten*). |
 
 ---
 

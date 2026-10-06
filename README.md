@@ -100,18 +100,19 @@ The numbers show the order of a run:
 | `ui.mjs` | Small web server for the interface; starts the DJ at the push of a button |
 | `ui.html` | The interface itself (setup wizard, controls, buttons, output), with all texts in English, German, Spanish and French |
 | `schedule.mjs` | Automatic runs: adds Tweakable DJ to your system’s scheduler (Windows Task Scheduler, macOS launchd, Linux cron) and reads its status |
+| `shortcut.mjs` | The [desktop shortcut](#desktop-shortcut) with the logo as its icon: creates, checks and removes it (Windows: `.lnk`, Mac: a small `.app`, Linux: `.desktop` file) |
 | `notify.mjs` | System notification when an automatic run fails, using only what your system has built in (Windows: PowerShell, Mac: `osascript`, Linux: `notify-send`) |
 | `update.mjs` | Checks at most once a day whether a new version is available on GitHub (see [Update check](#update-check)) |
 | `install-update.mjs` | Installs a new version when you click *Update now* (see [Updating](#8-updating)) |
 | `manifest.json` | List of all program files of this version with their checksums. *Update now* only replaces files listed there. Only in the ZIP file, not in the GitHub repository. |
 | `package.json` | Shortcuts for developers: `npm start` (interface) and `npm test` (tests). Tweakable DJ needs no additional packages. |
-| `tests/` | Automated tests for the rules, the settings, the translations, automatic runs, the update check and *Update now*, the interface, the text file and test runs including applying them, in which Spotify, Last.fm and GitHub are only simulated. Only in the GitHub repository, not in the ZIP file. |
+| `tests/` | Automated tests for the rules, the settings, the translations, automatic runs, the desktop shortcut (only in test folders), the update check and *Update now*, the interface, the text file and test runs including applying them, in which Spotify, Last.fm and GitHub are only simulated. Only in the GitHub repository, not in the ZIP file. |
 | `config.example.jsonc` | Empty settings template with English explanations. It becomes your `config.jsonc` when you set up in English, Spanish or French. |
 | `config.example.de.jsonc` | The same template with German explanations (for setting up in German) |
 | `overview.en.svg`, `overview.de.svg` | The diagram in section 2, in English and German |
 | `docs/` | Screenshots of the interface for this guide, in English and German |
-| `LICENSE` | The license (MIT), see section 12 |
 | `assets/` | The logo: `logo.png` (interface and this guide), `logo-small.svg` (browser tab), `logo.ico` and `logo.icns` (icon of the desktop shortcut on Windows and Mac) |
+| `LICENSE` | The license (MIT), see section 12 |
 | `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, the files of automatic runs, the result of the update check, `.update/` and the archive `archiv/` are never uploaded |
 | `.gitattributes` | Consistent line endings for Windows, Mac and Linux; marks images as binary. Only in the GitHub repository, not in the ZIP file. |
 | `.github/` | Templates for bug reports and ideas, automated workflows on GitHub (e.g. the ZIP file for new versions). Only in the GitHub repository, not in the ZIP file. |
@@ -270,7 +271,7 @@ Both only change the interface, not the playlist, so a test run can still be use
 Double-click `Tweakable DJ.cmd` (Windows) or `Tweakable DJ.command` (Mac); on Linux, run `./start.sh` in a terminal. `node ui.mjs` in a terminal works everywhere too. Your browser opens <http://127.0.0.1:8899>.
 On the very first start, your system may ask for confirmation, see [setup](#7-setup-one-time), step 3. If Tweakable DJ isn’t set up yet, the setup wizard appears instead of the controls.
 
-The page has two tabs: **Playlist** (presets, controls, output with text file and test run) and **Settings** (automatic runs, block list, archive, appearance, credentials, version).
+The page has two tabs: **Playlist** (presets, controls, output with text file and test run) and **Settings** (automatic runs, block list, archive, appearance, credentials, shortcut, version).
 
 - **Language** (top right, a small selection field, e.g. **EN ▾**, with Deutsch, English, Español and Français): switches the whole interface immediately, including the wizard. Your choice is saved in `config.jsonc` (`language`) and then also applies to test runs, rebuilds, automatic runs and the terminal. Until you choose, the interface follows your browser’s language. Spanish and French are machine translated; a line at the bottom of the page says so and links to the [issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), where corrections are welcome.
 - **Presets**: four buttons set all rule controls at once:
@@ -293,6 +294,7 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
 - **Rebuild playlist**: draws again, refills “Tweakable DJ” and then shows a link to Spotify.
 - **Output**: always visible; before the first run it shows a short placeholder. Below it are the buttons for the text file: *Save as text file* downloads “Tweakable DJ” as it currently is in Spotify (after a test run: the list of the test run, see above). *Import … → From file …* fills it with your own list: first a preview (“38 of 40 found” and the lines that don’t match), then *Write to playlist “Tweakable DJ” (replaces its contents)*. More under [Text file](#text-file-save-and-import). *Import … → Earlier playlist …* brings back a playlist from the [archive](#playlist-archive), with the same preview and confirmation.
 - **Credentials** (tab *Settings*): shows whether you’re logged in to Spotify and your Last.fm username. **Change credentials** opens the setup wizard with your previous entries.
+- <a id="desktop-shortcut"></a>**Shortcut** (tab *Settings*): shows whether there is a shortcut *Tweakable DJ* with the logo on your desktop. **Create shortcut** adds one, which starts Tweakable DJ with a double-click (Windows: `Tweakable DJ.lnk`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). If you moved the folder, the section says *Points to a different folder*; **Create again** fixes it. **Remove** deletes it. Tweakable DJ only ever touches its own shortcut: if something else on the desktop has that name, it stays as it is.
 - **Log in with Spotify**: appears when your Spotify login expires soon or has expired. Spotify requires a new login every 6 months. It also appears if *Followed artists* isn’t at “no preference” and your login is from before that setting existed.
 - **Rebuild automatically** (tab *Settings*): *Off*, *Daily* or *Weekly*, plus the time and, if needed, the day of the week. When you click *Save*, Tweakable DJ adds itself to your system’s scheduler and then rebuilds the playlist by itself, even when the interface is closed. Below, you see the next run and the result of the last automatic run (✓ with the number of songs or ✗ with the reason). What happens if your computer is off at the set time:
   - Windows: the run is made up the next time you turn it on.
@@ -416,7 +418,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
    2. **Last.fm**: [create an API key](https://www.last.fm/api/account/create) (leave the callback URL empty) and enter it together with your Last.fm username. *Check* shows whether both are right and how many scrobbles Last.fm already knows from you. If it says 0, connect Spotify to Last.fm under [last.fm → Settings → Applications](https://www.last.fm/settings/applications).
    3. **Log in with Spotify**: a Spotify page opens; agree there.
    4. Choose the **source of your favorites**: your Liked Songs or one of your playlists.
-   5. **Done**: the controls appear and you can start your first test run.
+   5. **Done**: the wizard offers *Create a shortcut on the desktop* (ticked by default). With it, you can later start Tweakable DJ with a double-click on the logo on your desktop; you can also create or remove it later in the tab *Settings* ([Shortcut](#desktop-shortcut)). Then the controls appear and you can start your first test run.
 
    The wizard creates the file `config.jsonc` by itself, with explanations in the language you have selected (in English for Spanish and French). Later, you can reach it via *Change credentials* in the tab *Settings*.
 
@@ -460,7 +462,7 @@ The update only writes the program files listed in the release (`manifest.json`)
    - Mac and Linux: in a terminal, `unzip -o ~/Downloads/tweakable-dj-v….zip -d <folder that contains tweakable-dj>`. Don’t drag the new folder onto the old one in the Finder: the Finder replaces the whole folder, including your personal files.
 3. Start Tweakable DJ as usual. (Mac: the first start may again need right-click → *Open*.)
 
-Your personal files aren’t in the ZIP file, so they stay as they are, and automatic runs keep working because the folder stays the same. **Don’t unzip into a new folder** and use that one instead: it would have neither your settings nor your login, and automatic runs would still point to the old folder. If you do want to move to a new folder, copy `config.jsonc`, `tokens.json`, `state.json` and `lastfm-cache.json` (and the folder `archiv` if you want to keep your earlier playlists) from the old folder into the new one, start Tweakable DJ there and click *Save automatic runs* once.
+Your personal files aren’t in the ZIP file, so they stay as they are, and automatic runs keep working because the folder stays the same. **Don’t unzip into a new folder** and use that one instead: it would have neither your settings nor your login, and automatic runs would still point to the old folder. If you do want to move to a new folder, copy `config.jsonc`, `tokens.json`, `state.json` and `lastfm-cache.json` (and the folder `archiv` if you want to keep your earlier playlists) from the old folder into the new one, start Tweakable DJ there and click *Save automatic runs* once. If you have the desktop shortcut, click *Create again* under *Shortcut* in the tab *Settings*, so that it starts the new folder.
 
 **With git**: if you cloned the repository, run `git pull` in the folder. Your personal files are in `.gitignore`, so git doesn’t touch them. In a git folder, the interface doesn’t offer *Update now*.
 
@@ -469,8 +471,9 @@ Your personal files aren’t in the ZIP file, so they stay as they are, and auto
 ## 9. Uninstalling
 
 1. **First turn automatic runs off:** in the interface, in the tab *Settings*, set *Rebuild automatically* to *Off* and click *Save*. That removes the entry from your system’s scheduler.
-2. Close the Tweakable DJ window and delete the `tweakable-dj` folder. Your personal files (settings, Spotify login, history, playlist archive) go with it. To keep earlier playlists, copy the `archiv` folder first.
-3. If you like: delete the playlist in Spotify (by default “Tweakable DJ”) and your Spotify app in the [Spotify dashboard](https://developer.spotify.com/dashboard).
+2. **Remove the desktop shortcut**, if you have one: in the tab *Settings*, under *Shortcut*, click *Remove*. Or delete it from the desktop by hand (Windows: `Tweakable DJ`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). Otherwise it stays on the desktop and leads nowhere.
+3. Close the Tweakable DJ window and delete the `tweakable-dj` folder. Your personal files (settings, Spotify login, history, playlist archive) go with it. To keep earlier playlists, copy the `archiv` folder first.
+4. If you like: delete the playlist in Spotify (by default “Tweakable DJ”) and your Spotify app in the [Spotify dashboard](https://developer.spotify.com/dashboard).
 
 **If you delete the folder while automatic runs are still on**, the entry stays in the scheduler. It keeps starting at the set time, but each run fails silently because the folder is gone, and the playlist is no longer rebuilt. You can remove the entry by hand:
 
@@ -523,7 +526,9 @@ There is only ever one entry: it always has the same name, whichever folder it c
 | “Automatic runs still point to a different folder” | The folder was moved or copied. Click *Save automatic runs* once, and the scheduler entry points to the right folder again. |
 | “The scheduler still has an entry under the old name …” | Automatic runs were set up under the project’s former name. Click *Save automatic runs* once (or *Remove entry* if automatic runs are off), and Tweakable DJ replaces the old entry. |
 | Interface or output in the wrong language | Choose the language at the top right (e.g. **EN ▾**). That saves `language` in `config.jsonc`, which from the next run on also applies to automatic runs and the terminal. |
-| Deleting or moving the folder | First set automatic runs to *Off* and save. Otherwise an entry stays behind in the scheduler that leads nowhere ([Uninstalling](#9-uninstalling)). |
+| Deleting or moving the folder | First set automatic runs to *Off* and save. Otherwise an entry stays behind in the scheduler that leads nowhere ([Uninstalling](#9-uninstalling)). The same goes for the desktop shortcut: before deleting, *Remove*; after moving, *Create again* (tab *Settings*, *Shortcut*). |
+| Desktop shortcut: “There is already something else called ‘Tweakable DJ’ on the desktop” | A file with the name of the shortcut is on the desktop, but it isn’t from Tweakable DJ, so Tweakable DJ leaves it alone. Rename or delete it yourself, then click *Create shortcut*. |
+| Desktop shortcut on Linux doesn’t start | Some desktops only start shortcuts you allowed: right-click `tweakable-dj.desktop` → *Allow Launching* (or *Trust and Launch*). |
 
 ---
 
