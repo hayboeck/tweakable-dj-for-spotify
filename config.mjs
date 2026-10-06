@@ -33,6 +33,7 @@ export const DEFAULTS = {
   seedsPerRun: 20,
   useLastfmTopTracks: true,
   followedArtists: 0,
+  preferNewer: 0, // neuere bzw. ältere Songs bevorzugen (Faktor in lineup.mjs, newerFactor)
   currentDays: 7,
   currentFactor: 3,
   excludeExplicit: false,
@@ -50,7 +51,8 @@ export const DEFAULTS = {
 // Abgewiesen wird nur, was kaputt oder sinnlos ist; die Obergrenzen fangen Tippfehler (z. B. 5000 statt 50) ab und halten
 // die Läufe in vernünftiger Zeit. Liegt ein gespeicherter Wert außerhalb von slider, erweitert die Oberfläche den Regler.
 // 0 heißt „aus“ bei currentDays, artistGap, excludeRecentDays und noRepeatRuns; 1 heißt „aus“ bei currentFactor,
-// 0 heißt „egal“ bei followedArtists (−1 = keine gefolgten Künstler, +1 = stark bevorzugt; Formel in lineup.mjs).
+// 0 heißt „egal“ bei followedArtists (−1 = keine gefolgten Künstler, +1 = stark bevorzugt; Formel in lineup.mjs) und bei
+// preferNewer (−1 = ältere, +1 = neuere Songs bevorzugt; nur Gewichtung, kein Ausschluss; Formel in lineup.mjs).
 export const LIMITS = {
   // 500: Spotify nimmt 100 Songs pro Anfrage (der DJ schickt sie in Teilen); der erste Lauf sucht dann einige Minuten.
   size: { min: 1, max: 500, int: true, slider: [10, 100], step: 5 },
@@ -59,6 +61,7 @@ export const LIMITS = {
   // 200: genug Kandidaten auch für 500 Songs; jeder Ausgangspunkt kostet 1–3 Abfragen bei Last.fm (7 Tage im Cache).
   seedsPerRun: { min: 1, max: 200, int: true, slider: [5, 50], step: 1 },
   followedArtists: { min: -1, max: 1, slider: [-1, 1], step: 0.25 },
+  preferNewer: { min: -1, max: 1, slider: [-1, 1], step: 0.25 },
   // 365: ein Jahr; mehr ist nicht mehr „aktuell“, und Last.fm liefert ohnehin höchstens 1000 Scrobbles (lastfm.mjs).
   currentDays: { min: 0, max: 365, int: true, slider: [1, 30], step: 1 },
   // 100: Aktuelles gewinnt dann bei der Auslosung praktisch immer; mehr ändert nichts.

@@ -540,7 +540,7 @@ const TEXT = {
       finish: 'Zu den Reglern',
       close: '← Zurück zu den Einstellungen',
       presets: 'Voreinstellungen',
-      presetsHelp: 'Setzen mehrere Regler auf einmal; Name, Quelle, Anzahl Songs, gefolgte Künstler und Sperrliste bleiben.',
+      presetsHelp: 'Setzen mehrere Regler auf einmal; Name, Quelle, Anzahl Songs, gefolgte Künstler, Erscheinungsjahr und Sperrliste bleiben.',
       open: 'In Spotify öffnen ↗',
       creditLastfm: `Ähnliche Songs und Hörverlauf: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · Nutzung nur nicht kommerziell · kein offizielles Angebot von Last.fm`,
       creditSpotify: 'Kein offizielles Spotify-Produkt · Spotify ist eine Marke von Spotify AB',
@@ -568,6 +568,13 @@ const TEXT = {
       fewer: x => `Gefolgte Künstler haben ein ${x}× kleineres Los`,
       more: x => `Gefolgte Künstler haben ein ${x}× größeres Los`,
       neutral: 'Egal – die Liste wird gar nicht abgefragt',
+    },
+    // „Neuere / ältere Songs“ (preferNewer): levels von −1 bis +1, die Enden stehen unter dem Regler
+    newer: {
+      levels: ['ältere', 'eher ältere', 'egal', 'eher neuere', 'neuere'],
+      newer: x => `Songs von diesem Jahr haben ein ${x}× größeres Los, 20 Jahre alte ein ${x}× kleineres`,
+      older: x => `20 Jahre alte Songs haben ein ${x}× größeres Los, Songs von diesem Jahr ein ${x}× kleineres`,
+      neutral: 'Egal – das Erscheinungsjahr spielt keine Rolle',
     },
     variety: {
       label: 'Abwechslung bei Künstlern',
@@ -603,6 +610,8 @@ const TEXT = {
       useLastfmTopTracks: { label: 'Last.fm-Top-Songs einbeziehen', help: 'Deine meistgehörten Songs der letzten 3 Monate als zusätzliche Ausgangspunkte.' },
       followedArtists: { label: 'Gefolgte Künstler', fmt: v => followedLabel(v), hint: v => followedHint(v),
         help: 'Künstler, denen du auf Spotify folgst, auch als Gast („feat.“).' },
+      preferNewer: { label: 'Neuere / ältere Songs', fmt: v => newerLabel(v), hint: v => newerHint(v),
+        help: 'Nach Erscheinungsjahr laut Spotify; gilt für neue Songs und Favoriten, nichts fällt weg.' },
       currentDays: { label: 'Zeitraum „aktuell“', fmt: v => (v ? plural(v, 'Tag', 'Tage') : 'aus'), help: 'Was du laut Last.fm in diesem Zeitraum gehört hast.' },
       currentFactor: { label: 'Gewicht für aktuelles Hören', fmt: v => (v === 1 ? 'aus' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Aktuell Gehörtes hat ein ${num(v)}× größeres Los`),
@@ -877,7 +886,7 @@ const TEXT = {
       finish: 'Go to the controls',
       close: '← Back to settings',
       presets: 'Presets',
-      presetsHelp: 'Set several controls at once; name, source, number of songs, followed artists and block list stay.',
+      presetsHelp: 'Set several controls at once; name, source, number of songs, followed artists, release year and block list stay.',
       open: 'Open in Spotify ↗',
       creditLastfm: `Similar songs and listening history: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · non-commercial use only · not affiliated with Last.fm`,
       creditSpotify: 'Not an official Spotify product · Spotify is a trademark of Spotify AB',
@@ -905,6 +914,13 @@ const TEXT = {
       fewer: x => `Followed artists are ${x}× less likely to be drawn`,
       more: x => `Followed artists are ${x}× as likely to be drawn`,
       neutral: 'No preference – the list isn’t even fetched',
+    },
+    // „Neuere / ältere Songs“ (preferNewer): levels von −1 bis +1, die Enden stehen unter dem Regler
+    newer: {
+      levels: ['older', 'rather older', 'no preference', 'rather newer', 'newer'],
+      newer: x => `Songs from this year are ${x}× as likely to be drawn, 20-year-old ones ${x}× less likely`,
+      older: x => `20-year-old songs are ${x}× as likely to be drawn, songs from this year ${x}× less likely`,
+      neutral: 'No preference – the release year doesn’t matter',
     },
     variety: {
       label: 'Artist variety',
@@ -940,6 +956,8 @@ const TEXT = {
       useLastfmTopTracks: { label: 'Include Last.fm top songs', help: 'Your most-played songs of the last 3 months as extra starting points.' },
       followedArtists: { label: 'Followed artists', fmt: v => followedLabel(v), hint: v => followedHint(v),
         help: 'Artists you follow on Spotify, also as a guest (“feat.”).' },
+      preferNewer: { label: 'Newer / older songs', fmt: v => newerLabel(v), hint: v => newerHint(v),
+        help: 'By release year according to Spotify; applies to new songs and favorites, nothing is left out.' },
       currentDays: { label: 'Period counted as “current”', fmt: v => (v ? plural(v, 'day', 'days') : 'off'), help: 'What Last.fm says you played in this period.' },
       currentFactor: { label: 'Weight of current listening', fmt: v => (v === 1 ? 'off' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `What you’re listening to now is ${num(v)}× as likely to be drawn`),
@@ -1206,7 +1224,7 @@ const TEXT = {
       finish: 'Ir a los controles',
       close: '← Volver a los ajustes',
       presets: 'Ajustes predefinidos',
-      presetsHelp: 'Cambian varios controles a la vez; el nombre, la fuente, el número de canciones, los artistas que sigues y la lista de bloqueo no cambian.',
+      presetsHelp: 'Cambian varios controles a la vez; el nombre, la fuente, el número de canciones, los artistas que sigues, el año de publicación y la lista de bloqueo no cambian.',
       open: 'Abrir en Spotify ↗',
       creditLastfm: `Canciones similares e historial de escucha: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · solo uso no comercial · sin relación oficial con Last.fm`,
       creditSpotify: 'No es un producto oficial de Spotify · Spotify es una marca de Spotify AB',
@@ -1234,6 +1252,13 @@ const TEXT = {
       fewer: x => `Los artistas que sigues tienen ${x}× menos probabilidades de salir`,
       more: x => `Los artistas que sigues tienen ${x}× más probabilidades de salir`,
       neutral: 'Da igual: ni siquiera se consulta la lista',
+    },
+    // „Neuere / ältere Songs“ (preferNewer): levels von −1 bis +1, die Enden stehen unter dem Regler
+    newer: {
+      levels: ['antiguas', 'más bien antiguas', 'da igual', 'más bien nuevas', 'nuevas'],
+      newer: x => `Las canciones de este año tienen ${x}× más probabilidades de salir; las de hace 20 años, ${x}× menos`,
+      older: x => `Las canciones de hace 20 años tienen ${x}× más probabilidades de salir; las de este año, ${x}× menos`,
+      neutral: 'Da igual: el año de publicación no cuenta',
     },
     variety: {
       label: 'Variedad de artistas',
@@ -1269,6 +1294,8 @@ const TEXT = {
       useLastfmTopTracks: { label: 'Incluir las canciones top de Last.fm', help: 'Tus canciones más escuchadas de los últimos 3 meses como puntos de partida adicionales.' },
       followedArtists: { label: 'Artistas que sigues', fmt: v => followedLabel(v), hint: v => followedHint(v),
         help: 'Artistas que sigues en Spotify, también como invitados («feat.»).' },
+      preferNewer: { label: 'Canciones más nuevas / más antiguas', fmt: v => newerLabel(v), hint: v => newerHint(v),
+        help: 'Según el año de publicación en Spotify; vale para canciones nuevas y favoritas, no se excluye nada.' },
       currentDays: { label: 'Periodo «actual»', fmt: v => (v ? plural(v, 'día', 'días') : 'no'), help: 'Lo que según Last.fm has escuchado en este periodo.' },
       currentFactor: { label: 'Peso de lo que escuchas ahora', fmt: v => (v === 1 ? 'no' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Lo que escuchas ahora tiene ${num(v)}× más probabilidades de salir`),
@@ -1536,7 +1563,7 @@ const TEXT = {
       finish: 'Aller aux réglages',
       close: '← Retour aux paramètres',
       presets: 'Préréglages',
-      presetsHelp: 'Changent plusieurs réglages à la fois ; le nom, la source, le nombre de titres, les artistes suivis et la liste de blocage restent.',
+      presetsHelp: 'Changent plusieurs réglages à la fois ; le nom, la source, le nombre de titres, les artistes suivis, l’année de sortie et la liste de blocage restent.',
       open: 'Ouvrir dans Spotify ↗',
       creditLastfm: `Titres similaires et historique d’écoute : ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · usage non commercial uniquement · pas une offre officielle de Last.fm`,
       creditSpotify: 'Pas un produit officiel de Spotify · Spotify est une marque de Spotify AB',
@@ -1564,6 +1591,13 @@ const TEXT = {
       fewer: x => `Les artistes suivis ont ${x}× moins de chances d’être tirés`,
       more: x => `Les artistes suivis ont ${x}× plus de chances d’être tirés`,
       neutral: 'Aucune importance – la liste n’est même pas consultée',
+    },
+    // „Neuere / ältere Songs“ (preferNewer): levels von −1 bis +1, die Enden stehen unter dem Regler
+    newer: {
+      levels: ['anciens', 'plutôt anciens', 'peu importe', 'plutôt récents', 'récents'],
+      newer: x => `Les titres de cette année ont ${x}× plus de chances d’être tirés, ceux d’il y a 20 ans ${x}× moins`,
+      older: x => `Les titres d’il y a 20 ans ont ${x}× plus de chances d’être tirés, ceux de cette année ${x}× moins`,
+      neutral: 'Aucune importance – l’année de sortie ne compte pas',
     },
     variety: {
       label: 'Variété des artistes',
@@ -1599,6 +1633,8 @@ const TEXT = {
       useLastfmTopTracks: { label: 'Inclure les top titres Last.fm', help: 'Tes titres les plus écoutés des 3 derniers mois comme points de départ supplémentaires.' },
       followedArtists: { label: 'Artistes suivis', fmt: v => followedLabel(v), hint: v => followedHint(v),
         help: 'Les artistes que tu suis sur Spotify, aussi en invité (« feat. »).' },
+      preferNewer: { label: 'Titres récents / anciens', fmt: v => newerLabel(v), hint: v => newerHint(v),
+        help: 'Selon l’année de sortie sur Spotify, pour les nouveaux titres et les favoris – rien n’est exclu.' },
       currentDays: { label: 'Période « actuelle »', fmt: v => (v ? plural(v, 'jour', 'jours') : 'désactivé'), help: 'Ce que tu as écouté pendant cette période selon Last.fm.' },
       currentFactor: { label: 'Poids de l’écoute actuelle', fmt: v => (v === 1 ? 'désactivé' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Ce que tu écoutes en ce moment a ${num(v)}× plus de chances d’être tiré`),
@@ -1874,6 +1910,16 @@ function followedHint(v) {
   return v < 0 ? T.followed.fewer(x) : T.followed.more(x);
 }
 
+// Gleiche Formel wie newerFactor() in lineup.mjs: Faktor 4 hoch (Einstellung · Neuheit), Neuheit +1 für Songs von diesem Jahr,
+// −1 für Songs ab 20 Jahren; 0 = egal. Die Hinweise nennen die beiden Enden.
+const NEWER_MAX = 4;
+const newerLabel = v => T.newer.levels[v <= -1 ? 0 : v < 0 ? 1 : v === 0 ? 2 : v < 1 ? 3 : 4];
+function newerHint(v) {
+  if (v === 0) return T.newer.neutral;
+  const x = num((NEWER_MAX ** Math.abs(v)).toFixed(1));
+  return v > 0 ? T.newer.newer(x) : T.newer.older(x);
+}
+
 // --- Regler: Aufbau ohne Texte (die stehen in TEXT[lang].items bzw. .groups) ---
 // Einträge ohne type sind Schieberegler; Bereich und Schrittweite kommen vom Server (limits aus GET /api/config).
 
@@ -1890,6 +1936,7 @@ const GROUPS = [
     { key: 'seedsPerRun' },
     { key: 'useLastfmTopTracks', type: 'toggle' },
     { key: 'followedArtists' },
+    { key: 'preferNewer' },
   ]},
   { id: 'current', items: [
     { key: 'currentDays' },

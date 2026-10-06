@@ -47,17 +47,26 @@ export function trackBlocker(entries) {
 // Spieldauer in Millisekunden (duration_ms von Spotify): nur eine positive Zahl zählt, sonst null (= unbekannt).
 export const durationOf = v => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.round(v) : null);
 
+// Erscheinungsjahr: aus album.release_date von Spotify ("2024", "2024-03" oder "2024-03-15", je nach Genauigkeit) bzw. als
+// Zahl aus dem Such-Cache. Nur ein plausibles Jahr zählt, sonst null (= unbekannt; Spotify liefert z. B. "0000").
+export function yearOf(v) {
+  const y = typeof v === 'number' ? v : Number(/^(\d{4})(?:-\d\d){0,2}$/.exec(String(v ?? ''))?.[1]);
+  return Number.isInteger(y) && y >= 1000 && y <= 9999 ? y : null;
+}
+
 // --- Such-Cache in state.json (state.cache: trackKey → Treffer auf Spotify) ---
-// Eintrag: { uri, explicit, clean, durationMs, cleanDurationMs } bzw. null = auf Spotify nicht gefunden. explicit: laut
+// Eintrag: { uri, explicit, clean, durationMs, cleanDurationMs, year } bzw. null = auf Spotify nicht gefunden. explicit: laut
 // Spotify (true/false); clean: nur bei explicit true – URI einer nicht expliziten Version desselben Songs aus derselben Suche,
 // sonst null. durationMs bzw. cleanDurationMs: Spieldauer des Treffers bzw. der nicht expliziten Version (null = unbekannt).
+// year: Erscheinungsjahr des Treffers (für preferNewer; gilt auch für die nicht explizite Version, null = unbekannt).
 // Bis Version 0.1.1 stand dort nur die URI als Text: Solche Einträge bleiben gültig, explicit ist dann unbekannt (null).
 // Nur mit excludeExplicit sucht der DJ sie einmal neu und ersetzt sie (searchAgain); sonst bleiben sie, wie sie sind.
-// Einträge bis 0.1.4 haben keine Spieldauer: Sie bleiben gültig, nur wegen der Dauer wird nie neu gesucht.
+// Einträge bis 0.1.4 haben keine Spieldauer: Sie bleiben gültig, nur wegen der Dauer wird nie neu gesucht. Ebenso Einträge
+// ohne Erscheinungsjahr: Sie zählen bei preferNewer neutral (Faktor 1).
 // undefined = kein brauchbarer Eintrag (fehlt oder kaputt), dann wird ebenfalls gesucht.
 export function cacheEntry(value) {
   if (value === null) return null;
-  if (typeof value === 'string') return value ? { uri: value, explicit: null, clean: null, durationMs: null, cleanDurationMs: null } : undefined;
+  if (typeof value === 'string') return value ? { uri: value, explicit: null, clean: null, durationMs: null, cleanDurationMs: null, year: null } : undefined;
   if (!value || typeof value !== 'object' || typeof value.uri !== 'string' || !value.uri) return undefined;
   const clean = value.explicit === true && typeof value.clean === 'string' && value.clean ? value.clean : null;
   return {
@@ -66,18 +75,21 @@ export function cacheEntry(value) {
     clean,
     durationMs: durationOf(value.durationMs),
     cleanDurationMs: clean ? durationOf(value.cleanDurationMs) : null,
+    year: yearOf(value.year),
   };
 }
 
-// Neuer Eintrag aus einem Treffer von spotify.findTrack() ({ uri, explicit, clean, durationMs }) bzw. null. Die Spieldauer
-// steht nur drin, wenn Spotify sie geliefert hat.
+// Neuer Eintrag aus einem Treffer von spotify.findTrack() ({ uri, explicit, clean, durationMs, releaseYear }) bzw. null.
+// Spieldauer und Erscheinungsjahr stehen nur drin, wenn Spotify sie geliefert hat.
 export function cacheValue(hit) {
   if (!hit) return null;
   const duration = durationOf(hit.durationMs);
   const cleanDuration = durationOf(hit.clean?.durationMs);
+  const year = yearOf(hit.releaseYear);
   return {
     uri: hit.uri, explicit: hit.explicit === true, ...(duration && { durationMs: duration }),
     ...(hit.explicit === true && { clean: hit.clean?.uri ?? null, ...(cleanDuration && { cleanDurationMs: cleanDuration }) }),
+    ...(year && { year }),
   };
 }
 
@@ -132,6 +144,19 @@ export function followedMatcher(names) {
 // also symmetrisch: −0,5 ≈ ⅓ so oft, +0,5 ≈ 3,2× so oft. Wird wie currentFactor mit dem übrigen Gewicht multipliziert.
 export const FOLLOWED_MAX = 10;
 export const followedFactor = setting => (setting <= -1 ? 0 : FOLLOWED_MAX ** setting);
+
+// Faktor für das Los nach dem Erscheinungsjahr (Einstellung preferNewer von −1 bis +1, „Neuere / ältere Songs“):
+// Neuheit s = 1 − Alter/NEWER_SPAN, begrenzt auf −1 … +1 (Alter = dieses Jahr − Erscheinungsjahr: dieses Jahr = +1,
+// vor 10 Jahren = 0, vor 20 und mehr Jahren = −1). Faktor = NEWER_MAX ^ (Einstellung · s): bei +1 hat ein Song von diesem
+// Jahr ein 4× größeres Los, einer von vor 20 Jahren ein 4× kleineres, bei −1 umgekehrt, bei ±0,5 jeweils 2×.
+// 0 = aus (genau 1), unbekanntes Jahr = 1. Nur Gewichtung, nie ein Ausschluss; wird wie followedFactor multipliziert.
+export const NEWER_MAX = 4;
+export const NEWER_SPAN = 10;
+export function newerFactor(setting, year, thisYear = new Date().getFullYear()) {
+  if (!setting || !Number.isInteger(year)) return 1;
+  const s = Math.max(-1, Math.min(1, 1 - (thisYear - year) / NEWER_SPAN));
+  return NEWER_MAX ** (setting * s);
+}
 
 export function shuffle(items, rng = Math.random) {
   const a = [...items];

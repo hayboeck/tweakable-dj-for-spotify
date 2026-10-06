@@ -12,6 +12,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 - **Play time**: next to *Number of songs*, the interface shows an estimate that updates while you move the slider, e.g. *55 songs (≈ 3 h 13 min)* – based on the average song length of your last run, otherwise 3.5 minutes per song.
 - After a run, the summary shows the real play time of the list, e.g. *50 songs · 2 h 58 min*; so do the last automatic run and the playlist description. If the length of some songs is unknown (songs remembered by an older version), the DJ estimates them from the others and marks the total with *≈*. It never searches again just for that; songs found from now on are remembered with their length.
 - `@@RESULT`, `automatik.json` and `probelauf.json` have the new fields `durationMs` and `durationEstimated`.
+- **Newer / older songs** (`preferNewer`, -1 to 1, default 0 = no preference): a new slider under *Selection* prefers songs by release year according to Spotify – newer ones above 0, older ones below 0. It only changes the odds in the draw (up to 4× for songs from this year or from 20 or more years ago), nothing is left out. The search cache now also remembers the release year; older entries count as neutral and are not searched again.
 
 **Changed**
 
@@ -27,6 +28,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 - **Spieldauer**: Neben *Anzahl Songs* zeigt die Oberfläche eine Schätzung, die beim Ziehen mitläuft, z. B. *55 Songs (≈ 3:13 Std.)* – aus der durchschnittlichen Songlänge des letzten Laufs, sonst mit 3,5 Minuten pro Song.
 - Nach einem Lauf zeigt die Zusammenfassung die echte Spieldauer der Liste, z. B. *50 Songs · 2:58 Std.*; ebenso der letzte automatische Lauf und die Beschreibung der Playlist. Ist die Länge einzelner Songs unbekannt (Songs, die sich eine ältere Version gemerkt hat), schätzt der DJ sie aus den übrigen und markiert die Summe mit *≈*. Nur deswegen sucht er nie neu; ab jetzt gefundene Songs merkt er sich mit ihrer Länge.
 - `@@RESULT`, `automatik.json` und `probelauf.json` haben die neuen Felder `durationMs` und `durationEstimated`.
+- **Neuere / ältere Songs** (`preferNewer`, -1 bis 1, Standard 0 = egal): Ein neuer Regler unter *Auswahl* bevorzugt Songs nach dem Erscheinungsjahr laut Spotify – über 0 neuere, unter 0 ältere. Er ändert nur das Los (bis zu 4× für Songs von diesem Jahr bzw. von vor 20 und mehr Jahren), es fällt nichts weg. Der Such-Cache merkt sich jetzt auch das Erscheinungsjahr; ältere Einträge zählen neutral und werden nicht neu gesucht.
 
 **Geändert**
 

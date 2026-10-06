@@ -648,7 +648,9 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungs
     const windowHint = (v, c, text) => text(Math.ceil(c.size * v / c.artistWindow));
     const adventureHint = () => '';
     const followedLabel = () => '';
-    const followedHint = () => '';`;
+    const followedHint = () => '';
+    const newerLabel = () => '';
+    const newerHint = () => '';`;
   const ctx = vm.createContext({});
   vm.runInContext(`${helpers}\n${html.slice(start, end + 3)}\nthis.TEXT = TEXT; this.setT = l => { T = TEXT[l]; };`, ctx);
   const c = { size: 50, artistWindow: 20, maxPerArtist: 2, maxPerWindow: 3, artistGap: 4, schedule: 'weekly', scheduleDay: 'WED',

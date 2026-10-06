@@ -16,6 +16,7 @@
   "seedsPerRun": 20,                  // Number of starting points drawn per run, for which Last.fm finds similar songs (1–200)
   "useLastfmTopTracks": true,         // Also use your Last.fm top songs of the last 3 months as starting points
   "followedArtists": 0,               // Artists you follow on Spotify (-1–1): -1 = none of them, 0 = no preference (the list isn't even fetched), 1 = strongly preferred; applies to new songs and favorites
+  "preferNewer": 0,                   // Newer or older songs by release year (-1–1): -1 = prefer older, 0 = no preference, 1 = prefer newer; only changes the odds, nothing is left out
 
   // --- What you're listening to right now ---
   "currentDays": 7,                   // "Current" = played within this many days (according to Last.fm; 0–365, 0 = off)

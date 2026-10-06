@@ -27,8 +27,8 @@ import {
 } from './playlist.mjs';
 import { readTrial, removeTrial, saveTrial, trialProblem } from './trial.mjs';
 import {
-  arrange, artistBlocker, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, lineupDuration, norm, playableDurationMs,
-  playableUri, searchAgain, shuffle, trackBlocker, trackKey, weightedOrder, windowViolations,
+  arrange, artistBlocker, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, lineupDuration, newerFactor, norm,
+  playableDurationMs, playableUri, searchAgain, shuffle, trackBlocker, trackKey, weightedOrder, windowViolations,
 } from './lineup.mjs';
 
 const lang = resolveLang(process.env.TWEAKABLE_DJ_LANG, configLanguage());
@@ -187,6 +187,8 @@ async function main() {
     return false;
   };
   const followWeight = track => (byFollowed(track) ? followedWeight : 1);
+  // Neuere / ältere Songs (preferNewer, 0 = aus): Faktor nach dem Erscheinungsjahr, unbekanntes Jahr = 1 (lineup.mjs).
+  const newerWeight = year => newerFactor(cfg.preferNewer, year);
   // Favoriten für die Playlist (die Ausgangspunkte bleiben davon unberührt).
   const favoritePool = favorites.filter(notFollowedOut).filter(notExplicit);
 
@@ -296,7 +298,7 @@ async function main() {
 
   const familiar = [];
   const familiarTarget = Math.round(cfg.size * cfg.familiarShare);
-  for (const track of weightedOrder(favoritePool, f => seedWeight(f) * followWeight(f)).map(asFavorite)) {
+  for (const track of weightedOrder(favoritePool, f => seedWeight(f) * followWeight(f) * newerWeight(f.releaseYear)).map(asFavorite)) {
     if (familiar.length >= familiarTarget) break;
     if (!blocked.has(trackKey(track.artist, track.name)) && fits(track)) take(familiar, track);
   }
@@ -306,17 +308,22 @@ async function main() {
   // Songs aus dem Such-Cache in state.json kennen nur den Künstler von Last.fm. Format des Caches: cacheEntry() in lineup.mjs.
   const spotifyArtists = new Map();
   const fresh = [];
+  const cached = key => (Object.hasOwn(state.cache, key) ? cacheEntry(state.cache[key]) : undefined);
+  // Erscheinungsjahr neuer Songs: bekannt nur aus dem Such-Cache (Songs, die schon einmal gesucht wurden), sonst erst nach
+  // der Suche unten.
   const ordered = weightedOrder(
     [...candidates.values()],
-    c => candidateWeight(c.match, cfg.adventure) * (c.viaCurrent ? cfg.currentFactor : 1) * c.weight,
+    c => candidateWeight(c.match, cfg.adventure) * (c.viaCurrent ? cfg.currentFactor : 1) * c.weight * newerWeight(cached(c.key)?.year),
   );
   for (const c of ordered) {
     if (familiar.length + fresh.length >= cfg.size) break;
     const track = { ...c, tags: tagsOf(c.artist, c.via), kind: t(lang, 'run.new', { via: c.via }) + current(c.viaCurrent) };
     if (!fits(track)) continue;
-    let entry = Object.hasOwn(state.cache, c.key) ? cacheEntry(state.cache[c.key]) : undefined;
+    let entry = cached(c.key);
+    let searched = false;
     // Neu suchen: nicht im Cache, oder mit excludeExplicit ein Eintrag von 0.1.1 (explicit unbekannt).
     if (searchAgain(entry, excludeExplicit)) {
+      searched = true;
       try {
         const hit = await spotify.findTrack(c.artist, c.name);
         state.cache[c.key] = cacheValue(hit);
@@ -330,6 +337,10 @@ async function main() {
       }
     }
     if (!entry) continue; // auf Spotify nicht gefunden
+    // Jahr erst durch diese Suche bekannt (beim Auslosen zählte es noch nicht): Ein kleineres Los nach preferNewer gilt jetzt
+    // als Wahrscheinlichkeit, den Song zu nehmen. Beim nächsten Lauf steht das Jahr im Cache und zählt schon beim Auslosen.
+    const late = searched ? newerWeight(entry.year) : 1;
+    if (late < 1 && Math.random() >= late) continue;
     // Explizit und keine nicht explizite Version gefunden: auslassen.
     track.uri = playableUri(entry, excludeExplicit);
     if (!track.uri) {

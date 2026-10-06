@@ -41,7 +41,7 @@ test('settingsHash: nur Einstellungen, die die Auswahl bestimmen, dazu Spotify-A
   // Jede andere Einstellung zählt
   const changed = { seed: 'https://open.spotify.com/playlist/x', playlistName: 'Anders', size: 21, familiarShare: 0.5, adventure: 0.9,
     maxPerArtist: 3, artistWindow: 11, maxPerWindow: 4, artistGap: 3, excludeRecentDays: 1, noRepeatRuns: 5, seedsPerRun: 13,
-    useLastfmTopTracks: false, followedArtists: 0.5, currentDays: 3, currentFactor: 2, blockedArtists: ['Macloud'], excludeExplicit: true,
+    useLastfmTopTracks: false, followedArtists: 0.5, preferNewer: 0.5, currentDays: 3, currentFactor: 2, blockedArtists: ['Macloud'], excludeExplicit: true,
     blockedTracks: [{ artist: 'Nordlicht', name: 'Eisblau' }] };
   assert.deepEqual(Object.keys(changed).sort(), [...TRIAL_KEYS].sort(), 'jede relevante Einstellung geprüft');
   for (const [k, v] of Object.entries(changed)) assert.notEqual(settingsHash(cfg({ [k]: v })), base, k);

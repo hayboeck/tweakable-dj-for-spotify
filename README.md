@@ -143,7 +143,7 @@ Listening now ───┘        (draw)              (Last.fm)              (dr
 2. **Draw starting points:** 20 songs are drawn from your Liked Songs, your Last.fm top songs and what you’re listening to right now. If you’ve just been playing a song or its artist, it is 3× as likely to be drawn.
 3. **Collect candidates:** For each starting point, Last.fm provides the 30 most similar songs. Sometimes the DJ also takes a detour to a related artist a bit further away. Known Liked Songs and excluded songs are dropped. The DJ remembers Last.fm’s answers for 7 days, so the next run is faster.
 4. **Pick favorites:** 15% of the playlist comes from your Liked Songs. Artists you’re listening to right now are preferred (and artists you follow on Spotify, if you set *Followed artists* that way).
-5. **Draw new songs:** The candidates go into a lottery drum. “Adventure” sets how strongly similar songs are preferred; the factor sets how much current listening counts, and “Followed artists” how much artists you follow count. Every drawn song has to pass the artist limits and is looked up on Spotify. It only goes in if title and artist match.
+5. **Draw new songs:** The candidates go into a lottery drum. “Adventure” sets how strongly similar songs are preferred; the factor sets how much current listening counts, “Followed artists” how much artists you follow count, and “Newer / older songs” whether newer or older songs are preferred. Every drawn song has to pass the artist limits and is looked up on Spotify. It only goes in if title and artist match.
 6. **Set the order:** The DJ tries up to 200 orders and takes the one that best follows the rules.
 7. **Fill the playlist:** The contents of “Tweakable DJ” are replaced, and the new songs are remembered as “already played”.
 
@@ -171,8 +171,11 @@ Every rule can be changed in `config.jsonc` or in the interface. The setting’s
 | Starting points per run (`seedsPerRun`) | 20 | 1–200 |
 | Also use your Last.fm top songs of the last 3 months as starting points (`useLastfmTopTracks`) | on | `true` or `false` |
 | Followed artists (`followedArtists`): artists you follow on Spotify. -1 = none of them (like the block list, also as a guest via “feat.”), below 0 = less often, 0 = no preference (the list isn’t even fetched), above 0 = more often, 1 = strongly preferred, but not exclusively. Applies to new songs and favorites, not to the starting points. | 0 (no preference) | -1–1 |
+| Newer / older songs (`preferNewer`): by release year according to Spotify. Below 0 = prefer older songs, 0 = no preference, above 0 = prefer newer ones. Only a weight in the draw, nothing is left out. Applies to new songs and favorites, not to the starting points. | 0 (no preference) | -1–1 |
 
 How *Followed artists* works: a song by an artist you follow gets a factor on its lottery ticket of 10 to the power of the setting, so 0.5 = 3.2× as likely, 1 = 10× as likely, -0.5 = ⅓ as likely; at -1, such songs are left out entirely. The factor is multiplied with the other weights (adventure, factor for current listening), and the limits per artist still apply, so the playlist doesn’t fill up with followed artists only. Names are compared like everywhere else (upper/lower case, accents and a leading “The” don’t matter), but only whole names count: following “Queen” doesn’t include “Queen Latifah”. If you logged in to Spotify before this setting existed, log in again once (the interface shows a notice). Until then, a run shows a warning and continues as if the setting were 0.
+
+How *Newer / older songs* works: each song gets a newness from +1 (released this year) through 0 (10 years ago) to -1 (20 years ago or earlier). Its lottery ticket is multiplied by 4 to the power of (setting × newness): at 1, a song from this year is 4× as likely, one from 20 years ago 4× less likely; at 0.5, 2× each; at -1, the other way round. A song without a known release year counts as neutral. For new songs, the DJ only knows the year once it has looked them up on Spotify (search cache in `state.json`); on the first lookup, a smaller ticket therefore acts as the probability of taking the song. Songs looked up by an older version have no year in the cache and count as neutral – the DJ never searches again just for that.
 
 **What you’re listening to now counts more**
 
@@ -256,7 +259,7 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
   - *My current phase*: closely follows what you’re listening to right now
   - *Default*: the basic settings
 
-  Name, source, number of songs, followed artists and block list stay as they are. If your settings match a preset exactly, it is highlighted.
+  Name, source, number of songs, followed artists, *Newer / older songs* and block list stay as they are. If your settings match a preset exactly, it is highlighted.
 - **Controls**: each setting has a control, an explanation and a green hint showing what the value does right now. If a value differs from the default, clicking “Default: …” resets it. A value from `config.jsonc` outside the allowed range is marked in red ([Rules and settings](#5-rules-and-settings)).
 - **Artist variety**: one slider with four steps (*low* to *very high*) sets all four artist rules at once. The individual values are under *Details for experts*; if they don’t match any step, the slider shows *Custom* and the details open.
 - **Source of your favorites**: a list with your Liked Songs and your playlists. Only playlists you own or collaborate on are offered, because Spotify only shares the contents of those.
