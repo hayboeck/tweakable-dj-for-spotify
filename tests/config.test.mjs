@@ -104,8 +104,10 @@ test('Zahlenwerte: Grenzen aus LIMITS, ganze Zahlen, Meldung mit Schlüssel, Ber
   // Bewusst so: 0 = aus bei Abstand, Sperren und Zeitraum „aktuell“, 1 = aus beim Faktor; Anteile von 0 bis 1
   assert.deepEqual(Object.fromEntries(Object.entries(LIMITS).map(([k, l]) => [k, l.min])), {
     size: 1, familiarShare: 0, adventure: 0, seedsPerRun: 1, followedArtists: -1, preferNewer: -1, currentDays: 0, currentFactor: 1, maxPerArtist: 1,
-    artistWindow: 1, maxPerWindow: 1, artistGap: 0, excludeRecentDays: 0, noRepeatRuns: 0,
+    artistWindow: 1, maxPerWindow: 1, artistGap: 0, excludeRecentDays: 0, noRepeatRuns: 0, archiveCount: 0,
   });
+  // Archiv: Standard 20, 0 = aus, höchstens 200
+  assert.deepEqual([DEFAULTS.archiveCount, LIMITS.archiveCount.max], [20, 200]);
   assert.deepEqual([LIMITS.familiarShare.max, LIMITS.adventure.max, LIMITS.size.max], [1, 1, 500]);
   assert.deepEqual(Object.keys(LIMITS).filter(k => !LIMITS[k].int), ['familiarShare', 'adventure', 'followedArtists', 'preferNewer', 'currentFactor']);
   // Neuere / ältere Songs: −1 bis +1, 0 = egal (Standard, Verhalten wie bisher)

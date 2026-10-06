@@ -10,7 +10,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { checkManifest, installBlocker, installUpdate, isPersonal, PERSONAL_FILES, pathProblem, readZip } from '../install-update.mjs';
+import { checkManifest, installBlocker, installUpdate, isPersonal, PERSONAL_DIRS, PERSONAL_FILES, pathProblem, readZip } from '../install-update.mjs';
 import { buildManifest } from '../.github/release-manifest.mjs';
 import { currentVersion } from '../update.mjs';
 import { OWNER_REPO, buildZip, makeRelease, programFiles } from './mock-release.mjs';
@@ -123,6 +123,8 @@ test('pathProblem: persönliche Dateien, Pfade außerhalb, Backslash, Laufwerk, 
     assert.equal(pathProblem(p), 'update.reasonName', JSON.stringify(p));
   }
   assert.ok(isPersonal('AUTOMATIK.LOG') && isPersonal('x.log') && !isPersonal('ui.mjs'));
+  // Playlist-Archiv: der ganze Ordner ist persönlich
+  for (const p of ['archiv/2026-10-06 18-30-05 Tweakable DJ.txt', 'Archiv/x.txt', 'archiv']) assert.equal(pathProblem(p), 'update.reasonPersonal', p);
 });
 
 // probelauf.json (Ergebnis des letzten Probelaufs) und die anderen persönlichen Dateien: nie im Repository (.gitignore),
@@ -133,6 +135,7 @@ test('Persönliche Dateien: .gitignore, Sicherheitsnetz in release.yml, release-
   const ignored = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8').split(/\r?\n/).filter(l => l.trim() && !l.startsWith('#'));
   const glob = p => new RegExp(`^${p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`);
   for (const f of PERSONAL_FILES) assert.ok(ignored.some(p => glob(p).test(f)), `${f} fehlt in .gitignore`);
+  for (const d of PERSONAL_DIRS) assert.ok(ignored.includes(`${d}/`), `${d}/ fehlt in .gitignore`);
 
   // release.yml: Das find-Kommando des Sicherheitsnetzes erfasst jede persönliche Datei (-name mit Platzhaltern wie bei find)
   const yml = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'release.yml'), 'utf8');

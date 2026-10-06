@@ -17,6 +17,8 @@ automatik.json
 update-check.json
 # Arbeitsordner von „Jetzt aktualisieren“ (install-update.mjs): Zwischenablage und Sicherung der alten Programmdateien
 .update/
+# Playlist-Archiv: jede geschriebene Playlist als Textdatei (archive.mjs)
+archiv/
 
 # System- und Editor-Dateien
 .DS_Store

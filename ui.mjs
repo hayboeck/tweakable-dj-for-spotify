@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Oberfläche für Tweakable DJ: Einrichtung, Regler für alle Einstellungen, Probelauf, Übernehmen des Probelaufs,
-// Neuerstellung sowie Export und Import als Textdatei im Browser.
+// Neuerstellung, Export und Import als Textdatei im Browser sowie das Playlist-Archiv (archive.mjs) zum Zurückholen.
 //   node ui.mjs                startet die Oberfläche auf http://127.0.0.1:8899 (anderer Port: TWEAKABLE_DJ_PORT)
 //   node ui.mjs --no-browser   dasselbe, ohne den Browser zu öffnen (so auch beim Neustart nach einem Update)
 // Sprache der Antworten: Header "X-Lang: de|en|es|fr" der Anfrage, sonst "language" aus config.jsonc, sonst die Systemsprache.
@@ -26,6 +26,7 @@ import {
   writePlaylist,
 } from './playlist.mjs';
 import { readTrial, trialInfo, trialProblem } from './trial.mjs';
+import { archivePlaylist, listArchive, readArchive } from './archive.mjs';
 import { checkForUpdate, currentVersion } from './update.mjs';
 
 // Sprache für Konsole und Anfragen ohne X-Lang.
@@ -498,7 +499,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Textdatei importieren, Schritt 2 (nach der Rückfrage): Body { uris } aus der Vorschau. Ersetzt den Inhalt der Playlist
-    // und setzt die Beschreibung; zählt nicht als Lauf (state.json bleibt, wie es ist). → { ok, songs, playlistName, playlistUrl, created }
+    // und setzt die Beschreibung; zählt nicht als Lauf (state.json bleibt, wie es ist). Danach kommt die Playlist ins Archiv;
+    // klappt das nicht, steht der Grund in warning. → { ok, songs, playlistName, playlistUrl, created, warning? }
     if (route === 'POST /api/import') {
       const busy = importBusy(lang);
       if (busy) return send(409, { error: busy });
@@ -512,10 +514,31 @@ const server = http.createServer(async (req, res) => {
         const { url: playlistUrl, created } = await writePlaylist(spotify, {
           name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang,
         });
-        return send(200, { ok: true, songs: uris.length, playlistName: cfg.playlistName, playlistUrl, created });
+        let warning = null;
+        try {
+          await archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount });
+        } catch (e) {
+          warning = t(lang, 'archive.failed', { message: e.message });
+        }
+        return send(200, { ok: true, songs: uris.length, playlistName: cfg.playlistName, playlistUrl, created, ...(warning && { warning }) });
       } finally {
         importing = false;
       }
+    }
+
+    // Playlist-Archiv für „Importieren … → Frühere Playlist …“: { keep (archiveCount, 0 = aus), entries: [{ id, at, songs }] },
+    // neueste zuerst. Liest nur den Ordner archiv/, fragt Spotify nicht.
+    if (route === 'GET /api/archive') {
+      return send(200, { keep: currentConfig(lang).archiveCount, entries: listArchive(HERE) });
+    }
+
+    // Inhalt eines Eintrags: ?id=<Dateiname aus der Liste> → { id, text }. Die Seite schickt text dann wie eine Datei an
+    // POST /api/import/preview. Nur Namen nach dem eigenen Muster, ohne Pfad (readArchive); sonst 404.
+    if (route === 'GET /api/archive/entry') {
+      const id = url.searchParams.get('id');
+      const text = readArchive(HERE, id);
+      if (text === null) return send(404, { error: t(lang, 'archive.notFound') });
+      return send(200, { id, text });
     }
 
     send(404, { error: t(lang, 'ui.notFound') });

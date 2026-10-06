@@ -211,6 +211,10 @@ export const MESSAGES = {
     'import.badList': 'Ungültige Liste: erwartet sind 1 bis 500 Spotify-Songs (spotify:track:…).',
     'import.description': 'Tweakable DJ · aus einer Textdatei, {date}, {time} Uhr · {count|# Song|# Songs}',
     'import.done': '"{name}" enthält jetzt {count|# Song|# Songs} aus der Datei ✓  {url}',
+    // Playlist-Archiv (archive.mjs)
+    'archive.saved': 'Im Archiv abgelegt: {file}',
+    'archive.failed': 'Nicht im Archiv abgelegt: {message}',
+    'archive.notFound': 'Diesen Eintrag gibt es im Archiv nicht (mehr).',
 
     // --- schedule.mjs ---
     'schedule.off': 'Die Automatik ist aus, dafür gibt es keinen Eintrag.',
@@ -468,6 +472,10 @@ export const MESSAGES = {
     'import.badList': 'Invalid list: expected 1 to 500 Spotify songs (spotify:track:…).',
     'import.description': 'Tweakable DJ · from a text file, {date}, {time} · {count|# song|# songs}',
     'import.done': '"{name}" now contains {count|# song|# songs} from the file ✓  {url}',
+    // Playlist-Archiv (archive.mjs)
+    'archive.saved': 'Saved to the archive: {file}',
+    'archive.failed': 'Not saved to the archive: {message}',
+    'archive.notFound': 'This entry isn’t in the archive (anymore).',
 
     // --- schedule.mjs ---
     'schedule.off': 'Automatic runs are off, so there is no scheduler entry.',
@@ -726,6 +734,10 @@ export const MESSAGES = {
     'import.badList': 'Lista no válida: se esperaban de 1 a 500 canciones de Spotify (spotify:track:…).',
     'import.description': 'Tweakable DJ · desde un archivo de texto, {date}, {time} · {count|# canción|# canciones}',
     'import.done': '"{name}" contiene ahora {count|# canción|# canciones} del archivo ✓  {url}',
+    // Playlist-Archiv (archive.mjs)
+    'archive.saved': 'Guardada en el historial: {file}',
+    'archive.failed': 'No se guardó en el historial: {message}',
+    'archive.notFound': 'Esta entrada ya no está en el historial.',
 
     // --- schedule.mjs ---
     'schedule.off': 'Las ejecuciones automáticas están desactivadas, así que no hay ninguna entrada en el programador.',
@@ -985,6 +997,10 @@ export const MESSAGES = {
     'import.badList': 'Liste non valide : de 1 à 500 titres Spotify attendus (spotify:track:…).',
     'import.description': 'Tweakable DJ · depuis un fichier texte, {date}, {time} · {count|# titre|# titres}',
     'import.done': '"{name}" contient maintenant {count|# titre|# titres} du fichier ✓  {url}',
+    // Playlist-Archiv (archive.mjs)
+    'archive.saved': 'Enregistrée dans les archives : {file}',
+    'archive.failed': 'Pas enregistrée dans les archives : {message}',
+    'archive.notFound': 'Cette entrée n’est plus dans les archives.',
 
     // --- schedule.mjs ---
     'schedule.off': 'Les exécutions automatiques sont désactivées, il n’y a donc aucune entrée dans le planificateur.',

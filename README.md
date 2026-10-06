@@ -90,6 +90,7 @@ The numbers show the order of a run:
 | `lineup.mjs` | The selection and ordering rules: the draw, “3 in 20”, gaps, comparing song titles |
 | `trial.mjs` | Remembers the last test run for *Use this list* and checks whether it is still valid |
 | `playlist.mjs` | Writes and reads the playlist; format and import of the [text file](#text-file-save-and-import) |
+| `archive.mjs` | The [playlist archive](#playlist-archive): keeps every written playlist as a text file in `archiv/` and removes old ones |
 | `spotify.mjs` | Connection to Spotify: login, reading Liked Songs, finding songs, writing the playlist |
 | `lastfm.mjs` | Connection to Last.fm: similar songs and artists, your listening history |
 | `config.mjs` | Reads and writes `config.jsonc` without destroying the comments |
@@ -108,7 +109,7 @@ The numbers show the order of a run:
 | `overview.en.svg`, `overview.de.svg` | The diagram in section 2, in English and German |
 | `docs/` | Screenshots of the interface for this guide, in English and German |
 | `LICENSE` | The license (MIT), see section 12 |
-| `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, the files of automatic runs, the result of the update check and `.update/` are never uploaded |
+| `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, the files of automatic runs, the result of the update check, `.update/` and the archive `archiv/` are never uploaded |
 | `.gitattributes` | Consistent line endings for Windows, Mac and Linux; marks images as binary. Only in the GitHub repository, not in the ZIP file. |
 | `.github/` | Templates for bug reports and ideas, automated workflows on GitHub (e.g. the ZIP file for new versions). Only in the GitHub repository, not in the ZIP file. |
 
@@ -124,6 +125,7 @@ The numbers show the order of a run:
 | `automatik.log` | The complete output of the last automatic run, for troubleshooting |
 | `update-check.json` | Result of the last [update check](#update-check) (time and newest version). Deleting it does no harm. |
 | `.update/` | Created by *Update now*: the backup of the program files of the previous version (`backup-<version>`). Deleting it does no harm. |
+| `archiv/` | The [playlist archive](#playlist-archive): every written playlist as a text file, e.g. `2026-10-06 18-30-05 Tweakable DJ.txt`. Deleting it does no harm, the earlier playlists are just gone. |
 
 `config.jsonc` contains your Client ID and your Last.fm key. Neither is very sensitive, but you still shouldn’t share them publicly.
 
@@ -235,6 +237,12 @@ The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to se
 |---|---|---|
 | Notify on failures (`notifyOnFailure`): if an automatic run fails, your system shows a notification with the reason and what to do (e.g. “Your Spotify login has expired. Open Tweakable DJ and log in to Spotify again.”). From 10 days before your Spotify login expires, a successful automatic run also reminds you, at most once a day. Runs from the interface or the terminal never notify. | on | `true` or `false` |
 
+**Archive**
+
+| Setting | Default | Allowed |
+|---|---|---|
+| Keep earlier playlists (`archiveCount`): after each write, the playlist is saved as a text file in the folder `archiv`; this many of the newest stay, Tweakable DJ deletes older ones itself. 0 = off: nothing is saved, existing files stay. See [Playlist archive](#playlist-archive). | 20 | 0–200 |
+
 **Language**
 
 | Setting | Default |
@@ -250,7 +258,7 @@ The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to se
 Double-click `Tweakable DJ.cmd` (Windows) or `Tweakable DJ.command` (Mac); on Linux, run `./start.sh` in a terminal. `node ui.mjs` in a terminal works everywhere too. Your browser opens <http://127.0.0.1:8899>.
 On the very first start, your system may ask for confirmation, see [setup](#7-setup-one-time), step 3. If Tweakable DJ isn’t set up yet, the setup wizard appears instead of the controls.
 
-The page has two tabs: **Playlist** (presets, controls, output with text file and test run) and **Settings** (automatic runs, block list, credentials, version).
+The page has two tabs: **Playlist** (presets, controls, output with text file and test run) and **Settings** (automatic runs, block list, archive, credentials, version).
 
 - **Language** (top right, a small selection field, e.g. **EN ▾**, with Deutsch, English, Español and Français): switches the whole interface immediately, including the wizard. Your choice is saved in `config.jsonc` (`language`) and then also applies to test runs, rebuilds, automatic runs and the terminal. Until you choose, the interface follows your browser’s language. Spanish and French are machine translated; a line at the bottom of the page says so and links to the [issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), where corrections are welcome.
 - **Presets**: four buttons set all rule controls at once:
@@ -264,12 +272,13 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
 - **Artist variety**: one slider with four steps (*low* to *very high*) sets all four artist rules at once. The individual values are under *Details for experts*; if they don’t match any step, the slider shows *Custom* and the details open.
 - **Source of your favorites**: a list with your Liked Songs and your playlists. Only playlists you own or collaborate on are offered, because Spotify only shares the contents of those.
 - **Block list** (tab *Settings*): artists, single songs and explicit songs, see [Block list](#block-list-artists-and-songs) below.
+- **Archive** (tab *Settings*): how many earlier playlists are kept as text files, see [Playlist archive](#playlist-archive).
 - **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*. They apply to both tabs; a dot on the other tab shows unsaved changes there. The tab *Settings* shows only these two buttons.
 - **Test run**: shows the selection without changing the playlist. Below it:
   - **Use this list**: writes exactly these songs, in this order, to “Tweakable DJ” without drawing again, including the description. It counts like a run (the songs are then remembered for *Block previous runs*). The button is valid for 24 hours and only as long as the settings stay as they were for the test run; after that, after a rebuild (also by automatic runs) or if `probelauf.json` is missing, it is disabled and says why. Then just start a new test run. Setting the controls back makes it available again.
   - **Save as text file** (below the output): after a test run, it downloads the list of the test run, even if it isn’t in the playlist (yet); the file name ends in `-test-run`.
 - **Rebuild playlist**: draws again, refills “Tweakable DJ” and then shows a link to Spotify.
-- **Output**: always visible; before the first run it shows a short placeholder. Below it are the buttons for the text file: *Save as text file* downloads “Tweakable DJ” as it currently is in Spotify (after a test run: the list of the test run, see above). *Import … → From file …* fills it with your own list: first a preview (“38 of 40 found” and the lines that don’t match), then *Write to playlist “Tweakable DJ” (replaces its contents)*. More under [Text file](#text-file-save-and-import).
+- **Output**: always visible; before the first run it shows a short placeholder. Below it are the buttons for the text file: *Save as text file* downloads “Tweakable DJ” as it currently is in Spotify (after a test run: the list of the test run, see above). *Import … → From file …* fills it with your own list: first a preview (“38 of 40 found” and the lines that don’t match), then *Write to playlist “Tweakable DJ” (replaces its contents)*. More under [Text file](#text-file-save-and-import). *Import … → Earlier playlist …* brings back a playlist from the [archive](#playlist-archive), with the same preview and confirmation.
 - **Credentials** (tab *Settings*): shows whether you’re logged in to Spotify and your Last.fm username. **Change credentials** opens the setup wizard with your previous entries.
 - **Log in with Spotify**: appears when your Spotify login expires soon or has expired. Spotify requires a new login every 6 months. It also appears if *Followed artists* isn’t at “no preference” and your login is from before that setting existed.
 - **Rebuild automatically** (tab *Settings*): *Off*, *Daily* or *Weekly*, plus the time and, if needed, the day of the week. When you click *Save*, Tweakable DJ adds itself to your system’s scheduler and then rebuilds the playlist by itself, even when the interface is closed. Below, you see the next run and the result of the last automatic run (✓ with the number of songs or ✗ with the reason). What happens if your computer is off at the set time:
@@ -355,6 +364,16 @@ Main artist, Guest – Title	https://open.spotify.com/track/…
 - An import replaces the contents of the playlist and sets its description, **but doesn’t count as a DJ run**: it writes nothing to the history (`state.json`), so its songs aren’t blocked by *Block previous runs*. It’s your list, not the DJ’s selection.
 - No import starts during a run, an update or a Spotify login, and vice versa.
 
+### Playlist archive
+
+After each write of the playlist to Spotify – *Rebuild playlist*, automatic runs, *Use this list*, imports and `node dj.mjs` in the terminal – Tweakable DJ saves the written list as a text file in the folder `archiv` inside the Tweakable DJ folder, in the same format as *Save as text file*. The file name starts with date and time, e.g. `2026-10-06 18-30-05 Tweakable DJ.txt`, so the files sort by time.
+
+- **Restore**: *Import … → Earlier playlist …* (below the output) lists the entries, newest first, with time and number of songs. A click shows the same preview as an import from a file; nothing is written until you confirm. Like every import, it doesn’t count as a run of the DJ.
+- **How many**: *Keep earlier playlists* in the tab *Settings* (`archiveCount`, default 20, at most 200). Tweakable DJ deletes older files the next time it saves one. It never touches other files in the `archiv` folder.
+- **Off**: 0 saves nothing anymore; existing files stay and can still be restored.
+- If saving fails (e.g. the folder is read-only), the run only shows a warning (⚠); the playlist is written anyway.
+- `archiv` is one of your personal files: never in the repository, never in the ZIP file, and an update never touches it.
+
 ### Update check
 
 When you open the interface, Tweakable DJ checks **at most once a day** whether a new version has been released. For this, it sends a single request to the GitHub Releases API (`api.github.com`) that asks for the newest release of Tweakable DJ. **No personal data is sent**: no settings, credentials, songs or IDs. The answer is stored in `update-check.json`; if the check fails (e.g. offline), it tries again an hour later at the earliest. Only the interface checks, not runs in the terminal or automatic runs. It only shows a notice and never downloads or installs anything by itself; an update only happens when you click *Update now* (see [Updating](#8-updating)).
@@ -410,7 +429,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
 
 ## 8. Updating
 
-When a new version is out, a notice appears at the top of the interface. What changed is listed in [CHANGELOG.md](CHANGELOG.md). Either way of updating keeps **your personal files exactly as they are**: `config.jsonc` (settings, Client ID, Last.fm key and username), `tokens.json` (Spotify login), `state.json` (history), `lastfm-cache.json`, `probelauf.json` (last test run) and the files of automatic runs. They aren’t in the ZIP file, and an update never writes them.
+When a new version is out, a notice appears at the top of the interface. What changed is listed in [CHANGELOG.md](CHANGELOG.md). Either way of updating keeps **your personal files exactly as they are**: `config.jsonc` (settings, Client ID, Last.fm key and username), `tokens.json` (Spotify login), `state.json` (history), `lastfm-cache.json`, `probelauf.json` (last test run), the files of automatic runs and the playlist archive `archiv/`. They aren’t in the ZIP file, and an update never writes them.
 
 **With the button**
 
@@ -428,7 +447,7 @@ The update only writes the program files listed in the release (`manifest.json`)
    - Mac and Linux: in a terminal, `unzip -o ~/Downloads/tweakable-dj-v….zip -d <folder that contains tweakable-dj>`. Don’t drag the new folder onto the old one in the Finder: the Finder replaces the whole folder, including your personal files.
 3. Start Tweakable DJ as usual. (Mac: the first start may again need right-click → *Open*.)
 
-Your personal files aren’t in the ZIP file, so they stay as they are, and automatic runs keep working because the folder stays the same. **Don’t unzip into a new folder** and use that one instead: it would have neither your settings nor your login, and automatic runs would still point to the old folder. If you do want to move to a new folder, copy `config.jsonc`, `tokens.json`, `state.json` and `lastfm-cache.json` from the old folder into the new one, start Tweakable DJ there and click *Save automatic runs* once.
+Your personal files aren’t in the ZIP file, so they stay as they are, and automatic runs keep working because the folder stays the same. **Don’t unzip into a new folder** and use that one instead: it would have neither your settings nor your login, and automatic runs would still point to the old folder. If you do want to move to a new folder, copy `config.jsonc`, `tokens.json`, `state.json` and `lastfm-cache.json` (and the folder `archiv` if you want to keep your earlier playlists) from the old folder into the new one, start Tweakable DJ there and click *Save automatic runs* once.
 
 **With git**: if you cloned the repository, run `git pull` in the folder. Your personal files are in `.gitignore`, so git doesn’t touch them. In a git folder, the interface doesn’t offer *Update now*.
 
@@ -437,7 +456,7 @@ Your personal files aren’t in the ZIP file, so they stay as they are, and auto
 ## 9. Uninstalling
 
 1. **First turn automatic runs off:** in the interface, in the tab *Settings*, set *Rebuild automatically* to *Off* and click *Save*. That removes the entry from your system’s scheduler.
-2. Close the Tweakable DJ window and delete the `tweakable-dj` folder. Your personal files (settings, Spotify login, history) go with it.
+2. Close the Tweakable DJ window and delete the `tweakable-dj` folder. Your personal files (settings, Spotify login, history, playlist archive) go with it. To keep earlier playlists, copy the `archiv` folder first.
 3. If you like: delete the playlist in Spotify (by default “Tweakable DJ”) and your Spotify app in the [Spotify dashboard](https://developer.spotify.com/dashboard).
 
 **If you delete the folder while automatic runs are still on**, the entry stays in the scheduler. It keeps starting at the set time, but each run fails silently because the folder is gone, and the playlist is no longer rebuilt. You can remove the entry by hand:

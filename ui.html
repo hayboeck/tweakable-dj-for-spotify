@@ -224,6 +224,13 @@
   .import-menu { margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
   .import-menu .actions { margin-top: 0; }
   .import-menu .help { margin: 8px 0 0; }
+  .archive-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 220px; overflow: auto; border-top: 1px solid var(--border); }
+  .archive-list li { border-bottom: 1px solid var(--border); }
+  .archive-list button { width: 100%; text-align: left; font: inherit; font-size: 14px; padding: 7px 4px; border: 0; background: none; color: var(--text); cursor: pointer; }
+  .archive-list button:hover { color: var(--accent); }
+  .archive-list button:disabled { opacity: .5; cursor: default; }
+  #out #archive-msg { margin: 8px 0 0; }
+  .msg .warn-note { color: var(--warn); }
   /* Platzhalter, solange noch nichts gelaufen ist */
   #log:empty::before { content: attr(data-empty); color: var(--muted); font: 13.5px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   .import-preview { margin: 0 0 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
@@ -395,8 +402,8 @@
       <div id="groups"></div>
       <!-- Ausgabe von Probelauf und Neuerstellung (immer sichtbar, vor dem ersten Lauf mit Platzhalter), darunter eine Knopfreihe:
            nach einem Probelauf „Diese Liste übernehmen“ (POST /api/apply); „Als Textdatei speichern“ (GET /api/export, nach einem
-           Probelauf dessen Liste); „Importieren …“ mit der Auswahl „Aus Datei …“: Vorschau (POST /api/import/preview), nach der
-           Rückfrage schreiben (POST /api/import) -->
+           Probelauf dessen Liste); „Importieren …“ mit der Auswahl „Aus Datei …“ bzw. „Frühere Playlist …“ (Archiv: GET /api/archive,
+           Eintrag mit GET /api/archive/entry): Vorschau (POST /api/import/preview), nach der Rückfrage schreiben (POST /api/import) -->
       <section id="out">
         <div class="out-head">
           <span id="summary" class="summary"></span>
@@ -412,8 +419,14 @@
         <div class="import-menu" id="import-menu" hidden>
           <div class="actions">
             <button type="button" class="btn small" id="import-from-file" data-t="importFromFile"></button>
+            <button type="button" class="btn small" id="import-from-archive" data-t="importFromArchive" aria-expanded="false" aria-controls="archive-box"></button>
           </div>
           <p class="help" id="files-help"></p>
+          <!-- Frühere Playlists aus dem Archiv, neueste zuerst; ein Klick zeigt die Vorschau wie bei einer Datei -->
+          <div id="archive-box" hidden>
+            <p class="msg" id="archive-msg" role="status"></p>
+            <ul class="archive-list" id="archive-list"></ul>
+          </div>
         </div>
         <p class="msg" id="trial-msg" role="status" hidden></p>
         <p class="msg" id="files-msg" role="status" aria-live="polite"></p>
@@ -552,6 +565,7 @@ const TEXT = {
       saveText: 'Als Textdatei speichern',
       importFile: 'Importieren …',
       importFromFile: 'Aus Datei …',
+      importFromArchive: 'Frühere Playlist …',
       outEmpty: 'Hier erscheint die Ausgabe von Probelauf und Playlist-Erstellung.',
       language: 'Sprache',
       mtNote: '',
@@ -594,6 +608,7 @@ const TEXT = {
       repeats: 'Keine Wiederholungen',
       blocked: 'Sperrliste',
       auto: 'Automatisch neu erstellen',
+      archive: 'Archiv',
     },
     items: {
       playlistName: { label: 'Name der Playlist', help: 'Wird angelegt, falls es sie noch nicht gibt.' },
@@ -632,6 +647,8 @@ const TEXT = {
       blockedArtists: { label: 'Künstler, die nie gespielt werden', placeholder: 'Name des Künstlers', help: 'Auch als Gast („feat.“).' },
       blockedTracks: { label: 'Songs, die nie gespielt werden',
         help: 'Sperren mit × in der Liste eines Probelaufs; andere Versionen (z. B. Live) sind mitgesperrt.' },
+      archiveCount: { label: 'Frühere Playlists aufheben', fmt: v => (v ? plural(v, 'Playlist', 'Playlists') : 'aus'),
+        help: 'Jede geschriebene Playlist als Textdatei im Ordner „archiv“ von Tweakable DJ; zurückholen mit „Importieren … → Frühere Playlist …“.' },
       schedule: { label: 'Wie oft', options: { off: 'Aus', daily: 'Täglich', weekly: 'Wöchentlich' },
         help: 'Erstellt die Playlist zur eingestellten Zeit von selbst neu.' },
       scheduleDay: { label: 'Wochentag',
@@ -689,6 +706,13 @@ const TEXT = {
       dirty: 'Nicht mehr übernehmbar: Du hast seit dem Probelauf Einstellungen geändert. Stelle sie zurück oder starte einen neuen Probelauf.',
       old: 'Nicht mehr übernehmbar: Der Probelauf ist älter als 24 Stunden. Starte einen neuen Probelauf.',
       blocked: 'Nicht mehr übernehmbar: Du hast einen Song aus dieser Liste gesperrt. Starte einen neuen Probelauf – er speichert vorher.',
+    },
+    // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
+    archive: {
+      entry: (when, n) => `${when} · ${plural(n, 'Song', 'Songs')}`,
+      empty: 'Noch keine früheren Playlists im Archiv.',
+      off: 'Das Archiv ist aus – einschalten im Tab „Einstellungen“ unter „Archiv“.',
+      loading: 'Lade das Archiv …',
     },
     // Als Textdatei speichern und Textdatei importieren
     files: {
@@ -898,6 +922,7 @@ const TEXT = {
       saveText: 'Save as text file',
       importFile: 'Import …',
       importFromFile: 'From file …',
+      importFromArchive: 'Earlier playlist …',
       outEmpty: 'The output of test runs and playlist builds appears here.',
       language: 'Language',
       mtNote: '',
@@ -940,6 +965,7 @@ const TEXT = {
       repeats: 'No repeats',
       blocked: 'Block list',
       auto: 'Rebuild automatically',
+      archive: 'Archive',
     },
     items: {
       playlistName: { label: 'Playlist name', help: 'Created if it doesn’t exist yet.' },
@@ -978,6 +1004,8 @@ const TEXT = {
       blockedArtists: { label: 'Artists that are never played', placeholder: 'Artist name', help: 'Also as a guest (“feat.”).' },
       blockedTracks: { label: 'Songs that are never played',
         help: 'Block with the × in the list of a test run; other versions (e.g. live) are blocked too.' },
+      archiveCount: { label: 'Keep earlier playlists', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'off'),
+        help: 'Each written playlist as a text file in the “archiv” folder of Tweakable DJ; restore it with “Import … → Earlier playlist …”.' },
       schedule: { label: 'How often', options: { off: 'Off', daily: 'Daily', weekly: 'Weekly' },
         help: 'Rebuilds the playlist by itself at the set time.' },
       scheduleDay: { label: 'Day of the week',
@@ -1033,6 +1061,13 @@ const TEXT = {
       dirty: 'Can no longer be applied: you’ve changed settings since the test run. Change them back or start a new test run.',
       old: 'Can no longer be applied: the test run is more than 24 hours old. Start a new test run.',
       blocked: 'Can no longer be applied: you blocked a song from this list. Start a new test run – it saves first.',
+    },
+    // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
+    archive: {
+      entry: (when, n) => `${when} · ${plural(n, 'song', 'songs')}`,
+      empty: 'No earlier playlists in the archive yet.',
+      off: 'The archive is off – turn it on in the “Settings” tab under “Archive”.',
+      loading: 'Loading the archive …',
     },
     files: {
       help: name => `Replaces the content of “${name}” after a preview. Text file: one “artist – title” or Spotify link per line.`,
@@ -1236,6 +1271,7 @@ const TEXT = {
       saveText: 'Guardar como texto',
       importFile: 'Importar …',
       importFromFile: 'Desde archivo …',
+      importFromArchive: 'Playlist anterior …',
       outEmpty: 'Aquí aparece el resultado de las pruebas y de la creación de la playlist.',
       language: 'Idioma',
       mtNote: `Traducción automática – ${ext(ISSUES, 'las correcciones son bienvenidas')}`,
@@ -1278,6 +1314,7 @@ const TEXT = {
       repeats: 'Sin repeticiones',
       blocked: 'Lista de bloqueo',
       auto: 'Recrear automáticamente',
+      archive: 'Historial',
     },
     items: {
       playlistName: { label: 'Nombre de la playlist', help: 'Se crea si todavía no existe.' },
@@ -1316,6 +1353,8 @@ const TEXT = {
       blockedArtists: { label: 'Artistas que nunca suenan', placeholder: 'Nombre del artista', help: 'También como invitados («feat.»).' },
       blockedTracks: { label: 'Canciones que nunca suenan',
         help: 'Se bloquea con la × en la lista de una prueba; también otras versiones (p. ej. en directo).' },
+      archiveCount: { label: 'Guardar playlists anteriores', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'no'),
+        help: 'Cada playlist escrita, como archivo de texto en la carpeta «archiv» de Tweakable DJ; se recupera con «Importar … → Playlist anterior …».' },
       schedule: { label: 'Con qué frecuencia', options: { off: 'No', daily: 'A diario', weekly: 'Cada semana' },
         help: 'Recrea la playlist por sí solo a la hora indicada.' },
       scheduleDay: { label: 'Día de la semana',
@@ -1371,6 +1410,13 @@ const TEXT = {
       dirty: 'Ya no se puede usar: has cambiado ajustes desde la prueba. Vuelve a dejarlos como estaban o haz una prueba nueva.',
       old: 'Ya no se puede usar: la prueba tiene más de 24 horas. Haz una prueba nueva.',
       blocked: 'Ya no se puede usar: has bloqueado una canción de esta lista. Haz una prueba nueva (antes se guarda todo).',
+    },
+    // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
+    archive: {
+      entry: (when, n) => `${when} · ${plural(n, 'canción', 'canciones')}`,
+      empty: 'Todavía no hay playlists anteriores en el historial.',
+      off: 'El historial está desactivado: actívalo en la pestaña «Ajustes», en «Historial».',
+      loading: 'Cargando el historial …',
     },
     files: {
       help: name => `Sustituye el contenido de «${name}» tras una vista previa. Archivo de texto: una línea por canción, «artista – título» o un enlace de Spotify.`,
@@ -1575,6 +1621,7 @@ const TEXT = {
       saveText: 'Enregistrer en texte',
       importFile: 'Importer …',
       importFromFile: 'Depuis un fichier …',
+      importFromArchive: 'Playlist précédente …',
       outEmpty: 'Ici s’affiche le résultat des essais et de la création de la playlist.',
       language: 'Langue',
       mtNote: `Traduction automatique – ${ext(ISSUES, 'les corrections sont les bienvenues')}`,
@@ -1617,6 +1664,7 @@ const TEXT = {
       repeats: 'Pas de répétitions',
       blocked: 'Liste de blocage',
       auto: 'Recréer automatiquement',
+      archive: 'Archives',
     },
     items: {
       playlistName: { label: 'Nom de la playlist', help: 'Créée si elle n’existe pas encore.' },
@@ -1655,6 +1703,8 @@ const TEXT = {
       blockedArtists: { label: 'Artistes jamais joués', placeholder: 'Nom de l’artiste', help: 'Aussi en invité (« feat. »).' },
       blockedTracks: { label: 'Titres jamais joués',
         help: 'Bloque avec le × dans la liste d’un essai ; les autres versions (p. ex. live) sont bloquées aussi.' },
+      archiveCount: { label: 'Garder les playlists précédentes', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'désactivé'),
+        help: 'Chaque playlist écrite, en fichier texte dans le dossier « archiv » de Tweakable DJ – à récupérer via « Importer … → Playlist précédente … ».' },
       schedule: { label: 'Fréquence', options: { off: 'Désactivé', daily: 'Tous les jours', weekly: 'Chaque semaine' },
         help: 'Recrée la playlist tout seul à l’heure choisie.' },
       scheduleDay: { label: 'Jour de la semaine',
@@ -1710,6 +1760,13 @@ const TEXT = {
       dirty: 'Ne peut plus être utilisée : tu as modifié des réglages depuis l’essai. Remets-les comme avant ou lance un nouvel essai.',
       old: 'Ne peut plus être utilisée : l’essai date de plus de 24 heures. Lance un nouvel essai.',
       blocked: 'Ne peut plus être utilisée : tu as bloqué un titre de cette liste. Lance un nouvel essai – il enregistre d’abord.',
+    },
+    // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
+    archive: {
+      entry: (when, n) => `${when} · ${plural(n, 'titre', 'titres')}`,
+      empty: 'Pas encore de playlists précédentes dans les archives.',
+      off: 'Les archives sont désactivées – active-les dans l’onglet « Paramètres », sous « Archives ».',
+      loading: 'Chargement des archives …',
     },
     files: {
       help: name => `Remplace le contenu de « ${name} » après un aperçu. Fichier texte : une ligne par titre, « artiste – titre » ou un lien Spotify.`,
@@ -1966,7 +2023,14 @@ const GROUPS = [
     { key: 'blockedArtists', type: 'list' },
     { key: 'blockedTracks', type: 'tracks' },
   ]},
+  // Playlist-Archiv (archive.mjs): wie viele geschriebene Playlists im Ordner archiv/ bleiben
+  { id: 'archive', tab: 'settings', items: [
+    { key: 'archiveCount' },
+  ]},
 ];
+// Einstellungen, die die Auswahl eines Probelaufs nicht ändern (wie NOT_RELEVANT in trial.mjs): Ändert man sie, bleibt
+// „Diese Liste übernehmen“ möglich.
+const NOT_FOR_TRIAL = [...SCHEDULE_KEYS, 'notifyOnFailure', 'archiveCount'];
 const TABS = ['playlist', 'settings'];
 const tabOf = group => group.tab ?? 'playlist';
 // Texte eines Reglers in der aktuellen Sprache; Auswahllisten zeigen ohne eigenes fmt den Namen der Option.
@@ -2085,6 +2149,7 @@ function renderLang() {
   renderNotice();
   renderSummary();
   renderImport();
+  renderArchive();
   if (runState?.tracks) renderLog(logText); // Knöpfe zum Sperren in der neuen Sprache
   if (trial) refreshTrial(); // Meldung des Servers in der neuen Sprache
   if ($('w-client').value.trim()) checkClientId();
@@ -2478,6 +2543,8 @@ function refresh(skipInput) {
   $('export').disabled = working;
   $('import').disabled = working;
   $('import-from-file').disabled = working;
+  $('import-from-archive').disabled = working;
+  for (const b of $('archive-list').querySelectorAll('button')) b.disabled = working;
   $('import-go').disabled = working;
   $('files-help').textContent = T.files.help(saved.playlistName ?? '');
   renderSchedule();
@@ -2804,8 +2871,8 @@ async function run(kind) {
 
 // --- Probelauf übernehmen ---
 
-// Einstellungen, die die Auswahl bestimmen (die Automatik und ihre Benachrichtigungen nicht): Weichen sie vom Probelauf ab, passt seine Liste nicht mehr.
-const trialChanged = () => ITEMS.some(i => !SCHEDULE_KEYS.includes(i.key) && i.key !== 'notifyOnFailure' && !same(current[i.key], trial.settings[i.key]));
+// Einstellungen, die die Auswahl bestimmen (alle außer NOT_FOR_TRIAL): Weichen sie vom Probelauf ab, passt seine Liste nicht mehr.
+const trialChanged = () => ITEMS.some(i => !NOT_FOR_TRIAL.includes(i.key) && !same(current[i.key], trial.settings[i.key]));
 
 // Warum sich der Probelauf nicht mehr übernehmen lässt: 'blocked' (Song daraus gesperrt), 'dirty' (Einstellungen geändert), 'old' (älter als 24 Stunden),
 // sonst ein Grund vom Server (dann steht der Text in trial.message); null = geht.
@@ -2902,6 +2969,52 @@ async function exportList() {
 function toggleImportMenu(open = $('import-menu').hidden) {
   $('import-menu').hidden = !open;
   $('import').setAttribute('aria-expanded', String(open));
+  if (!open) toggleArchive(false);
+}
+
+// --- Frühere Playlist aus dem Archiv (GET /api/archive, GET /api/archive/entry) ---
+
+let archiveState = null;   // { phase: 'loading' | 'done' | 'error', keep (archiveCount), entries: [{ id, at, songs }], text }
+
+// „Frühere Playlist …“: Liste aufklappen und dabei frisch laden bzw. zuklappen (open: true = auf, false = zu).
+async function toggleArchive(open = $('archive-box').hidden) {
+  $('archive-box').hidden = !open;
+  $('import-from-archive').setAttribute('aria-expanded', String(open));
+  if (!open) return;
+  archiveState = { phase: 'loading' };
+  renderArchive();
+  try {
+    const data = await apiJson('/api/archive');
+    archiveState = { phase: 'done', keep: data.keep, entries: data.entries };
+  } catch (e) {
+    archiveState = { phase: 'error', text: e.message };
+  }
+  renderArchive();
+}
+
+// Ein Knopf pro Eintrag (neueste zuerst): Zeitpunkt und Anzahl Songs. Ist das Archiv aus, stehen vorhandene Einträge trotzdem da.
+function renderArchive() {
+  const s = archiveState;
+  if (!s) return;
+  const entries = s.phase === 'done' ? s.entries : [];
+  const text = s.phase === 'loading' ? T.archive.loading : s.phase === 'error' ? s.text
+    : !s.keep ? T.archive.off : entries.length ? '' : T.archive.empty;
+  setMsg($('archive-msg'), s.phase === 'error' ? 'err' : '', text);
+  $('archive-list').hidden = !entries.length;
+  $('archive-list').replaceChildren(...entries.map(e => el('li', {}, [
+    el('button', { type: 'button', textContent: T.archive.entry(when(e.at), e.songs), disabled: isWorking(), onclick: () => importArchive(e.id) }),
+  ])));
+}
+
+// Eintrag holen und wie eine Datei in die Vorschau geben; danach geht es weiter wie beim Import aus einer Datei.
+async function importArchive(id) {
+  toggleImportMenu(false);
+  try {
+    const r = await apiJson(`/api/archive/entry?id=${encodeURIComponent(id)}`);
+    importPreview(new File([r.text], r.id, { type: 'text/plain' }));
+  } catch (e) {
+    setImport({ phase: 'error', text: e.message });
+  }
 }
 
 function setImport(state) {
@@ -2919,7 +3032,9 @@ function renderImport() {
   else if (s.phase === 'done') {
     const link = /^https:\/\/open\.spotify\.com\//.test(s.written.playlistUrl ?? '')
       ? el('a', { href: s.written.playlistUrl, target: '_blank', rel: 'noopener', textContent: T.files.open }) : '';
-    setMsg($('files-msg'), 'ok', T.files.done(s.written.playlistName, s.written.songs), link);
+    // warning: Playlist geschrieben, aber nicht im Archiv abgelegt
+    const warning = s.written.warning ? el('span', { className: 'warn-note', textContent: ` · ${s.written.warning}` }) : '';
+    setMsg($('files-msg'), 'ok', T.files.done(s.written.playlistName, s.written.songs), link, warning);
   } else setMsg($('files-msg'), s.error ? 'err' : '', s.error ?? '');
   if (!preview) return;
   $('import-found').textContent = T.files.found(preview.found, preview.total);
@@ -3569,6 +3684,7 @@ $('run').onclick = () => run('run');
 $('trial-apply').onclick = applyTrial;
 $('export').onclick = exportList;
 $('import').onclick = () => toggleImportMenu();
+$('import-from-archive').onclick = () => toggleArchive();
 $('import-from-file').onclick = () => {
   toggleImportMenu(false);
   $('import-file').click();

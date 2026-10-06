@@ -38,6 +38,9 @@
   "blockedArtists": [],               // Artists that are never played, e.g. ["Artist A", "Artist B"]
   "blockedTracks": [],                // Songs that are never played, also in other versions (at most 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; easiest with × in a test run
 
+  // --- Archive ---
+  "archiveCount": 20,                 // After each write, the playlist is kept as a text file in the folder "archiv"; this many of the newest stay (0–200, 0 = off)
+
   // --- Automatic runs ---
   // Set this in the interface: only saving there adds Tweakable DJ to your computer's scheduler.
   "schedule": "off",                  // Recreate the playlist automatically: "off", "daily" or "weekly"

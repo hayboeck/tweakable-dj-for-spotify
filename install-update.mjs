@@ -13,8 +13,9 @@
 //
 // Persönliche Dateien bleiben immer unverändert: Geschrieben werden nur Dateien aus manifest.json (Erlaubnisliste),
 // gelöscht wird nichts. Nennt manifest.json eine persönliche Datei (config.jsonc, tokens.json, state.json,
-// lastfm-cache.json, probelauf.json, automatik.*, update-check.json, *.log) oder einen Pfad außerhalb des Ordners, oder führt der Weg
-// zu einer Datei durch einen symbolischen Link, bricht das ganze Update ab, bevor etwas geschrieben ist.
+// lastfm-cache.json, probelauf.json, automatik.*, update-check.json, *.log, alles im Archiv archiv/) oder einen Pfad
+// außerhalb des Ordners, oder führt der Weg zu einer Datei durch einen symbolischen Link, bricht das ganze Update ab, bevor
+// etwas geschrieben ist.
 //
 // manifest.json entsteht beim Veröffentlichen (.github/release-manifest.mjs, aufgerufen von .github/workflows/release.yml):
 //   { "name": "tweakable-dj", "version": "0.2.0", "files": [{ "path": "ui.mjs", "size": 15569, "sha256": "…", "executable": false }, …] }
@@ -45,9 +46,12 @@ const AUTO_RUN_MAX = 30 * 60_000;
 // Groß-/Kleinschreibung (Windows und macOS unterscheiden die nicht).
 export const PERSONAL_FILES = ['config.jsonc', 'tokens.json', 'state.json', 'lastfm-cache.json', 'probelauf.json', 'automatik.json',
   'automatik.log', 'update-check.json'];
+// Persönliche Ordner: das Playlist-Archiv (archive.mjs). Kein Pfad aus manifest.json darf hindurchführen; das Update legt dort
+// nichts ab, und weil es nur Programmdateien sichert und zurückholt, löscht es dort auch beim Zurücksichern nichts.
+export const PERSONAL_DIRS = ['archiv'];
 export function isPersonal(name) {
   const n = String(name).toLowerCase();
-  return PERSONAL_FILES.includes(n) || n.startsWith('automatik.') || n.endsWith('.log');
+  return PERSONAL_FILES.includes(n) || PERSONAL_DIRS.includes(n) || n.startsWith('automatik.') || n.endsWith('.log');
 }
 
 // Erlaubte Namen je Pfadteil: Buchstaben, Ziffern, Leerzeichen und ._()+-; keine Gerätenamen von Windows.

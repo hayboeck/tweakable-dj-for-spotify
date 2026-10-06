@@ -10,6 +10,7 @@
 //                       zählt nicht als Lauf des DJ, der Verlauf in state.json bleibt unverändert
 //   node dj.mjs --auto  Lauf aus dem Zeitplaner: Ausgabe zusätzlich in automatik.log, Ergebnis in automatik.json; schlägt er
 //                       fehl, meldet er sich mit einer Systembenachrichtigung (notifyOnFailure, notify.mjs)
+// Nach jedem Schreiben der Playlist (Lauf, --apply, import) kommt die Liste als Textdatei in den Ordner archiv/ (archive.mjs).
 // Sprache der Ausgabe: TWEAKABLE_DJ_LANG (de/en/es/fr), sonst "language" in config.jsonc, sonst die Systemsprache.
 // Letzte Zeile auf stdout (nicht im Terminal): "@@RESULT " + JSON mit dem Ergebnis für die Oberfläche.
 
@@ -26,6 +27,7 @@ import {
   resolveImport, writePlaylist,
 } from './playlist.mjs';
 import { readTrial, removeTrial, saveTrial, trialProblem } from './trial.mjs';
+import { archivePlaylist, saveArchive } from './archive.mjs';
 import {
   arrange, artistBlocker, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, lineupDuration, newerFactor, norm,
   playableDurationMs, playableUri, searchAgain, shuffle, trackBlocker, trackKey, weightedOrder, windowViolations,
@@ -406,6 +408,7 @@ async function main() {
 async function toSpotify(cfg, spotify, lineup, description) {
   const { url, created } = await writePlaylist(spotify, { name: cfg.playlistName, uris: lineup.map(track => track.uri), description, lang, warn });
   if (created) console.log(`\n${t(lang, 'run.created', { name: cfg.playlistName })}`);
+  await toArchive(() => saveArchive(HERE, { name: cfg.playlistName, url, tracks: lineup, lang, keep: cfg.archiveCount }));
   const state = readJson(STATE, { history: [], cache: {} });
   state.history = lastRuns(cfg, [...state.history, lineup.map(track => trackKey(track.artist, track.name))]);
   fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
@@ -416,6 +419,16 @@ async function toSpotify(cfg, spotify, lineup, description) {
   }
   console.log(`\n${t(lang, 'run.done', { url })}`);
   return url;
+}
+
+// Geschriebene Liste ins Archiv (archive.mjs; archiveCount 0 = aus). Ein Fehler dabei ist nur eine Warnung, der Lauf zählt.
+async function toArchive(save) {
+  try {
+    const saved = await save();
+    if (saved) console.log(t(lang, 'archive.saved', { file: saved.file }));
+  } catch (e) {
+    warn(t(lang, 'archive.failed', { message: e.message }));
+  }
 }
 
 // --apply: den gespeicherten Probelauf genau so übernehmen – dieselben Songs in derselben Reihenfolge, ohne neu zu losen.
@@ -491,6 +504,7 @@ async function importFile(cfg, spotify) {
     name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang, warn,
   });
   if (created) console.log(`\n${t(lang, 'run.created', { name: cfg.playlistName })}`);
+  await toArchive(() => archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount }));
   console.log(`\n${t(lang, 'import.done', { name: cfg.playlistName, count: uris.length, url })}`);
   return { songs: uris.length, playlistUrl: url };
 }

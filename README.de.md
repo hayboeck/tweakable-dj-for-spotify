@@ -90,6 +90,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `lineup.mjs` | Die Auswahl- und Reihenfolge-Regeln: Auslosung, „3 aus 20“, Abstand, Vergleich von Songtiteln |
 | `trial.mjs` | Merkt sich den letzten Probelauf für *Diese Liste übernehmen* und prüft, ob er noch gilt |
 | `playlist.mjs` | Schreibt und liest die Playlist; Format und Import der [Textdatei](#textdatei-speichern-und-importieren) |
+| `archive.mjs` | Das [Playlist-Archiv](#playlist-archiv): legt jede geschriebene Playlist als Textdatei in `archiv/` ab und räumt alte auf |
 | `spotify.mjs` | Verbindung zu Spotify: Anmeldung, Lieblingssongs lesen, Songs suchen, Playlist schreiben |
 | `lastfm.mjs` | Verbindung zu Last.fm: ähnliche Songs und Künstler, dein Hörverlauf |
 | `config.mjs` | Liest und schreibt die `config.jsonc`, ohne die Kommentare zu zerstören |
@@ -108,7 +109,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `overview.de.svg`, `overview.en.svg` | Die Grafik in Abschnitt 2, auf Deutsch und Englisch |
 | `docs/` | Bildschirmfotos der Oberfläche für diese Anleitung, auf Deutsch und Englisch |
 | `LICENSE` | Die Lizenz (MIT), siehe Abschnitt 12 |
-| `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, die Dateien der Automatik, das Ergebnis der Prüfung auf neue Versionen und `.update/` nie mit hochgeladen werden |
+| `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, die Dateien der Automatik, das Ergebnis der Prüfung auf neue Versionen, `.update/` und das Archiv `archiv/` nie mit hochgeladen werden |
 | `.gitattributes` | Einheitliche Zeilenenden für Windows, Mac und Linux; kennzeichnet Bilder als binär. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 | `.github/` | Vorlagen für Fehlermeldungen und Ideen, automatische Abläufe auf GitHub (z. B. die ZIP-Datei für neue Versionen). Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 
@@ -124,6 +125,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `automatik.log` | Die komplette Ausgabe des letzten automatischen Laufs, für die Fehlersuche |
 | `update-check.json` | Ergebnis der letzten [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen) (Zeit und neueste Version). Löschen schadet nicht. |
 | `.update/` | Legt *Jetzt aktualisieren* an: die Sicherung der Programmdateien der vorigen Version (`backup-<Version>`). Löschen schadet nicht. |
+| `archiv/` | Das [Playlist-Archiv](#playlist-archiv): jede geschriebene Playlist als Textdatei, z. B. `2026-10-06 18-30-05 Tweakable DJ.txt`. Löschen schadet nicht, die früheren Playlists sind dann nur weg. |
 
 `config.jsonc` enthält deine Client ID und deinen Last.fm-Schlüssel. Beides ist nicht sehr heikel, sollte aber trotzdem nicht öffentlich geteilt werden.
 
@@ -235,6 +237,12 @@ Den Zeitplan selbst (`schedule`, `scheduleTime`, `scheduleDay`) stellst du am ei
 |---|---|---|
 | Bei Fehlern benachrichtigen (`notifyOnFailure`): Schlägt ein automatischer Lauf fehl, zeigt dein System eine Benachrichtigung mit dem Grund und was zu tun ist (z. B. „Die Spotify-Anmeldung ist abgelaufen. Öffne Tweakable DJ und melde dich neu bei Spotify an.“). Ab 10 Tagen bevor die Spotify-Anmeldung abläuft, erinnert auch ein erfolgreicher automatischer Lauf daran, höchstens einmal am Tag. Läufe aus der Oberfläche oder dem Terminal melden sich nie. | an | `true` oder `false` |
 
+**Archiv**
+
+| Einstellung | Standard | Erlaubt |
+|---|---|---|
+| Frühere Playlists aufheben (`archiveCount`): Nach jedem Schreiben der Playlist kommt sie als Textdatei in den Ordner `archiv`; so viele der neuesten bleiben, ältere löscht Tweakable DJ selbst. 0 = aus: Es wird nichts gespeichert, vorhandene Dateien bleiben. Siehe [Playlist-Archiv](#playlist-archiv). | 20 | 0–200 |
+
 **Sprache**
 
 | Einstellung | Standard |
@@ -250,7 +258,7 @@ Den Zeitplan selbst (`schedule`, `scheduleTime`, `scheduleDay`) stellst du am ei
 Doppelklick auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac), unter Linux im Terminal `./start.sh`. Überall geht auch `node ui.mjs` im Terminal. Der Browser öffnet <http://127.0.0.1:8899>.
 Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-einrichtung-einmalig), Schritt 3. Ist Tweakable DJ noch nicht eingerichtet, erscheint statt der Regler der Einrichtungs-Assistent.
 
-Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Textdatei und Probelauf) und **Einstellungen** (Automatik, Sperrliste, Zugangsdaten, Version).
+Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Textdatei und Probelauf) und **Einstellungen** (Automatik, Sperrliste, Archiv, Zugangsdaten, Version).
 
 - **Sprache** (oben rechts, ein kleines Auswahlfeld, z. B. **DE ▾**, mit Deutsch, English, Español und Français): schaltet die ganze Oberfläche sofort um, auch im Assistenten. Die Wahl wird in `config.jsonc` gespeichert (`language`) und gilt dann auch für Probelauf, Neuerstellung, automatische Läufe und das Terminal. Solange du nichts wählst, richtet sich die Oberfläche nach der Sprache deines Browsers. Spanisch und Französisch sind maschinell übersetzt; eine Zeile ganz unten auf der Seite weist darauf hin und verlinkt die [Issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), wo Korrekturen willkommen sind.
 - **Voreinstellungen**: Vier Buttons setzen alle Regel-Regler auf einmal:
@@ -264,12 +272,13 @@ Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Tex
 - **Abwechslung bei Künstlern**: Ein Regler mit vier Stufen (*wenig* bis *sehr viel*) setzt alle vier Künstler-Regeln auf einmal. Die Einzelwerte stehen unter *Details für Fortgeschrittene*; passen sie zu keiner Stufe, zeigt der Regler *Eigene Einstellung*, und die Details sind aufgeklappt.
 - **Quelle deiner Favoriten**: Auswahlliste mit deinen Lieblingssongs und deinen Playlists. Zur Auswahl stehen nur Playlists, die dir gehören oder bei denen du mitarbeitest, weil Spotify nur deren Inhalt herausgibt.
 - **Sperrliste** (Tab *Einstellungen*): Künstler, einzelne Songs und explizite Songs, siehe [Sperrliste](#sperrliste-künstler-und-songs) weiter unten.
+- **Archiv** (Tab *Einstellungen*): wie viele frühere Playlists als Textdatei aufgehoben werden, siehe [Playlist-Archiv](#playlist-archiv).
 - **Speichern / Verwerfen**: Änderungen werden erst mit *Speichern* in `config.jsonc` geschrieben. Beides gilt für beide Tabs; ein Punkt am anderen Tab zeigt dort ungespeicherte Änderungen. Im Tab *Einstellungen* gibt es nur diese zwei Buttons.
 - **Probelauf**: Zeigt die Auswahl an, ohne die Playlist zu ändern. Darunter:
   - **Diese Liste übernehmen**: schreibt genau diese Songs in dieser Reihenfolge in „Tweakable DJ“, ohne neu zu losen, samt Beschreibung. Das zählt wie ein Lauf (die Songs sind danach für *Vorige Läufe sperren* gemerkt). Der Button gilt 24 Stunden und nur, solange die Einstellungen so bleiben wie beim Probelauf; danach, nach einer Neuerstellung (auch durch die Automatik) oder wenn `probelauf.json` fehlt, ist er gesperrt und sagt, warum. Dann einfach einen neuen Probelauf starten. Zurückgestellte Regler machen ihn wieder frei.
   - **Als Textdatei speichern** (unter der Ausgabe): lädt nach einem Probelauf dessen Liste herunter, auch wenn sie (noch) nicht in der Playlist steht; der Dateiname endet auf `-probelauf`.
 - **Playlist neu erstellen**: Lost neu aus, befüllt „Tweakable DJ“ und zeigt danach einen Link zu Spotify.
-- **Ausgabe**: immer sichtbar, vor dem ersten Lauf mit einem kurzen Platzhalter. Darunter stehen die Buttons für die Textdatei: *Als Textdatei speichern* lädt „Tweakable DJ“ so herunter, wie die Playlist gerade in Spotify ist (nach einem Probelauf: dessen Liste, siehe oben). *Importieren … → Aus Datei …* füllt sie mit einer eigenen Liste: erst eine Vorschau („38 von 40 gefunden“ und die Zeilen, die nicht passen), dann *In Playlist „Tweakable DJ“ schreiben (ersetzt den Inhalt)*. Mehr unter [Textdatei](#textdatei-speichern-und-importieren).
+- **Ausgabe**: immer sichtbar, vor dem ersten Lauf mit einem kurzen Platzhalter. Darunter stehen die Buttons für die Textdatei: *Als Textdatei speichern* lädt „Tweakable DJ“ so herunter, wie die Playlist gerade in Spotify ist (nach einem Probelauf: dessen Liste, siehe oben). *Importieren … → Aus Datei …* füllt sie mit einer eigenen Liste: erst eine Vorschau („38 von 40 gefunden“ und die Zeilen, die nicht passen), dann *In Playlist „Tweakable DJ“ schreiben (ersetzt den Inhalt)*. Mehr unter [Textdatei](#textdatei-speichern-und-importieren). *Importieren … → Frühere Playlist …* holt eine Playlist aus dem [Archiv](#playlist-archiv) zurück, mit derselben Vorschau und Rückfrage.
 - **Zugangsdaten** (Tab *Einstellungen*): zeigt, ob du bei Spotify angemeldet bist, und deinen Last.fm-Benutzernamen. **Zugangsdaten ändern** öffnet den Einrichtungs-Assistenten mit deinen bisherigen Angaben.
 - **Mit Spotify anmelden**: Erscheint, wenn die Spotify-Anmeldung bald abläuft oder abgelaufen ist. Spotify verlangt alle 6 Monate eine neue Anmeldung. Außerdem, wenn *Gefolgte Künstler* nicht auf „egal“ steht und deine Anmeldung älter ist als diese Einstellung.
 - **Automatisch neu erstellen** (Tab *Einstellungen*): *Aus*, *Täglich* oder *Wöchentlich*, dazu Uhrzeit und gegebenenfalls Wochentag. Beim *Speichern* trägt sich Tweakable DJ in den Zeitplaner deines Systems ein und erstellt die Playlist dann von selbst neu, auch wenn die Oberfläche geschlossen ist. Darunter stehen der nächste Lauf und das Ergebnis des letzten automatischen Laufs (✓ mit Anzahl Songs oder ✗ mit Grund). Was passiert, wenn der Rechner zur eingestellten Zeit aus ist:
@@ -355,6 +364,16 @@ Hauptkünstler, Gast – Titel	https://open.spotify.com/track/…
 - Ein Import ersetzt den Inhalt der Playlist und setzt ihre Beschreibung, **zählt aber nicht als Lauf des DJ**: Er schreibt nichts in den Verlauf (`state.json`), die Songs werden also bei *Vorige Läufe sperren* nicht gesperrt. Es ist deine Liste, keine Auswahl des DJ.
 - Während eines Laufs, eines Updates oder einer Spotify-Anmeldung startet kein Import, und umgekehrt.
 
+### Playlist-Archiv
+
+Nach jedem Schreiben der Playlist in Spotify – *Playlist neu erstellen*, automatischer Lauf, *Diese Liste übernehmen*, Import und `node dj.mjs` im Terminal – legt Tweakable DJ die geschriebene Liste als Textdatei im Ordner `archiv` im Ordner von Tweakable DJ ab, im selben Format wie *Als Textdatei speichern*. Der Dateiname beginnt mit Datum und Uhrzeit, z. B. `2026-10-06 18-30-05 Tweakable DJ.txt`, so stehen die Dateien zeitlich sortiert.
+
+- **Zurückholen**: *Importieren … → Frühere Playlist …* (unter der Ausgabe) zeigt die Einträge, die neueste zuerst, mit Zeitpunkt und Anzahl Songs. Ein Klick zeigt dieselbe Vorschau wie ein Import aus einer Datei; geschrieben wird erst nach der Rückfrage. Wie jeder Import zählt das nicht als Lauf des DJ.
+- **Wie viele**: *Frühere Playlists aufheben* im Tab *Einstellungen* (`archiveCount`, Standard 20, höchstens 200). Ältere Dateien löscht Tweakable DJ beim nächsten Ablegen. Andere Dateien im Ordner `archiv` fasst es nie an.
+- **Aus**: 0 speichert nichts mehr; vorhandene Dateien bleiben und lassen sich weiter zurückholen.
+- Klappt das Ablegen nicht (z. B. Ordner schreibgeschützt), zeigt der Lauf nur eine Warnung (⚠); die Playlist ist trotzdem geschrieben.
+- `archiv` gehört zu deinen persönlichen Dateien: nie im Repository, nie in der ZIP-Datei, ein Update fasst es nie an.
+
 ### Prüfung auf neue Versionen
 
 Wenn du die Oberfläche öffnest, schaut Tweakable DJ **höchstens einmal am Tag** nach, ob eine neue Version erschienen ist. Dafür geht eine einzige Anfrage an die GitHub-Releases-API (`api.github.com`), die nach dem neuesten Release von Tweakable DJ fragt. **Persönliche Daten werden nicht gesendet**: keine Einstellungen, Zugangsdaten, Songs oder Kennungen. Die Antwort wird in `update-check.json` gemerkt; klappt die Prüfung nicht (z. B. offline), versucht sie es frühestens eine Stunde später wieder. Nur die Oberfläche prüft, nicht die Läufe im Terminal und nicht die Automatik. Sie zeigt nur einen Hinweis an und lädt oder installiert nie von selbst etwas; aktualisiert wird nur, wenn du auf *Jetzt aktualisieren* klickst (siehe [Aktualisieren](#8-aktualisieren)).
@@ -410,7 +429,7 @@ Diese Schritte machst du einmal, bevor du Tweakable DJ zum ersten Mal benutzt, u
 
 ## 8. Aktualisieren
 
-Gibt es eine neue Version, erscheint oben in der Oberfläche ein Hinweis. Was sich geändert hat, steht in [CHANGELOG.md](CHANGELOG.md). Bei beiden Wegen bleiben **deine persönlichen Dateien genau so, wie sie sind**: `config.jsonc` (Einstellungen, Client ID, Last.fm-Schlüssel und -Benutzername), `tokens.json` (Spotify-Anmeldung), `state.json` (Verlauf), `lastfm-cache.json`, `probelauf.json` (letzter Probelauf) und die Dateien der Automatik. Sie sind nicht in der ZIP-Datei, und ein Update schreibt sie nie.
+Gibt es eine neue Version, erscheint oben in der Oberfläche ein Hinweis. Was sich geändert hat, steht in [CHANGELOG.md](CHANGELOG.md). Bei beiden Wegen bleiben **deine persönlichen Dateien genau so, wie sie sind**: `config.jsonc` (Einstellungen, Client ID, Last.fm-Schlüssel und -Benutzername), `tokens.json` (Spotify-Anmeldung), `state.json` (Verlauf), `lastfm-cache.json`, `probelauf.json` (letzter Probelauf), die Dateien der Automatik und das Playlist-Archiv `archiv/`. Sie sind nicht in der ZIP-Datei, und ein Update schreibt sie nie.
 
 **Mit der Schaltfläche**
 
@@ -428,7 +447,7 @@ Das Update schreibt nur die Programmdateien, die im Release stehen (`manifest.js
    - Mac und Linux: im Terminal `unzip -o ~/Downloads/tweakable-dj-v….zip -d <Ordner, in dem tweakable-dj liegt>`. Den neuen Ordner im Finder nicht auf den alten ziehen: Der Finder ersetzt dann den ganzen Ordner, samt deinen persönlichen Dateien.
 3. Tweakable DJ wie gewohnt starten. (Mac: Beim ersten Start ist eventuell wieder Rechtsklick → *Öffnen* nötig.)
 
-Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie sie sind; die Automatik läuft weiter, weil der Ordner derselbe bleibt. **Nicht in einen neuen Ordner entpacken** und dann diesen verwenden: Dort fehlen deine Einstellungen und die Anmeldung, und die Automatik zeigt weiter auf den alten Ordner. Willst du doch in einen neuen Ordner umziehen, kopiere `config.jsonc`, `tokens.json`, `state.json` und `lastfm-cache.json` aus dem alten in den neuen Ordner, starte Tweakable DJ von dort und klicke einmal *Automatik speichern*.
+Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie sie sind; die Automatik läuft weiter, weil der Ordner derselbe bleibt. **Nicht in einen neuen Ordner entpacken** und dann diesen verwenden: Dort fehlen deine Einstellungen und die Anmeldung, und die Automatik zeigt weiter auf den alten Ordner. Willst du doch in einen neuen Ordner umziehen, kopiere `config.jsonc`, `tokens.json`, `state.json` und `lastfm-cache.json` (und den Ordner `archiv`, wenn du die früheren Playlists behalten willst) aus dem alten in den neuen Ordner, starte Tweakable DJ von dort und klicke einmal *Automatik speichern*.
 
 **Mit git**: Hast du das Repository geklont, im Ordner `git pull` ausführen. Deine persönlichen Dateien stehen in `.gitignore`, git fasst sie also nicht an. In einem git-Ordner bietet die Oberfläche *Jetzt aktualisieren* nicht an.
 
@@ -437,7 +456,7 @@ Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie
 ## 9. Deinstallieren
 
 1. **Zuerst die Automatik ausschalten:** In der Oberfläche im Tab *Einstellungen* *Automatisch neu erstellen* auf *Aus* stellen und *Speichern* klicken. Damit verschwindet der Eintrag aus dem Zeitplaner deines Systems.
-2. Das Fenster von Tweakable DJ schließen und den Ordner `tweakable-dj` löschen. Deine persönlichen Dateien (Einstellungen, Spotify-Anmeldung, Verlauf) sind damit auch weg.
+2. Das Fenster von Tweakable DJ schließen und den Ordner `tweakable-dj` löschen. Deine persönlichen Dateien (Einstellungen, Spotify-Anmeldung, Verlauf, Playlist-Archiv) sind damit auch weg. Willst du frühere Playlists behalten, kopiere vorher den Ordner `archiv`.
 3. Wenn du magst: die Playlist in Spotify löschen (standardmäßig „Tweakable DJ“) und deine Spotify-App im [Spotify-Dashboard](https://developer.spotify.com/dashboard).
 
 **Löschst du den Ordner, während die Automatik noch an ist**, bleibt der Eintrag im Zeitplaner. Er startet weiter zur eingestellten Zeit, aber jeder Lauf scheitert unbemerkt, weil der Ordner fehlt, und die Playlist wird nicht mehr neu erstellt. Den Eintrag kannst du von Hand entfernen:

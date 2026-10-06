@@ -39,6 +39,7 @@ export const DEFAULTS = {
   excludeExplicit: false,
   blockedArtists: [],
   blockedTracks: [], // gesperrte Songs: [{ uri, artist, name }] (uri darf fehlen), siehe checkTracks
+  archiveCount: 20, // so viele geschriebene Playlists bleiben im Ordner archiv/ (archive.mjs); 0 = aus
   schedule: 'off',
   scheduleTime: '07:00',
   scheduleDay: 'MON',
@@ -50,7 +51,7 @@ export const DEFAULTS = {
 // und beim Lesen der config.jsonc in dj.mjs, dazu der Regler der Oberfläche (slider = üblicher Bereich, step).
 // Abgewiesen wird nur, was kaputt oder sinnlos ist; die Obergrenzen fangen Tippfehler (z. B. 5000 statt 50) ab und halten
 // die Läufe in vernünftiger Zeit. Liegt ein gespeicherter Wert außerhalb von slider, erweitert die Oberfläche den Regler.
-// 0 heißt „aus“ bei currentDays, artistGap, excludeRecentDays und noRepeatRuns; 1 heißt „aus“ bei currentFactor,
+// 0 heißt „aus“ bei currentDays, artistGap, excludeRecentDays, noRepeatRuns und archiveCount; 1 heißt „aus“ bei currentFactor,
 // 0 heißt „egal“ bei followedArtists (−1 = keine gefolgten Künstler, +1 = stark bevorzugt; Formel in lineup.mjs) und bei
 // preferNewer (−1 = ältere, +1 = neuere Songs bevorzugt; nur Gewichtung, kein Ausschluss; Formel in lineup.mjs).
 export const LIMITS = {
@@ -78,6 +79,8 @@ export const LIMITS = {
   excludeRecentDays: { min: 0, max: 365, int: true, slider: [0, 60], step: 1 },
   // 100: state.json merkt sich je Lauf eine Liste; das sperrt bei täglichen Läufen schon gut drei Monate.
   noRepeatRuns: { min: 0, max: 100, int: true, slider: [0, 10], step: 1 },
+  // 200 Textdateien zu je wenigen KB; mehr hebt kaum jemand auf. 0 = aus (vorhandene Dateien bleiben).
+  archiveCount: { min: 0, max: 200, int: true, slider: [0, 50], step: 1 },
 };
 
 // Stufen des Reglers „Abwechslung bei Künstlern“ in der Oberfläche: Jede setzt die vier Werte zusammen, in der

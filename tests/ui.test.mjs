@@ -437,7 +437,7 @@ const preview = (text, { lang = 'de', headers = {} } = {}) => api('/api/import/p
 test('Neue Schnittstellen: ohne X-Tweakable-DJ bzw. mit fremdem Host 403, nichts gefragt', async () => {
   const before = spotifyRequests().length;
   const routes = [['GET', '/api/trial'], ['POST', '/api/apply'], ['GET', '/api/export'], ['GET', '/api/export?trial=0123456789ab'],
-    ['POST', '/api/import/preview'], ['POST', '/api/import']];
+    ['POST', '/api/import/preview'], ['POST', '/api/import'], ['GET', '/api/archive'], ['GET', '/api/archive/entry?id=x']];
   for (const [method, route] of routes) {
     const r = await api(route, { lang: 'en', method, headers: { 'X-Tweakable-DJ': '0' }, body: method === 'POST' ? {} : undefined });
     assert.deepEqual([r.status, r.data], [403, { error: 'Not allowed' }], `${method} ${route}`);
@@ -669,6 +669,7 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungs
     'files.saved': [['mix.txt', 3], ['mix.txt', 1]],
     'files.done': [['Mix', 3], ['Mix', 0]],
     'files.found': [[2, 3], [0, 1]],
+    'archive.entry': [['Mo 06.10., 18:30', 50], ['Mo 06.10., 18:30', 1]],
     'update.text': [['0.2.0', '0.1.0'], ['0.2.0', null]],
     'update.confirm': [['0.1.0', '0.2.0']],
   };
@@ -848,6 +849,20 @@ test('Import-Vorschau: gesperrte und explizite Songs als Hinweis, trotzdem in de
     assert.deepEqual(resultLine((await preview(text)).text).hints.explicit, [], 'ohne Filter kein Hinweis');
   } finally {
     assert.equal((await api('/api/config', { method: 'POST', body: { excludeExplicit: false, blockedTracks: [] } })).status, 200);
+  }
+});
+
+test('Playlist-Archiv: Übernehmen und Import legen die Liste ab; Liste und Eintrag über die API, fremde Namen 404', async () => {
+  const { entries, keep } = (await api('/api/archive')).data;
+  assert.equal(keep, 20);
+  assert.ok(entries.length >= 2, 'mindestens Übernehmen und Import');
+  assert.ok(entries.every(e => /^\d{4}-\d\d-\d\d \d\d-\d\d-\d\d Tweakable DJ( \d+)?\.txt$/.test(e.id)), JSON.stringify(entries));
+  const newest = (await api(`/api/archive/entry?id=${encodeURIComponent(entries[0].id)}`)).data;
+  assert.match(newest.text, /^# Test-DJ – /);
+  assert.ok(fs.existsSync(path.join(dir, 'archiv', entries[0].id)));
+  for (const bad of ['../config.jsonc', 'config.jsonc', `..%2F${entries[0].id}`, '']) {
+    const r = await api(`/api/archive/entry?id=${bad}`, { lang: 'en' });
+    assert.deepEqual([r.status, r.data.error], [404, 'This entry isn’t in the archive (anymore).'], bad);
   }
 });
 

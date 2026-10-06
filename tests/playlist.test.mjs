@@ -353,3 +353,32 @@ test('import: Suche nach "Künstler – Titel", nicht gefundene Zeilen, --dry, D
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
   }
 });
+
+// Playlist-Archiv (archive.mjs): Dateiname mit Datum und Uhrzeit, nur die neuesten archiveCount bleiben, fremde Dateien bleiben
+// unberührt, 0 = aus; Lesen nur eigener Namen ohne Pfad.
+test('Archiv: ablegen, aufräumen, auflisten und lesen', async () => {
+  const { ARCHIVE_DIR, archiveName, listArchive, pruneArchive, readArchive, saveArchive } = await import('../archive.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'archiv-'));
+  try {
+    assert.equal(archiveName(NOW), '2026-10-05 14-03-00 Tweakable DJ.txt');
+    assert.equal(saveArchive(dir, { name: 'Mix', tracks: TRACKS, lang: 'de', keep: 0, now: NOW }), null, '0 = aus');
+    assert.equal(fs.existsSync(path.join(dir, ARCHIVE_DIR)), false);
+    const first = saveArchive(dir, { name: 'Mix', tracks: TRACKS, lang: 'de', keep: 2, now: NOW });
+    assert.equal(first.file, `${ARCHIVE_DIR}/2026-10-05 14-03-00 Tweakable DJ.txt`);
+    assert.equal(fs.readFileSync(path.join(dir, first.file), 'utf8'), formatExport({ name: 'Mix', tracks: TRACKS, lang: 'de', now: NOW }));
+    const same = saveArchive(dir, { name: 'Mix', tracks: TRACKS, lang: 'de', keep: 2, now: NOW });
+    assert.equal(same.file, `${ARCHIVE_DIR}/2026-10-05 14-03-00 Tweakable DJ 2.txt`, 'gleiche Sekunde: nicht überschreiben');
+    fs.writeFileSync(path.join(dir, ARCHIVE_DIR, 'eigene Notiz.txt'), 'bleibt');
+    const later = saveArchive(dir, { name: 'Mix', tracks: TRACKS.slice(0, 2), lang: 'de', keep: 2, now: new Date(2026, 9, 6, 8, 0, 5) });
+    assert.deepEqual(later.removed, ['2026-10-05 14-03-00 Tweakable DJ.txt'], 'älteste eigene weg');
+    assert.deepEqual(listArchive(dir).map(e => [e.id, e.songs]), [['2026-10-06 08-00-05 Tweakable DJ.txt', 2], ['2026-10-05 14-03-00 Tweakable DJ 2.txt', 5]]);
+    assert.ok(fs.existsSync(path.join(dir, ARCHIVE_DIR, 'eigene Notiz.txt')), 'fremde Datei bleibt');
+    assert.deepEqual(pruneArchive(dir, 0), [], '0: nichts löschen');
+    assert.match(readArchive(dir, '2026-10-06 08-00-05 Tweakable DJ.txt'), /^# Mix – exportiert am /);
+    for (const bad of ['eigene Notiz.txt', '../2026-10-06 08-00-05 Tweakable DJ.txt', '2026-10-01 00-00-00 Tweakable DJ.txt', null]) {
+      assert.equal(readArchive(dir, bad), null, String(bad));
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+  }
+});
