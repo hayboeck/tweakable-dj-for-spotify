@@ -97,6 +97,9 @@ ${LINUX_MARKER}
 `;
 }
 
+// Desktop-Eintrag ohne die Zeile Comment= (zum Vergleichen unabhängig von der Sprache)
+const withoutComment = text => String(text ?? '').split(/\r?\n/).filter(l => !l.startsWith('Comment=')).join('\n');
+
 // Programmordner aus einem Desktop-Eintrag (Zeile Path=), null = nicht erkennbar.
 export function linuxEntryDir(text) {
   const m = /^Path=(.*)$/m.exec(text ?? '');
@@ -195,7 +198,8 @@ const failure = (lang, who, r) => tError(lang, 'shortcut.reports', {
 // des Systems), home, env, run(file, args, { env }) für die Befehle, lang.
 function options({ dir = HERE, platform = process.platform, env = process.env, desktop = env[DESKTOP_VAR] || '', home = os.homedir(),
   run = runFile, lang } = {}) {
-  return { dir: path.resolve(dir), platform, env, desktop, home, run, lang: resolveLang(lang) };
+  // Windows-Pfade mit path.win32 (unter Windows dasselbe wie path.resolve; so auch in den simulierten Tests auf Linux/macOS)
+  return { dir: platform === 'win32' ? path.win32.resolve(dir) : path.resolve(dir), platform, env, desktop, home, run, lang: resolveLang(lang) };
 }
 
 const isDir = p => {
@@ -236,7 +240,8 @@ export const PLATFORMS = {
         throw failure(o.lang, 'PowerShell', { ...r, stderr: `JSON: ${firstLine(r.stdout)}` });
       }
       if (!data.desktop) throw tError(o.lang, 'shortcut.noDesktop');
-      return { desktop: data.desktop, file: path.win32.join(data.desktop, FILE_NAMES.win32), entry: data.exists ? data : null };
+      // path.join: unter Windows dasselbe wie path.win32.join; so laufen auch die simulierten Tests auf macOS und Linux.
+      return { desktop: data.desktop, file: path.join(data.desktop, FILE_NAMES.win32), entry: data.exists ? data : null };
     },
     read(o) {
       return this.call(o, 'read');
@@ -335,7 +340,9 @@ export const PLATFORMS = {
       if (!own) return { own: false, state: 'foreign', dir: null };
       const dir = linuxEntryDir(entry.text);
       if (dir !== o.dir) return { own: true, state: 'otherFolder', dir };
-      return { own: true, state: entry.text === linuxDesktopEntry(o.dir, o) && entry.executable ? 'ok' : 'outdated', dir };
+      // Der Kommentar steht in der Sprache beim Anlegen; eine andere Sprache der Oberfläche macht sie nicht veraltet.
+      const same = withoutComment(entry.text) === withoutComment(linuxDesktopEntry(o.dir, o));
+      return { own: true, state: same && entry.executable ? 'ok' : 'outdated', dir };
     },
     async write(o, current) {
       // Neu schreiben statt ändern: über eine Zwischendatei, dann umbenennen (ersetzt die alte in einem Schritt).

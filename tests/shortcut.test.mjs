@@ -311,8 +311,19 @@ test('Linux (Dateien): Desktop-Ordner über xdg-user-dir bzw. ~/Desktop, anlegen
   assert.deepEqual(fs.readdirSync(xdg), ['tweakable-dj.desktop'], 'keine Zwischendatei übrig');
 
   assert.deepEqual([(await shortcutStatus({ ...base, dir: dirB })).state, (await shortcutStatus({ ...base, dir: dirB })).folder], ['otherFolder', dirA]);
-  // Andere Sprache beim Anlegen ändert nur den Kommentar: zählt als veraltet, nicht als anderer Ordner
-  assert.equal((await shortcutStatus({ ...base, dir: dirA, lang: 'en' })).state, 'outdated');
+  // Andere Sprache der Oberfläche ändert nur den Kommentar: Verknüpfung bleibt in Ordnung
+  assert.equal((await shortcutStatus({ ...base, dir: dirA, lang: 'en' })).state, 'ok');
+  // Von Hand geändert (z. B. Exec) bzw. nicht mehr ausführbar → veraltet
+  const text = fs.readFileSync(file, 'utf8');
+  fs.writeFileSync(file, text.replace('Terminal=true', 'Terminal=false'), { mode: 0o755 });
+  assert.equal((await shortcutStatus({ ...base, dir: dirA })).state, 'outdated');
+  fs.writeFileSync(file, text);
+  if (process.platform !== 'win32') {
+    fs.chmodSync(file, 0o644);
+    assert.equal((await shortcutStatus({ ...base, dir: dirA })).state, 'outdated');
+    fs.chmodSync(file, 0o755);
+  }
+  assert.equal((await shortcutStatus({ ...base, dir: dirA })).state, 'ok');
   assert.equal((await createShortcut({ ...base, dir: dirB })).state, 'ok');
   assert.equal(linuxEntryDir(fs.readFileSync(file, 'utf8')), dirB);
   s = await removeShortcut({ ...base, dir: dirA });
