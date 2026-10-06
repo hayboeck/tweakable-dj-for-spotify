@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { HERE, configLanguage, loadConfig, notifyOnFailure } from './config.mjs';
-import { resolveLang, t, tError } from './i18n.mjs';
+import { formatDuration, resolveLang, t, tError } from './i18n.mjs';
 import { createLastfm } from './lastfm.mjs';
 import { autoRunNotice, notify, notifyProblem } from './notify.mjs';
 import { lastRun, recordAutoRun } from './schedule.mjs';
@@ -27,8 +27,8 @@ import {
 } from './playlist.mjs';
 import { readTrial, removeTrial, saveTrial, trialProblem } from './trial.mjs';
 import {
-  arrange, artistBlocker, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, norm, playableUri, searchAgain, shuffle,
-  trackBlocker, trackKey, weightedOrder, windowViolations,
+  arrange, artistBlocker, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, lineupDuration, norm, playableDurationMs,
+  playableUri, searchAgain, shuffle, trackBlocker, trackKey, weightedOrder, windowViolations,
 } from './lineup.mjs';
 
 const lang = resolveLang(process.env.TWEAKABLE_DJ_LANG, configLanguage());
@@ -52,7 +52,8 @@ const readJson = (file, fallback) => (fs.existsSync(file) ? JSON.parse(fs.readFi
 // Ergebnis des Laufs: wird in main() nach und nach gefüllt.
 // missingScope: Berechtigung, die der Spotify-Anmeldung fehlte (z. B. 'user-follow-read'), sonst null.
 // trialId: Kennung des gespeicherten Probelaufs (probelauf.json), sonst null.
-const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, playlistName: null, playlistUrl: null, missingScope: null, trialId: null, summary: null };
+// durationMs: Spieldauer der Liste in Millisekunden; durationEstimated: true, wenn sie für einzelne Songs geschätzt ist.
+const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null, playlistName: null, playlistUrl: null, missingScope: null, trialId: null, summary: null };
 
 // Fehlerart für die Oberfläche: login_expired, not_logged_in, forbidden, lastfm_key, setup_incomplete, node_version,
 // trial_expired (Probelauf lässt sich nicht mehr übernehmen), other.
@@ -63,6 +64,7 @@ function report(values) {
   const { summary, ...r } = { ...result, ...values };
   const out = {
     ok: r.ok, dry: r.dry, songs: r.songs, fresh: r.fresh, freshCurrent: r.freshCurrent, familiar: r.familiar,
+    durationMs: r.durationMs ?? null, durationEstimated: r.durationEstimated ?? null,
     playlistName: r.playlistName, playlistUrl: r.playlistUrl, errorCode: r.errorCode ?? null, error: r.error ?? null,
     missingScope: r.missingScope ?? null, trialId: r.trialId ?? null,
   };
@@ -340,6 +342,8 @@ async function main() {
       continue;
     }
     track.artists = spotifyArtists.get(track.uri);
+    // Spieldauer aus dem Cache; fehlt sie (Eintrag von 0.1.4 oder älter), wird sie geschätzt, nicht neu gesucht.
+    track.durationMs = playableDurationMs(entry, excludeExplicit);
     if (fits(track)) take(fresh, track);
   }
 
@@ -356,14 +360,15 @@ async function main() {
   // Kein einziger Song (z. B. keine Lieblingssongs und kein Hörverlauf): abbrechen, statt die Playlist zu leeren.
   if (!lineup.length) throw new Error(t(lang, 'run.noSongs'));
   const freshCurrent = fresh.filter(c => c.viaCurrent).length;
-  const counts = { songs: lineup.length, fresh: fresh.length, freshCurrent, familiar: familiar.length };
-  const summary = t(lang, 'run.summary', { name: cfg.playlistName, ...counts });
+  const counts = { songs: lineup.length, fresh: fresh.length, freshCurrent, familiar: familiar.length, ...lineupDuration(lineup) };
+  const duration = formatDuration(lang, counts.durationMs, counts.durationEstimated);
+  const summary = t(lang, 'run.summary', { name: cfg.playlistName, ...counts, duration });
   console.log(`\n${summary}\n`);
   if (windowViolations(lineup, cfg.artistWindow, cfg.maxPerWindow)) {
     warn(t(lang, 'run.windowRule', { max: cfg.maxPerWindow, window: cfg.artistWindow }));
   }
   lineup.forEach((track, i) => console.log(lineupLine(track, i)));
-  const description = t(lang, 'run.description', { ...dateTime(lang, new Date()), fresh: fresh.length, familiar: familiar.length });
+  const description = t(lang, 'run.description', { ...dateTime(lang, new Date()), fresh: fresh.length, familiar: familiar.length, duration });
 
   if (dry) {
     fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
@@ -412,7 +417,11 @@ async function applyTrial(cfg, spotify) {
   console.log(t(lang, 'apply.start', { ...dateTime(lang, new Date(trial.createdAt)), count: trial.tracks.length }));
   console.log(`\n${trial.summary}\n`);
   trial.tracks.forEach((track, i) => console.log(lineupLine(track, i)));
-  const counts = { songs: trial.songs, fresh: trial.fresh, freshCurrent: trial.freshCurrent, familiar: trial.familiar };
+  // Spieldauer fehlt bei Probeläufen älterer Versionen (dann null).
+  const counts = {
+    songs: trial.songs, fresh: trial.fresh, freshCurrent: trial.freshCurrent, familiar: trial.familiar,
+    durationMs: trial.durationMs ?? null, durationEstimated: trial.durationEstimated ?? null,
+  };
   if (dry) {
     console.log(`\n${t(lang, 'run.dry')}`);
     return { ...counts, summary: trial.summary, trialId: trial.id };

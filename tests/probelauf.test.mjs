@@ -7,11 +7,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { formatDuration } from '../i18n.mjs';
 import { norm, trackKey, windowViolations } from '../lineup.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MOCK = pathToFileURL(path.join(ROOT, 'tests', 'mock-apis.mjs')).href;
-const RESULT_KEYS = ['ok', 'dry', 'songs', 'fresh', 'freshCurrent', 'familiar', 'playlistName', 'playlistUrl', 'errorCode', 'error', 'missingScope', 'trialId'];
+const RESULT_KEYS = ['ok', 'dry', 'songs', 'fresh', 'freshCurrent', 'familiar', 'durationMs', 'durationEstimated', 'playlistName', 'playlistUrl', 'errorCode', 'error', 'missingScope', 'trialId'];
 
 const CONFIG = {
   spotify: { clientId: 'test-client-id' },
@@ -105,7 +106,7 @@ test('Probelauf: Auswahl, Regeln, Sperrliste, Token-Refresh und Last.fm-Cache', 
     assert.doesNotMatch(first.all, /Fehler:/);
 
     // Anzahl Songs
-    assert.match(first.out, /^Test-DJ: 20 Songs \(/m);
+    assert.match(first.out, /^Test-DJ: 20 Songs · [^(]+ \(/m);
     const lineup = parseLineup(first.out);
     assert.equal(lineup.length, 20);
     assert.equal(lineup.filter(t => t.kind.startsWith('Favorit')).length >= 4, true);
@@ -117,7 +118,10 @@ test('Probelauf: Auswahl, Regeln, Sperrliste, Token-Refresh und Last.fm-Cache', 
     assert.equal(r.fresh + r.familiar, 20);
     assert.equal(r.fresh, lineup.filter(t => t.kind.startsWith('neu')).length);
     assert.equal(r.freshCurrent, lineup.filter(t => t.kind.startsWith('neu') && t.kind.endsWith(' · aktuell')).length);
-    assert.ok(first.out.includes(`Test-DJ: 20 Songs (${r.fresh} neu, davon ${r.freshCurrent} über aktuelles Hören; ${r.familiar} Favoriten)`));
+    // Spieldauer: alle Songs mit Dauer von Spotify (2:30 bis 4:29), also nicht geschätzt
+    assert.equal(r.durationEstimated, false);
+    assert.ok(r.durationMs >= 20 * 150_000 && r.durationMs <= 20 * 270_000, String(r.durationMs));
+    assert.ok(first.out.includes(`Test-DJ: 20 Songs · ${formatDuration('de', r.durationMs)} (${r.fresh} neu, davon ${r.freshCurrent} über aktuelles Hören; ${r.familiar} Favoriten)`));
 
     // Fensterregel "max. 3 aus 10" und max. 2 pro Interpret
     assert.equal(windowViolations(lineup, 10, 3), 0);
@@ -166,7 +170,7 @@ test('Probelauf: Auswahl, Regeln, Sperrliste, Token-Refresh und Last.fm-Cache', 
     // Zweiter Lauf: ähnliche Songs kommen komplett aus dem Cache
     const second = run(dir);
     assert.equal(second.code, 0, second.all);
-    assert.match(second.out, /^Test-DJ: 20 Songs \(/m);
+    assert.match(second.out, /^Test-DJ: 20 Songs · [^(]+ \(/m);
     assert.equal(lastfmCalls(second.requests, 'track.getSimilar'), 0);
     assert.ok(lastfmCalls(second.requests, 'user.getRecentTracks') > 0, 'Hörverlauf darf nicht aus dem Cache kommen');
     const [, hits, total] = second.out.match(/(\d+) von (\d+) Last\.fm-Abfragen aus dem Cache/).map(Number);
@@ -193,7 +197,7 @@ test('Probelauf auf Englisch: TWEAKABLE_DJ_LANG=en schlägt "language" in config
     assert.ok(lineup.every(t => /^(favorite|new, via .+?)( · current)?$/.test(t.kind)), lineup.map(t => t.kind).join(' | '));
     assert.ok(lineup.some(t => t.kind.endsWith(' · current')));
     assert.deepEqual([result.ok, result.dry, result.songs, result.errorCode, result.error], [true, true, 20, null, null]);
-    assert.ok(out.includes(`Test-DJ: 20 songs (${result.fresh} new, ${result.freshCurrent} of them via current listening; ${result.familiar} favorites)`));
+    assert.ok(out.includes(`Test-DJ: 20 songs · ${formatDuration('en', result.durationMs)} (${result.fresh} new, ${result.freshCurrent} of them via current listening; ${result.familiar} favorites)`));
     // Kein deutscher Text (Künstler und Titel aus den Testdaten ausgenommen)
     const texts = out.split(/\r?\n/).filter(l => !/^\s*\d+\. /.test(l) && !l.startsWith('@@'));
     assert.doesNotMatch(texts.join('\n'), /Lade|Suche|Kandidaten|Ausgangspunkt|davon|Favorit\b|aktuell|neu, über|Sperrliste|Fehler|nicht verändert/);
@@ -222,7 +226,7 @@ test('Sprache aus config.jsonc, wenn TWEAKABLE_DJ_LANG fehlt; sonst Systemsprach
     assert.match(es.out, /^--dry: playlist sin cambios\.$/m);
     const fr = run(dir, { TWEAKABLE_DJ_LANG: 'fr' });
     assert.match(fr.out, /^Chargement de tes favoris …$/m);
-    assert.match(fr.out, /^Test-DJ\u202f: \d+ titres \(/m);
+    assert.match(fr.out, /^Test-DJ\u202f: \d+ titres · [^(]+ \(/m);
     fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify(CONFIG));
     const sysFr = run(dir, { TWEAKABLE_DJ_LANG: undefined, LC_ALL: undefined, LC_MESSAGES: undefined, LANG: 'fr_FR.UTF-8' });
     assert.match(sysFr.out, /^Chargement de tes favoris …$/m);
@@ -249,7 +253,7 @@ test('Automatischer Lauf (--auto --dry): automatik.json und automatik.log, auch 
     assert.equal(r.playlistName, 'Test-DJ');
     // Dieselben Felder wie in der @@RESULT-Zeile
     for (const k of RESULT_KEYS) assert.deepEqual(r[k], ok.result[k], k);
-    assert.match(r.summary, /^Test-DJ: 20 Songs \(\d+ neu, davon \d+ über aktuelles Hören; \d+ Favoriten\)$/);
+    assert.match(r.summary, /^Test-DJ: 20 Songs · [^(]+ \(\d+ neu, davon \d+ über aktuelles Hören; \d+ Favoriten\)$/);
     assert.ok(ok.out.includes(r.summary));
     assert.ok(Date.parse(r.startedAt) <= Date.parse(r.finishedAt));
     // Protokoll = komplette Ausgabe (stdout; stderr siehe Fehlerfall unten)
@@ -394,7 +398,7 @@ test('Seed-Playlist per Link; Last.fm-Benutzer ohne Scrobbles', () => {
     assert.ok(requests.some(r => r.path?.startsWith('/v1/playlists/TestListe42/items')));
     assert.match(out, /^ {2}11 Songs$/m);
     assert.match(all, /keine Scrobbles von "stillerhoerer".*https:\/\/www\.last\.fm\/settings\/applications/);
-    assert.match(out, /^Test-DJ: 20 Songs \(/m);
+    assert.match(out, /^Test-DJ: 20 Songs · [^(]+ \(/m);
   } finally {
     cleanup(dir);
   }
@@ -626,7 +630,7 @@ test('Gefolgte Künstler ohne Berechtigung (ältere Anmeldung): Warnung, Lauf ge
     assert.doesNotMatch(de.all, /Fehler:/);
     assert.equal(followingRequests(de.requests).length, 1);
     assert.deepEqual([de.result.ok, de.result.songs, de.result.missingScope], [true, 20, 'user-follow-read']);
-    assert.match(de.out, /^Test-DJ: 20 Songs \(/m);
+    assert.match(de.out, /^Test-DJ: 20 Songs · [^(]+ \(/m);
     // Das erneuerte Token merkt sich die erteilten Berechtigungen (ohne user-follow-read)
     const tokens = JSON.parse(fs.readFileSync(path.join(dir, 'tokens.json'), 'utf8'));
     assert.ok(tokens.scope.includes('user-library-read') && !tokens.scope.includes('user-follow-read'), tokens.scope);
@@ -741,6 +745,9 @@ test('Such-Cache von 0.1.1 (nur URIs): bleibt ohne Filter unverändert, mit Filt
     const entries = Object.values(state.cache);
     assert.ok(entries.length > 20 && entries.every(v => v === null || (typeof v.uri === 'string' && typeof v.explicit === 'boolean')));
     assert.ok(entries.some(v => v?.explicit === true && v.clean), 'Echo 6 mit nicht expliziter Version');
+    // Neue Einträge mit Spieldauer (auch der nicht expliziten Version)
+    assert.ok(entries.every(v => v === null || v.durationMs >= 150_000));
+    assert.ok(entries.filter(v => v?.clean).every(v => v.cleanDurationMs >= 150_000));
     // So stand er in 0.1.1 da: nur die URI
     const old = Object.fromEntries(Object.entries(state.cache).map(([k, v]) => [k, v?.uri ?? null]));
     fs.writeFileSync(stateFile, JSON.stringify({ ...state, cache: old }, null, 2));
@@ -752,6 +759,9 @@ test('Such-Cache von 0.1.1 (nur URIs): bleibt ohne Filter unverändert, mit Filt
     const kept = JSON.parse(fs.readFileSync(stateFile, 'utf8')).cache;
     for (const [k, v] of Object.entries(old)) assert.equal(kept[k], v, k);
     assert.ok(parseLineup(plain.out).length > 20);
+    // Neue Songs aus dem alten Cache ohne Spieldauer: Gesamtdauer geschätzt (≈), Favoriten mit Dauer von Spotify
+    assert.equal(plain.result.durationEstimated, true);
+    assert.ok(plain.out.includes(`${formatDuration('de', plain.result.durationMs, true)} (`), 'Zusammenfassung mit ≈');
 
     // Mit Filter: explicit unbekannt → neu suchen; danach im neuen Format, beim nächsten Lauf wieder aus dem Cache
     fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, ...ALL, excludeExplicit: true }));
@@ -765,6 +775,52 @@ test('Such-Cache von 0.1.1 (nur URIs): bleibt ohne Filter unverändert, mit Filt
     const again = run(dir);
     const known = Object.fromEntries(Object.entries(migrated).filter(([, v]) => v && typeof v === 'object'));
     assert.deepEqual(cachedIn(again.requests, known), [], 'jetzt wieder aus dem Cache');
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('Spieldauer: Einträge im Such-Cache ohne Dauer (bis 0.1.4) → ≈ geschätzt, ohne neue Suche; in probelauf.json und --apply', () => {
+  // Mit ALL (bis 500 Songs) sucht der erste Lauf alle Kandidaten; der zweite findet sie sicher im Cache.
+  const dir = setup(ALL);
+  const stateFile = path.join(dir, 'state.json');
+  // Gesuchte Songs (trackKey aus der genauen Suche track:"…" artist:"…")
+  const searchedKeys = requests => requests.filter(r => r.path?.startsWith('/v1/search')).map(r => {
+    const m = new URLSearchParams(r.path.split('?')[1]).get('q').match(/^track:"(.*)" artist:"(.*)"$/);
+    return m ? trackKey(m[2], m[1]) : null;
+  }).filter(Boolean);
+  try {
+    const first = run(dir);
+    assert.equal(first.code, 0, first.all);
+    assert.equal(first.result.durationEstimated, false);
+    // So stand der Cache bis 0.1.4 da: { uri, explicit[, clean] } ohne Dauer
+    const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    const old = Object.fromEntries(Object.entries(state.cache).map(([k, v]) => [k, v && {
+      uri: v.uri, explicit: v.explicit, ...(v.explicit && { clean: v.clean }),
+    }]));
+    fs.writeFileSync(stateFile, JSON.stringify({ ...state, history: [], cache: old }, null, 2));
+
+    const again = run(dir);
+    assert.equal(again.code, 0, again.all);
+    const r = again.result;
+    // Die Songs aus dem Cache werden nicht wegen der Dauer neu gesucht; geschätzt wird mit dem Durchschnitt der bekannten
+    const lineup = parseLineup(again.out);
+    const fromCache = lineup.filter(t => t.kind.startsWith('neu') && Object.hasOwn(old, trackKey(t.artist, t.name)));
+    assert.ok(fromCache.length > 0, 'neue Songs aus dem alten Cache');
+    assert.equal(r.durationEstimated, true);
+    assert.ok(r.durationMs >= r.songs * 150_000 && r.durationMs <= r.songs * 270_000, String(r.durationMs));
+    assert.ok(again.out.includes(`Test-DJ: ${r.songs} Songs · ${formatDuration('de', r.durationMs, true)} (`), 'Zusammenfassung mit ≈');
+    const cache = JSON.parse(fs.readFileSync(stateFile, 'utf8')).cache;
+    for (const [k, v] of Object.entries(old)) assert.deepEqual(cache[k], v, k);
+    assert.deepEqual(searchedKeys(again.requests).filter(k => old[k] != null), [], 'Einträge aus dem Cache nicht neu gesucht');
+
+    // probelauf.json und Übernehmen (--apply): dieselbe Dauer
+    const trial = JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8'));
+    assert.deepEqual([trial.durationMs, trial.durationEstimated], [r.durationMs, true]);
+    assert.ok(trial.description.endsWith(` · ${formatDuration('de', r.durationMs, true)}`), trial.description);
+    const applied = run(dir, {}, ['--apply']);
+    assert.equal(applied.code, 0, applied.all);
+    assert.deepEqual([applied.result.durationMs, applied.result.durationEstimated], [r.durationMs, true]);
   } finally {
     cleanup(dir);
   }

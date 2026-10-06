@@ -246,8 +246,8 @@ function restartAfterUpdate(version) {
 
 // Ergebnis für die Oberfläche, falls dj.mjs ohne eigene "@@RESULT"-Zeile endet (z. B. abgestürzt).
 const fallbackResult = (lang, dry, code) => ({
-  ok: false, dry, songs: null, fresh: null, freshCurrent: null, familiar: null, playlistName: null, playlistUrl: null,
-  errorCode: 'other', error: t(lang, 'ui.exited', { code }), missingScope: null, trialId: null,
+  ok: false, dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null,
+  playlistName: null, playlistUrl: null, errorCode: 'other', error: t(lang, 'ui.exited', { code }), missingScope: null, trialId: null,
 });
 
 // Startet dj.mjs mit args und schickt seine Ausgabe als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".

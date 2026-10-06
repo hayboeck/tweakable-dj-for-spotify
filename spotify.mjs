@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import { exec } from 'node:child_process';
 import { resolveLang, t, tError } from './i18n.mjs';
-import { sameTrack } from './lineup.mjs';
+import { durationOf, sameTrack } from './lineup.mjs';
 
 const API = 'https://api.spotify.com/v1';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
@@ -194,9 +194,11 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
     }
   }
 
-  // artist = Hauptinterpret; artists = alle Beteiligten (für die Sperrliste); explicit = expliziter Text laut Spotify.
+  // artist = Hauptinterpret; artists = alle Beteiligten (für die Sperrliste); explicit = expliziter Text laut Spotify;
+  // durationMs = Spieldauer in Millisekunden (null = unbekannt).
   const toTrack = t => ({
     uri: t.uri, name: t.name, artist: t.artists?.[0]?.name, artists: (t.artists ?? []).map(a => a.name).filter(Boolean), explicit: t.explicit === true,
+    durationMs: durationOf(t.duration_ms),
   });
   const isPlayable = t => t && t.type === 'track' && !t.is_local && t.uri?.startsWith('spotify:track:');
 

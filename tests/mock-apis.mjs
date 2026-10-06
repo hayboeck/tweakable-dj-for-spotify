@@ -96,6 +96,8 @@ const spotifyTrack = (artist, name, { explicit = EXPLICIT_LIKED.has(`${artist}|$
   name,
   artists: artist.split(' / ').map(n => ({ name: n })),
   explicit,
+  // Spieldauer 2:30 bis 4:29, fest je Song
+  duration_ms: 150_000 + (hash(`${artist}|${name}|${variant}`) % 120) * 1000,
   is_local: false,
 });
 

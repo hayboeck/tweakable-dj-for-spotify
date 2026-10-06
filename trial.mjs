@@ -1,8 +1,9 @@
 // Probelauf merken und später genau so übernehmen („Diese Liste übernehmen“ in der Oberfläche bzw. node dj.mjs --apply).
 //
 // dj.mjs --dry speichert sein Ergebnis in probelauf.json: die Songs in ihrer Reihenfolge (URI, Künstler, Titel, Markierung),
-// Name und Beschreibung der Playlist, die Zahlen für die Zusammenfassung, den Zeitpunkt und einen Fingerabdruck der
-// Einstellungen, die die Auswahl bestimmen (settingsHash). Übernehmen lässt sich die Liste nur, solange sie gilt
+// Name und Beschreibung der Playlist, die Zahlen für die Zusammenfassung samt Spieldauer (durationMs, durationEstimated;
+// fehlen bei Probeläufen älterer Versionen), den Zeitpunkt und einen Fingerabdruck der Einstellungen, die die Auswahl
+// bestimmen (settingsHash). Übernehmen lässt sich die Liste nur, solange sie gilt
 // (trialProblem): höchstens 24 Stunden alt, Einstellungen seitdem unverändert, kein neuerer Probelauf (andere Kennung) und
 // seitdem keine Neuerstellung – ein echter Lauf und das Übernehmen selbst löschen probelauf.json (removeTrial).
 // probelauf.json ist eine persönliche Datei wie state.json: nie im Repository, nie in der ZIP-Datei, ein Update schreibt sie nie.
@@ -37,6 +38,8 @@ function valid(t) {
   return Boolean(t) && t.format === FORMAT && /^[0-9a-f]{12}$/.test(t.id) && Number.isFinite(Date.parse(t.createdAt))
     && text(t.settingsHash) && text(t.playlistName) && t.playlistName.trim() && text(t.description) && text(t.summary)
     && ['songs', 'fresh', 'freshCurrent', 'familiar'].every(k => count(t[k]))
+    && (t.durationMs === undefined || t.durationMs === null || count(t.durationMs))
+    && (t.durationEstimated === undefined || t.durationEstimated === null || typeof t.durationEstimated === 'boolean')
     && Array.isArray(t.tracks) && t.tracks.length > 0 && t.tracks.length <= LIMITS.size.max && t.tracks.length === t.songs
     && t.tracks.every(s => s && URI.test(s.uri) && text(s.artist) && text(s.name) && text(s.kind)
       && Array.isArray(s.artists) && s.artists.every(text));
@@ -76,6 +79,8 @@ export function saveTrial(dir, { cfg, lang, tracks, counts, summary, description
     fresh: counts.fresh,
     freshCurrent: counts.freshCurrent,
     familiar: counts.familiar,
+    durationMs: counts.durationMs ?? null,
+    durationEstimated: counts.durationEstimated ?? null,
     tracks: tracks.map(s => ({
       uri: s.uri, artist: s.artist, artists: (s.artists?.length ? s.artists : [s.artist]).filter(text), name: s.name, kind: s.kind,
     })),

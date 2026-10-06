@@ -59,6 +59,22 @@ export function isOne(lang, n) {
 // Fehler mit übersetzter Meldung und Zusatzangaben, z. B. { errorCode: 'login_expired' }.
 export const tError = (lang, key, params, props = {}) => Object.assign(new Error(t(lang, key, params)), props);
 
+// Spieldauer kurz und in der Sprache: de "3:15 Std." bzw. "45 Min.", en und es "3 h 15 min" bzw. "45 min", fr "3 h 15" bzw.
+// "45 min". Auf ganze Minuten gerundet, mit geschützten Leerzeichen (bricht nicht um); approx = geschätzt, dann "≈ " davor.
+// ui.html formatiert genauso (TEXT.<lang>.duration).
+const NBSP = ' ';
+const DURATION = {
+  de: (h, m) => (h ? `${h}:${String(m).padStart(2, '0')} Std.` : `${m} Min.`),
+  en: (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`),
+  es: (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`),
+  fr: (h, m) => (h ? `${h} h${m ? ` ${String(m).padStart(2, '0')}` : ''}` : `${m} min`),
+};
+export function formatDuration(lang, ms, approx = false) {
+  const minutes = Math.max(0, Math.round(Number(ms) / 60_000)) || 0;
+  const text = DURATION[valid(lang) ?? 'en'](Math.floor(minutes / 60), minutes % 60).replace(/ /g, NBSP);
+  return approx ? `≈${NBSP}${text}` : text;
+}
+
 export const MESSAGES = {
   de: {
     // --- Allgemein ---
@@ -142,12 +158,12 @@ export const MESSAGES = {
     'run.current': ' · aktuell',
     'run.searchingSpotify': 'Suche die Songs auf Spotify …',
     'run.noSongs': 'Kein einziger Song gefunden – die Playlist bleibt, wie sie ist. Ist die Quelle leer (z. B. noch keine Lieblingssongs) oder sperren Sperrliste und Wiederholungsregeln alles?',
-    'run.summary': '{name}: {songs|# Song|# Songs} ({fresh|#|#} neu, davon {freshCurrent|#|#} über aktuelles Hören; {familiar|# Favorit|# Favoriten})',
+    'run.summary': '{name}: {songs|# Song|# Songs} · {duration} ({fresh|#|#} neu, davon {freshCurrent|#|#} über aktuelles Hören; {familiar|# Favorit|# Favoriten})',
     'run.windowRule': 'Regel "max. {max} aus {window}" ließ sich nicht überall einhalten.',
     'run.dry': '--dry: Playlist nicht verändert.',
     'run.newPlaylist': 'Wird von Tweakable DJ befüllt.',
     'run.created': 'Playlist "{name}" angelegt.',
-    'run.description': 'Tweakable DJ · {date}, {time} Uhr · {fresh|# neuer Song|# neue Songs}, {familiar|# Favorit|# Favoriten}',
+    'run.description': 'Tweakable DJ · {date}, {time} Uhr · {fresh|# neuer Song|# neue Songs}, {familiar|# Favorit|# Favoriten} · {duration}',
     'run.descriptionFailed': 'Beschreibung nicht gesetzt: {message}',
     'run.done': 'Fertig ✓  {url}',
     'run.error': 'Fehler: {message}',
@@ -399,12 +415,12 @@ export const MESSAGES = {
     'run.current': ' · current',
     'run.searchingSpotify': 'Looking up the songs on Spotify …',
     'run.noSongs': 'Not a single song found – the playlist stays as it is. Is the source empty (e.g. no Liked Songs yet), or do the block list and the no-repeat rules block everything?',
-    'run.summary': '{name}: {songs|# song|# songs} ({fresh|#|#} new, {freshCurrent|#|#} of them via current listening; {familiar|# favorite|# favorites})',
+    'run.summary': '{name}: {songs|# song|# songs} · {duration} ({fresh|#|#} new, {freshCurrent|#|#} of them via current listening; {familiar|# favorite|# favorites})',
     'run.windowRule': 'The rule "at most {max} in {window}" couldn’t be kept everywhere.',
     'run.dry': '--dry: playlist not changed.',
     'run.newPlaylist': 'Filled by Tweakable DJ.',
     'run.created': 'Created playlist "{name}".',
-    'run.description': 'Tweakable DJ · {date}, {time} · {fresh|# new song|# new songs}, {familiar|# favorite|# favorites}',
+    'run.description': 'Tweakable DJ · {date}, {time} · {fresh|# new song|# new songs}, {familiar|# favorite|# favorites} · {duration}',
     'run.descriptionFailed': 'Description not set: {message}',
     'run.done': 'Done ✓  {url}',
     'run.error': 'Error: {message}',
@@ -657,12 +673,12 @@ export const MESSAGES = {
     'run.current': ' · actual',
     'run.searchingSpotify': 'Buscando las canciones en Spotify …',
     'run.noSongs': 'No se ha encontrado ni una canción; la playlist se queda como está. ¿Está vacía la fuente (p. ej. todavía no hay nada en Tus me gusta) o la lista de bloqueo y las reglas de repetición lo bloquean todo?',
-    'run.summary': '{name}: {songs|# canción|# canciones} ({fresh|# nueva|# nuevas}, {freshCurrent|#|#} de ellas por lo que escuchas ahora; {familiar|# favorita|# favoritas})',
+    'run.summary': '{name}: {songs|# canción|# canciones} · {duration} ({fresh|# nueva|# nuevas}, {freshCurrent|#|#} de ellas por lo que escuchas ahora; {familiar|# favorita|# favoritas})',
     'run.windowRule': 'La regla «máx. {max} de {window}» no se pudo cumplir en todas partes.',
     'run.dry': '--dry: playlist sin cambios.',
     'run.newPlaylist': 'La rellena Tweakable DJ.',
     'run.created': 'Playlist "{name}" creada.',
-    'run.description': 'Tweakable DJ · {date}, {time} · {fresh|# canción nueva|# canciones nuevas}, {familiar|# favorita|# favoritas}',
+    'run.description': 'Tweakable DJ · {date}, {time} · {fresh|# canción nueva|# canciones nuevas}, {familiar|# favorita|# favoritas} · {duration}',
     'run.descriptionFailed': 'No se pudo poner la descripción: {message}',
     'run.done': 'Listo ✓  {url}',
     'run.error': 'Error: {message}',
@@ -916,12 +932,12 @@ export const MESSAGES = {
     'run.current': ' · actuel',
     'run.searchingSpotify': 'Recherche des titres sur Spotify …',
     'run.noSongs': 'Aucun titre trouvé : la playlist reste telle quelle. La source est-elle vide (p. ex. encore aucun titre liké) ou la liste de blocage et les règles anti-répétition bloquent-elles tout ?',
-    'run.summary': '{name} : {songs|# titre|# titres} ({fresh|# nouveau|# nouveaux}, dont {freshCurrent|#|#} via ce que tu écoutes en ce moment ; {familiar|# favori|# favoris})',
+    'run.summary': '{name} : {songs|# titre|# titres} · {duration} ({fresh|# nouveau|# nouveaux}, dont {freshCurrent|#|#} via ce que tu écoutes en ce moment ; {familiar|# favori|# favoris})',
     'run.windowRule': 'La règle « max. {max} sur {window} » n’a pas pu être respectée partout.',
     'run.dry': '--dry : playlist inchangée.',
     'run.newPlaylist': 'Remplie par Tweakable DJ.',
     'run.created': 'Playlist "{name}" créée.',
-    'run.description': 'Tweakable DJ · {date}, {time} · {fresh|# nouveau titre|# nouveaux titres}, {familiar|# favori|# favoris}',
+    'run.description': 'Tweakable DJ · {date}, {time} · {fresh|# nouveau titre|# nouveaux titres}, {familiar|# favori|# favoris} · {duration}',
     'run.descriptionFailed': 'Description non définie : {message}',
     'run.done': 'Terminé ✓  {url}',
     'run.error': 'Erreur : {message}',

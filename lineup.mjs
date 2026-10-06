@@ -44,25 +44,42 @@ export function trackBlocker(entries) {
   return track => Boolean(track) && (uris.has(track.uri) || (Boolean(track.artist && track.name) && keys.has(trackKey(track.artist, track.name))));
 }
 
+// Spieldauer in Millisekunden (duration_ms von Spotify): nur eine positive Zahl zählt, sonst null (= unbekannt).
+export const durationOf = v => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.round(v) : null);
+
 // --- Such-Cache in state.json (state.cache: trackKey → Treffer auf Spotify) ---
-// Eintrag: { uri, explicit, clean } bzw. null = auf Spotify nicht gefunden. explicit: laut Spotify (true/false); clean: nur
-// bei explicit true – URI einer nicht expliziten Version desselben Songs aus derselben Suche, sonst null.
+// Eintrag: { uri, explicit, clean, durationMs, cleanDurationMs } bzw. null = auf Spotify nicht gefunden. explicit: laut
+// Spotify (true/false); clean: nur bei explicit true – URI einer nicht expliziten Version desselben Songs aus derselben Suche,
+// sonst null. durationMs bzw. cleanDurationMs: Spieldauer des Treffers bzw. der nicht expliziten Version (null = unbekannt).
 // Bis Version 0.1.1 stand dort nur die URI als Text: Solche Einträge bleiben gültig, explicit ist dann unbekannt (null).
 // Nur mit excludeExplicit sucht der DJ sie einmal neu und ersetzt sie (searchAgain); sonst bleiben sie, wie sie sind.
+// Einträge bis 0.1.4 haben keine Spieldauer: Sie bleiben gültig, nur wegen der Dauer wird nie neu gesucht.
 // undefined = kein brauchbarer Eintrag (fehlt oder kaputt), dann wird ebenfalls gesucht.
 export function cacheEntry(value) {
   if (value === null) return null;
-  if (typeof value === 'string') return value ? { uri: value, explicit: null, clean: null } : undefined;
+  if (typeof value === 'string') return value ? { uri: value, explicit: null, clean: null, durationMs: null, cleanDurationMs: null } : undefined;
   if (!value || typeof value !== 'object' || typeof value.uri !== 'string' || !value.uri) return undefined;
+  const clean = value.explicit === true && typeof value.clean === 'string' && value.clean ? value.clean : null;
   return {
     uri: value.uri,
     explicit: typeof value.explicit === 'boolean' ? value.explicit : null,
-    clean: value.explicit === true && typeof value.clean === 'string' && value.clean ? value.clean : null,
+    clean,
+    durationMs: durationOf(value.durationMs),
+    cleanDurationMs: clean ? durationOf(value.cleanDurationMs) : null,
   };
 }
 
-// Neuer Eintrag aus einem Treffer von spotify.findTrack() ({ uri, explicit, clean }) bzw. null.
-export const cacheValue = hit => (hit ? { uri: hit.uri, explicit: hit.explicit === true, ...(hit.explicit === true && { clean: hit.clean?.uri ?? null }) } : null);
+// Neuer Eintrag aus einem Treffer von spotify.findTrack() ({ uri, explicit, clean, durationMs }) bzw. null. Die Spieldauer
+// steht nur drin, wenn Spotify sie geliefert hat.
+export function cacheValue(hit) {
+  if (!hit) return null;
+  const duration = durationOf(hit.durationMs);
+  const cleanDuration = durationOf(hit.clean?.durationMs);
+  return {
+    uri: hit.uri, explicit: hit.explicit === true, ...(duration && { durationMs: duration }),
+    ...(hit.explicit === true && { clean: hit.clean?.uri ?? null, ...(cleanDuration && { cleanDurationMs: cleanDuration }) }),
+  };
+}
 
 // Muss ein Eintrag (aus cacheEntry) neu gesucht werden?
 export const searchAgain = (entry, excludeExplicit) => entry === undefined || Boolean(excludeExplicit && entry?.explicit === null);
@@ -73,6 +90,24 @@ export function playableUri(entry, excludeExplicit) {
   if (!entry) return null;
   if (excludeExplicit && entry.explicit !== false) return entry.explicit === true ? entry.clean : null;
   return entry.uri;
+}
+
+// Spieldauer zur URI aus playableUri (null = unbekannt bzw. kein Song).
+export function playableDurationMs(entry, excludeExplicit) {
+  if (!entry) return null;
+  if (excludeExplicit && entry.explicit !== false) return entry.explicit === true && entry.clean ? entry.cleanDurationMs ?? null : null;
+  return entry.durationMs ?? null;
+}
+
+// Gesamtdauer einer Liste aus durationMs der Songs. Fehlt sie bei einzelnen (z. B. alte Einträge im Such-Cache), zählen
+// diese mit dem Durchschnitt der bekannten, ohne bekannte mit SONG_MS (3,5 Minuten); durationEstimated sagt dann: geschätzt.
+export const SONG_MS = 210_000;
+export function lineupDuration(tracks) {
+  const known = tracks.map(track => durationOf(track?.durationMs)).filter(d => d !== null);
+  const sum = known.reduce((a, b) => a + b, 0);
+  const missing = tracks.length - known.length;
+  const average = known.length ? sum / known.length : SONG_MS;
+  return { durationMs: Math.round(sum + missing * average), durationEstimated: missing > 0 };
 }
 
 // Einzelne Namen aus einem Künstler-Text, dazu der ganze Text: "A feat. B", "A (feat. B)", "A / B", "A, B & C", "A x B".

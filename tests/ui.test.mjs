@@ -183,12 +183,12 @@ test('POST /api/run: Ausgabe und @@RESULT in der Sprache der Anfrage', async () 
   const de = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
   assert.equal(de.status, 200);
   assert.match(de.text, /^Lade deine Favoriten …$/m);
-  assert.match(de.text, /^Test-DJ: 20 Songs \(/m);
+  assert.match(de.text, /^Test-DJ: 20 Songs · [^(]+ \(/m);
   assert.deepEqual(Object.entries(resultLine(de.text)).filter(([k]) => ['ok', 'dry', 'songs', 'errorCode'].includes(k)),
     [['ok', true], ['dry', true], ['songs', 20], ['errorCode', null]]);
   const en = await api('/api/run?dry=1', { lang: 'en', method: 'POST' });
   assert.match(en.text, /^Loading your favorites …$/m);
-  assert.match(en.text, /^Test-DJ: 20 songs \(/m);
+  assert.match(en.text, /^Test-DJ: 20 songs · [^(]+ \(/m);
   assert.match(en.text, / · current\)$/m);
   assert.equal(resultLine(en.text).ok, true);
 });
@@ -719,6 +719,56 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungs
   assert.equal(ctx.TEXT.es.page.mtNote, `Traducción automática – ${issues}las correcciones son bienvenidas</a>`);
   assert.equal(ctx.TEXT.fr.page.mtNote, `Traduction automatique – ${issues}les corrections sont les bienvenues</a>`);
   assert.match(html, /<p class="mt-note" id="mt-note" data-html="mtNote"><\/p>/);
+});
+
+// Spieldauer in der Oberfläche: dieselben Formen wie formatDuration() in i18n.mjs (Schätzung bei „Anzahl Songs“, echte Dauer
+// nach einem Lauf und beim letzten automatischen Lauf), dazu die Fußzeile mit Last.fm und Spotify in einer Zeile.
+test('ui.html: Spieldauer wie in i18n.mjs, in der Zusammenfassung und beim letzten automatischen Lauf; Fußzeile', async () => {
+  const vm = await import('node:vm');
+  const { formatDuration } = await import('../i18n.mjs');
+  const html = fs.readFileSync(path.join(ROOT, 'ui.html'), 'utf8');
+  const start = html.indexOf('const LASTFM_APPS');
+  const end = html.indexOf('\n};\n', html.indexOf('const TEXT = {'));
+  const ctx = vm.createContext({});
+  vm.runInContext(`let T;
+    const two = n => String(n).padStart(2, '0');
+    const num = v => Number(v).toLocaleString(T.locale, { maximumFractionDigits: 2 });
+    const isOne = n => new Intl.PluralRules(T.locale).select(Number(n)) === 'one';
+    const plural = (n, one, many) => \`\${num(n)} \${isOne(n) ? one : many}\`;
+    ${html.slice(start, end + 3)}
+    this.TEXT = TEXT; this.setT = l => { T = TEXT[l]; }; this.durationText = durationText;`, ctx);
+  const NBSP = String.fromCharCode(0xa0);
+  const plain = s => s.replaceAll(NBSP, ' ');
+  const H = 3_600_000;
+  const M = 60_000;
+  for (const lang of ['de', 'en', 'es', 'fr']) {
+    ctx.setT(lang);
+    for (const ms of [0, 29_999, 30_000, 45 * M, 59 * M + 30_000, H, 2 * H + 5 * M, 2 * H + 58 * M + 29_999, 3 * H + 15 * M, 58 * H + 20 * M]) {
+      for (const approx of [false, true]) assert.equal(ctx.TEXT[lang].duration(ms, approx), formatDuration(lang, ms, approx), `${lang} ${ms} ${approx}`);
+    }
+  }
+  // Schätzung bei „Anzahl Songs“: 55 × 3,5 Minuten
+  assert.equal(plain(ctx.TEXT.de.duration(55 * 210_000, true)), '≈ 3:13 Std.');
+  assert.equal(plain(ctx.TEXT.en.duration(55 * 210_000, true)), '≈ 3 h 13 min');
+  assert.equal(plain(ctx.TEXT.es.duration(13 * 210_000, true)), '≈ 46 min');
+  assert.equal(plain(ctx.TEXT.fr.duration(55 * 210_000, true)), '≈ 3 h 13');
+  // Nach einem Lauf: echte Dauer, mit ≈, wenn sie für einzelne Songs geschätzt ist; ohne Dauer (ältere Version) nichts
+  const r = { playlistName: 'Mix', songs: 50, fresh: 40, freshCurrent: 5, familiar: 10, durationMs: 2 * H + 58 * M };
+  ctx.setT('de');
+  assert.equal(plain(ctx.TEXT.de.run.ok(r, false)), 'Fertig: Mix: 50 Songs · 2:58 Std. (40 neu, davon 5 über aktuelles Hören; 10 Favoriten)');
+  assert.equal(plain(ctx.TEXT.de.run.ok({ ...r, durationEstimated: true }, true)), 'Probelauf: Mix: 50 Songs · ≈ 2:58 Std. (40 neu, davon 5 über aktuelles Hören; 10 Favoriten)');
+  assert.equal(ctx.TEXT.de.run.ok({ ...r, durationMs: null }, false), 'Fertig: Mix: 50 Songs (40 neu, davon 5 über aktuelles Hören; 10 Favoriten)');
+  assert.equal(plain(ctx.TEXT.de.auto.ok(50, true, ctx.durationText(r))), '✓ 50 Songs · 2:58 Std. (Probelauf)');
+  assert.equal(ctx.TEXT.de.auto.ok(50, false, ctx.durationText({ durationMs: null })), '✓ 50 Songs');
+  ctx.setT('en');
+  assert.equal(plain(ctx.TEXT.en.run.ok(r, false)), 'Done: Mix: 50 songs · 2 h 58 min (40 new, 5 of them via current listening; 10 favorites)');
+  ctx.setT('es');
+  assert.equal(plain(ctx.TEXT.es.auto.ok(50, false, ctx.durationText({ ...r, durationEstimated: true }))), '✓ 50 canciones · ≈ 2 h 58 min');
+  ctx.setT('fr');
+  assert.match(plain(ctx.TEXT.fr.run.ok(r, false)), /^Terminé\u202f: Mix\u202f: 50 titres · 2 h 58 \(40 nouveaux,/);
+  // Fußzeile: Last.fm und Spotify in einer Zeile, Übersetzungshinweis und Version wie bisher je eigene Zeile
+  assert.match(html, /<p><span data-html="creditLastfm"><\/span> · <span data-t="creditSpotify"><\/span><\/p>/);
+  assert.doesNotMatch(html, /<p data-t="creditSpotify">/);
 });
 
 // --- „Nach Updates suchen“ (GET /api/update?force=1): am Tages-Cache vorbei, höchstens einmal pro Minute ---

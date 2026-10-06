@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isOne, LANGS, MESSAGES, locale, resolveLang, systemLang, t, tError } from '../i18n.mjs';
+import { formatDuration, isOne, LANGS, MESSAGES, locale, resolveLang, systemLang, t, tError } from '../i18n.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // Texte in Anführungszeichen, die wie Schlüssel aussehen, aber Dateinamen bzw. Stellen in der config.jsonc sind
@@ -106,10 +106,10 @@ test('Einzahl und Mehrzahl nach den Regeln der Sprache (Intl.PluralRules)', () =
   // Zahlen im Format der Sprache: es-ES 12.345, fr-FR 12 345 (mit schmalem geschütztem Leerzeichen)
   assert.equal(t('es', 'run.songs', { count: 12345 }), '  12.345 canciones');
   assert.equal(t('fr', 'run.songs', { count: 12345 }), `  ${(12345).toLocaleString('fr-FR')} titres`);
-  assert.equal(t('fr', 'run.summary', { name: 'DJ', songs: 1, fresh: 0, freshCurrent: 0, familiar: 0 }),
-    'DJ\u202f: 1 titre (0 nouveau, dont 0 via ce que tu écoutes en ce moment\u202f; 0 favori)');
-  assert.equal(t('es', 'run.summary', { name: 'DJ', songs: 2, fresh: 1, freshCurrent: 0, familiar: 0 }),
-    'DJ: 2 canciones (1 nueva, 0 de ellas por lo que escuchas ahora; 0 favoritas)');
+  assert.equal(t('fr', 'run.summary', { name: 'DJ', songs: 1, fresh: 0, freshCurrent: 0, familiar: 0, duration: formatDuration('fr', 200_000) }),
+    'DJ\u202f: 1 titre · 3\u00a0min (0 nouveau, dont 0 via ce que tu écoutes en ce moment\u202f; 0 favori)');
+  assert.equal(t('es', 'run.summary', { name: 'DJ', songs: 2, fresh: 1, freshCurrent: 0, familiar: 0, duration: formatDuration('es', 420_000, true) }),
+    'DJ: 2 canciones · ≈\u00a07\u00a0min (1 nueva, 0 de ellas por lo que escuchas ahora; 0 favoritas)');
   assert.equal(t('fr', 'run.startingPoints', { current: 1, total: 20, factor: 3 }), '  1 point de départ sur 20 vient de ce que tu écoutes en ce moment (facteur 3)');
   assert.equal(t('fr', 'run.startingPoints', { current: 5, total: 20, factor: 1.5 }), '  5 points de départ sur 20 viennent de ce que tu écoutes en ce moment (facteur 1,5)');
   assert.equal(t('es', 'import.hintBlocked', { count: 1 }), 'Aviso: 1 canción está en tu lista de bloqueo y entra igualmente; el archivo es tu lista:');
@@ -122,18 +122,19 @@ test('t: Einzahl und Mehrzahl mit {name|eins|mehr}, Zahl im Format der Sprache',
   assert.equal(t('de', 'run.songs', { count: 0 }), '  0 Songs');
   assert.equal(t('en', 'run.songs', { count: 1000 }), '  1,000 songs');
   assert.equal(t('de', 'run.songs', { count: 1000 }), `  ${(1000).toLocaleString('de-AT')} Songs`, 'de-AT: 1 000 mit geschütztem Leerzeichen');
-  const counts = { name: 'DJ', songs: 1, fresh: 0, freshCurrent: 0, familiar: 1 };
-  assert.equal(t('de', 'run.summary', counts), 'DJ: 1 Song (0 neu, davon 0 über aktuelles Hören; 1 Favorit)');
-  assert.equal(t('en', 'run.summary', counts), 'DJ: 1 song (0 new, 0 of them via current listening; 1 favorite)');
-  assert.equal(t('de', 'run.summary', { ...counts, songs: 2, familiar: 2 }), 'DJ: 2 Songs (0 neu, davon 0 über aktuelles Hören; 2 Favoriten)');
-  assert.equal(t('en', 'run.summary', { ...counts, songs: 2, familiar: 2 }), 'DJ: 2 songs (0 new, 0 of them via current listening; 2 favorites)');
+  const counts = { name: 'DJ', songs: 1, fresh: 0, freshCurrent: 0, familiar: 1, duration: '4 Min.' };
+  assert.equal(t('de', 'run.summary', counts), 'DJ: 1 Song · 4 Min. (0 neu, davon 0 über aktuelles Hören; 1 Favorit)');
+  assert.equal(t('en', 'run.summary', { ...counts, duration: '4 min' }), 'DJ: 1 song · 4 min (0 new, 0 of them via current listening; 1 favorite)');
+  assert.equal(t('de', 'run.summary', { ...counts, songs: 2, familiar: 2 }), 'DJ: 2 Songs · 4 Min. (0 neu, davon 0 über aktuelles Hören; 2 Favoriten)');
+  assert.equal(t('en', 'run.summary', { ...counts, songs: 2, familiar: 2, duration: '4 min' }), 'DJ: 2 songs · 4 min (0 new, 0 of them via current listening; 2 favorites)');
   assert.equal(t('de', 'run.blocked', { count: 1 }), '  1 Song wegen der Sperrliste aussortiert');
   assert.equal(t('en', 'run.blocked', { count: 3 }), '  3 songs left out because of the block list');
   assert.equal(t('de', 'run.scrobbles', { total: 1, current: 1, days: 1, artists: 1 }), '  1 Scrobble, davon 1 in den letzten 24 Stunden (1 Künstler)');
   assert.equal(t('en', 'run.scrobbles', { total: 1000, current: 5, days: 7, artists: 1 }), '  1,000 scrobbles, 5 of them in the last 7 days (1 artist)');
   assert.equal(t('de', 'run.startingPoints', { current: 0, total: 1, factor: 3 }), '  0 von 1 Ausgangspunkt aus deinem aktuellen Hören (Faktor 3)');
   assert.equal(t('en', 'run.candidates', { count: 1, hits: 0, total: 1 }), '  1 candidate (0 of 1 Last.fm request from the cache)');
-  assert.equal(t('de', 'run.description', { date: 'd', time: 't', fresh: 1, familiar: 1 }), 'Tweakable DJ · d, t Uhr · 1 neuer Song, 1 Favorit');
+  assert.equal(t('de', 'run.description', { date: 'd', time: 't', fresh: 1, familiar: 1, duration: formatDuration('de', 10_680_000) }),
+    'Tweakable DJ · d, t Uhr · 1 neuer Song, 1 Favorit · 2:58\u00a0Std.');
   assert.equal(t('en', 'update.stepCopy', { count: 1, same: 1 }), 'Replacing 1 file (1 is unchanged) …');
   assert.equal(t('de', 'update.stepCopy', { count: 2, same: 1 }), 'Ersetze 2 Dateien (1 ist unverändert) …');
   assert.equal(t('en', 'ui.lastfmOk', { name: 'x', scrobbles: 12345 }), 'All good ✓ “x” has 12,345 scrobbles.');
@@ -193,8 +194,8 @@ test('Zahlen: Tausender in Ausgabe, Oberfläche und READMEs im selben Format', (
   assert.equal(t('en', 'run.candidates', { count: 1500, hits: 1200, total: 2000 }), '  1,500 candidates (1,200 of 2,000 Last.fm requests from the cache)');
   assert.equal(t('de', 'run.startingPoints', { current: 1000, total: 1000, factor: 1.5 }),
     `  ${de} von ${de} Ausgangspunkten aus deinem aktuellen Hören (Faktor 1,5)`);
-  assert.equal(t('de', 'run.summary', { name: 'DJ', songs: 1000, fresh: 1000, freshCurrent: 1000, familiar: 0 }),
-    `DJ: ${de} Songs (${de} neu, davon ${de} über aktuelles Hören; 0 Favoriten)`);
+  assert.equal(t('de', 'run.summary', { name: 'DJ', songs: 1000, fresh: 1000, freshCurrent: 1000, familiar: 0, duration: formatDuration('de', 210_000_000) }),
+    `DJ: ${de} Songs · 58:20${NBSP}Std. (${de} neu, davon ${de} über aktuelles Hören; 0 Favoriten)`);
   // Werte ohne Einzahl/Mehrzahl, die keine Mengen sind, bleiben, wie sie sind (z. B. Fehlercodes)
   assert.equal(t('de', 'ui.exited', { code: 2147942402 }), '(beendet mit Fehlercode 2147942402)');
   const html = fs.readFileSync(path.join(ROOT, 'ui.html'), 'utf8');
@@ -208,4 +209,43 @@ test('Zahlen: Tausender in Ausgabe, Oberfläche und READMEs im selben Format', (
   assert.ok(readmeDe.includes(`die ${de} neuesten Scrobbles`) && readmeDe.includes(`die ${de}, die du zuletzt gespeichert hast`));
   assert.doesNotMatch(readmeEn, new RegExp(`\\b\\d{1,3}(?:\\.|[ ${NBSP}](?=\\d{3}\\b))\\d{3}\\b`), 'README.md: Tausender mit Punkt oder Leerzeichen');
   assert.ok(readmeEn.includes('the 1,000 newest scrobbles'));
+});
+
+// Spieldauer: kurz und in der Sprache, auf ganze Minuten gerundet, mit geschützten Leerzeichen (bricht nicht um).
+test('formatDuration: unter und ab einer Stunde, Rundung, geschätzt mit ≈', () => {
+  const NBSP = String.fromCharCode(0xa0);
+  const plain = (lang, ms, approx) => formatDuration(lang, ms, approx).replaceAll(NBSP, ' ');
+  const H = 3_600_000;
+  const M = 60_000;
+  // unter einer Stunde
+  assert.equal(plain('de', 45 * M), '45 Min.');
+  for (const lang of ['en', 'es', 'fr']) assert.equal(plain(lang, 45 * M), '45 min', lang);
+  // ab einer Stunde
+  assert.equal(plain('de', 3 * H + 15 * M), '3:15 Std.');
+  assert.equal(plain('en', 3 * H + 15 * M), '3 h 15 min');
+  assert.equal(plain('es', 3 * H + 15 * M), '3 h 15 min');
+  assert.equal(plain('fr', 3 * H + 15 * M), '3 h 15');
+  assert.equal(plain('de', 2 * H + 5 * M), '2:05 Std.');
+  assert.equal(plain('fr', 2 * H + 5 * M), '2 h 05');
+  assert.equal(plain('en', 2 * H + 5 * M), '2 h 5 min');
+  // volle Stunden
+  assert.equal(plain('de', H), '1:00 Std.');
+  for (const lang of ['en', 'es', 'fr']) assert.equal(plain(lang, H), '1 h', lang);
+  // geschätzt
+  assert.equal(plain('de', 3 * H + 15 * M, true), '≈ 3:15 Std.');
+  assert.equal(plain('en', 3 * H + 15 * M, true), '≈ 3 h 15 min');
+  assert.equal(plain('es', 45 * M, true), '≈ 45 min');
+  assert.equal(plain('fr', 3 * H + 15 * M, true), '≈ 3 h 15');
+  assert.equal(plain('de', 45 * M, true), '≈ 45 Min.');
+  // Rundung auf ganze Minuten, auch über die volle Stunde
+  assert.equal(plain('de', 2 * H + 58 * M + 29_999), '2:58 Std.');
+  assert.equal(plain('de', 2 * H + 58 * M + 30_000), '2:59 Std.');
+  assert.equal(plain('de', 59 * M + 30_000), '1:00 Std.');
+  assert.equal(plain('en', 59 * M + 29_999), '59 min');
+  assert.equal(plain('de', 29_999), '0 Min.');
+  // Unbrauchbare Werte und unbekannte Sprache
+  for (const v of [NaN, null, undefined, -5 * M, 'x']) assert.equal(plain('de', v), '0 Min.', String(v));
+  assert.equal(plain('xx', 45 * M), '45 min');
+  // Nur geschützte Leerzeichen
+  for (const lang of LANGS) assert.doesNotMatch(formatDuration(lang, 3 * H + 15 * M, true), / /, lang);
 });

@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  arrange, artistBlocker, artistNames, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, FOLLOWED_MAX, norm, playableUri,
-  sameTrack, searchAgain, trackBlocker, trackKey, weightedOrder, windowViolations,
+  arrange, artistBlocker, artistNames, cacheEntry, cacheValue, candidateWeight, durationOf, followedFactor, followedMatcher, FOLLOWED_MAX,
+  lineupDuration, norm, playableDurationMs, playableUri, sameTrack, searchAgain, SONG_MS, trackBlocker, trackKey, weightedOrder, windowViolations,
 } from '../lineup.mjs';
 import { VARIETY_LEVELS } from '../config.mjs';
 
@@ -274,8 +274,9 @@ test('trackBlocker: gleiche URI oder gleicher trackKey (andere Versionen), kaput
 test('Such-Cache: Einträge von 0.1.1 (nur URI) bleiben lesbar, explicit unbekannt → nur mit Filter neu suchen', () => {
   const uri = 'spotify:track:aaaaaaaaaaaaaaaaaaaaaa';
   const clean = 'spotify:track:cccccccccccccccccccccc';
+  const none = { durationMs: null, cleanDurationMs: null };
   // altes Format
-  assert.deepEqual(cacheEntry(uri), { uri, explicit: null, clean: null });
+  assert.deepEqual(cacheEntry(uri), { uri, explicit: null, clean: null, ...none });
   assert.equal(cacheEntry(null), null, 'nicht gefunden bleibt nicht gefunden');
   for (const broken of [undefined, '', 42, {}, { uri: 1 }, []]) assert.equal(cacheEntry(broken), undefined, JSON.stringify(broken));
   // neues Format
@@ -283,8 +284,8 @@ test('Such-Cache: Einträge von 0.1.1 (nur URI) bleiben lesbar, explicit unbekan
   assert.deepEqual(cacheValue({ uri, explicit: true, clean: { uri: clean } }), { uri, explicit: true, clean });
   assert.deepEqual(cacheValue({ uri, explicit: true, clean: null }), { uri, explicit: true, clean: null });
   assert.equal(cacheValue(null), null);
-  assert.deepEqual(cacheEntry(cacheValue({ uri, explicit: true, clean: { uri: clean } })), { uri, explicit: true, clean });
-  assert.deepEqual(cacheEntry({ uri, explicit: false, clean }), { uri, explicit: false, clean: null }, 'clean nur bei explicit');
+  assert.deepEqual(cacheEntry(cacheValue({ uri, explicit: true, clean: { uri: clean } })), { uri, explicit: true, clean, ...none });
+  assert.deepEqual(cacheEntry({ uri, explicit: false, clean }), { uri, explicit: false, clean: null, ...none }, 'clean nur bei explicit');
   // Neu suchen?
   assert.equal(searchAgain(undefined, false), true, 'nicht im Cache');
   assert.equal(searchAgain(cacheEntry(uri), false), false, 'alter Eintrag ohne Filter: bleibt');
@@ -298,4 +299,47 @@ test('Such-Cache: Einträge von 0.1.1 (nur URI) bleiben lesbar, explicit unbekan
   assert.equal(playableUri(cacheEntry({ uri, explicit: false }), true), uri);
   assert.equal(playableUri(cacheEntry(uri), true), null, 'unbekannt mit Filter: lieber auslassen');
   assert.equal(playableUri(null, false), null);
+});
+
+test('Such-Cache mit Spieldauer: neue Einträge speichern sie, alte bleiben lesbar und werden deshalb nicht neu gesucht', () => {
+  const uri = 'spotify:track:aaaaaaaaaaaaaaaaaaaaaa';
+  const clean = 'spotify:track:cccccccccccccccccccccc';
+  // Neuer Eintrag: Dauer des Treffers und der nicht expliziten Version
+  assert.deepEqual(cacheValue({ uri, explicit: false, durationMs: 201_500 }), { uri, explicit: false, durationMs: 201_500 });
+  assert.deepEqual(cacheValue({ uri, explicit: true, durationMs: 200_000, clean: { uri: clean, durationMs: 199_000 } }),
+    { uri, explicit: true, durationMs: 200_000, clean, cleanDurationMs: 199_000 });
+  assert.deepEqual(cacheValue({ uri, explicit: false, durationMs: null }), { uri, explicit: false }, 'ohne Dauer kein Feld');
+  const entry = cacheEntry({ uri, explicit: true, durationMs: 200_000, clean, cleanDurationMs: 199_000 });
+  assert.deepEqual(entry, { uri, explicit: true, clean, durationMs: 200_000, cleanDurationMs: 199_000 });
+  // Dauer passend zur URI aus playableUri
+  assert.equal(playableDurationMs(entry, false), 200_000);
+  assert.equal(playableDurationMs(entry, true), 199_000, 'mit Filter: Dauer der nicht expliziten Version');
+  assert.equal(playableDurationMs(cacheEntry({ uri, explicit: true, durationMs: 200_000, clean: null }), true), null);
+  assert.equal(playableDurationMs(null, false), null);
+  // Alte Einträge (bis 0.1.4 ohne Dauer, 0.1.1 nur URI): Dauer unbekannt, kein neues Suchen deswegen
+  for (const old of [uri, { uri, explicit: false }, { uri, explicit: true, clean }]) {
+    const e = cacheEntry(old);
+    assert.equal(e.durationMs, null);
+    assert.equal(playableDurationMs(e, false), null);
+    assert.equal(searchAgain(e, false), false, JSON.stringify(old));
+  }
+  assert.equal(searchAgain(cacheEntry({ uri, explicit: false }), true), false, 'auch mit Filter nicht wegen der Dauer');
+  // Kaputte Werte zählen als unbekannt
+  for (const bad of [0, -1, '200000', NaN, Infinity, null, undefined]) {
+    assert.equal(durationOf(bad), null, String(bad));
+    assert.equal(cacheEntry({ uri, explicit: false, durationMs: bad }).durationMs, null, String(bad));
+  }
+  assert.equal(durationOf(200_000.4), 200_000);
+});
+
+test('lineupDuration: Summe; fehlende Dauer mit dem Durchschnitt der bekannten geschätzt, ohne bekannte 3,5 Minuten', () => {
+  assert.deepEqual(lineupDuration([{ durationMs: 180_000 }, { durationMs: 240_000 }]), { durationMs: 420_000, durationEstimated: false });
+  // Ein Song ohne Dauer (alter Cache-Eintrag) → Durchschnitt der beiden bekannten
+  assert.deepEqual(lineupDuration([{ durationMs: 180_000 }, { durationMs: 240_000 }, { durationMs: null }]),
+    { durationMs: 630_000, durationEstimated: true });
+  assert.deepEqual(lineupDuration([{ durationMs: 200_000 }, {}, { durationMs: 0 }]), { durationMs: 600_000, durationEstimated: true });
+  // Keine Dauer bekannt
+  assert.equal(SONG_MS, 210_000);
+  assert.deepEqual(lineupDuration([{}, { durationMs: null }]), { durationMs: 420_000, durationEstimated: true });
+  assert.deepEqual(lineupDuration([]), { durationMs: 0, durationEstimated: false });
 });

@@ -3,6 +3,34 @@
 All notable changes to Tweakable DJ for Spotify, newest first. Each version has an English and a German section.
 Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuerst – jeweils auf Englisch und auf Deutsch.
 
+## [Unreleased]
+
+### English
+
+**New**
+
+- **Play time**: next to *Number of songs*, the interface shows an estimate that updates while you move the slider, e.g. *55 songs (≈ 3 h 13 min)* – based on the average song length of your last run, otherwise 3.5 minutes per song.
+- After a run, the summary shows the real play time of the list, e.g. *50 songs · 2 h 58 min*; so do the last automatic run and the playlist description. If the length of some songs is unknown (songs remembered by an older version), the DJ estimates them from the others and marks the total with *≈*. It never searches again just for that; songs found from now on are remembered with their length.
+- `@@RESULT`, `automatik.json` and `probelauf.json` have the new fields `durationMs` and `durationEstimated`.
+
+**Changed**
+
+- **Shorter help texts**: the explanations under the controls and in the setup are now mostly one short sentence.
+- **More compact footer**: the Spotify notice is on the same line as the Last.fm credit.
+
+### Deutsch
+
+**Neu**
+
+- **Spieldauer**: Neben *Anzahl Songs* zeigt die Oberfläche eine Schätzung, die beim Ziehen mitläuft, z. B. *55 Songs (≈ 3:13 Std.)* – aus der durchschnittlichen Songlänge des letzten Laufs, sonst mit 3,5 Minuten pro Song.
+- Nach einem Lauf zeigt die Zusammenfassung die echte Spieldauer der Liste, z. B. *50 Songs · 2:58 Std.*; ebenso der letzte automatische Lauf und die Beschreibung der Playlist. Ist die Länge einzelner Songs unbekannt (Songs, die sich eine ältere Version gemerkt hat), schätzt der DJ sie aus den übrigen und markiert die Summe mit *≈*. Nur deswegen sucht er nie neu; ab jetzt gefundene Songs merkt er sich mit ihrer Länge.
+- `@@RESULT`, `automatik.json` und `probelauf.json` haben die neuen Felder `durationMs` und `durationEstimated`.
+
+**Geändert**
+
+- **Kürzere Hilfetexte**: Die Erklärungen unter den Reglern und in der Einrichtung sind jetzt meist ein kurzer Satz.
+- **Kompaktere Fußzeile**: Der Hinweis zu Spotify steht in derselben Zeile wie der zu Last.fm.
+
 ## [0.1.4] – 2026-10-06
 
 ### English
