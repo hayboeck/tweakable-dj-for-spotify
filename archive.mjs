@@ -56,9 +56,10 @@ function ownFiles(dir) {
   return out.sort((a, b) => b.at - a.at || b.n - a.n);
 }
 
-// Löscht eigene Archivdateien über die neuesten keep hinaus; Ergebnis: Namen der gelöschten. keep 0 = nichts löschen (aus).
+// Löscht eigene Archivdateien über die neuesten keep hinaus; Ergebnis: Namen der gelöschten. keep 0 (oder keine ganze Zahl
+// über 0) = nichts löschen (aus), wie bei saveArchive.
 export function pruneArchive(dir, keep) {
-  if (!(keep > 0)) return [];
+  if (!(Number.isInteger(keep) && keep > 0)) return [];
   const removed = [];
   for (const f of ownFiles(dir).slice(keep)) {
     fs.rmSync(path.join(dir, ARCHIVE_DIR, f.name), { force: true });
