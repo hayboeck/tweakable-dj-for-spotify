@@ -655,6 +655,7 @@ const TEXT = {
     pct: v => `${Math.round(v * 100)} %`,
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h}:${two(m)} Std.` : `${m} Min.`)),
+    fileSize: ['KB', 'MB'], // Einheiten für den Platzbedarf des Archivs
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Einrichtung' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Einrichtung in 5 Schritten', main: 'Einstellungen für deine Playlist' },
     status: { loading: 'Lädt …', setup: 'Einrichtung', running: 'Läuft …', updating: 'Update läuft …', importing: 'Import läuft …', dirty: 'Ungespeicherte Änderungen', saved: 'Gespeichert', error: 'Fehler' },
@@ -796,7 +797,7 @@ const TEXT = {
       blockedTracks: { label: 'Songs, die nie gespielt werden',
         help: 'Sperren mit × in der Liste eines Probelaufs; andere Versionen (z. B. Live) sind mitgesperrt.' },
       archiveCount: { label: 'Frühere Playlists aufheben', fmt: v => (v ? plural(v, 'Playlist', 'Playlists') : 'aus'),
-        help: 'Jede geschriebene Playlist als Textdatei im Ordner „archiv“ von Tweakable DJ; zurückholen mit „Importieren … → Frühere Playlist …“.' },
+        help: 'Jede geschriebene Playlist als Textdatei im Ordner „archiv“ von Tweakable DJ; zurückholen mit „Importieren … → Frühere Playlist …“. Der Platzbedarf ist geschätzt.' },
       theme: { label: 'Modus', options: { system: 'System', light: 'Hell', dark: 'Dunkel' },
         help: '„System“ folgt deinem Gerät. Änderungen siehst du sofort; „Speichern“ behält sie.' },
       accent: { label: 'Akzentfarbe',
@@ -1044,6 +1045,7 @@ const TEXT = {
     pct: v => `${Math.round(v * 100)}%`,
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`)),
+    fileSize: ['KB', 'MB'], // Einheiten für den Platzbedarf des Archivs
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Setup' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Setup in 5 steps', main: 'Settings for your playlist' },
     status: { loading: 'Loading …', setup: 'Setup', running: 'Running …', updating: 'Updating …', importing: 'Importing …', dirty: 'Unsaved changes', saved: 'Saved', error: 'Error' },
@@ -1185,7 +1187,7 @@ const TEXT = {
       blockedTracks: { label: 'Songs that are never played',
         help: 'Block with the × in the list of a test run; other versions (e.g. live) are blocked too.' },
       archiveCount: { label: 'Keep earlier playlists', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'off'),
-        help: 'Each written playlist as a text file in the “archiv” folder of Tweakable DJ; restore it with “Import … → Earlier playlist …”.' },
+        help: 'Each written playlist as a text file in the “archiv” folder of Tweakable DJ; restore it with “Import … → Earlier playlist …”. The space needed is an estimate.' },
       theme: { label: 'Mode', options: { system: 'System', light: 'Light', dark: 'Dark' },
         help: '“System” follows your device. You see changes right away; “Save” keeps them.' },
       accent: { label: 'Accent color',
@@ -1425,6 +1427,7 @@ const TEXT = {
     pct: v => `${Math.round(v * 100)} %`,
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`)),
+    fileSize: ['KB', 'MB'], // Einheiten für den Platzbedarf des Archivs
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Configuración' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Configuración en 5 pasos', main: 'Ajustes de tu playlist' },
     status: { loading: 'Cargando …', setup: 'Configuración', running: 'En curso …', updating: 'Actualizando …', importing: 'Importando …', dirty: 'Cambios sin guardar', saved: 'Guardado', error: 'Error' },
@@ -1566,7 +1569,7 @@ const TEXT = {
       blockedTracks: { label: 'Canciones que nunca suenan',
         help: 'Se bloquea con la × en la lista de una prueba; también otras versiones (p. ej. en directo).' },
       archiveCount: { label: 'Guardar playlists anteriores', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'no'),
-        help: 'Cada playlist escrita, como archivo de texto en la carpeta «archiv» de Tweakable DJ; se recupera con «Importar … → Playlist anterior …».' },
+        help: 'Cada playlist escrita, como archivo de texto en la carpeta «archiv» de Tweakable DJ; se recupera con «Importar … → Playlist anterior …». El espacio necesario es una estimación.' },
       theme: { label: 'Modo', options: { system: 'Sistema', light: 'Claro', dark: 'Oscuro' },
         help: '«Sistema» sigue la configuración de tu dispositivo. Los cambios se ven al instante; «Guardar» los conserva.' },
       accent: { label: 'Color de acento',
@@ -1807,6 +1810,7 @@ const TEXT = {
     pct: v => `${Math.round(v * 100)} %`,
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${two(m)}` : ''}` : `${m} min`)),
+    fileSize: ['Ko', 'Mo'], // Einheiten für den Platzbedarf des Archivs
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Configuration' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Configuration en 5 étapes', main: 'Réglages de ta playlist' },
     status: { loading: 'Chargement …', setup: 'Configuration', running: 'En cours …', updating: 'Mise à jour …', importing: 'Importation …', dirty: 'Modifications non enregistrées', saved: 'Enregistré', error: 'Erreur' },
@@ -1948,7 +1952,7 @@ const TEXT = {
       blockedTracks: { label: 'Titres jamais joués',
         help: 'Bloque avec le × dans la liste d’un essai ; les autres versions (p. ex. live) sont bloquées aussi.' },
       archiveCount: { label: 'Garder les playlists précédentes', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'désactivé'),
-        help: 'Chaque playlist écrite, en fichier texte dans le dossier « archiv » de Tweakable DJ – à récupérer via « Importer … → Playlist précédente … ».' },
+        help: 'Chaque playlist écrite, en fichier texte dans le dossier « archiv » de Tweakable DJ – à récupérer via « Importer … → Playlist précédente … ». L’espace nécessaire est une estimation.' },
       theme: { label: 'Mode', options: { system: 'Système', light: 'Clair', dark: 'Sombre' },
         help: '« Système » suit le réglage de ton appareil. Les changements s’affichent tout de suite – « Enregistrer » les garde.' },
       accent: { label: 'Couleur d’accent',
@@ -2800,6 +2804,22 @@ function songMs() {
 }
 const sizeText = v => `${T.items.size.fmt(v)} (${T.duration(v * songMs(), true)})`;
 
+// „Frühere Playlists aufheben“ mit geschätztem Platzbedarf, z. B. „20 Playlists (≈ 89 KB)“: gerechnet mit der eingestellten
+// Anzahl Songs, nicht mit den Dateien im Archiv. Pro Datei zwei Kopfzeilen, pro Song eine Zeile „Künstler – Titel<Tab>Link“
+// (Link 53 Zeichen, Namen im Schnitt etwa 35).
+const ARCHIVE_HEAD_BYTES = 150;
+const ARCHIVE_SONG_BYTES = 90;
+function fileSizeText(bytes) {
+  const [kb, mb] = T.fileSize;
+  const k = bytes / 1024;
+  const fmt = (x, digits) => `${x.toLocaleString(T.locale, { maximumFractionDigits: digits })} `;
+  return k < 1024 ? `${fmt(Math.max(1, Math.round(k)), 0)}${kb}` : `${fmt(k / 1024, 1)}${mb}`;
+}
+const archiveText = v => (v > 0
+  ? `${T.items.archiveCount.fmt(v)} (≈ ${fileSizeText(v * (ARCHIVE_HEAD_BYTES + (current.size || 0) * ARCHIVE_SONG_BYTES))})`
+  : T.items.archiveCount.fmt(v));
+const OUT_TEXT = { size: sizeText, archiveCount: archiveText };
+
 const presetValues = p => Object.fromEntries(PRESET_KEYS.map(k => [k, p.values[k] ?? defaults[k]]));
 const matchingPreset = () => PRESETS.find(p => Object.entries(presetValues(p)).every(([k, v]) => current[k] === v));
 
@@ -2820,7 +2840,7 @@ function refresh(skipInput) {
     if (control.problem) control.problem.textContent = same(v, saved[item.key]) ? problems[item.key] ?? '' : '';
     if (control.row) control.row.hidden = Boolean(item.show) && !item.show(current);
     if (item.type === 'seed') control.note.textContent = seedNoteText();
-    out.textContent = item.type === 'swatches' ? text.fmt(v) : item.type ? '' : item.key === 'size' ? sizeText(v) : text.fmt(v);
+    out.textContent = item.type === 'swatches' ? text.fmt(v) : item.type ? '' : OUT_TEXT[item.key] ? OUT_TEXT[item.key](v) : text.fmt(v);
     hint.textContent = text.hint ? text.hint(v, current) : '';
     if (item.type === 'list' || item.type === 'tracks') continue;
     reset.hidden = same(v, defaults[item.key]);
