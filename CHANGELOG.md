@@ -5,6 +5,18 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+### English
+
+**Changed**
+
+- **Notice at the top can be closed**: the notice above the tabs (e.g. *Logged in ✓ The Spotify login is valid for another 6 months.* or a reminder to log in again) now has an × on the right. Until now, only reloading the page made *Logged in ✓* go away. A closed reminder comes back after reloading the page or when its reason changes.
+
+### Deutsch
+
+**Geändert**
+
+- **Hinweis oben lässt sich schließen**: Der Hinweis über den Tabs (z. B. *Angemeldet ✓ Die Spotify-Anmeldung gilt jetzt wieder 6 Monate.* oder eine Erinnerung, dich neu anzumelden) hat jetzt rechts ein ×. Bisher ging *Angemeldet ✓* nur durch Neuladen der Seite weg. Eine geschlossene Erinnerung kommt nach dem Neuladen oder bei einem anderen Grund wieder.
+
 ## [0.2.5] – 2026-10-07
 
 ### English

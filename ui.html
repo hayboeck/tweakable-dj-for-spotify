@@ -121,14 +121,17 @@
   .banner { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--danger); color: var(--danger); }
   .notice { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--warn); }
   .notice > p { margin: 0; font-weight: 600; }
+  /* × oben rechts: blendet den Hinweis aus, bis sich der Grund ändert (z. B. „Angemeldet ✓“ nach der Anmeldung) */
+  .notice { position: relative; padding-right: 44px; }
+  .notice > .close { position: absolute; top: 8px; right: 8px; }
   /* Hinweis auf eine neue Version: Rahmen in der Akzentfarbe, mit × zum Ausblenden (wie bei der Sperrliste).
      Text | „Jetzt aktualisieren“ | ×; auf schmalen Bildschirmen rutscht die Schaltfläche unter den Text.
      Darunter (über die ganze Breite) Rückfrage, Fortschritt und Ergebnis des Updates. */
   .update { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; padding: 8px 6px 8px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--accent); }
   .update > p { margin: 0; min-width: 0; overflow-wrap: anywhere; }
   .update a { font-weight: 600; white-space: nowrap; }
-  .update .close, .whatsnew .close { flex: none; font: inherit; font-size: 17px; line-height: 1; width: 28px; height: 28px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
-  .update .close:hover, .whatsnew .close:hover { background: var(--border); color: var(--text); }
+  .update .close, .whatsnew .close, .notice .close { flex: none; font: inherit; font-size: 17px; line-height: 1; width: 28px; height: 28px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
+  .update .close:hover, .whatsnew .close:hover, .notice .close:hover { background: var(--border); color: var(--text); }
   /* „Neu in v0.x.y“: Rahmen wie der Hinweis auf eine neue Version, kurze Liste, × oben rechts */
   .whatsnew { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 8px; padding: 10px 6px 10px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--accent); }
   .whatsnew > div { min-width: 0; overflow-wrap: anywhere; }
@@ -415,6 +418,7 @@ try {
   </header>
   <div id="banner" class="banner" role="alert" hidden></div>
   <div id="notice" class="notice" hidden>
+    <button type="button" class="close" id="notice-close">×</button>
     <p id="notice-text"></p>
     <div id="notice-login"></div>
   </div>
@@ -2486,6 +2490,7 @@ let seedNote = null;        // { key: 'login' | 'loading' | 'error' | 'raw', msg
 let loginState = { status: 'idle', message: '' };   // mit key statt message: Text aus T.login
 let loginTimer = null;
 let noticeReason = null;    // 'expired' nach gescheitertem Lauf, 'done' nach erfolgreicher Anmeldung
+let noticeClosed = null;    // mit × ausgeblendeter Grund; ein anderer Grund zeigt den Hinweis wieder
 let fromSettings = false;   // Assistent über "Zugangsdaten ändern" geöffnet?
 let scheduleInfo = null;    // Stand der Automatik vom Server (GET /api/schedule)
 let scheduleBusy = false;
@@ -3811,11 +3816,18 @@ function scopeNeeded() {
   return Boolean(setup.missingScopes?.includes(FOLLOW_SCOPE) || scopeFailed || autoFailed);
 }
 
+function currentNoticeReason() {
+  const age = setup?.authAgeDays;
+  return noticeReason ?? (loginNeeded(scheduleInfo?.lastRun) ? 'auto' : scopeNeeded() ? 'scope'
+    : libraryScopeFailed && setup?.loggedIn ? 'library' : age != null && age >= 170 ? 'age' : null);
+}
+
 function renderNotice() {
   const age = setup?.authAgeDays;
-  const reason = noticeReason ?? (loginNeeded(scheduleInfo?.lastRun) ? 'auto' : scopeNeeded() ? 'scope'
-    : libraryScopeFailed && setup?.loggedIn ? 'library' : age != null && age >= 170 ? 'age' : null);
-  $('notice').hidden = view !== 'main' || !reason;
+  const reason = currentNoticeReason();
+  $('notice').hidden = view !== 'main' || !reason || reason === noticeClosed;
+  $('notice-close').title = T.update.close;
+  $('notice-close').setAttribute('aria-label', T.update.close);
   $('notice-login').hidden = reason === 'done';
   const left = 180 - (age ?? 0);
   $('notice-text').textContent = reason === 'done' ? T.notice.done
@@ -4382,6 +4394,12 @@ $('import-go').onclick = importWrite;
 $('undo').onclick = () => { if (undoEntry) importArchive(undoEntry.id, { undo: true }); };
 $('import-cancel').onclick = () => setImport(null);
 $('update-close').onclick = dismissUpdate;
+$('notice-close').onclick = () => {
+  // „Angemeldet ✓“ ist erledigt; bei den übrigen Gründen merkt sich die Seite das Ausblenden bis zum Neuladen.
+  if (noticeReason === 'done') noticeReason = null;
+  else noticeClosed = currentNoticeReason();
+  renderNotice();
+};
 $('whatsnew-close').onclick = dismissWhatsNew;
 $('update-check').onclick = checkUpdate;
 $('update-install').onclick = () => {
