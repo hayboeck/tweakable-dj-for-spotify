@@ -17,7 +17,7 @@ export const TRIAL_MAX_AGE = 24 * 3600_000;
 const FORMAT = 1;
 
 // Einstellungen, die die Auswahl nicht beeinflussen; alle anderen zählen für den Fingerabdruck.
-const NOT_RELEVANT = ['schedule', 'scheduleTime', 'scheduleDay', 'notifyOnFailure', 'remindLogin', 'runShortcut', 'language', 'archiveCount', 'theme', 'accent'];
+const NOT_RELEVANT = ['schedule', 'scheduleTime', 'scheduleDay', 'notifyOnFailure', 'remindLogin', 'runShortcut', 'language', 'archiveCount', 'theme', 'accent', 'mode'];
 export const TRIAL_KEYS = Object.keys(DEFAULTS).filter(k => !NOT_RELEVANT.includes(k));
 
 // Fingerabdruck der Einstellungen, die das Ergebnis bestimmen, dazu Spotify-App und Last.fm-Benutzer

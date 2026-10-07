@@ -45,15 +45,24 @@ export function dateTime(lang, d) {
 // --- Spotify ---
 
 // Schreibt uris (in dieser Reihenfolge) in die eigene Playlist name und setzt die Beschreibung; legt sie bei Bedarf an.
+// create: immer eine neue Playlist anlegen, auch wenn es schon eine mit diesem Namen gibt („Als neue Playlist anlegen“).
 // Eine Beschreibung, die sich nicht setzen lässt, ist nur eine Warnung (warn). Ergebnis: { id, url, created }.
-export async function writePlaylist(spotify, { name, uris, description, lang, warn = () => {} }) {
-  const me = await spotify.me();
-  let id = await spotify.findPlaylist(name, me.id);
+export async function writePlaylist(spotify, { name, uris, description, lang, warn = () => {}, create = false }) {
+  let id = create ? null : await spotify.findPlaylist(name, (await spotify.me()).id);
   const created = !id;
   if (created) id = await spotify.createPlaylist(name, t(lang, 'run.newPlaylist'));
   await spotify.replacePlaylist(id, uris);
   await spotify.setDescription(id, description).catch(e => warn(t(lang, 'run.descriptionFailed', { message: e.message })));
   return { id, url: playlistUrl(id), created };
+}
+
+// Name einer neuen Playlist („Als neue Playlist anlegen“ in der Oberfläche, dj.mjs --new): „<Name> · <Datum> <Uhrzeit>“
+// im Format der Sprache, z. B. "Tweakable DJ · 07.10.2026 15:32" bzw. "Tweakable DJ · 10/07/2026 03:32 PM". Nur gewöhnliche
+// Leerzeichen (manche Sprachen setzen geschützte, z. B. vor „PM“) und keine Steuerzeichen.
+export function newPlaylistName(name, lang, now = new Date()) {
+  const date = now.toLocaleDateString(locale(lang), { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const time = now.toLocaleTimeString(locale(lang), { hour: '2-digit', minute: '2-digit' });
+  return clean(`${clean(name)} · ${date} ${time}`.replace(/[   ]/g, ' '));
 }
 
 // Inhalt der eigenen Playlist name: { id, url, tracks } bzw. null, wenn es sie (noch) nicht gibt.

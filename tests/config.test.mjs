@@ -89,6 +89,29 @@ test('Spracheinstellung: Standard "", gültig "", "de", "en", "es", "fr"; Meldun
   assert.throws(() => checkValue('useLastfmTopTracks', 'ja', 'en'), /^Error: useLastfmTopTracks: expected boolean$/);
 });
 
+// Ansicht „Einfach“ / „Pro“: neue Nutzer (Vorlage) starten mit „Einfach“, eine config.jsonc ohne mode (ältere Version) mit „Pro“.
+test('Ansicht mode: simple oder pro; neu aus der Vorlage simple, bestehende config.jsonc ohne mode pro', async () => {
+  assert.equal(DEFAULTS.mode, 'simple');
+  for (const v of ['simple', 'pro']) assert.equal(checkValue('mode', v), v);
+  assert.throws(() => checkValue('mode', 'expert', 'en'), /^Error: mode: expected one of simple, pro$/);
+  for (const lang of ['de', 'en']) {
+    // Neu: config.jsonc fehlt und wird aus der Vorlage angelegt
+    await withConfig(null, async ({ readConfig, updateConfig }) => {
+      updateConfig({ language: lang }, lang);
+      assert.equal(readConfig(lang).mode, 'simple', `${lang}: neu`);
+    });
+  }
+  // Bestehend (ohne mode): pro; Speichern fügt die Zeile samt Erklärung aus der Vorlage ein
+  await withConfig('{\n  "playlistName": "Mix",\n  "language": "de"\n}\n', async ({ readConfig, updateConfig }, read) => {
+    assert.equal(readConfig('de').mode, 'pro');
+    updateConfig({ mode: 'simple' }, 'de');
+    assert.equal(readConfig('de').mode, 'simple');
+    assert.match(read(), /"mode": "simple", +\/\/ Ansicht des Tabs Playlist/);
+    updateConfig({ mode: 'pro' }, 'de');
+    assert.equal(readConfig('de').mode, 'pro');
+  });
+});
+
 test('Aussehen: theme und accent nur aus den Listen, Standard System und Grün', () => {
   assert.deepEqual([DEFAULTS.theme, DEFAULTS.accent], ['system', 'green']);
   for (const v of ['system', 'light', 'dark']) assert.equal(checkValue('theme', v), v);

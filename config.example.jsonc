@@ -36,7 +36,7 @@
   // --- Block list ---
   "excludeExplicit": false,           // true = no songs with explicit lyrics (as marked by Spotify), neither as favorites nor as new songs
   "blockedArtists": [],               // Artists that are never played, e.g. ["Artist A", "Artist B"]
-  "blockedTracks": [],                // Songs that are never played, also in other versions (at most 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; easiest with × in a test run
+  "blockedTracks": [],                // Songs that are never played, also in other versions (at most 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; easiest with × in the created list (tab Playlist)
 
   // --- Archive ---
   "archiveCount": 20,                 // After each write, the playlist is kept as a text file in the folder "archiv"; this many of the newest stay (0–200, 0 = off)
@@ -58,6 +58,7 @@
   // --- Appearance ---
   "theme": "system",                  // Mode of the interface: "system" = like your device, "light" or "dark"
   "accent": "green",                  // Accent color of the interface: "green", "blue", "violet", "pink", "red", "orange", "gold" or "teal"
+  "mode": "simple",                   // View of the tab Playlist: "simple" = only presets and number of songs, "pro" = all controls (without this line: "pro")
 
   // --- Language ---
   "language": ""                      // Language of the interface and output: "en" = English, "de" = German, "es" = Spanish, "fr" = French, "" = not chosen yet (system language)

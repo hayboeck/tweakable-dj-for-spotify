@@ -118,6 +118,14 @@
   .lang select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 999px; opacity: 0; cursor: pointer; font-size: 16px; color-scheme: light; }
   .lang:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
   .lang:focus-within:not(:has(select:focus-visible)) { outline: none; }
+  /* Ansicht „Einfach | Pro“: kleiner Umschalter, so hoch wie die Sprachwahl; die gewählte Seite in der Akzentfarbe */
+  .mode { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; background: var(--card); padding: 2px; font-size: 13px; font-weight: 600; line-height: 1.5; white-space: nowrap; }
+  .mode label { position: relative; }
+  .mode input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .mode span { display: block; padding: 2px 10px; border-radius: 999px; color: var(--muted); }
+  .mode label:hover span { color: var(--text); }
+  .mode input:checked + span { background: var(--accent-fill); color: var(--on-accent); }
+  .mode input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
   .banner { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--danger); color: var(--danger); }
   .notice { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--warn); }
   .notice > p { margin: 0; font-weight: 600; }
@@ -218,6 +226,7 @@
   .preset[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
   .preset[aria-pressed="true"] b::after { content: " ✓"; color: var(--accent); }
   #preset-state { margin: 0 0 14px; }
+  #preset-reset { margin: -6px 0 14px; }
 
   /* Sperrliste */
   .add-row { display: flex; gap: 8px; margin-top: 8px; }
@@ -308,7 +317,7 @@
   .out-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 8px; }
   .summary { font-weight: 600; }
   .open { font-weight: 600; color: var(--accent); }
-  /* Unter der Ausgabe: Probelauf übernehmen, Textdatei speichern und importieren */
+  /* Unter der Ausgabe: erstellte Liste überschreiben bzw. neu anlegen, Textdatei speichern und importieren */
   #out-actions { margin: 0 0 14px; }
   #out .msg { margin: -6px 0 14px; }
   .import-menu { margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
@@ -408,6 +417,12 @@ try {
     </div>
     <div class="head-side">
       <span id="status" class="chip" role="status"></span>
+      <!-- Ansicht (Einstellung mode, gleich gespeichert): „Einfach“ zeigt im Tab „Playlist“ nur Voreinstellungen und Anzahl Songs,
+           „Pro“ alle Regler. Zwei Radio-Buttons (Pfeiltasten wechseln); Beschriftung (aria-label, title) aus TEXT (page.mode). -->
+      <div class="mode" id="mode" role="radiogroup" hidden>
+        <label><input type="radio" name="mode" value="simple"><span data-t="modeSimple"></span></label>
+        <label><input type="radio" name="mode" value="pro"><span data-t="modePro"></span></label>
+      </div>
     </div>
     <!-- Sprachwahl: Namen der Sprachen in der jeweiligen Sprache; Beschriftung (aria-label, title) aus TEXT (page.language) -->
     <label class="lang" id="lang-box">
@@ -547,8 +562,9 @@ try {
     <p><button type="button" class="link" id="w-close" data-t="close" hidden></button></p>
   </div>
 
-  <!-- Hauptansicht (view 'main') mit zwei Tabs: „Playlist“ (Regler, Ausgabe mit Textdatei) und „Einstellungen“ (Automatik,
-       Sperrliste, Archiv, Aussehen, Zugangsdaten, Verknüpfung, Version). Aktiver Tab im Adress-Hash: ohne = Playlist, #settings = Einstellungen. -->
+  <!-- Hauptansicht (view 'main') mit zwei Tabs: „Playlist“ (Voreinstellungen, Regler – in der Ansicht „Einfach“ nur Anzahl
+       Songs –, Ausgabe mit Textdatei) und „Einstellungen“ (Playlist mit Name und Quelle, Automatik, Sperrliste, Archiv, Aussehen,
+       Zugangsdaten, Verknüpfung, Programm). Aktiver Tab im Adress-Hash: ohne = Playlist, #settings = Einstellungen. -->
   <div id="main-view" hidden>
     <p class="msg" id="main-msg" role="status" hidden></p>
     <div class="tabs" role="tablist" id="tabs">
@@ -561,13 +577,16 @@ try {
         <p class="help" data-t="presetsHelp"></p>
         <div class="preset-grid" id="preset-grid"></div>
         <p class="hint" id="preset-state" role="status"></p>
+        <!-- Ansicht „Einfach“ und keine Voreinstellung passt: Voreinstellung „Standard“ setzen -->
+        <button type="button" class="btn small" id="preset-reset" data-t="presetReset" hidden></button>
       </section>
       <div id="groups"></div>
-      <!-- Ausgabe von Probelauf und Neuerstellung (immer sichtbar, vor dem ersten Lauf mit Platzhalter), darunter eine Knopfreihe:
-           nach einem Probelauf „Diese Liste übernehmen“ (POST /api/apply); „Als Textdatei speichern“ (GET /api/export, nach einem
-           Probelauf dessen Liste); „Importieren …“ mit der Auswahl „Aus Datei …“ bzw. „Frühere Playlist …“ (Archiv: GET /api/archive,
+      <!-- Ausgabe von „Playlist erstellen“ (Probelauf) und dem Übernehmen (immer sichtbar, vor dem ersten Lauf mit Platzhalter),
+           darunter eine Knopfreihe: nach dem Erstellen „„<Name>“ überschreiben“ (POST /api/apply, Primärknopf) und „Neu in Spotify
+           anlegen“ (POST /api/apply mit target 'new'); „Als Textdatei speichern“ (GET /api/export, nach dem Erstellen die erstellte
+           Liste); „Importieren …“ mit der Auswahl „Aus Datei …“ bzw. „Frühere Playlist …“ (Archiv: GET /api/archive,
            Eintrag mit GET /api/archive/entry): Vorschau (POST /api/import/preview), nach der Rückfrage schreiben (POST /api/import);
-           nach dem Schreiben „Vorige Playlist wiederherstellen“ (derselbe Weg mit dem Archiv-Eintrag davor) -->
+           nach dem Überschreiben bzw. Import „Vorige Playlist wiederherstellen“ (derselbe Weg mit dem Archiv-Eintrag davor) -->
       <section id="out">
         <div class="out-head">
           <span id="summary" class="summary"></span>
@@ -575,7 +594,8 @@ try {
         </div>
         <pre id="log"></pre>
         <div class="actions" id="out-actions">
-          <button type="button" class="btn primary" id="trial-apply" data-t="trialApply" hidden></button>
+          <button type="button" class="btn primary" id="trial-apply" hidden></button>
+          <button type="button" class="btn" id="trial-new" hidden></button>
           <button type="button" class="btn" id="export" data-t="saveText"></button>
           <button type="button" class="btn" id="import" data-t="importFile" aria-expanded="false" aria-controls="import-menu"></button>
           <input type="file" id="import-file" accept=".txt,text/plain" hidden>
@@ -612,7 +632,7 @@ try {
       </section>
     </div>
     <div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
-      <!-- Gruppen auto und blocked (siehe GROUPS, tab: 'settings') -->
+      <!-- Gruppen playlist, auto, blocked, archive und appearance (siehe GROUPS, tab: 'settings') -->
       <div id="groups-settings"></div>
       <!-- Stand der Zugangsdaten (nur angemeldet ja/nein und Last.fm-Benutzer, keine Schlüssel) und der Assistent -->
       <section id="credentials" aria-labelledby="credentials-title">
@@ -670,8 +690,7 @@ try {
   <div class="bar-inner">
     <button class="btn" id="discard" data-t="discard"></button>
     <button class="btn" id="save" data-t="save"></button>
-    <button class="btn" id="dry" data-t="dry"></button>
-    <button class="btn primary" id="run" data-t="run"></button>
+    <button class="btn primary" id="create" data-t="create"></button>
   </div>
 </div>
 
@@ -764,15 +783,19 @@ const TEXT = {
       creditSpotify: 'Kein offizielles Spotify-Produkt · Spotify ist eine Marke von Spotify AB',
       discard: 'Verwerfen',
       save: 'Speichern',
-      dry: 'Probelauf',
-      run: 'Playlist neu erstellen',
-      trialApply: 'Diese Liste übernehmen',
+      create: 'Playlist erstellen',
+      // Ansicht im Kopf (Einstellung mode)
+      mode: 'Ansicht',
+      modeSimple: 'Einfach',
+      modePro: 'Pro',
+      modeHelp: 'Einfach: nur Voreinstellungen und Anzahl Songs. Pro: alle Regler.',
+      presetReset: 'Auf „Standard“ zurücksetzen',
       saveText: 'Als Textdatei speichern',
       importFile: 'Importieren …',
       importFromFile: 'Aus Datei …',
       importFromArchive: 'Frühere Playlist …',
       undo: 'Vorige Playlist wiederherstellen',
-      outEmpty: 'Hier erscheint die Ausgabe von Probelauf und Playlist-Erstellung.',
+      outEmpty: 'Hier erscheint die Liste, sobald du auf „Playlist erstellen“ klickst. In Spotify kommt sie erst mit einem der Knöpfe darunter.',
       language: 'Sprache',
       mtNote: '',
     },
@@ -808,6 +831,7 @@ const TEXT = {
     },
     groups: {
       playlist: 'Playlist',
+      size: 'Länge',
       selection: 'Auswahl',
       current: 'Was du gerade hörst',
       variety: 'Abwechslung',
@@ -818,7 +842,7 @@ const TEXT = {
       appearance: 'Aussehen',
     },
     items: {
-      playlistName: { label: 'Name der Playlist', help: 'Wird angelegt, falls es sie noch nicht gibt.' },
+      playlistName: { label: 'Name der Playlist', help: '„Überschreiben“, die Automatik und die zweite Verknüpfung schreiben in diese Playlist; gibt es sie noch nicht, wird sie angelegt.' },
       seed: { label: 'Quelle deiner Favoriten',
         help: 'Daraus zieht der DJ Ausgangspunkte und Favoriten (nur eigene oder gemeinsame Playlists).' },
       size: { label: 'Anzahl Songs', fmt: v => plural(v, 'Song', 'Songs'), help: 'Pro Lauf; die Spieldauer ist geschätzt.' },
@@ -853,7 +877,7 @@ const TEXT = {
         help: 'Laut Spotify; gibt es eine nicht explizite Version, nimmt der DJ diese.' },
       blockedArtists: { label: 'Künstler, die nie gespielt werden', placeholder: 'Name des Künstlers', help: 'Auch als Gast („feat.“).' },
       blockedTracks: { label: 'Songs, die nie gespielt werden',
-        help: 'Sperren mit × in der Liste eines Probelaufs; andere Versionen (z. B. Live) sind mitgesperrt.' },
+        help: 'Sperren mit × in der erstellten Liste (Tab „Playlist“); andere Versionen (z. B. Live) sind mitgesperrt.' },
       archiveCount: { label: 'Archivierte Playlists', fmt: v => (v ? plural(v, 'Playlist', 'Playlists') : 'aus'),
         help: 'Jede geschriebene Playlist als Textdatei im Ordner „archiv“ von Tweakable DJ; zurückholen mit „Importieren … → Frühere Playlist …“. Der Platzbedarf ist geschätzt.' },
       theme: { label: 'Modus', options: { system: 'System', light: 'Hell', dark: 'Dunkel' },
@@ -901,6 +925,8 @@ const TEXT = {
     },
     presetMatch: name => `Passt gerade genau: ${name}`,
     presetNone: 'Keine Voreinstellung passt genau – das ist deine eigene Mischung.',
+    // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
+    presetPro: 'Eigene Pro-Einstellungen aktiv – sie wirken weiter, auch wenn ihre Regler hier ausgeblendet sind (siehe „Pro“ oben).',
     emptyName: 'Der Name der Playlist darf nicht leer sein.',
     // Kurzgründe zu errorCode aus @@RESULT bzw. automatik.json ('other' → Text aus error)
     errors: {
@@ -910,22 +936,25 @@ const TEXT = {
       lastfm_key: 'Der Last.fm-API-Key ist ungültig oder gesperrt',
       setup_incomplete: 'Einrichtung nicht abgeschlossen',
       node_version: 'Node.js ist zu alt',
-      trial_expired: 'Probelauf nicht mehr übernehmbar',
+      trial_expired: 'Liste nicht mehr übernehmbar',
     },
     run: {
-      running: kind => (kind === 'dry' ? 'Probelauf läuft … (ca. 1 Minute)' : kind === 'apply' ? 'Liste wird übernommen …' : 'Playlist wird neu erstellt … (ca. 1 Minute)'),
-      ok: (r, dry) => `${dry ? 'Probelauf' : 'Fertig'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${plural(r.songs, 'Song', 'Songs')}${durationText(r)} (${num(r.fresh)} neu, davon ${num(r.freshCurrent)} über aktuelles Hören; ${plural(r.familiar, 'Favorit', 'Favoriten')})`,
-      unchanged: ' · Playlist nicht verändert',
+      running: kind => (kind === 'dry' ? 'Playlist wird erstellt … (ca. 1 Minute)' : kind === 'new' ? 'Neue Playlist wird in Spotify angelegt …' : 'Playlist wird überschrieben …'),
+      ok: (r, dry) => `${dry ? 'Erstellt' : 'Fertig'}: ${!dry && r.playlistName ? `„${r.playlistName}“ · ` : ''}${plural(r.songs, 'Song', 'Songs')}${durationText(r)} (${num(r.fresh)} neu, davon ${num(r.freshCurrent)} über aktuelles Hören; ${plural(r.familiar, 'Favorit', 'Favoriten')})`,
+      unchanged: ' · noch nicht in Spotify',
       failedWith: reason => `Fehlgeschlagen: ${reason} – siehe Ausgabe`,
       failed: 'Fehlgeschlagen – siehe Ausgabe',
       failedShort: 'Fehlgeschlagen',
     },
-    // „Diese Liste übernehmen“ nach einem Probelauf; Gründe vom Server (z. B. Playlist inzwischen neu erstellt) kommen als Text.
+    // Erstellte Liste (Probelauf) überschreiben bzw. neu anlegen; Gründe vom Server (z. B. Playlist inzwischen neu geschrieben) kommen als Text.
     trial: {
-      help: (name, until) => `Schreibt genau diese Liste in „${name}“ – möglich bis ${until} Uhr, solange die Einstellungen gleich bleiben.`,
-      dirty: 'Nicht mehr übernehmbar: Du hast seit dem Probelauf Einstellungen geändert. Stelle sie zurück oder starte einen neuen Probelauf.',
-      old: 'Nicht mehr übernehmbar: Der Probelauf ist älter als 24 Stunden. Starte einen neuen Probelauf.',
-      blocked: 'Nicht mehr übernehmbar: Du hast einen Song aus dieser Liste gesperrt. Starte einen neuen Probelauf – er speichert vorher.',
+      // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
+      help: (name, until, example) => `Möglich bis ${until} Uhr, solange die Einstellungen gleich bleiben. Als neue Playlist heißt sie z. B. „${example}“; „${name}“ bleibt dann, wie sie ist.`,
+      overwrite: name => `„${name}“ überschreiben`,
+      saveNew: 'Neu in Spotify anlegen',
+      dirty: 'Geht nicht mehr: Du hast seit dem Erstellen Einstellungen geändert. Stelle sie zurück oder klicke noch einmal auf „Playlist erstellen“.',
+      old: 'Geht nicht mehr: Die Liste ist älter als 24 Stunden. Klicke noch einmal auf „Playlist erstellen“.',
+      blocked: 'Geht nicht mehr: Du hast einen Song aus dieser Liste gesperrt. Klicke noch einmal auf „Playlist erstellen“ – das speichert vorher.',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
@@ -993,7 +1022,7 @@ const TEXT = {
       loggedIn: age => `Du bist angemeldet ✓${age == null ? '' : age === 0 ? ' (seit heute)' : ` (seit ${plural(age, 'Tag', 'Tagen')})`}. Neu anmelden nur für ein anderes Konto oder nach Ablauf.`,
       notLoggedIn: 'Noch nicht angemeldet.',
       open: steps => `Noch offen: Schritt${isOne(steps.length) ? '' : 'e'} ${steps.join(', ')}.`,
-      allDone: 'Alles eingerichtet ✓ Stelle die Regler ein und starte einen „Probelauf“ – er ändert nichts an deiner Playlist.',
+      allDone: 'Alles eingerichtet ✓ Wähle eine Voreinstellung und klicke auf „Playlist erstellen“ – in Spotify ändert sich erst etwas, wenn du die Liste danach übernimmst.',
       formatOk: 'Format passt ✓',
       badChars: 'Eine Client ID enthält nur die Zeichen 0–9 und a–f.',
       length: n => `Eine Client ID hat genau 32 Zeichen – hier sind es ${n}.`,
@@ -1052,7 +1081,7 @@ const TEXT = {
       starting: 'Update startet …',
       done: to => `Version ${to} ist installiert ✓ Tweakable DJ startet neu, die Seite lädt gleich von selbst neu …`,
       manual: to => `Update auf Version ${to} installiert ✓ Bitte Tweakable DJ neu starten (Fenster schließen und wieder öffnen). Die Seite lädt dann von selbst neu.`,
-      slow: 'Tweakable DJ antwortet noch nicht. Ist das Fenster von Tweakable DJ noch offen? Sonst starte Tweakable DJ neu – die Seite lädt dann von selbst neu.',
+      slow: 'Tweakable DJ antwortet noch nicht. Warte noch einen Moment; sonst starte Tweakable DJ über die Verknüpfung auf dem Desktop neu – die Seite lädt dann von selbst neu.',
       failed: 'Das Update hat nicht geklappt.',
       check: 'Nach Updates suchen',
       checking: 'Suche …',
@@ -1096,7 +1125,7 @@ const TEXT = {
       last: 'Letzter automatischer Lauf',
       running: 'läuft gerade …',
       aborted: '✗ abgebrochen, ohne Ergebnis',
-      ok: (songs, dry, duration = '') => `✓ ${songs != null ? plural(songs, 'Song', 'Songs') : 'fertig'}${duration}${dry ? ' (Probelauf)' : ''}`,
+      ok: (songs, dry, duration = '') => `✓ ${songs != null ? plural(songs, 'Song', 'Songs') : 'fertig'}${duration}${dry ? ' (nicht in Spotify)' : ''}`,
       open: 'In Spotify öffnen ↗',
       loginAgain: 'Jetzt neu anmelden',
       loginRenewed: '(inzwischen neu angemeldet ✓)',
@@ -1186,15 +1215,19 @@ const TEXT = {
       creditSpotify: 'Not an official Spotify product · Spotify is a trademark of Spotify AB',
       discard: 'Discard',
       save: 'Save',
-      dry: 'Test run',
-      run: 'Rebuild playlist',
-      trialApply: 'Use this list',
+      create: 'Create playlist',
+      // Ansicht im Kopf (Einstellung mode)
+      mode: 'View',
+      modeSimple: 'Simple',
+      modePro: 'Pro',
+      modeHelp: 'Simple: only presets and number of songs. Pro: all controls.',
+      presetReset: 'Reset to “Default”',
       saveText: 'Save as text file',
       importFile: 'Import …',
       importFromFile: 'From file …',
       importFromArchive: 'Earlier playlist …',
       undo: 'Restore previous playlist',
-      outEmpty: 'The output of test runs and playlist builds appears here.',
+      outEmpty: 'The list appears here when you click “Create playlist”. It only goes to Spotify with one of the buttons below it.',
       language: 'Language',
       mtNote: '',
     },
@@ -1230,6 +1263,7 @@ const TEXT = {
     },
     groups: {
       playlist: 'Playlist',
+      size: 'Length',
       selection: 'Selection',
       current: 'What you’re listening to now',
       variety: 'Variety',
@@ -1240,7 +1274,7 @@ const TEXT = {
       appearance: 'Appearance',
     },
     items: {
-      playlistName: { label: 'Playlist name', help: 'Created if it doesn’t exist yet.' },
+      playlistName: { label: 'Playlist name', help: '“Overwrite”, automatic runs and the second shortcut write to this playlist; created if it doesn’t exist yet.' },
       seed: { label: 'Source of your favorites',
         help: 'The DJ draws starting points and favorites from it (only playlists you own or collaborate on).' },
       size: { label: 'Number of songs', fmt: v => plural(v, 'song', 'songs'), help: 'Per run; the play time is an estimate.' },
@@ -1275,7 +1309,7 @@ const TEXT = {
         help: 'As marked by Spotify; if there’s a clean version, the DJ takes that one.' },
       blockedArtists: { label: 'Artists that are never played', placeholder: 'Artist name', help: 'Also as a guest (“feat.”).' },
       blockedTracks: { label: 'Songs that are never played',
-        help: 'Block with the × in the list of a test run; other versions (e.g. live) are blocked too.' },
+        help: 'Block with the × in the created list (tab Playlist); other versions (e.g. live) are blocked too.' },
       archiveCount: { label: 'Archived playlists', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'off'),
         help: 'Each written playlist as a text file in the “archiv” folder of Tweakable DJ; restore it with “Import … → Earlier playlist …”. The space needed is an estimate.' },
       theme: { label: 'Mode', options: { system: 'System', light: 'Light', dark: 'Dark' },
@@ -1323,6 +1357,8 @@ const TEXT = {
     },
     presetMatch: name => `Matches exactly: ${name}`,
     presetNone: 'No preset matches exactly – this is your own mix.',
+    // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
+    presetPro: 'Custom Pro settings active – they still apply, even though their controls are hidden here (see “Pro” at the top).',
     emptyName: 'The playlist name can’t be empty.',
     errors: {
       login_expired: 'Spotify login expired',
@@ -1331,21 +1367,24 @@ const TEXT = {
       lastfm_key: 'The Last.fm API key is invalid or suspended',
       setup_incomplete: 'Setup not finished',
       node_version: 'Node.js is too old',
-      trial_expired: 'Test run can no longer be applied',
+      trial_expired: 'List can no longer be applied',
     },
     run: {
-      running: kind => (kind === 'dry' ? 'Test run in progress … (about 1 minute)' : kind === 'apply' ? 'Applying the list …' : 'Rebuilding the playlist … (about 1 minute)'),
-      ok: (r, dry) => `${dry ? 'Test run' : 'Done'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${plural(r.songs, 'song', 'songs')}${durationText(r)} (${num(r.fresh)} new, ${num(r.freshCurrent)} of them via current listening; ${plural(r.familiar, 'favorite', 'favorites')})`,
-      unchanged: ' · playlist not changed',
+      running: kind => (kind === 'dry' ? 'Creating the playlist … (about 1 minute)' : kind === 'new' ? 'Saving as a new playlist in Spotify …' : 'Overwriting the playlist …'),
+      ok: (r, dry) => `${dry ? 'Created' : 'Done'}: ${!dry && r.playlistName ? `“${r.playlistName}” · ` : ''}${plural(r.songs, 'song', 'songs')}${durationText(r)} (${num(r.fresh)} new, ${num(r.freshCurrent)} of them via current listening; ${plural(r.familiar, 'favorite', 'favorites')})`,
+      unchanged: ' · not in Spotify yet',
       failedWith: reason => `Failed: ${reason} – see output`,
       failed: 'Failed – see output',
       failedShort: 'Failed',
     },
     trial: {
-      help: (name, until) => `Writes exactly this list to “${name}” – possible until ${until} as long as the settings stay the same.`,
-      dirty: 'Can no longer be applied: you’ve changed settings since the test run. Change them back or start a new test run.',
-      old: 'Can no longer be applied: the test run is more than 24 hours old. Start a new test run.',
-      blocked: 'Can no longer be applied: you blocked a song from this list. Start a new test run – it saves first.',
+      // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
+      help: (name, until, example) => `Possible until ${until} as long as the settings stay the same. As a new playlist, it’s named e.g. “${example}”; “${name}” then stays as it is.`,
+      overwrite: name => `Overwrite “${name}”`,
+      saveNew: 'Save as new playlist',
+      dirty: 'No longer possible: you’ve changed settings since creating it. Change them back or click “Create playlist” again.',
+      old: 'No longer possible: the list is more than 24 hours old. Click “Create playlist” again.',
+      blocked: 'No longer possible: you blocked a song from this list. Click “Create playlist” again – it saves first.',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
@@ -1412,7 +1451,7 @@ const TEXT = {
       loggedIn: age => `You’re logged in ✓${age == null ? '' : age === 0 ? ' (since today)' : ` (for ${plural(age, 'day', 'days')})`}. Only log in again for a different account or when the login has expired.`,
       notLoggedIn: 'Not logged in yet.',
       open: steps => `Still to do: step${isOne(steps.length) ? '' : 's'} ${steps.join(', ')}.`,
-      allDone: 'All set ✓ Adjust the controls and start a “Test run” – it doesn’t change your playlist.',
+      allDone: 'All set ✓ Pick a preset and click “Create playlist” – nothing changes in Spotify until you apply the list afterwards.',
       formatOk: 'Format looks right ✓',
       badChars: 'A Client ID only contains the characters 0–9 and a–f.',
       length: n => `A Client ID has exactly 32 characters – this one has ${n}.`,
@@ -1469,7 +1508,7 @@ const TEXT = {
       starting: 'Starting update …',
       done: to => `Version ${to} is installed ✓ Tweakable DJ is restarting; this page will reload by itself in a moment …`,
       manual: to => `Update to version ${to} installed ✓ Please start Tweakable DJ again (close the window and open it again). This page will then reload by itself.`,
-      slow: 'Tweakable DJ isn’t responding yet. Is the Tweakable DJ window still open? If not, start Tweakable DJ again – this page will then reload by itself.',
+      slow: 'Tweakable DJ isn’t responding yet. Wait a moment; if nothing happens, start Tweakable DJ again with the shortcut on the desktop – this page will then reload by itself.',
       failed: 'The update didn’t work.',
       check: 'Check for updates',
       checking: 'Checking …',
@@ -1511,7 +1550,7 @@ const TEXT = {
       last: 'Last automatic run',
       running: 'running …',
       aborted: '✗ aborted, no result',
-      ok: (songs, dry, duration = '') => `✓ ${songs != null ? plural(songs, 'song', 'songs') : 'done'}${duration}${dry ? ' (test run)' : ''}`,
+      ok: (songs, dry, duration = '') => `✓ ${songs != null ? plural(songs, 'song', 'songs') : 'done'}${duration}${dry ? ' (not in Spotify)' : ''}`,
       open: 'Open in Spotify ↗',
       loginAgain: 'Log in again now',
       loginRenewed: '(logged in again since then ✓)',
@@ -1600,15 +1639,19 @@ const TEXT = {
       creditSpotify: 'No es un producto oficial de Spotify · Spotify es una marca de Spotify AB',
       discard: 'Descartar',
       save: 'Guardar',
-      dry: 'Prueba',
-      run: 'Recrear playlist',
-      trialApply: 'Usar esta lista',
+      create: 'Crear playlist',
+      // Ansicht im Kopf (Einstellung mode)
+      mode: 'Vista',
+      modeSimple: 'Sencillo',
+      modePro: 'Pro',
+      modeHelp: 'Sencillo: solo ajustes predefinidos y número de canciones. Pro: todos los controles.',
+      presetReset: 'Volver a «Predeterminado»',
       saveText: 'Guardar como texto',
       importFile: 'Importar …',
       importFromFile: 'Desde archivo …',
       importFromArchive: 'Playlist anterior …',
       undo: 'Restaurar la playlist anterior',
-      outEmpty: 'Aquí aparece el resultado de las pruebas y de la creación de la playlist.',
+      outEmpty: 'Aquí aparece la lista cuando haces clic en «Crear playlist». Solo llega a Spotify con uno de los botones de debajo.',
       language: 'Idioma',
       mtNote: `Traducción automática – ${ext(ISSUES, 'las correcciones son bienvenidas')}`,
     },
@@ -1644,6 +1687,7 @@ const TEXT = {
     },
     groups: {
       playlist: 'Playlist',
+      size: 'Duración',
       selection: 'Selección',
       current: 'Lo que escuchas ahora',
       variety: 'Variedad',
@@ -1654,7 +1698,7 @@ const TEXT = {
       appearance: 'Apariencia',
     },
     items: {
-      playlistName: { label: 'Nombre de la playlist', help: 'Se crea si todavía no existe.' },
+      playlistName: { label: 'Nombre de la playlist', help: '«Sobrescribir», las ejecuciones automáticas y el segundo acceso directo escriben en esta playlist; se crea si todavía no existe.' },
       seed: { label: 'Fuente de tus favoritas',
         help: 'De aquí saca el DJ los puntos de partida y las favoritas (solo playlists tuyas o en las que colaboras).' },
       size: { label: 'Número de canciones', fmt: v => plural(v, 'canción', 'canciones'), help: 'Por ejecución; la duración es aproximada.' },
@@ -1689,7 +1733,7 @@ const TEXT = {
         help: 'Según Spotify; si hay una versión no explícita, el DJ usa esa.' },
       blockedArtists: { label: 'Artistas que nunca suenan', placeholder: 'Nombre del artista', help: 'También como invitados («feat.»).' },
       blockedTracks: { label: 'Canciones que nunca suenan',
-        help: 'Se bloquea con la × en la lista de una prueba; también otras versiones (p. ej. en directo).' },
+        help: 'Se bloquea con la × en la lista creada (pestaña Playlist); también otras versiones (p. ej. en directo).' },
       archiveCount: { label: 'Playlists en el historial', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'no'),
         help: 'Cada playlist escrita, como archivo de texto en la carpeta «archiv» de Tweakable DJ; se recupera con «Importar … → Playlist anterior …». El espacio necesario es una estimación.' },
       theme: { label: 'Modo', options: { system: 'Sistema', light: 'Claro', dark: 'Oscuro' },
@@ -1737,6 +1781,8 @@ const TEXT = {
     },
     presetMatch: name => `Coincide exactamente: ${name}`,
     presetNone: 'Ningún ajuste predefinido coincide exactamente: es tu propia mezcla.',
+    // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
+    presetPro: 'Ajustes Pro propios activos: siguen aplicándose aunque sus controles estén ocultos aquí (ver «Pro» arriba).',
     emptyName: 'El nombre de la playlist no puede estar vacío.',
     errors: {
       login_expired: 'La sesión de Spotify ha caducado',
@@ -1745,21 +1791,24 @@ const TEXT = {
       lastfm_key: 'La clave API de Last.fm no es válida o está bloqueada',
       setup_incomplete: 'La configuración no está terminada',
       node_version: 'Node.js es demasiado antiguo',
-      trial_expired: 'La prueba ya no se puede usar',
+      trial_expired: 'La lista ya no se puede usar',
     },
     run: {
-      running: kind => (kind === 'dry' ? 'Prueba en curso … (aprox. 1 minuto)' : kind === 'apply' ? 'Usando la lista …' : 'Recreando la playlist … (aprox. 1 minuto)'),
-      ok: (r, dry) => `${dry ? 'Prueba' : 'Listo'}: ${r.playlistName ? `${r.playlistName}: ` : ''}${plural(r.songs, 'canción', 'canciones')}${durationText(r)} (${plural(r.fresh, 'nueva', 'nuevas')}, ${num(r.freshCurrent)} de ellas por lo que escuchas ahora; ${plural(r.familiar, 'favorita', 'favoritas')})`,
-      unchanged: ' · playlist sin cambios',
+      running: kind => (kind === 'dry' ? 'Creando la playlist … (aprox. 1 minuto)' : kind === 'new' ? 'Guardando como playlist nueva en Spotify …' : 'Sobrescribiendo la playlist …'),
+      ok: (r, dry) => `${dry ? 'Creada' : 'Listo'}: ${!dry && r.playlistName ? `«${r.playlistName}» · ` : ''}${plural(r.songs, 'canción', 'canciones')}${durationText(r)} (${plural(r.fresh, 'nueva', 'nuevas')}, ${num(r.freshCurrent)} de ellas por lo que escuchas ahora; ${plural(r.familiar, 'favorita', 'favoritas')})`,
+      unchanged: ' · todavía no está en Spotify',
       failedWith: reason => `Error: ${reason} (ver la salida)`,
       failed: 'Error (ver la salida)',
       failedShort: 'Error',
     },
     trial: {
-      help: (name, until) => `Escribe exactamente esta lista en «${name}»: posible hasta el ${until}, mientras no cambies los ajustes.`,
-      dirty: 'Ya no se puede usar: has cambiado ajustes desde la prueba. Vuelve a dejarlos como estaban o haz una prueba nueva.',
-      old: 'Ya no se puede usar: la prueba tiene más de 24 horas. Haz una prueba nueva.',
-      blocked: 'Ya no se puede usar: has bloqueado una canción de esta lista. Haz una prueba nueva (antes se guarda todo).',
+      // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
+      help: (name, until, example) => `Posible hasta el ${until}, mientras no cambies los ajustes. Como playlist nueva se llama p. ej. «${example}»; «${name}» se queda como está.`,
+      overwrite: name => `Sobrescribir «${name}»`,
+      saveNew: 'Guardar como playlist nueva',
+      dirty: 'Ya no es posible: has cambiado ajustes desde que la creaste. Vuelve a dejarlos como estaban o haz clic otra vez en «Crear playlist».',
+      old: 'Ya no es posible: la lista tiene más de 24 horas. Haz clic otra vez en «Crear playlist».',
+      blocked: 'Ya no es posible: has bloqueado una canción de esta lista. Haz clic otra vez en «Crear playlist» (antes se guarda todo).',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
@@ -1826,7 +1875,7 @@ const TEXT = {
       loggedIn: age => `Has iniciado sesión ✓${age == null ? '' : age === 0 ? ' (desde hoy)' : ` (desde hace ${plural(age, 'día', 'días')})`}. Solo hace falta volver a iniciarla para otra cuenta o si ha caducado.`,
       notLoggedIn: 'Todavía no has iniciado sesión.',
       open: steps => `Falta${isOne(steps.length) ? ' el paso' : 'n los pasos'} ${steps.join(', ')}.`,
-      allDone: '¡Todo listo! ✓ Ajusta los controles y haz una «Prueba»: no cambia nada en tu playlist.',
+      allDone: '¡Todo listo! ✓ Elige un ajuste predefinido y haz clic en «Crear playlist»: en Spotify no cambia nada hasta que uses la lista después.',
       formatOk: 'El formato es correcto ✓',
       badChars: 'Un Client ID solo contiene los caracteres 0–9 y a–f.',
       length: n => `Un Client ID tiene exactamente 32 caracteres; este tiene ${n}.`,
@@ -1883,7 +1932,7 @@ const TEXT = {
       starting: 'Iniciando la actualización …',
       done: to => `La versión ${to} está instalada ✓ Tweakable DJ se está reiniciando; la página se recargará sola en un momento …`,
       manual: to => `Actualización a la versión ${to} instalada ✓ Vuelve a iniciar Tweakable DJ (cierra la ventana y ábrela de nuevo). Después, la página se recargará sola.`,
-      slow: 'Tweakable DJ todavía no responde. ¿Sigue abierta la ventana de Tweakable DJ? Si no, vuelve a iniciar Tweakable DJ; la página se recargará sola.',
+      slow: 'Tweakable DJ todavía no responde. Espera un momento; si no pasa nada, vuelve a iniciar Tweakable DJ con el acceso directo del escritorio; la página se recargará sola.',
       failed: 'La actualización no ha funcionado.',
       check: 'Buscar actualizaciones',
       checking: 'Buscando …',
@@ -1925,7 +1974,7 @@ const TEXT = {
       last: 'Última ejecución automática',
       running: 'en curso …',
       aborted: '✗ interrumpida, sin resultado',
-      ok: (songs, dry, duration = '') => `✓ ${songs != null ? plural(songs, 'canción', 'canciones') : 'listo'}${duration}${dry ? ' (prueba)' : ''}`,
+      ok: (songs, dry, duration = '') => `✓ ${songs != null ? plural(songs, 'canción', 'canciones') : 'listo'}${duration}${dry ? ' (no en Spotify)' : ''}`,
       open: 'Abrir en Spotify ↗',
       loginAgain: 'Volver a iniciar sesión ahora',
       loginRenewed: '(ya has vuelto a iniciar sesión ✓)',
@@ -2015,15 +2064,19 @@ const TEXT = {
       creditSpotify: 'Pas un produit officiel de Spotify · Spotify est une marque de Spotify AB',
       discard: 'Rétablir',
       save: 'Enregistrer',
-      dry: 'Essai',
-      run: 'Recréer la playlist',
-      trialApply: 'Utiliser cette liste',
+      create: 'Créer la playlist',
+      // Ansicht im Kopf (Einstellung mode)
+      mode: 'Affichage',
+      modeSimple: 'Simple',
+      modePro: 'Pro',
+      modeHelp: 'Simple : seulement les préréglages et le nombre de titres. Pro : tous les réglages.',
+      presetReset: 'Revenir à « Par défaut »',
       saveText: 'Enregistrer en texte',
       importFile: 'Importer …',
       importFromFile: 'Depuis un fichier …',
       importFromArchive: 'Playlist précédente …',
       undo: 'Revenir à la playlist d’avant',
-      outEmpty: 'Ici s’affiche le résultat des essais et de la création de la playlist.',
+      outEmpty: 'La liste s’affiche ici quand tu cliques sur « Créer la playlist ». Elle n’arrive dans Spotify qu’avec l’un des boutons en dessous.',
       language: 'Langue',
       mtNote: `Traduction automatique – ${ext(ISSUES, 'les corrections sont les bienvenues')}`,
     },
@@ -2059,6 +2112,7 @@ const TEXT = {
     },
     groups: {
       playlist: 'Playlist',
+      size: 'Durée',
       selection: 'Sélection',
       current: 'Ce que tu écoutes en ce moment',
       variety: 'Variété',
@@ -2069,7 +2123,7 @@ const TEXT = {
       appearance: 'Apparence',
     },
     items: {
-      playlistName: { label: 'Nom de la playlist', help: 'Créée si elle n’existe pas encore.' },
+      playlistName: { label: 'Nom de la playlist', help: '« Remplacer », les exécutions automatiques et le deuxième raccourci écrivent dans cette playlist ; créée si elle n’existe pas encore.' },
       seed: { label: 'Source de tes favoris',
         help: 'Le DJ y puise ses points de départ et ses favoris (seulement les playlists qui t’appartiennent ou auxquelles tu collabores).' },
       size: { label: 'Nombre de titres', fmt: v => plural(v, 'titre', 'titres'), help: 'Par exécution ; la durée est estimée.' },
@@ -2104,7 +2158,7 @@ const TEXT = {
         help: 'Selon Spotify ; s’il existe une version non explicite, le DJ prend celle-ci.' },
       blockedArtists: { label: 'Artistes jamais joués', placeholder: 'Nom de l’artiste', help: 'Aussi en invité (« feat. »).' },
       blockedTracks: { label: 'Titres jamais joués',
-        help: 'Bloque avec le × dans la liste d’un essai ; les autres versions (p. ex. live) sont bloquées aussi.' },
+        help: 'Bloque avec le × dans la liste créée (onglet Playlist) ; les autres versions (p. ex. live) sont bloquées aussi.' },
       archiveCount: { label: 'Playlists archivées', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'désactivé'),
         help: 'Chaque playlist écrite, en fichier texte dans le dossier « archiv » de Tweakable DJ – à récupérer via « Importer … → Playlist précédente … ». L’espace nécessaire est une estimation.' },
       theme: { label: 'Mode', options: { system: 'Système', light: 'Clair', dark: 'Sombre' },
@@ -2152,6 +2206,8 @@ const TEXT = {
     },
     presetMatch: name => `Correspond exactement : ${name}`,
     presetNone: 'Aucun préréglage ne correspond exactement – c’est ton propre mélange.',
+    // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
+    presetPro: 'Réglages Pro personnalisés actifs – ils s’appliquent toujours, même si leurs curseurs sont masqués ici (voir « Pro » en haut).',
     emptyName: 'Le nom de la playlist ne peut pas être vide.',
     errors: {
       login_expired: 'Connexion Spotify expirée',
@@ -2160,21 +2216,24 @@ const TEXT = {
       lastfm_key: 'La clé API Last.fm n’est pas valide ou a été suspendue',
       setup_incomplete: 'Configuration inachevée',
       node_version: 'Node.js est trop ancien',
-      trial_expired: 'L’essai ne peut plus être utilisé',
+      trial_expired: 'La liste ne peut plus être utilisée',
     },
     run: {
-      running: kind => (kind === 'dry' ? 'Essai en cours … (environ 1 minute)' : kind === 'apply' ? 'Utilisation de la liste …' : 'Recréation de la playlist … (environ 1 minute)'),
-      ok: (r, dry) => `${dry ? 'Essai' : 'Terminé'} : ${r.playlistName ? `${r.playlistName} : ` : ''}${plural(r.songs, 'titre', 'titres')}${durationText(r)} (${plural(r.fresh, 'nouveau', 'nouveaux')}, dont ${num(r.freshCurrent)} via ce que tu écoutes en ce moment ; ${plural(r.familiar, 'favori', 'favoris')})`,
-      unchanged: ' · playlist inchangée',
+      running: kind => (kind === 'dry' ? 'Création de la playlist … (environ 1 minute)' : kind === 'new' ? 'Enregistrement comme nouvelle playlist dans Spotify …' : 'Remplacement de la playlist …'),
+      ok: (r, dry) => `${dry ? 'Créée' : 'Terminé'} : ${!dry && r.playlistName ? `« ${r.playlistName} » · ` : ''}${plural(r.songs, 'titre', 'titres')}${durationText(r)} (${plural(r.fresh, 'nouveau', 'nouveaux')}, dont ${num(r.freshCurrent)} via ce que tu écoutes en ce moment ; ${plural(r.familiar, 'favori', 'favoris')})`,
+      unchanged: ' · pas encore dans Spotify',
       failedWith: reason => `Échec : ${reason} – voir la sortie`,
       failed: 'Échec – voir la sortie',
       failedShort: 'Échec',
     },
     trial: {
-      help: (name, until) => `Écrit exactement cette liste dans « ${name} » – possible jusqu’au ${until}, tant que les réglages ne changent pas.`,
-      dirty: 'Ne peut plus être utilisée : tu as modifié des réglages depuis l’essai. Remets-les comme avant ou lance un nouvel essai.',
-      old: 'Ne peut plus être utilisée : l’essai date de plus de 24 heures. Lance un nouvel essai.',
-      blocked: 'Ne peut plus être utilisée : tu as bloqué un titre de cette liste. Lance un nouvel essai – il enregistre d’abord.',
+      // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
+      help: (name, until, example) => `Possible jusqu’au ${until}, tant que les réglages ne changent pas. En nouvelle playlist, elle s’appelle p. ex. « ${example} » ; « ${name} » reste alors telle quelle.`,
+      overwrite: name => `Remplacer « ${name} »`,
+      saveNew: 'Enregistrer comme nouvelle playlist',
+      dirty: 'Plus possible : tu as modifié des réglages depuis sa création. Remets-les comme avant ou clique de nouveau sur « Créer la playlist ».',
+      old: 'Plus possible : la liste date de plus de 24 heures. Clique de nouveau sur « Créer la playlist ».',
+      blocked: 'Plus possible : tu as bloqué un titre de cette liste. Clique de nouveau sur « Créer la playlist » – elle enregistre d’abord.',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
@@ -2241,7 +2300,7 @@ const TEXT = {
       loggedIn: age => `Connexion active ✓${age == null ? '' : age === 0 ? ' (depuis aujourd’hui)' : ` (depuis ${plural(age, 'jour', 'jours')})`}. Reconnecte-toi seulement pour un autre compte ou si la connexion a expiré.`,
       notLoggedIn: 'Pas encore de connexion.',
       open: steps => `Reste à faire : étape${isOne(steps.length) ? '' : 's'} ${steps.join(', ')}.`,
-      allDone: 'Tout est prêt ✓ Règle les curseurs et lance un « Essai » – il ne change rien à ta playlist.',
+      allDone: 'Tout est prêt ✓ Choisis un préréglage et clique sur « Créer la playlist » – rien ne change dans Spotify tant que tu n’utilises pas la liste ensuite.',
       formatOk: 'Format correct ✓',
       badChars: 'Un Client ID ne contient que les caractères 0–9 et a–f.',
       length: n => `Un Client ID compte exactement 32 caractères – celui-ci en a ${n}.`,
@@ -2298,7 +2357,7 @@ const TEXT = {
       starting: 'Démarrage de la mise à jour …',
       done: to => `La version ${to} est installée ✓ Tweakable DJ redémarre, la page va se recharger toute seule dans un instant …`,
       manual: to => `Mise à jour vers la version ${to} installée ✓ Redémarre Tweakable DJ (ferme la fenêtre et rouvre-la). La page se rechargera ensuite toute seule.`,
-      slow: 'Tweakable DJ ne répond pas encore. La fenêtre de Tweakable DJ est-elle toujours ouverte ? Sinon, redémarre Tweakable DJ – la page se rechargera ensuite toute seule.',
+      slow: 'Tweakable DJ ne répond pas encore. Attends un instant ; sinon, redémarre Tweakable DJ avec le raccourci du bureau – la page se rechargera ensuite toute seule.',
       failed: 'La mise à jour n’a pas fonctionné.',
       check: 'Rechercher des mises à jour',
       checking: 'Recherche …',
@@ -2340,7 +2399,7 @@ const TEXT = {
       last: 'Dernière exécution automatique',
       running: 'en cours …',
       aborted: '✗ interrompue, sans résultat',
-      ok: (songs, dry, duration = '') => `✓ ${songs != null ? plural(songs, 'titre', 'titres') : 'terminé'}${duration}${dry ? ' (essai)' : ''}`,
+      ok: (songs, dry, duration = '') => `✓ ${songs != null ? plural(songs, 'titre', 'titres') : 'terminé'}${duration}${dry ? ' (pas dans Spotify)' : ''}`,
       open: 'Ouvrir dans Spotify ↗',
       loginAgain: 'Se reconnecter maintenant',
       loginRenewed: '(nouvelle connexion entre-temps ✓)',
@@ -2439,36 +2498,41 @@ function newerHint(v) {
 // Einträge ohne type sind Schieberegler; Bereich und Schrittweite kommen vom Server (limits aus GET /api/config).
 
 const SCHEDULE_KEYS = ['schedule', 'scheduleTime', 'scheduleDay'];
+// Gruppen mit pro: true stehen nur in der Ansicht „Pro“ (Einstellung mode); in „Einfach“ sind sie ausgeblendet, ihre Werte
+// gelten trotzdem.
 const GROUPS = [
-  { id: 'playlist', items: [
-    { key: 'playlistName', type: 'text' },
-    { key: 'seed', type: 'seed' },
+  { id: 'size', items: [
     { key: 'size' },
-    { key: 'familiarShare' },
   ]},
-  { id: 'selection', items: [
+  { id: 'selection', pro: true, items: [
+    { key: 'familiarShare' },
     { key: 'adventure' },
     { key: 'seedsPerRun' },
     { key: 'useLastfmTopTracks', type: 'toggle' },
     { key: 'followedArtists' },
     { key: 'preferNewer' },
   ]},
-  { id: 'current', items: [
+  { id: 'current', pro: true, items: [
     { key: 'currentDays' },
     { key: 'currentFactor' },
   ]},
   // Hauptregler „Abwechslung bei Künstlern“ (Stufen vom Server), die vier Werte darunter unter „Details“.
-  { id: 'variety', variety: true, items: [
+  { id: 'variety', pro: true, variety: true, items: [
     { key: 'maxPerArtist', details: true },
     { key: 'artistWindow', details: true },
     { key: 'maxPerWindow', details: true },
     { key: 'artistGap', details: true },
   ]},
-  { id: 'repeats', items: [
+  { id: 'repeats', pro: true, items: [
     { key: 'excludeRecentDays' },
     { key: 'noRepeatRuns' },
   ]},
   // Gruppen mit tab: 'settings' stehen im Tab „Einstellungen“ (in dieser Reihenfolge), alle anderen im Tab „Playlist“.
+  // Name und Quelle der Playlist: in beiden Ansichten
+  { id: 'playlist', tab: 'settings', items: [
+    { key: 'playlistName', type: 'text' },
+    { key: 'seed', type: 'seed' },
+  ]},
   { id: 'auto', tab: 'settings', status: true, items: [
     { key: 'schedule', type: 'choice', options: ['off', 'daily', 'weekly'] },
     { key: 'scheduleDay', type: 'select', options: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'], show: c => c.schedule === 'weekly' },
@@ -2500,7 +2564,7 @@ const GROUPS = [
   ]},
 ];
 // Einstellungen, die die Auswahl eines Probelaufs nicht ändern (wie NOT_RELEVANT in trial.mjs): Ändert man sie, bleibt
-// „Diese Liste übernehmen“ möglich.
+// das Übernehmen der erstellten Liste möglich.
 const NOT_FOR_TRIAL = [...SCHEDULE_KEYS, 'notifyOnFailure', 'remindLogin', 'runShortcut', 'archiveCount', 'theme', 'accent'];
 const TABS = ['playlist', 'settings'];
 const tabOf = group => group.tab ?? 'playlist';
@@ -2588,6 +2652,7 @@ let shortcutWanted = true;  // Häkchen im letzten Schritt des Assistenten (blei
 let mainMsg = null;         // Meldung über den Tabs nach dem Assistenten: { kind, key, msg } (bis zum nächsten Tab-Wechsel)
 const controls = {};
 const loginBoxes = [];
+const proSections = [];     // Abschnitte der Gruppen mit pro: true (in der Ansicht „Einfach“ ausgeblendet)
 
 // Jede Anfrage sagt dem Server, in welcher Sprache er antworten soll.
 const api = (path, options = {}) => fetch(path, {
@@ -2621,6 +2686,8 @@ function renderLang() {
   $('lang-code').textContent = lang.toUpperCase();
   $('lang').setAttribute('aria-label', T.page.language);
   $('lang-box').title = T.page.language;
+  $('mode').setAttribute('aria-label', T.page.mode);
+  $('mode').title = T.page.modeHelp;
   $('w-lastfm-save').textContent = $('w-lastfm-save').dataset.saved ? T.page.next : T.page.saveNext;
   build();
   renderHeader();
@@ -2698,13 +2765,14 @@ function adoptLang(data) {
 function build() {
   $('preset-grid').replaceChildren(...PRESETS.map(p => {
     const [name, text] = T.presets[p.id];
-    p.button = el('button', { type: 'button', className: 'preset', onclick: () => { Object.assign(current, presetValues(p)); refresh(); } },
+    p.button = el('button', { type: 'button', className: 'preset', onclick: () => usePreset(p) },
       [el('b', { textContent: name }), el('span', { textContent: text })]);
     return p.button;
   }));
 
   const roots = { playlist: $('groups'), settings: $('groups-settings'), credentials: $('groups-credentials'), shortcut: $('groups-shortcut') };
   for (const root of Object.values(roots)) root.replaceChildren();
+  proSections.length = 0;
   const detailsOpen = varietyControl?.details.open ?? false; // bleibt beim Umschalten der Sprache, wie er war
   for (const group of GROUPS) {
     const section = group.root ? roots[group.root] : el('section', {}, [el('h2', { textContent: T.groups[group.id] })]);
@@ -2801,6 +2869,7 @@ function build() {
       controls[item.key] = control;
     }
     if (group.status) section.append(scheduleBox());
+    if (group.pro) proSections.push(section);
     if (!group.root) roots[tabOf(group)].append(section);
   }
 }
@@ -3072,6 +3141,28 @@ function setArchiveFiles(n) {
 
 const presetValues = p => Object.fromEntries(PRESET_KEYS.map(k => [k, p.values[k] ?? defaults[k]]));
 const matchingPreset = () => PRESETS.find(p => Object.entries(presetValues(p)).every(([k, v]) => current[k] === v));
+const usePreset = p => { Object.assign(current, presetValues(p)); refresh(); };
+
+// --- Ansicht „Einfach“ / „Pro“ (Einstellung mode) ---
+// Wie die Sprache gleich gespeichert, nicht über „Speichern“ (steht nicht in GROUPS); zählt weder für die erstellte Liste noch
+// für die Voreinstellungen. Unbekannte Werte zählen als „Pro“ – dann fehlt nichts.
+const simpleMode = () => current.mode === 'simple';
+
+function renderMode() {
+  $('mode').hidden = view !== 'main';
+  for (const r of $('mode').querySelectorAll('input')) r.checked = r.value === (simpleMode() ? 'simple' : 'pro');
+  for (const s of proSections) s.hidden = simpleMode();
+}
+
+async function setMode(mode) {
+  current.mode = saved.mode = mode;
+  refresh();
+  try {
+    await apiJson('/api/config', { method: 'POST', body: JSON.stringify({ mode }) });
+  } catch (e) {
+    showError(e.message); // gilt in dieser Seite trotzdem
+  }
+}
 
 function refresh(skipInput) {
   for (const control of Object.values(controls)) {
@@ -3103,8 +3194,12 @@ function refresh(skipInput) {
   if (loaded) renderNotice(); // Hinweis zu „Gefolgte Künstler“ hängt am Regler
   const match = matchingPreset();
   for (const p of PRESETS) p.button.setAttribute('aria-pressed', String(p === match));
-  $('preset-state').textContent = match ? T.presetMatch(T.presets[match.id][0]) : T.presetNone;
-  $('preset-state').className = match ? 'hint' : 'help';
+  // Ansicht „Einfach“ ohne passende Voreinstellung: Die ausgeblendeten Regler wirken weiter – darauf hinweisen, mit Knopf zurück.
+  const custom = simpleMode() && !match;
+  $('preset-state').textContent = match ? T.presetMatch(T.presets[match.id][0]) : custom ? T.presetPro : T.presetNone;
+  $('preset-state').className = match ? 'hint' : custom ? 'hint warn' : 'help';
+  $('preset-reset').hidden = !custom;
+  renderMode();
 
   const isDirty = dirty();
   const working = isWorking(); // Lauf, Import oder Update: dann weder speichern noch etwas Neues starten
@@ -3119,8 +3214,8 @@ function refresh(skipInput) {
   }
   $('save').disabled = working || !isDirty;
   $('discard').disabled = working || !isDirty;
-  $('dry').disabled = working;
-  $('run').disabled = working;
+  $('create').disabled = working;
+  $('preset-reset').disabled = working;
   $('update-install').disabled = working;
   $('export').disabled = working;
   $('import').disabled = working;
@@ -3331,7 +3426,7 @@ async function fixSchedule() {
   }
 }
 
-// --- Probelauf und Neuerstellung ---
+// --- Playlist erstellen (Probelauf) und übernehmen ---
 
 // Ergebnis des Laufs: letzte Zeile "@@RESULT {json}" der Ausgabe. Die schickt der Server immer mit (auch wenn dj.mjs
 // abstürzt); null nur, wenn sie trotzdem fehlt oder kaputt ist.
@@ -3397,12 +3492,14 @@ function renderSummary() {
   renderTrial();
 }
 
-// kind: 'dry' (Probelauf), 'run' (Playlist neu erstellen) oder 'apply' (Probelauf übernehmen). Vor einem Probelauf bzw. einer
-// Neuerstellung werden ungespeicherte Änderungen gespeichert; danach gilt ein früherer Probelauf nicht mehr.
+// kind: 'dry' („Playlist erstellen“, Probelauf), 'apply' (erstellte Liste in die Playlist aus den Einstellungen schreiben,
+// „„<Name>“ überschreiben“) oder 'new' (als neue Playlist mit Datum und Uhrzeit im Namen, „Neu in Spotify anlegen“).
+// Vor dem Erstellen werden ungespeicherte Änderungen gespeichert; danach gilt eine früher erstellte Liste nicht mehr.
 async function run(kind) {
   const dry = kind === 'dry';
+  const applying = kind === 'apply' || kind === 'new';
   showError('');
-  if (kind !== 'apply') {
+  if (!applying) {
     try {
       if (dirty()) await save();
     } catch (e) {
@@ -3418,8 +3515,8 @@ async function run(kind) {
   renderSummary();
   let text = '';
   try {
-    const res = kind === 'apply'
-      ? await api('/api/apply', { method: 'POST', body: JSON.stringify({ id: trial.id }) })
+    const res = applying
+      ? await api('/api/apply', { method: 'POST', body: JSON.stringify({ id: trial.id, target: kind === 'new' ? 'new' : 'standard' }) })
       : await api(`/api/run${dry ? '?dry=1' : ''}`, { method: 'POST' });
     if (!res.ok) throw new Error((await res.json()).error);
     const reader = res.body.getReader();
@@ -3440,13 +3537,14 @@ async function run(kind) {
       trial = { id: result.trialId, settings, expiresAt: new Date(Date.now() + 24 * 3600_000).toISOString(), serverReason: null, message: '' };
       refreshTrial();
       loadTrialTracks(result.trialId);
-    } else if (kind === 'apply' && result?.errorCode === 'trial_expired') {
+    } else if (applying && result?.errorCode === 'trial_expired') {
       Object.assign(trial, { serverReason: 'server', message: result.error });
-    } else if (kind === 'apply' && result?.ok) {
-      trial = null; // steht jetzt in der Playlist
+    } else if (applying && result?.ok) {
+      trial = null; // steht jetzt in Spotify
     }
     scopeFailed = result?.missingScope === FOLLOW_SCOPE;
-    if (result?.ok && !dry) checkUndo(result.archiveFile);
+    // „Vorige Playlist wiederherstellen“ nur nach dem Überschreiben: Eine neu angelegte Playlist ändert die bisherige nicht.
+    if (result?.ok && !dry && kind !== 'new') checkUndo(result.archiveFile);
     // Der Lauf hat das Token eventuell erneuert und dabei die erteilten Berechtigungen gespeichert (setup.missingScopes).
     apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); setArchiveFiles(d.archiveFiles); }).catch(() => {});
   } catch (e) {
@@ -3476,21 +3574,35 @@ function trialReason() {
   return null;
 }
 
-// Steht gerade ein Probelauf in der Ausgabe? Dann gibt es „Diese Liste übernehmen“, und „Als Textdatei speichern“ speichert seine Liste.
-const trialShown = () => Boolean(trial) && runState?.phase === 'done' && (runState.kind === 'dry' || runState.kind === 'apply');
+// Steht gerade eine erstellte Liste in der Ausgabe? Dann gibt es „„<Name>“ überschreiben“ und „Neu in Spotify anlegen“, und
+// „Als Textdatei speichern“ speichert ihre Liste.
+const trialShown = () => Boolean(trial) && runState?.phase === 'done' && ['dry', 'apply', 'new'].includes(runState.kind);
 // Speichern geht, solange probelauf.json zu diesem Probelauf gehört (auch mit geänderten Einstellungen).
 const trialExportable = () => trialShown() && !['missing', 'replaced', 'invalid', 'server'].includes(trial.serverReason);
 
+// Name als neue Playlist, so wie ihn newPlaylistName() in playlist.mjs bildet (für den Hinweis; der Server setzt ihn selbst).
+function newPlaylistName(name, now = new Date()) {
+  const date = now.toLocaleDateString(T.locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const time = now.toLocaleTimeString(T.locale, { hour: '2-digit', minute: '2-digit' });
+  return `${name} · ${date} ${time}`.replace(/[   ]/g, ' ');
+}
+// Langer Name auf dem Knopf gekürzt (ganz im title)
+const shortName = name => (name.length > 30 ? `${name.slice(0, 29)}…` : name);
+
 function renderTrial() {
   const show = trialShown();
-  $('trial-apply').hidden = $('trial-msg').hidden = !show;
+  $('trial-apply').hidden = $('trial-new').hidden = $('trial-msg').hidden = !show;
   clearTimeout(trialTimer);
   if (!show) return;
   const reason = trialReason();
-  $('trial-apply').disabled = isWorking() || Boolean(reason);
+  const name = saved.playlistName ?? '';
+  $('trial-apply').textContent = T.trial.overwrite(shortName(name));
+  $('trial-apply').title = name.length > 30 ? T.trial.overwrite(name) : '';
+  $('trial-new').textContent = T.trial.saveNew;
+  $('trial-apply').disabled = $('trial-new').disabled = isWorking() || Boolean(reason);
   const msg = $('trial-msg');
   if (reason) setMsg(msg, 'warn', T.trial[reason] ?? trial.message);
-  else setMsg(msg, '', T.trial.help(saved.playlistName ?? '', when(trial.expiresAt)));
+  else setMsg(msg, '', T.trial.help(name, when(trial.expiresAt), newPlaylistName(name)));
   // Nach Ablauf der 24 Stunden von selbst sperren
   const left = Date.parse(trial.expiresAt) - Date.now();
   if (!reason && left > 0) trialTimer = setTimeout(renderTrial, Math.min(left + 500, 2 ** 31 - 1));
@@ -3513,9 +3625,10 @@ async function refreshTrial() {
   renderTrial();
 }
 
-async function applyTrial() {
+// kind: 'apply' (überschreiben) oder 'new' (neue Playlist)
+async function applyTrial(kind) {
   await refreshTrial();
-  if (!trialReason()) run('apply');
+  if (!trialReason()) run(kind);
 }
 
 // Datei im Browser herunterladen (UTF-8)
@@ -3530,7 +3643,7 @@ function download(text, filename) {
 
 // --- Textdatei: speichern und importieren (Knopfreihe unter der Ausgabe) ---
 
-// „Als Textdatei speichern“ (GET /api/export): nach einem Probelauf dessen Liste (Dateiname mit „-probelauf“), sonst die
+// „Als Textdatei speichern“ (GET /api/export): nach einem Probelauf dessen Liste (Dateiname mit „-neu“), sonst die
 // Playlist, wie sie gerade in Spotify ist. So gibt es nur einen Knopf, und er speichert, was die Ausgabe gerade zeigt.
 async function exportList() {
   const id = trialExportable() ? trial.id : null;
@@ -3717,7 +3830,7 @@ async function importWrite() {
   }
 }
 
-// --- Vorige Playlist wiederherstellen (nach einem Lauf, „Diese Liste übernehmen“ oder Import) ---
+// --- Vorige Playlist wiederherstellen (nach dem Überschreiben oder einem Import) ---
 
 let undoEntry = null;   // Eintrag im Archiv mit dem Stand vor dem letzten Schreiben ({ id, at, songs }); null = kein Knopf
 let undoCheck = 0;      // zählt die Abfragen: Eine ältere Antwort darf einen neueren Stand nicht überschreiben
@@ -4215,8 +4328,8 @@ function renderTabs() {
     $(`tab-${t}`).tabIndex = active ? 0 : -1;
     $(`panel-${t}`).hidden = !active;
   }
-  // Im Tab „Einstellungen“ nur Verwerfen und Speichern; Probelauf und Neuerstellung gehören zur Playlist.
-  $('dry').hidden = $('run').hidden = tab !== 'playlist';
+  // Im Tab „Einstellungen“ nur Verwerfen und Speichern; „Playlist erstellen“ gehört zum Tab „Playlist“.
+  $('create').hidden = tab !== 'playlist';
 }
 
 // Abschnitt „Zugangsdaten“: Stand in einer Zeile – angemeldet ja/nein und Last.fm-Benutzer, nie Client ID oder API-Key.
@@ -4508,9 +4621,11 @@ function wireTabs() {
 $('lang').onchange = () => setLang($('lang').value);
 $('save').onclick = () => save().catch(e => showError(e.message));
 $('discard').onclick = () => { current = { ...saved }; refresh(); };
-$('dry').onclick = () => run('dry');
-$('run').onclick = () => run('run');
-$('trial-apply').onclick = applyTrial;
+$('create').onclick = () => run('dry');
+$('trial-apply').onclick = () => applyTrial('apply');
+$('trial-new').onclick = () => applyTrial('new');
+$('preset-reset').onclick = () => usePreset(PRESETS.find(p => p.id === 'standard'));
+for (const r of $('mode').querySelectorAll('input')) r.onchange = () => setMode(r.value);
 $('export').onclick = exportList;
 $('import').onclick = () => toggleImportMenu();
 $('import-from-archive').onclick = () => toggleArchive();

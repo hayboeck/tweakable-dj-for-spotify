@@ -140,7 +140,7 @@ test('Übernehmen: genau die Liste des Probelaufs, in derselben Reihenfolge, ohn
     const dry = dj(dir, ['--dry']);
     assert.equal(dry.code, 0, dry.all);
     assert.deepEqual(writes(dry.requests), [], 'Probelauf schreibt nichts');
-    assert.match(dry.out, /^Genau diese Liste lässt sich 24 Stunden lang übernehmen: „Diese Liste übernehmen“ in der Oberfläche bzw\. "node dj\.mjs --apply"\.$/m);
+    assert.match(dry.out, /^Diese Liste lässt sich 24 Stunden lang nach Spotify bringen: mit den Knöpfen unter der Liste bzw\. "node dj\.mjs --apply" \(als neue Playlist: --apply --new\)\.$/m);
     const trial = readTrial(dir);
     assert.equal(dry.result.trialId, trial.id);
     assert.deepEqual([trial.songs, trial.fresh, trial.familiar], [dry.result.songs, dry.result.fresh, dry.result.familiar]);
@@ -154,7 +154,7 @@ test('Übernehmen: genau die Liste des Probelaufs, in derselben Reihenfolge, ohn
 
     const applied = dj(dir, ['--apply']);
     assert.equal(applied.code, 0, applied.all);
-    assert.match(applied.out, /^Übernehme den Probelauf vom \d+\.\d+\.\d{4}, \d\d:\d\d Uhr \(20 Songs\), ohne neu zu losen …$/m);
+    assert.match(applied.out, /^Übernehme die Liste vom \d+\.\d+\.\d{4}, \d\d:\d\d Uhr \(20 Songs\), ohne neu zu losen …$/m);
     assert.deepEqual(lineupLines(applied.out), shown, 'dieselbe Liste in derselben Reihenfolge');
     // Nichts neu gelost: weder Last.fm noch die Spotify-Suche gefragt
     assert.deepEqual(applied.requests.filter(r => r.host === 'ws.audioscrobbler.com' || r.path?.startsWith('/v1/search')), []);
@@ -174,9 +174,9 @@ test('Übernehmen: genau die Liste des Probelaufs, in derselben Reihenfolge, ohn
     const again = dj(dir, ['--apply']);
     assert.equal(again.code, 1);
     assert.deepEqual([again.result.ok, again.result.errorCode], [false, 'trial_expired']);
-    assert.match(again.err, /^Fehler: Es gibt keinen Probelauf zum Übernehmen: Noch keiner gelaufen, oder die Playlist wurde seitdem neu erstellt\./m);
+    assert.match(again.err, /^Fehler: Es gibt keine erstellte Liste zum Übernehmen: Noch keine erstellt, oder die Playlist wurde seitdem neu geschrieben\./m);
     assert.deepEqual(writes(again.requests), []);
-    assert.match(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }).err, /^Error: There’s no test run to apply: none has run yet/m);
+    assert.match(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }).err, /^Error: There’s no created list to apply: none has been created yet/m);
 
     // Nächster Probelauf sperrt die übernommenen Songs (noRepeatRuns 2), der Verlauf bleibt auf 2 Läufe begrenzt
     const next = dj(dir, ['--dry']);
@@ -204,8 +204,8 @@ test('Übernehmen geht nicht mehr: Einstellungen geändert, älter als 24 Stunde
     // Einstellungen geändert (auch nur gespeichert, ohne neuen Probelauf) – zurückgestellt gilt er wieder
     dj(dir, ['--dry']);
     writeConfig(dir, { ...CONFIG, size: 25 });
-    expired(dj(dir, ['--apply']), /^Fehler: Die Einstellungen haben sich seit dem Probelauf geändert\. Starte einen neuen Probelauf\.$/m);
-    expired(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }), /^Error: The settings have changed since the test run\. Start a new test run\.$/m);
+    expired(dj(dir, ['--apply']), /^Fehler: Die Einstellungen haben sich seit dem Erstellen der Liste geändert\. Erstelle sie noch einmal \(„Playlist erstellen“\)\.$/m);
+    expired(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }), /^Error: The settings have changed since the list was created\. Create it again \(“Create playlist”\)\.$/m);
     writeConfig(dir, { ...CONFIG, schedule: 'daily', language: 'de' });
     assert.equal(dj(dir, ['--apply', '--dry']).result.ok, true, 'Automatik und Sprache zählen nicht');
 
@@ -213,12 +213,12 @@ test('Übernehmen geht nicht mehr: Einstellungen geändert, älter als 24 Stunde
     const file = path.join(dir, TRIAL_FILE);
     const trial = JSON.parse(fs.readFileSync(file, 'utf8'));
     fs.writeFileSync(file, JSON.stringify({ ...trial, createdAt: new Date(Date.now() - TRIAL_MAX_AGE - 60_000).toISOString() }));
-    expired(dj(dir, ['--apply']), /^Fehler: Der Probelauf ist älter als 24 Stunden\./m);
-    expired(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }), /^Error: The test run is more than 24 hours old\./m);
+    expired(dj(dir, ['--apply']), /^Fehler: Die Liste ist älter als 24 Stunden\./m);
+    expired(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }), /^Error: The list is more than 24 hours old\./m);
 
     // Andere Kennung (die Oberfläche zeigt einen anderen Probelauf als den gespeicherten)
     fs.writeFileSync(file, JSON.stringify(trial));
-    expired(dj(dir, ['--apply', '--trial=0123456789ab']), /^Fehler: Seitdem gab es einen neueren Probelauf/m);
+    expired(dj(dir, ['--apply', '--trial=0123456789ab']), /^Fehler: Seitdem wurde eine neuere Liste erstellt/m);
     assert.equal(dj(dir, ['--apply', '--dry', `--trial=${trial.id}`]).result.ok, true);
 
     // Beschädigt
@@ -230,7 +230,7 @@ test('Übernehmen geht nicht mehr: Einstellungen geändert, älter als 24 Stunde
     const run = dj(dir);
     assert.equal(run.code, 0, run.all);
     assert.equal(fs.existsSync(file), false);
-    expired(dj(dir, ['--apply']), /^Fehler: Es gibt keinen Probelauf zum Übernehmen/m);
+    expired(dj(dir, ['--apply']), /^Fehler: Es gibt keine erstellte Liste zum Übernehmen/m);
   } finally {
     cleanup(dir);
   }
@@ -244,11 +244,51 @@ test('--apply --dry: prüft und zeigt die Liste, schreibt nichts, der Probelauf 
     const check = dj(dir, ['--apply', '--dry']);
     assert.equal(check.code, 0, check.all);
     assert.deepEqual(lineupLines(check.out), lineupLines(dry.out));
-    assert.match(check.out, /^--dry: Playlist nicht verändert\.$/m);
+    assert.match(check.out, /^Noch nicht in Spotify geschrieben, die Playlist ist unverändert\.$/m);
     assert.deepEqual([check.result.dry, check.result.playlistUrl, check.result.trialId], [true, null, dry.result.trialId]);
     assert.deepEqual(check.requests.filter(r => r.host === 'api.spotify.com' && r.path !== '/v1/me'), []);
     assert.equal(fs.readFileSync(path.join(dir, 'state.json'), 'utf8'), before, 'Verlauf unverändert');
     assert.equal(readTrial(dir).id, dry.result.trialId);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('--apply --new: neue Playlist „<Name> · <Datum> <Uhrzeit>“, die bisherige bleibt; Archiv unter dem neuen Namen', () => {
+  const dir = setup();
+  try {
+    // Zuerst die Playlist aus den Einstellungen schreiben, dann eine weitere Liste als neue Playlist
+    dj(dir, ['--dry']);
+    assert.equal(dj(dir, ['--apply']).code, 0);
+    const standard = structuredClone(store(dir).playlists[0]);
+    dj(dir, ['--dry']);
+    const trial = readTrial(dir);
+    const before = new Date();
+    const applied = dj(dir, ['--apply', '--new', `--trial=${trial.id}`]);
+    assert.equal(applied.code, 0, applied.all);
+    const playlists = store(dir).playlists;
+    assert.equal(playlists.length, 2, 'eine neue Playlist');
+    assert.deepEqual(playlists[0], standard, 'die bisherige bleibt, wie sie ist');
+    const created = playlists[1];
+    // Name mit Datum und Uhrzeit im Format der Sprache, nur gewöhnliche Leerzeichen
+    const two = n => String(n).padStart(2, '0');
+    assert.match(created.name, new RegExp(`^Test-DJ · ${two(before.getDate())}\\.${two(before.getMonth() + 1)}\\.${before.getFullYear()} \\d\\d:\\d\\d$`));
+    assert.deepEqual([created.uris, created.description], [trial.tracks.map(t => t.uri), trial.description]);
+    assert.ok(applied.out.split(/\r?\n/).includes(`Playlist "${created.name}" angelegt.`), applied.out);
+    const r = applied.result;
+    assert.deepEqual([r.ok, r.dry, r.playlistName, r.playlistUrl], [true, false, created.name, `https://open.spotify.com/playlist/${created.id}`]);
+    // Archiv: Kopfzeile mit dem neuen Namen und dem Link zur neuen Playlist
+    const head = fs.readFileSync(path.join(dir, 'archiv', r.archiveFile), 'utf8').split('\n')[0];
+    assert.ok(head.startsWith(`# ${created.name} – exportiert am `), head);
+    assert.ok(head.endsWith(r.playlistUrl), head);
+    // Wie ein Lauf gemerkt; die erstellte Liste ist danach weg
+    assert.deepEqual(state(dir).history.at(-1), trial.tracks.map(t => trackKey(t.artist, t.name)));
+    assert.equal(fs.existsSync(path.join(dir, TRIAL_FILE)), false);
+    // Englisch: Datum und Uhrzeit im Format der Sprache, ohne geschützte Leerzeichen
+    dj(dir, ['--dry']);
+    const en = dj(dir, ['--apply', '--new'], { TWEAKABLE_DJ_LANG: 'en' });
+    assert.match(en.result.playlistName, /^Test-DJ · \d\d\/\d\d\/\d{4} \d\d:\d\d [AP]M$/);
+    assert.equal(store(dir).playlists.length, 3);
   } finally {
     cleanup(dir);
   }

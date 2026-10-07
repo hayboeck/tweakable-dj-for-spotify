@@ -42,13 +42,13 @@ test('formatExport: Kopfzeilen mit #, eine Zeile pro Song mit allen Künstlern, 
   // Je nach ICU-Version steht vor AM/PM ein schmales geschütztes Leerzeichen (U+202F) statt eines normalen
   const en = formatExport({ name: 'DJ', tracks: [], lang: 'en', now: NOW, trialAt: new Date(2026, 9, 5, 13, 50) })
     .replace(/\s(?=[AP]M)/g, ' ').split('\n');
-  assert.deepEqual(en, ['# DJ – exported on 10/5/2026, 02:03 PM', '# Test run from 10/5/2026, 01:50 PM – not in the playlist yet',
+  assert.deepEqual(en, ['# DJ – exported on 10/5/2026, 02:03 PM', '# List created on 10/5/2026, 01:50 PM – not in the playlist yet',
     '# 0 songs · one line per song: artist – title, tab, Spotify link', '']);
-  assert.equal(formatExport({ name: 'DJ', tracks: [], lang: 'de', now: NOW, trialAt: NOW }).split('\n')[1], '# Probelauf vom 5.10.2026, 14:03 – noch nicht in der Playlist');
+  assert.equal(formatExport({ name: 'DJ', tracks: [], lang: 'de', now: NOW, trialAt: NOW }).split('\n')[1], '# Erstellte Liste vom 5.10.2026, 14:03 – noch nicht in der Playlist');
   assert.equal(artistText({ artist: 'A', artists: [] }), 'A');
   assert.equal(exportFileName('de', NOW), 'tweakable-dj-2026-10-05.txt');
-  assert.equal(exportFileName('de', NOW, true), 'tweakable-dj-2026-10-05-probelauf.txt');
-  assert.equal(exportFileName('en', new Date(2026, 0, 9), true), 'tweakable-dj-2026-01-09-test-run.txt');
+  assert.equal(exportFileName('de', NOW, true), 'tweakable-dj-2026-10-05-neu.txt');
+  assert.equal(exportFileName('en', new Date(2026, 0, 9), true), 'tweakable-dj-2026-01-09-new.txt');
 });
 
 test('Export → Import: dieselben Songs in derselben Reihenfolge, auch mit # am Anfang, Tabulatoren und Strichen im Titel', () => {
@@ -323,7 +323,7 @@ test('import: Suche nach "Künstler – Titel", nicht gefundene Zeilen, --dry, D
     assert.equal(dry.code, 0, dry.all);
     assert.match(dry.out, /^3 von 6 Songs gefunden$/m);
     assert.match(dry.out, /^Nicht übernommen:\n {2}Zeile 5: Hafenlicht – Nicht auf Spotify 7 \(auf Spotify nicht gefunden\)\n {2}Zeile 6: https:\/\/open\.spotify\.com\/album\/1234567890123456789012 \(Link zu keinem Song\)\n {2}Zeile 7: irgendwas \(weder Link noch „Künstler – Titel“\)$/m);
-    assert.match(dry.out, /^--dry: Playlist nicht verändert\.$/m);
+    assert.match(dry.out, /^Noch nicht in Spotify geschrieben, die Playlist ist unverändert\.$/m);
     assert.deepEqual(writes(dry.requests), []);
     assert.equal(fs.existsSync(path.join(dir, 'store.json')) ? store(dir).playlists.length : 0, 0);
     assert.equal(fs.existsSync(path.join(dir, 'state.json')), false, 'ein Import legt keinen Verlauf an');
@@ -419,4 +419,21 @@ test('undoTarget: Eintrag vor dem letzten Schreiben, sonst null', async () => {
   assert.equal(undoTarget([], 'c.txt'), null);
   for (const bad of [null, undefined, '', 42]) assert.equal(undoTarget(entries, bad), null, String(bad));
   assert.equal(undoTarget(null, 'c.txt'), null);
+  // Nur Stände derselben Playlist: Eine als neue Playlist angelegte Liste (anderer Link) wird übersprungen
+  const P = id => `https://open.spotify.com/playlist/${id}`;
+  const mixed = [{ id: 'd.txt', url: P('std') }, { id: 'c.txt', url: P('neu1') }, { id: 'b.txt', url: null }, { id: 'a.txt', url: P('std') }];
+  assert.deepEqual(undoTarget(mixed, 'd.txt'), mixed[2], 'ohne Link: zählt');
+  assert.deepEqual(undoTarget([mixed[0], mixed[1], mixed[3]], 'd.txt'), mixed[3]);
+  assert.equal(undoTarget(mixed.slice(0, 2), 'd.txt'), null, 'nur eine andere Playlist davor');
+  assert.deepEqual(undoTarget([{ id: 'x.txt', url: null }, mixed[1]], 'x.txt'), mixed[1], 'neueste ohne Link: der Eintrag davor');
+});
+
+test('newPlaylistName: Name · Datum Uhrzeit im Format der Sprache, nur gewöhnliche Leerzeichen', async () => {
+  const { newPlaylistName } = await import('../playlist.mjs');
+  const at = new Date(2026, 9, 7, 15, 32);
+  assert.equal(newPlaylistName('Tweakable DJ', 'de', at), 'Tweakable DJ · 07.10.2026 15:32');
+  assert.equal(newPlaylistName('Tweakable DJ', 'en', at), 'Tweakable DJ · 10/07/2026 03:32 PM');
+  assert.equal(newPlaylistName('Mix', 'es', at), 'Mix · 07/10/2026 15:32');
+  assert.equal(newPlaylistName('Mix', 'fr', at), 'Mix · 07/10/2026 15:32');
+  assert.equal(newPlaylistName(' A' + String.fromCharCode(9) + 'B' + String.fromCharCode(10) + ' ', 'de', at), 'A B · 07.10.2026 15:32', 'keine Steuerzeichen');
 });

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Oberfläche für Tweakable DJ: Einrichtung, Regler für alle Einstellungen, Probelauf, Übernehmen des Probelaufs,
-// Neuerstellung, Export und Import als Textdatei im Browser, das Playlist-Archiv (archive.mjs) zum Zurückholen sowie die
-// Verknüpfung auf dem Desktop (shortcut.mjs).
+// Oberfläche für Tweakable DJ: Einrichtung, Regler für alle Einstellungen, „Playlist erstellen“ (Probelauf) und danach
+// Überschreiben der Playlist bzw. Anlegen einer neuen, Export und Import als Textdatei im Browser, das Playlist-Archiv
+// (archive.mjs) zum Zurückholen sowie die Verknüpfung auf dem Desktop (shortcut.mjs).
 //   node ui.mjs                startet die Oberfläche auf http://127.0.0.1:8899 (anderer Port: TWEAKABLE_DJ_PORT)
 //   node ui.mjs --no-browser   dasselbe, ohne den Browser zu öffnen (so auch beim Neustart nach einem Update)
 //   node ui.mjs --hidden       ohne Fenster (so startet die Verknüpfung auf dem Desktop; auch TWEAKABLE_DJ_HIDDEN=1): Ausgaben
@@ -679,16 +679,18 @@ const server = http.createServer(async (req, res) => {
       return send(200, { ok: !reason, reason, message: reason ? t(lang, `trial.${reason}`) : '', trial: info });
     }
 
-    // „Diese Liste übernehmen“: Body { id } = Kennung des Probelaufs, den die Seite zeigt. Prüft wie dj.mjs --apply, ob er
-    // noch gilt (409 mit reason, sonst), und schreibt ihn dann mit dj.mjs --apply – Ausgabe und @@RESULT wie bei /api/run.
+    // Erstellte Liste nach Spotify: Body { id, target } – id = Kennung des Probelaufs, den die Seite zeigt; target 'standard'
+    // („„<Name>“ überschreiben“, Standard) bzw. 'new' („Neu in Spotify anlegen“: neue Playlist mit Datum und Uhrzeit im Namen).
+    // Prüft wie dj.mjs --apply, ob er noch gilt (409 mit reason, sonst), und schreibt ihn dann mit dj.mjs --apply (bzw.
+    // --apply --new) – Ausgabe und @@RESULT wie bei /api/run.
     if (route === 'POST /api/apply') {
       const busy = runBusy(lang);
       if (busy) return send(409, { error: busy });
-      const { id } = await readJson(req, lang);
-      if (typeof id !== 'string' || !/^[0-9a-f]{12}$/.test(id)) return send(400, { error: t(lang, 'ui.badRequest') });
+      const { id, target = 'standard' } = await readJson(req, lang);
+      if (typeof id !== 'string' || !/^[0-9a-f]{12}$/.test(id) || !['standard', 'new'].includes(target)) return send(400, { error: t(lang, 'ui.badRequest') });
       const reason = trialProblem(readTrial(HERE), { cfg: currentConfig(lang), id });
       if (reason) return send(409, { error: t(lang, `trial.${reason}`), reason });
-      return streamRun(res, ['dj.mjs', '--apply', `--trial=${id}`], lang, false);
+      return streamRun(res, ['dj.mjs', '--apply', `--trial=${id}`, ...(target === 'new' ? ['--new'] : [])], lang, false);
     }
 
     // „Als Textdatei speichern“: { text, filename, songs } für den Download im Browser. Ohne ?trial= die Playlist, wie sie

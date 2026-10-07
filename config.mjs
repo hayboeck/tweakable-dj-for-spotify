@@ -48,6 +48,10 @@ export const DEFAULTS = {
   runShortcut: false, // zweite Verknüpfung „Tweakable DJ – Playlist neu“ auf dem Desktop (shortcut.mjs, Art 'run'); wirkt beim Speichern
   theme: 'system', // Aussehen der Oberfläche: 'system', 'light' oder 'dark' (THEMES)
   accent: 'green', // Akzentfarbe der Oberfläche (ACCENTS); beide ändern die Playlist nicht
+  // Ansicht des Tabs „Playlist“ (MODES): 'simple' = nur Voreinstellungen und Anzahl Songs, 'pro' = alle Regler. Neue Nutzer
+  // bekommen 'simple' (Standard, steht so in den Vorlagen); eine config.jsonc ohne mode stammt von einer älteren Version und
+  // zählt als 'pro', damit sich dort nichts überraschend ändert (readConfig). Ändert die Playlist nicht.
+  mode: 'simple',
   language: '', // '' = noch nicht gewählt, dann gilt die Systemsprache
 };
 
@@ -110,6 +114,7 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 // Aussehen der Oberfläche (ui.html): Modus und Akzentfarbe. Die Farbwerte je Modus stehen im CSS von ui.html.
 export const THEMES = ['system', 'light', 'dark'];
 export const ACCENTS = ['green', 'blue', 'violet', 'pink', 'red', 'orange', 'gold', 'teal'];
+export const MODES = ['simple', 'pro'];
 
 // "liked" oder eine Spotify-Playlist (Link, URI oder ID) – so versteht es dj.mjs.
 const SEED = /^(liked|https:\/\/open\.spotify\.com\/playlist\/[A-Za-z0-9]+(\?\S*)?|spotify:playlist:[A-Za-z0-9]+|[A-Za-z0-9]{22})$/;
@@ -182,12 +187,13 @@ function switchOn(key) {
 export const notifyOnFailure = () => switchOn('notifyOnFailure');
 export const remindLoginOn = () => switchOn('remindLogin');
 
-// Liest die Config ohne Prüfung der Zugangsdaten.
+// Liest die Config ohne Prüfung der Zugangsdaten. Fehlt mode, stammt sie von einer Version vor der Ansicht „Einfach“: 'pro'.
 export function readConfig(lang) {
   if (ensureConfig(lang)) {
     throw tError(lang, 'config.created', { file: CONFIG }, { errorCode: 'setup_incomplete' });
   }
-  return { ...DEFAULTS, ...parse(fs.readFileSync(CONFIG, 'utf8'), lang) };
+  const values = parse(fs.readFileSync(CONFIG, 'utf8'), lang);
+  return { ...DEFAULTS, ...(values?.mode === undefined && { mode: 'pro' }), ...values };
 }
 
 // Platzhalter aus den Vorlagen: "HIER_…" (deutsch) bzw. "ENTER_…" (englisch).
@@ -287,6 +293,7 @@ export function checkValue(key, value, lang) {
   if (key === 'scheduleDay' && !WEEKDAYS.includes(value)) throw tError(lang, 'config.badDay', { days: WEEKDAYS.join(', ') });
   if (key === 'theme' && !THEMES.includes(value)) throw tError(lang, 'config.badChoice', { key, values: THEMES.join(', ') });
   if (key === 'accent' && !ACCENTS.includes(value)) throw tError(lang, 'config.badChoice', { key, values: ACCENTS.join(', ') });
+  if (key === 'mode' && !MODES.includes(value)) throw tError(lang, 'config.badChoice', { key, values: MODES.join(', ') });
   return value;
 }
 

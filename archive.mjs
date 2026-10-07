@@ -132,14 +132,19 @@ export function archiveFileCount(dir) {
   }
 }
 
-// Für „Frühere Playlist …“: [{ id (Dateiname), at (ISO-Zeit), songs }], neueste zuerst. Unlesbare Dateien fehlen einfach.
+// Link zur Playlist aus der ersten Zeile einer Archivdatei ("# … · https://open.spotify.com/playlist/…"), sonst null.
+const playlistLink = text => /^#.*?(https:\/\/open\.spotify\.com\/playlist\/[A-Za-z0-9]+)\s*$/.exec(text.split(/\r?\n/, 1)[0])?.[1] ?? null;
+
+// Für „Frühere Playlist …“: [{ id (Dateiname), at (ISO-Zeit), songs, url (Link zur Playlist oder null) }], neueste zuerst.
+// Unlesbare Dateien fehlen einfach.
 export function listArchive(dir) {
   const out = [];
   for (const f of ownFiles(dir)) {
     try {
       const file = path.join(dir, ARCHIVE_DIR, f.name);
       if (fs.statSync(file).size > IMPORT_MAX_BYTES) continue;
-      out.push({ id: f.name, at: f.at.toISOString(), songs: songCount(fs.readFileSync(file, 'utf8')) });
+      const text = fs.readFileSync(file, 'utf8');
+      out.push({ id: f.name, at: f.at.toISOString(), songs: songCount(text), url: playlistLink(text) });
     } catch {
       // nicht lesbar: nicht anbieten
     }
@@ -150,10 +155,13 @@ export function listArchive(dir) {
 // „Vorige Playlist wiederherstellen“ nach einem Lauf bzw. Import, der die Archivdatei after angelegt hat: der Eintrag davor
 // (= Stand der Playlist vor diesem Lauf). Nur, solange after noch der neueste Eintrag ist – sonst hat inzwischen etwas
 // anderes die Playlist geschrieben (z. B. ein automatischer Lauf), und „zurück“ wäre nicht mehr eindeutig. entries wie
-// listArchive (neueste zuerst). Ergebnis: Eintrag { id, at, songs } oder null.
+// listArchive (neueste zuerst). Ergebnis: Eintrag { id, at, songs, url } oder null.
+// Nur ein Stand derselben Playlist (gleicher Link): Listen, die als neue Playlist angelegt wurden („Neu in Spotify anlegen“),
+// liegen auch im Archiv, waren aber nie der Inhalt dieser Playlist. Ohne Link (unbekannt) zählt jeder Eintrag.
 export function undoTarget(entries, after) {
   if (typeof after !== 'string' || !Array.isArray(entries) || entries[0]?.id !== after) return null;
-  return entries[1] ?? null;
+  const url = entries[0].url;
+  return entries.slice(1).find(e => !url || !e?.url || e.url === url) ?? null;
 }
 
 // Inhalt eines Eintrags (id = Dateiname aus listArchive). Nur eigene Namen (kein Pfad, kein ..), nur normale Dateien bis

@@ -187,7 +187,7 @@ test('Probelauf auf Englisch: TWEAKABLE_DJ_LANG=en schlägt "language" in config
     const { code, out, all, result } = run(dir, { TWEAKABLE_DJ_LANG: 'en' });
     assert.equal(code, 0, all);
     for (const line of ['Loading your favorites …', '  11 songs', 'Loading listening history from Last.fm …', 'Finding similar songs …',
-      'Looking up the songs on Spotify …', '  6 songs left out because of the block list', '--dry: playlist not changed.']) {
+      'Looking up the songs on Spotify …', '  6 songs left out because of the block list', 'Not written to Spotify yet; the playlist is unchanged.']) {
       assert.ok(out.split(/\r?\n/).includes(line), `fehlt: ${line}`);
     }
     assert.match(out, /^ {2}6 scrobbles, 4 of them in the last 7 days \(\d+ artists\)$/m);
@@ -224,7 +224,7 @@ test('Sprache aus config.jsonc, wenn TWEAKABLE_DJ_LANG fehlt; sonst Systemsprach
     const es = run(dir, { TWEAKABLE_DJ_LANG: undefined, LANG: 'de_AT.UTF-8' });
     assert.equal(es.code, 0, es.all);
     assert.match(es.out, /^Cargando tus favoritas …$/m);
-    assert.match(es.out, /^--dry: playlist sin cambios\.$/m);
+    assert.match(es.out, /^Todavía no se ha escrito en Spotify; la playlist no ha cambiado\.$/m);
     const fr = run(dir, { TWEAKABLE_DJ_LANG: 'fr' });
     assert.match(fr.out, /^Chargement de tes favoris …$/m);
     assert.match(fr.out, /^Test-DJ\u202f: \d+ titres · [^(]+ \(/m);
@@ -260,7 +260,7 @@ test('Automatischer Lauf (--auto --dry): automatik.json und automatik.log, auch 
     // Protokoll = komplette Ausgabe (stdout; stderr siehe Fehlerfall unten)
     assert.equal(log(), ok.out);
     assert.match(log(), /^Lade deine Favoriten …$/m);
-    assert.match(log(), /--dry: Playlist nicht verändert\./);
+    assert.match(log(), /Noch nicht in Spotify geschrieben, die Playlist ist unverändert\./);
 
     // Spotify-Anmeldung abgelaufen: Fehler steht in automatik.json, das Protokoll wird überschrieben
     fs.writeFileSync(path.join(dir, 'tokens.json'), JSON.stringify({ access_token: 'alt', refresh_token: 'widerrufen', expires_at: 0 }));
@@ -275,7 +275,7 @@ test('Automatischer Lauf (--auto --dry): automatik.json und automatik.log, auch 
     assert.deepEqual([failed.result.ok, failed.result.errorCode, failed.result.error], [false, 'login_expired', f.error]);
     assert.ok(Date.parse(f.startedAt) >= Date.parse(r.finishedAt));
     assert.match(log(), /Fehler: Spotify-Anmeldung abgelaufen/, 'stderr fehlt im Protokoll');
-    assert.doesNotMatch(log(), /Test-DJ: 20 Songs|--dry: Playlist nicht verändert/, 'altes Protokoll nicht überschrieben');
+    assert.doesNotMatch(log(), /Test-DJ: 20 Songs|Noch nicht in Spotify geschrieben/, 'altes Protokoll nicht überschrieben');
 
     // Automatischer Lauf ohne TWEAKABLE_DJ_LANG (wie im Zeitplaner): Sprache aus config.jsonc
     fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, language: 'en' }));

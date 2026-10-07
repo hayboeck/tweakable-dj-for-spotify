@@ -492,23 +492,23 @@ test('„Diese Liste übernehmen“: Playlist = Liste des Probelaufs; abgelaufen
     { status: 400, data: { error: 'Invalid request' }, text: JSON.stringify({ error: 'Invalid request' }) });
   const other = await api('/api/apply', { lang: 'de', method: 'POST', body: { id: '0123456789ab' } });
   assert.deepEqual([other.status, other.data.reason], [409, 'replaced']);
-  assert.match(other.data.error, /^Seitdem gab es einen neueren Probelauf/);
+  assert.match(other.data.error, /^Seitdem wurde eine neuere Liste erstellt/);
   // Einstellung geändert und gespeichert: abgelaufen; zurückgestellt gilt er wieder
   assert.equal((await api('/api/config', { method: 'POST', body: { size: 25 } })).status, 200);
   const changed = (await api(`/api/trial?id=${trialId}`, { lang: 'en' })).data;
-  assert.deepEqual([changed.ok, changed.reason, changed.message], [false, 'settings', 'The settings have changed since the test run. Start a new test run.']);
+  assert.deepEqual([changed.ok, changed.reason, changed.message], [false, 'settings', 'The settings have changed since the list was created. Create it again (“Create playlist”).']);
   const refused = await api('/api/apply', { lang: 'de', method: 'POST', body: { id: trialId } });
-  assert.deepEqual([refused.status, refused.data], [409, { error: 'Die Einstellungen haben sich seit dem Probelauf geändert. Starte einen neuen Probelauf.', reason: 'settings' }]);
+  assert.deepEqual([refused.status, refused.data], [409, { error: 'Die Einstellungen haben sich seit dem Erstellen der Liste geändert. Erstelle sie noch einmal („Playlist erstellen“).', reason: 'settings' }]);
   // (Die Automatik zählt nicht – hier nicht geprüft, weil das den Zeitplaner des Systems fragen würde; siehe tests/trial.test.mjs.)
   assert.equal((await api('/api/config', { method: 'POST', body: { size: 20 } })).status, 200);
   assert.equal((await api(`/api/trial?id=${trialId}`)).data.ok, true, 'zurückgestellt: gilt wieder');
 
   // Noch nicht übernommen: als Textdatei speichern
   const text = (await api(`/api/export?trial=${trialId}`, { lang: 'de' })).data;
-  assert.match(text.filename, /^tweakable-dj-\d{4}-\d\d-\d\d-probelauf\.txt$/);
+  assert.match(text.filename, /^tweakable-dj-\d{4}-\d\d-\d\d-neu\.txt$/);
   const lines = text.text.split('\n');
   assert.match(lines[0], /^# Test-DJ – exportiert am /);
-  assert.match(lines[1], /^# Probelauf vom .+ – noch nicht in der Playlist$/);
+  assert.match(lines[1], /^# Erstellte Liste vom .+ – noch nicht in der Playlist$/);
   assert.deepEqual(lines.slice(3, -1).map(l => `spotify:track:${l.split('/track/')[1]}`), trial.tracks.map(t => t.uri));
   assert.equal(text.songs, 20);
   assert.equal((await api('/api/export?trial=0123456789ab', { lang: 'en' })).data.reason, 'replaced');
@@ -516,7 +516,7 @@ test('„Diese Liste übernehmen“: Playlist = Liste des Probelaufs; abgelaufen
   // Übernehmen: Ausgabe wie ein Lauf, die Playlist enthält genau die Songs des Probelaufs
   const applied = await api('/api/apply', { lang: 'de', method: 'POST', body: { id: trialId } });
   assert.equal(applied.status, 200);
-  assert.match(applied.text, /^Übernehme den Probelauf vom .+ \(20 Songs\), ohne neu zu losen …$/m);
+  assert.match(applied.text, /^Übernehme die Liste vom .+ \(20 Songs\), ohne neu zu losen …$/m);
   const r = resultLine(applied.text);
   assert.deepEqual([r.ok, r.dry, r.songs, r.errorCode], [true, false, 20, null]);
   const playlist = store().playlists.find(p => p.name === 'Test-DJ');
@@ -684,7 +684,7 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungs
     'run.ok': [[c, true], [{ ...c, songs: 0, familiar: 1, playlistName: '' }, false]],
     'auto.ok': [[3, true], [null, false], [1, false]],
     'variety.hint': [[c], [{ ...c, artistGap: 0, maxPerArtist: 1 }]],
-    'trial.help': [['Mix', '07:05']],
+    'trial.help': [['Mix', '07:05', 'Mix · 07.10.2026 07:05']],
     'items.scheduleTime.fmt': [['07:05']],
     'items.scheduleTime.hint': [['07:05', c], ['07:05', { ...c, schedule: 'daily' }]],
     'files.saved': [['mix.txt', 3], ['mix.txt', 1]],
@@ -817,17 +817,18 @@ test('ui.html: Spieldauer wie in i18n.mjs, in der Zusammenfassung und beim letzt
   // Nach einem Lauf: echte Dauer, mit ≈, wenn sie für einzelne Songs geschätzt ist; ohne Dauer (ältere Version) nichts
   const r = { playlistName: 'Mix', songs: 50, fresh: 40, freshCurrent: 5, familiar: 10, durationMs: 2 * H + 58 * M };
   ctx.setT('de');
-  assert.equal(plain(ctx.TEXT.de.run.ok(r, false)), 'Fertig: Mix: 50 Songs · 2:58 Std. (40 neu, davon 5 über aktuelles Hören; 10 Favoriten)');
-  assert.equal(plain(ctx.TEXT.de.run.ok({ ...r, durationEstimated: true }, true)), 'Probelauf: Mix: 50 Songs · ≈ 2:58 Std. (40 neu, davon 5 über aktuelles Hören; 10 Favoriten)');
-  assert.equal(ctx.TEXT.de.run.ok({ ...r, durationMs: null }, false), 'Fertig: Mix: 50 Songs (40 neu, davon 5 über aktuelles Hören; 10 Favoriten)');
-  assert.equal(plain(ctx.TEXT.de.auto.ok(50, true, ctx.durationText(r))), '✓ 50 Songs · 2:58 Std. (Probelauf)');
+  assert.equal(plain(ctx.TEXT.de.run.ok(r, false)), 'Fertig: „Mix“ · 50 Songs · 2:58 Std. (40 neu, davon 5 über aktuelles Hören; 10 Favoriten)');
+  assert.equal(plain(ctx.TEXT.de.run.ok({ ...r, durationEstimated: true }, true)), 'Erstellt: 50 Songs · ≈ 2:58 Std. (40 neu, davon 5 über aktuelles Hören; 10 Favoriten)');
+  assert.equal(ctx.TEXT.de.run.ok({ ...r, durationMs: null }, false), 'Fertig: „Mix“ · 50 Songs (40 neu, davon 5 über aktuelles Hören; 10 Favoriten)');
+  assert.equal(plain(ctx.TEXT.de.auto.ok(50, true, ctx.durationText(r))), '✓ 50 Songs · 2:58 Std. (nicht in Spotify)');
   assert.equal(ctx.TEXT.de.auto.ok(50, false, ctx.durationText({ durationMs: null })), '✓ 50 Songs');
   ctx.setT('en');
-  assert.equal(plain(ctx.TEXT.en.run.ok(r, false)), 'Done: Mix: 50 songs · 2 h 58 min (40 new, 5 of them via current listening; 10 favorites)');
+  assert.equal(plain(ctx.TEXT.en.run.ok(r, false)), 'Done: “Mix” · 50 songs · 2 h 58 min (40 new, 5 of them via current listening; 10 favorites)');
+  assert.equal(plain(ctx.TEXT.en.run.ok(r, true)), 'Created: 50 songs · 2 h 58 min (40 new, 5 of them via current listening; 10 favorites)');
   ctx.setT('es');
   assert.equal(plain(ctx.TEXT.es.auto.ok(50, false, ctx.durationText({ ...r, durationEstimated: true }))), '✓ 50 canciones · ≈ 2 h 58 min');
   ctx.setT('fr');
-  assert.match(plain(ctx.TEXT.fr.run.ok(r, false)), /^Terminé\u202f: Mix\u202f: 50 titres · 2 h 58 \(40 nouveaux,/);
+  assert.match(plain(ctx.TEXT.fr.run.ok(r, false)), /^Terminé\u202f: «\u202fMix\u202f» · 50 titres · 2 h 58 \(40 nouveaux,/);
   // Fußzeile: Last.fm und Spotify in einer Zeile, Übersetzungshinweis wie bisher in eigener Zeile (die Version steht im Tab „Einstellungen“)
   assert.match(html, /<p><span data-html="creditLastfm"><\/span> · <span data-t="creditSpotify"><\/span><\/p>/);
   assert.doesNotMatch(html, /<p data-t="creditSpotify">/);
@@ -1001,6 +1002,43 @@ test('Vorige Playlist wiederherstellen: archiveFile nach Lauf und Import, undo =
   const songs = t => t.split('\n').filter(l => l.includes('\t'));
   assert.deepEqual(songs((await api(`/api/archive/entry?id=${encodeURIComponent(written.archiveFile)}`)).data.text), songs(text), 'gleiche Songs wie der vorige Stand');
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'state.json'), 'utf8')).history, history, 'Import zählt nicht als Lauf');
+});
+
+// „Neu in Spotify anlegen“: POST /api/apply mit target 'new' legt eine neue Playlist an; die aus den Einstellungen bleibt.
+// „Vorige Playlist wiederherstellen“ nach dem nächsten Überschreiben überspringt die neu angelegte.
+test('Erstellte Liste als neue Playlist: target new, Name mit Datum und Uhrzeit, Archiv; undo nur für dieselbe Playlist', async () => {
+  // Diese config.jsonc stammt von „früher“ (ohne mode): Ansicht „Pro“; mode zählt nicht für die erstellte Liste
+  assert.deepEqual([(await api('/api/config')).data.values.mode, (await api('/api/config')).data.defaults.mode], ['pro', 'simple']);
+  const dry = resultLine((await api('/api/run?dry=1', { lang: 'de', method: 'POST' })).text);
+  assert.equal((await api('/api/config', { method: 'POST', body: { mode: 'simple' } })).status, 200);
+  assert.equal((await api(`/api/trial?id=${dry.trialId}`)).data.ok, true, 'mode ändert die erstellte Liste nicht');
+  assert.equal((await api('/api/config')).data.values.mode, 'simple');
+  assert.equal((await api('/api/config', { method: 'POST', body: { mode: 'expert' } })).status, 400);
+  for (const target of ['neu', 1, null]) {
+    assert.equal((await api('/api/apply', { method: 'POST', body: { id: dry.trialId, target } })).status, 400, String(target));
+  }
+  const standard = structuredClone(store().playlists.find(p => p.name === 'Test-DJ'));
+  const count = store().playlists.length;
+  const applied = await api('/api/apply', { lang: 'de', method: 'POST', body: { id: dry.trialId, target: 'new' } });
+  assert.equal(applied.status, 200);
+  const r = resultLine(applied.text);
+  const created = store().playlists.at(-1);
+  assert.equal(store().playlists.length, count + 1);
+  assert.match(created.name, /^Test-DJ · \d\d\.\d\d\.\d{4} \d\d:\d\d$/);
+  assert.deepEqual([r.ok, r.playlistName, r.playlistUrl], [true, created.name, `https://open.spotify.com/playlist/${created.id}`]);
+  assert.deepEqual(store().playlists.find(p => p.name === 'Test-DJ'), standard, 'die Playlist aus den Einstellungen bleibt');
+  const { entries } = (await api('/api/archive')).data;
+  assert.deepEqual([entries[0].id, entries[0].url], [r.archiveFile, r.playlistUrl]);
+  assert.equal((await api(`/api/trial?id=${dry.trialId}`)).data.reason, 'missing', 'übernommen');
+  // Danach überschreiben: „Vorige Playlist“ ist der Stand von Test-DJ, nicht die neu angelegte Liste
+  const next = resultLine((await api('/api/run?dry=1', { lang: 'de', method: 'POST' })).text);
+  const over = resultLine((await api('/api/apply', { lang: 'de', method: 'POST', body: { id: next.trialId } })).text);
+  assert.equal(over.ok, true);
+  const after = (await api(`/api/archive?after=${encodeURIComponent(over.archiveFile)}`)).data;
+  assert.equal(after.entries[1].id, r.archiveFile);
+  assert.equal(after.undo.url, over.playlistUrl);
+  assert.notEqual(after.undo.id, r.archiveFile);
+  assert.equal((await api('/api/config', { method: 'POST', body: { mode: 'pro' } })).status, 200);
 });
 
 // --- Systembenachrichtigungen: „Bei Fehlern benachrichtigen“ und „Testbenachrichtigung senden“ ---

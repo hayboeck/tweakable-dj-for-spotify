@@ -36,7 +36,7 @@
   // --- Sperrliste ---
   "excludeExplicit": false,           // true = keine Songs mit expliziten Texten (laut Spotify), weder als Favorit noch als neuer Song
   "blockedArtists": [],               // Künstler, die nie gespielt werden, z. B. ["Künstler A", "Künstler B"]
-  "blockedTracks": [],                // Songs, die nie gespielt werden, auch in anderen Versionen (höchstens 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; am einfachsten mit × in einem Probelauf
+  "blockedTracks": [],                // Songs, die nie gespielt werden, auch in anderen Versionen (höchstens 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; am einfachsten mit × in der erstellten Liste (Tab Playlist)
 
   // --- Archiv ---
   "archiveCount": 20,                 // Nach jedem Schreiben bleibt die Playlist als Textdatei im Ordner "archiv"; so viele der neuesten bleiben (0–200, 0 = aus)
@@ -58,6 +58,7 @@
   // --- Aussehen ---
   "theme": "system",                  // Modus der Oberfläche: "system" = wie dein Gerät, "light" = hell oder "dark" = dunkel
   "accent": "green",                  // Akzentfarbe der Oberfläche: "green", "blue", "violet", "pink", "red", "orange", "gold" oder "teal"
+  "mode": "simple",                   // Ansicht des Tabs Playlist: "simple" = Einfach (nur Voreinstellungen und Anzahl Songs), "pro" = alle Regler (ohne diese Zeile: "pro")
 
   // --- Sprache ---
   "language": ""                      // Sprache der Oberfläche und der Ausgabe: "de" = Deutsch, "en" = Englisch, "es" = Spanisch, "fr" = Französisch, "" = noch nicht gewählt (Systemsprache)

@@ -4,7 +4,11 @@
 //   node dj.mjs         Playlist neu befüllen
 //   node dj.mjs --dry   nur anzeigen, nichts an Spotify schicken; das Ergebnis kommt in probelauf.json
 //   node dj.mjs --apply diesen Probelauf genau so in die Playlist schreiben, ohne neu zu losen (höchstens 24 Stunden alt,
-//                       mit denselben Einstellungen; mit --dry nur prüfen und anzeigen)
+//                       mit denselben Einstellungen; mit --dry nur prüfen und anzeigen). Die Oberfläche nennt den Probelauf
+//                       „erstellte Liste“: „Playlist erstellen“ = --dry, „„<Name>“ überschreiben“ = --apply.
+//   node dj.mjs --apply --new   dasselbe, aber in eine neue Playlist „<Name> · <Datum> <Uhrzeit>“ (newPlaylistName in
+//                       playlist.mjs); die Playlist aus den Einstellungen bleibt, wie sie ist („Neu in Spotify anlegen“).
+//                       --new gilt auch für einen normalen Lauf.
 //   node dj.mjs export [datei.txt]   Playlist als Textdatei speichern (ohne Angabe: tweakable-dj-<Datum>.txt hier im Ordner)
 //   node dj.mjs import <datei.txt>   Songs aus einer Textdatei in die Playlist schreiben (mit --dry nur anzeigen);
 //                       zählt nicht als Lauf des DJ, der Verlauf in state.json bleibt unverändert
@@ -31,8 +35,8 @@ import { AUTO_RESULT, NOW_LOG, NOW_RESULT, recordAutoRun } from './schedule.mjs'
 import { autoRunSince } from './install-update.mjs';
 import { createSpotify, FOLLOW_SCOPE, isScopeError, login, REDIRECT_URI } from './spotify.mjs';
 import {
-  dateTime, exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, mapLimit, parseImport, readPlaylist,
-  resolveImport, writePlaylist,
+  dateTime, exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, mapLimit, newPlaylistName, parseImport,
+  readPlaylist, resolveImport, writePlaylist,
 } from './playlist.mjs';
 import { readTrial, removeTrial, saveTrial, trialProblem } from './trial.mjs';
 import { archivedTracks, archivePlaylist, saveArchive } from './archive.mjs';
@@ -44,6 +48,7 @@ import {
 const lang = resolveLang(process.env.TWEAKABLE_DJ_LANG, configLanguage());
 const dry = process.argv.includes('--dry');
 const apply = process.argv.includes('--apply');
+const asNew = process.argv.includes('--new');
 // Befehl (login, export, import) und dessen Datei; sonst ein Lauf.
 const [command, fileArg] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 
@@ -453,10 +458,13 @@ function playedSet(state) {
 
 // Songs eines Laufs (bzw. eines übernommenen Probelaufs) in die Playlist schreiben und als Lauf merken (state.history, für
 // „Vorige Läufe sperren“, und state.played, für „zum ersten Mal dabei“). Ein älterer Probelauf passt danach nicht mehr zum Verlauf: probelauf.json kommt weg.
+// Mit --new in eine neue Playlist mit Datum und Uhrzeit im Namen; ins Archiv kommt sie unter diesem Namen.
 async function toSpotify(cfg, spotify, lineup, description) {
-  const { url, created } = await writePlaylist(spotify, { name: cfg.playlistName, uris: lineup.map(track => track.uri), description, lang, warn });
-  if (created) console.log(`\n${t(lang, 'run.created', { name: cfg.playlistName })}`);
-  await toArchive(() => saveArchive(HERE, { name: cfg.playlistName, url, tracks: lineup, lang, keep: cfg.archiveCount }));
+  const name = asNew ? newPlaylistName(cfg.playlistName, lang) : cfg.playlistName;
+  result.playlistName = name;
+  const { url, created } = await writePlaylist(spotify, { name, uris: lineup.map(track => track.uri), description, lang, warn, create: asNew });
+  if (created) console.log(`\n${t(lang, 'run.created', { name })}`);
+  await toArchive(() => saveArchive(HERE, { name, url, tracks: lineup, lang, keep: cfg.archiveCount }));
   const state = readJson(STATE, { history: [], cache: {} });
   const keys = lineup.map(track => trackKey(track.artist, track.name));
   state.played = rememberPlayed([...playedSet(state)], keys);
