@@ -1221,9 +1221,9 @@ test('Nur eine Instanz, fremdes Programm auf dem Port, ohne Fenster: ui.log, Bee
 });
 
 test('runShortcut: Speichern legt die zweite Verknüpfung an bzw. entfernt sie; GET /api/version meldet busy', async () => {
-  const file = path.join(desktop, fileNames('run')[process.platform] ?? 'x');
+  const file = path.join(desktop, fileNames('run', 'de')[process.platform] ?? 'x');
   assert.deepEqual((await api('/api/version')).data.busy, false);
-  if (!fileNames('run')[process.platform]) return; // keine Verknüpfungen auf dieser Plattform
+  if (!fileNames('run', 'de')[process.platform]) return; // keine Verknüpfungen auf dieser Plattform
   let r = await api('/api/config', { method: 'POST', body: { runShortcut: true } });
   assert.equal(r.status, 200, r.text);
   assert.ok(fs.existsSync(file), 'angelegt');

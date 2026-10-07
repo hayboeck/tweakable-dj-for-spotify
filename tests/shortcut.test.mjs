@@ -429,7 +429,7 @@ test('Echtes System: anlegen, Stand, entfernen – Programmordner mit Leerzeiche
 test('Zweite Verknüpfung (kind run): eigener Name, eigene Kennung, --now; die beiden Arten halten sich gegenseitig für fremd', async () => {
   const dir = 'C:\\Programme\\Tweakable DJ ä';
   const env = { SystemRoot: 'C:\\Windows' };
-  assert.deepEqual(fileNames('run'), { win32: 'Tweakable DJ – Playlist neu.lnk', darwin: 'Tweakable DJ – Playlist neu.app', linux: 'tweakable-dj-playlist.desktop' });
+  assert.deepEqual(fileNames('run', 'de'), { win32: 'Tweakable DJ – Playlist neu.lnk', darwin: 'Tweakable DJ – Playlist neu.app', linux: 'tweakable-dj-playlist.desktop' });
   assert.doesNotMatch(SHORTCUTS.run.name, /[\\/:*?"<>|]/, 'gültiger Dateiname überall');
   const run = windowsShortcut(dir, { kind: 'run', env, lang: 'de' });
   assert.ok(run.arguments.endsWith(`call "${dir}\\Tweakable DJ.cmd" --now`));
@@ -438,7 +438,7 @@ test('Zweite Verknüpfung (kind run): eigener Name, eigene Kennung, --now; die b
   assert.match(macInfoPlist('run'), /<string>io\.github\.tweakable-dj\.run<\/string>/);
   assert.match(macLauncher('/a b', 'run'), /nohup \/bin\/sh \.\/start\.sh --now /);
   const entry = linuxDesktopEntry('/a b', { kind: 'run', lang: 'en' });
-  assert.ok(entry.split('\n').includes('X-Tweakable-DJ=run') && entry.includes('Name=Tweakable DJ – Playlist neu'));
+  assert.ok(entry.split('\n').includes('X-Tweakable-DJ=run') && entry.includes('Name=Tweakable DJ – New playlist'));
   assert.equal(field(entry, 'Exec'), '/bin/sh "/a b/start.sh" --now');
 
   // Simuliert unter Windows: beide anlegen; die eine zählt für die andere Art als fremd, Entfernen trifft nur die eigene
@@ -449,6 +449,15 @@ test('Zweite Verknüpfung (kind run): eigener Name, eigene Kennung, --now; die b
   assert.equal((await shortcutStatus(base)).state, 'missing', 'Oberfläche: eigene Datei, noch keine');
   assert.equal((await createShortcut(base)).state, 'ok');
   assert.deepEqual(fs.readdirSync(desktop).sort(), ['Tweakable DJ – Playlist neu.lnk', 'Tweakable DJ.lnk']);
+  // Name in der Sprache der Oberfläche: unter dem deutschen Namen gilt sie für Englisch als veraltet; Anlegen benennt um
+  const en = { ...base, kind: 'run', nameLang: 'en' };
+  const old = await shortcutStatus(en);
+  assert.deepEqual([old.state, old.installed, path.basename(old.file)], ['outdated', true, 'Tweakable DJ – Playlist neu.lnk']);
+  assert.equal((await createShortcut(en)).state, 'ok');
+  assert.deepEqual(fs.readdirSync(desktop).sort(), ['Tweakable DJ – New playlist.lnk', 'Tweakable DJ.lnk']);
+  assert.equal((await removeShortcut({ ...base, kind: 'run' })).state, 'missing', 'Entfernen findet sie auch unter dem anderen Namen');
+  assert.deepEqual(fs.readdirSync(desktop), ['Tweakable DJ.lnk']);
+  assert.equal((await createShortcut({ ...base, kind: 'run' })).state, 'ok');
   fs.copyFileSync(path.join(desktop, 'Tweakable DJ.lnk'), path.join(desktop, 'Tweakable DJ – Playlist neu.lnk'));
   assert.equal((await shortcutStatus({ ...base, kind: 'run' })).state, 'foreign', 'Verknüpfung der Oberfläche unter dem anderen Namen');
   fs.rmSync(path.join(desktop, 'Tweakable DJ – Playlist neu.lnk'));

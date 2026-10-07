@@ -276,9 +276,10 @@ const serial = fn => (queue = queue.then(fn, fn));
 const SCHEDULE_KEYS = ['schedule', 'scheduleTime', 'scheduleDay'];
 
 // Zweite Verknüpfung (runShortcut): beim Speichern anlegen bzw. die eigene entfernen; klappt das nicht, wird nichts gespeichert.
-async function applyRunShortcut(on, lang) {
+// nameLang: Sprache ihres Namens (die der Oberfläche).
+async function applyRunShortcut(on, lang, nameLang = lang) {
   try {
-    if (on) await createShortcut({ lang, kind: 'run' });
+    if (on) await createShortcut({ lang, nameLang, kind: 'run' });
     else if ((await shortcutStatus({ lang, kind: 'run' })).installed) await removeShortcut({ lang, kind: 'run' });
   } catch (e) {
     throw new Error(t(lang, 'ui.runShortcutNotSaved', { message: e.message }));
@@ -292,7 +293,13 @@ async function saveSettings(values, lang) {
   const tplLang = resolveLang(values.language, lang);
   const before = currentConfig(lang);
   const after = { ...before, ...values };
-  if ('runShortcut' in values && values.runShortcut !== (before.runShortcut === true)) await applyRunShortcut(values.runShortcut, lang);
+  const nameLang = resolveLang(after.language, lang);
+  if ('runShortcut' in values && values.runShortcut !== (before.runShortcut === true)) await applyRunShortcut(values.runShortcut, lang, nameLang);
+  else if ('language' in values && values.language !== before.language && after.runShortcut === true) {
+    // Andere Sprache: die zweite Verknüpfung bekommt ihren Namen in der neuen Sprache. Klappt das nicht, bleibt sie, wie sie ist
+    // (beim nächsten Start versucht es renewShortcuts noch einmal); die Sprache wird trotzdem gespeichert.
+    await createShortcut({ lang, nameLang, kind: 'run' }).catch(e => console.warn(t(lang, 'shortcut.renewFailed', { message: e.message })));
+  }
   if (!SCHEDULE_KEYS.some(k => after[k] !== before[k])) {
     updateConfig(values, tplLang);
     return null;
