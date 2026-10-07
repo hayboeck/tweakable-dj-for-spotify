@@ -5,6 +5,8 @@ rem   Tweakable DJ laeuft.
 rem   Mit --hidden (so startet die Verknuepfung auf dem Desktop, ueber "conhost.exe --headless"): ohne Fenster, die
 rem   Ausgaben stehen in ui.log. Hier wartet nie ein "pause" (das bliebe unsichtbar haengen): Fehlt Node.js, ist es zu alt
 rem   oder endet node unerwartet mit einem Fehler, startet diese Datei sich mit Fenster neu, damit man die Meldung sieht.
+rem   Mit --now (zweite Verknuepfung "Tweakable DJ - Playlist neu"): ebenfalls ohne Fenster, aber statt der Oberflaeche
+rem   "node dj.mjs --now" - erstellt die Playlist neu und meldet sich mit einer Systembenachrichtigung.
 rem
 rem Alles Weitere steht in EINEM Klammerblock, der mit exit /b endet: cmd.exe liest den ganzen Block ein, bevor es
 rem ihn ausfuehrt, und liest danach nichts mehr aus dieser Datei. So darf "Jetzt aktualisieren" die Datei ersetzen,
@@ -16,6 +18,7 @@ rem bleibt es dabei, weil TWEAKABLE_DJ_HIDDEN gesetzt bleibt.
   cd /d "%~dp0"
   set "TWEAKABLE_DJ_HIDDEN="
   if /i "%~1"=="--hidden" set "TWEAKABLE_DJ_HIDDEN=1"
+  if /i "%~1"=="--now" set "TWEAKABLE_DJ_HIDDEN=1"
   where node 1>nul 2>nul
   if errorlevel 1 (
     if defined TWEAKABLE_DJ_HIDDEN (
@@ -41,6 +44,10 @@ rem bleibt es dabei, weil TWEAKABLE_DJ_HIDDEN gesetzt bleibt.
     echo Node.js is too old. Tweakable DJ needs version 18 or newer: https://nodejs.org
     pause
     exit /b 1
+  )
+  if /i "%~1"=="--now" (
+    node dj.mjs --now
+    exit /b
   )
   set "TWEAKABLE_DJ_LAUNCHER=1"
   node ui.mjs %*

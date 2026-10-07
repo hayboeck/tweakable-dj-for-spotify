@@ -639,6 +639,8 @@ try {
           </div>
           <p class="msg" id="shortcut-msg" role="status"></p>
         </div>
+        <!-- Gruppe runShortcut (siehe GROUPS, root: 'shortcut'): zweite Verknüpfung „Playlist jetzt neu erstellen“ -->
+        <div id="groups-shortcut"></div>
       </section>
       <!-- Programm: eigene Version und „Nach Updates suchen“ (GET /api/update?force=1) mit dem Ergebnis daneben;
            „Tweakable DJ beenden“ (POST /api/quit) -->
@@ -866,6 +868,8 @@ const TEXT = {
         hint: (v, c) => `${c.schedule === 'weekly' ? `Jeden ${T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay}` : 'Jeden Tag'} um ${v} Uhr` },
       notifyOnFailure: { label: 'Bei Fehlern benachrichtigen',
         help: 'Meldet sich, wenn ein automatischer Lauf scheitert – z. B. bei abgelaufener Spotify-Anmeldung oder ungültigem Last.fm-Key.' },
+      runShortcut: { label: 'Zweite Verknüpfung: Playlist jetzt neu erstellen',
+        help: 'Legt beim Speichern „Tweakable DJ – Playlist neu“ auf den Desktop. Ein Doppelklick darauf erstellt die Playlist mit den gespeicherten Einstellungen neu, ohne Oberfläche, und meldet sich danach mit einer Benachrichtigung.' },
       remindLogin: { label: 'An neue Anmeldung erinnern',
         help: 'Die Spotify-Anmeldung gilt 180 Tage. Eine Woche vorher kommt eine Systembenachrichtigung.' },
     },
@@ -1283,6 +1287,8 @@ const TEXT = {
         hint: (v, c) => `${c.schedule === 'weekly' ? `Every ${T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay}` : 'Every day'} at ${v}` },
       notifyOnFailure: { label: 'Notify on failures',
         help: 'Notifies you when an automatic run fails – e.g. because the Spotify login expired or the Last.fm key is invalid.' },
+      runShortcut: { label: 'Second shortcut: rebuild playlist now',
+        help: 'Saving puts “Tweakable DJ – Playlist neu” on the desktop. Double-clicking it rebuilds the playlist with the saved settings, without the interface, and then shows a notification.' },
       remindLogin: { label: 'Remind me to log in again',
         help: 'Your Spotify login lasts 180 days. One week before it ends, you get a system notification.' },
     },
@@ -1692,6 +1698,8 @@ const TEXT = {
         hint: (v, c) => `${c.schedule === 'weekly' ? `Cada ${(T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay).toLowerCase()}` : 'Todos los días'} a las ${v}` },
       notifyOnFailure: { label: 'Avisar si algo falla',
         help: 'Avisa si falla una ejecución automática, p. ej. porque la sesión de Spotify ha caducado o la clave de Last.fm no es válida.' },
+      runShortcut: { label: 'Segundo acceso directo: recrear la playlist ahora',
+        help: 'Al guardar, pone «Tweakable DJ – Playlist neu» en el escritorio. Un doble clic recrea la playlist con los ajustes guardados, sin la interfaz, y después muestra una notificación.' },
       remindLogin: { label: 'Recordarme volver a iniciar sesión',
         help: 'La sesión de Spotify dura 180 días. Una semana antes recibes una notificación del sistema.' },
     },
@@ -2102,6 +2110,8 @@ const TEXT = {
         hint: (v, c) => `${c.schedule === 'weekly' ? `Chaque ${(T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay).toLowerCase()}` : 'Tous les jours'} à ${v}` },
       notifyOnFailure: { label: 'Prévenir en cas d’échec',
         help: 'Te prévient quand une exécution automatique échoue – p. ex. connexion Spotify expirée ou clé Last.fm non valide.' },
+      runShortcut: { label: 'Deuxième raccourci : recréer la playlist maintenant',
+        help: 'À l’enregistrement, place « Tweakable DJ – Playlist neu » sur le Bureau. Un double-clic recrée la playlist avec les réglages enregistrés, sans l’interface, puis affiche une notification.' },
       remindLogin: { label: 'Me rappeler de me reconnecter',
         help: 'La connexion Spotify dure 180 jours. Une semaine avant, tu reçois une notification système.' },
     },
@@ -2458,6 +2468,10 @@ const GROUPS = [
   { id: 'login', tab: 'settings', root: 'credentials', items: [
     { key: 'remindLogin', type: 'toggle' },
   ]},
+  // Zweite Verknüpfung (shortcut.mjs, Art 'run'): Der Server legt sie beim Speichern an bzw. entfernt sie.
+  { id: 'runShortcut', tab: 'settings', root: 'shortcut', items: [
+    { key: 'runShortcut', type: 'toggle' },
+  ]},
   { id: 'blocked', tab: 'settings', items: [
     { key: 'excludeExplicit', type: 'toggle' },
     { key: 'blockedArtists', type: 'list' },
@@ -2475,7 +2489,7 @@ const GROUPS = [
 ];
 // Einstellungen, die die Auswahl eines Probelaufs nicht ändern (wie NOT_RELEVANT in trial.mjs): Ändert man sie, bleibt
 // „Diese Liste übernehmen“ möglich.
-const NOT_FOR_TRIAL = [...SCHEDULE_KEYS, 'notifyOnFailure', 'remindLogin', 'archiveCount', 'theme', 'accent'];
+const NOT_FOR_TRIAL = [...SCHEDULE_KEYS, 'notifyOnFailure', 'remindLogin', 'runShortcut', 'archiveCount', 'theme', 'accent'];
 const TABS = ['playlist', 'settings'];
 const tabOf = group => group.tab ?? 'playlist';
 // Texte eines Reglers in der aktuellen Sprache; Auswahllisten zeigen ohne eigenes fmt den Namen der Option.
@@ -2677,7 +2691,7 @@ function build() {
     return p.button;
   }));
 
-  const roots = { playlist: $('groups'), settings: $('groups-settings'), credentials: $('groups-credentials') };
+  const roots = { playlist: $('groups'), settings: $('groups-settings'), credentials: $('groups-credentials'), shortcut: $('groups-shortcut') };
   for (const root of Object.values(roots)) root.replaceChildren();
   const detailsOpen = varietyControl?.details.open ?? false; // bleibt beim Umschalten der Sprache, wie er war
   for (const group of GROUPS) {

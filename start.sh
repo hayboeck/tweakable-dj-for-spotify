@@ -8,6 +8,8 @@
 # Mit --hidden (so startet die Verknüpfung auf dem Desktop): ohne Terminal. Die Ausgaben stehen in ui.log; fehlt Node.js,
 # ist es zu alt oder lässt sich die Oberfläche nicht starten, meldet das eine Systembenachrichtigung (notify-send bzw.
 # osascript), denn es gibt kein Fenster für die Meldung.
+# Mit --now (zweite Verknüpfung „Tweakable DJ – Playlist neu“): ebenso ohne Terminal, aber statt der Oberfläche
+# node dj.mjs --now – erstellt die Playlist neu und meldet sich mit einer Systembenachrichtigung.
 #
 # Beendet sich die Oberfläche mit Code 75 („Jetzt aktualisieren“ hat eine neue Version installiert), startet sie hier
 # gleich wieder, ohne den Browser noch einmal zu öffnen. Alles steht in der Funktion main, die erst die letzte Zeile
@@ -50,6 +52,7 @@ main() {
 
   hidden=
   [ "$1" = "--hidden" ] && hidden=1
+  [ "$1" = "--now" ] && hidden=1
 
   if ! command -v node >/dev/null 2>&1; then
     if [ -n "$hidden" ]; then
@@ -77,6 +80,10 @@ main() {
     echo "Node.js is too old: $(node --version). Tweakable DJ needs version 18 or newer."
     echo "New version: https://nodejs.org"
     fertig 1
+  fi
+
+  if [ "$1" = "--now" ]; then
+    exec node dj.mjs --now
   fi
 
   # Sagt ui.mjs, dass diese Datei nach einem Update neu startet (sonst: Hinweis, Tweakable DJ selbst neu zu starten),

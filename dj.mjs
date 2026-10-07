@@ -11,6 +11,11 @@
 //   node dj.mjs --auto  Lauf aus dem Zeitplaner: Ausgabe zusätzlich in automatik.log, Ergebnis in automatik.json; schlägt er
 //                       fehl, meldet er sich mit einer Systembenachrichtigung (notifyOnFailure, notify.mjs); läuft die
 //                       Spotify-Anmeldung bald ab, erinnert er daran (remindLogin)
+//   node dj.mjs --now   „Playlist jetzt neu erstellen“ (zweite Verknüpfung auf dem Desktop): ein normaler Lauf ohne Oberfläche,
+//                       am Ende eine Systembenachrichtigung mit dem Ergebnis. Läuft schon ein Lauf (Oberfläche, Automatik oder
+//                       ein anderes --now), startet er nicht, sondern meldet das. Ausgabe in jetzt.log, Ergebnis in jetzt.json –
+//                       getrennt von automatik.json, damit er nicht als „letzter automatischer Lauf“ zählt und die Anzeige der
+//                       Automatik (und deren Fehlermeldungen) nicht verfälscht.
 // Nach jedem Schreiben der Playlist (Lauf, --apply, import) kommt die Liste als Textdatei in den Ordner archiv/ (archive.mjs).
 // Sprache der Ausgabe: TWEAKABLE_DJ_LANG (de/en/es/fr), sonst "language" in config.jsonc, sonst die Systemsprache.
 // Letzte Zeile auf stdout (nicht im Terminal): "@@RESULT " + JSON mit dem Ergebnis für die Oberfläche.
@@ -20,8 +25,10 @@ import path from 'node:path';
 import { HERE, configLanguage, loadConfig, notifyOnFailure, remindLoginOn } from './config.mjs';
 import { formatDuration, formatStats, resolveLang, t, tError } from './i18n.mjs';
 import { createLastfm } from './lastfm.mjs';
-import { autoRunNotice, notify, notifyProblem, remindLogin } from './notify.mjs';
-import { recordAutoRun } from './schedule.mjs';
+import http from 'node:http';
+import { autoRunNotice, notify, notifyProblem, nowBusyNotice, nowNotice, remindLogin } from './notify.mjs';
+import { AUTO_RESULT, NOW_LOG, NOW_RESULT, recordAutoRun } from './schedule.mjs';
+import { autoRunSince } from './install-update.mjs';
 import { createSpotify, FOLLOW_SCOPE, isScopeError, login, REDIRECT_URI } from './spotify.mjs';
 import {
   dateTime, exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, mapLimit, parseImport, readPlaylist,
@@ -40,9 +47,36 @@ const apply = process.argv.includes('--apply');
 // Befehl (login, export, import) und dessen Datei; sonst ein Lauf.
 const [command, fileArg] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 
-// Automatischer Lauf (--auto, auch zusammen mit --dry): Ausgabe und Ergebnis mitschreiben.
+// Automatischer Lauf (--auto, auch zusammen mit --dry): Ausgabe und Ergebnis mitschreiben. --now ebenso, in jetzt.*.
 const isAuto = process.argv.includes('--auto');
-const auto = isAuto ? recordAutoRun(HERE, lang) : null;
+const isNow = !isAuto && process.argv.includes('--now');
+
+// Für --now: Läuft gerade die Oberfläche einen Lauf (bzw. Import oder Update)? Fragt GET /api/version (busy) auf dem Port der
+// Oberfläche; läuft keine, ist auch nichts belegt. Mit node:http, weil die Tests fetch ersetzen.
+function uiBusy(port = Number(process.env.TWEAKABLE_DJ_PORT || 8899)) {
+  return new Promise(resolve => {
+    const req = http.get({ host: '127.0.0.1', port, path: '/api/version', headers: { 'X-Tweakable-DJ': '1' }, timeout: 5000 }, res => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => (body += (body.length < 10_000 ? chunk : '')));
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body).busy === true);
+        } catch {
+          resolve(false);
+        }
+      });
+    });
+    req.on('timeout', () => req.destroy());
+    req.on('error', () => resolve(false));
+  });
+}
+if (isNow && (autoRunSince(HERE, Date.now(), AUTO_RESULT) || autoRunSince(HERE, Date.now(), NOW_RESULT) || await uiBusy())) {
+  console.error(t(lang, 'notify.nowBusyText'));
+  await notify(nowBusyNotice(lang));
+  process.exit(0);
+}
+const auto = isAuto ? recordAutoRun(HERE, lang) : isNow ? recordAutoRun(HERE, lang, { result: NOW_RESULT, log: NOW_LOG }) : null;
 
 const TOKENS = path.join(HERE, 'tokens.json');
 const STATE = path.join(HERE, 'state.json');
@@ -74,7 +108,18 @@ function report(values) {
   };
   auto?.finish({ ...out, summary: summary ?? null });
   if (!process.stdout.isTTY) process.stdout.write(`@@RESULT ${JSON.stringify(out)}\n`);
-  if (auto) notifyAutoRun(out);
+  if (isAuto) notifyAutoRun(out);
+  if (isNow) notifyNowRun(out);
+}
+
+// --now: Ergebnis immer als Systembenachrichtigung (nowNotice); klappt sie nicht, steht ein Hinweis in jetzt.log.
+async function notifyNowRun(out) {
+  try {
+    const sent = await notify(nowNotice(lang, out));
+    if (!sent.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, sent) }));
+  } catch {
+    // Eine Benachrichtigung darf den Lauf nie stören.
+  }
 }
 
 // Systembenachrichtigung nach einem automatischen Lauf (nur bei --auto): bei einem Fehler (autoRunNotice in notify.mjs),

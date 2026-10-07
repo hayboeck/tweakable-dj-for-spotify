@@ -27,7 +27,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { locale, resolveLang, t, tError } from './i18n.mjs';
-import { lastRun } from './schedule.mjs';
+import { AUTO_RESULT, lastRun, NOW_RESULT } from './schedule.mjs';
 import { compareVersions, currentVersion, isUpdate, parseVersion, repoSlug, switchedOff } from './update.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -45,7 +45,7 @@ const AUTO_RUN_MAX = 30 * 60_000;
 // Persönliche und automatisch angelegte Dateien: Die schreibt ein Update nie, egal in welcher Ordnertiefe und in welcher
 // Groß-/Kleinschreibung (Windows und macOS unterscheiden die nicht).
 export const PERSONAL_FILES = ['config.jsonc', 'tokens.json', 'state.json', 'lastfm-cache.json', 'probelauf.json', 'automatik.json',
-  'automatik.log', 'update-check.json', 'seen-version.json', 'ui.log', 'ui.old.log'];
+  'automatik.log', 'update-check.json', 'seen-version.json', 'ui.log', 'ui.old.log', 'jetzt.json', 'jetzt.log'];
 // Persönliche Ordner: das Playlist-Archiv (archive.mjs). Kein Pfad aus manifest.json darf hindurchführen; das Update legt dort
 // nichts ab, und weil es nur Programmdateien sichert und zurückholt, löscht es dort auch beim Zurücksichern nichts.
 export const PERSONAL_DIRS = ['archiv'];
@@ -243,20 +243,20 @@ export function installBlocker(dir = HERE, env = process.env) {
   return null;
 }
 
-// Beginn des laufenden automatischen Laufs (ISO-Zeit) oder null.
-export function autoRunSince(dir = HERE, now = Date.now()) {
-  const run = lastRun(dir);
+// Beginn des laufenden automatischen Laufs (ISO-Zeit) oder null. file = NOW_RESULT: Lauf von „Playlist jetzt neu erstellen“.
+export function autoRunSince(dir = HERE, now = Date.now(), file = AUTO_RESULT) {
+  const run = lastRun(dir, file);
   const started = Date.parse(run?.startedAt);
   if (!run || run.finishedAt || !Number.isFinite(started)) return null;
   const age = now - started;
   return age > -60_000 && age < AUTO_RUN_MAX ? run.startedAt : null;
 }
 
-// Meldung, falls gerade ein automatischer Lauf läuft (in der Sprache lang), sonst null.
+// Meldung, falls gerade ein automatischer Lauf bzw. „Playlist jetzt neu erstellen“ läuft (in der Sprache lang), sonst null.
 export function autoRunMessage(dir = HERE, lang = resolveLang(), now = Date.now()) {
   const since = autoRunSince(dir, now);
-  if (!since) return null;
-  return t(lang, 'update.autoBusy', { time: new Date(since).toLocaleTimeString(locale(lang), { hour: '2-digit', minute: '2-digit' }) });
+  if (since) return t(lang, 'update.autoBusy', { time: new Date(since).toLocaleTimeString(locale(lang), { hour: '2-digit', minute: '2-digit' }) });
+  return autoRunSince(dir, now, NOW_RESULT) ? t(lang, 'ui.nowBusy') : null;
 }
 
 // --- Schreiben ---

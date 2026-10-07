@@ -51,6 +51,10 @@
   // --- Spotify-Anmeldung ---
   "remindLogin": true,                // Systembenachrichtigung eine Woche bevor die Spotify-Anmeldung abläuft (sie gilt 180 Tage), höchstens einmal am Tag; false = aus
 
+  // --- Verknüpfung ---
+  // In der Oberfläche einstellen (Tab Einstellungen → Verknüpfung): Nur beim Speichern dort kommt sie auf den Desktop bzw. weg.
+  "runShortcut": false,               // true = zweite Verknüpfung „Tweakable DJ – Playlist neu“: erstellt die Playlist per Doppelklick neu, ohne Oberfläche
+
   // --- Aussehen ---
   "theme": "system",                  // Modus der Oberfläche: "system" = wie dein Gerät, "light" = hell oder "dark" = dunkel
   "accent": "green",                  // Akzentfarbe der Oberfläche: "green", "blue", "violet", "pink", "red", "orange", "gold" oder "teal"

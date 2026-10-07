@@ -58,7 +58,7 @@ jobs:
           # Sicherheitsnetz: persönliche und automatisch angelegte Dateien, Tests und .github
           # dürfen nie in die ZIP-Datei.
           verboten=$(cd "build/${ordner}" && find . \( -name config.jsonc -o -name tokens.json -o -name state.json \
-            -o -name lastfm-cache.json -o -name probelauf.json -o -name 'automatik.*' -o -name update-check.json -o -name seen-version.json -o -name '*.log' \
+            -o -name lastfm-cache.json -o -name probelauf.json -o -name 'automatik.*' -o -name update-check.json -o -name seen-version.json -o -name jetzt.json -o -name '*.log' \
             -o -path ./tests -o -path ./.github -o -path ./.update -o -path ./archiv -o -name manifest.json \) -print)
           if [ -n "$verboten" ]; then
             echo "::error::Diese Dateien dürfen nicht veröffentlicht werden: ${verboten}"

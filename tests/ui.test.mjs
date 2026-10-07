@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { stripComments } from '../config.mjs';
-import { FILE_NAMES } from '../shortcut.mjs';
+import { FILE_NAMES, fileNames } from '../shortcut.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MOCK = pathToFileURL(path.join(ROOT, 'tests', 'mock-apis.mjs')).href;
@@ -1217,4 +1217,18 @@ test('Nur eine Instanz, fremdes Programm auf dem Port, ohne Fenster: ui.log, Bee
     assert.equal(ended.code, 0, ended.out);
     assert.match(fs.readFileSync(log, 'utf8'), how === 'quit' ? /Tweakable DJ wurde beendet\.\n$/ : /keine Seite von Tweakable DJ mehr offen – beendet\.\n$/);
   }
+});
+
+test('runShortcut: Speichern legt die zweite Verknüpfung an bzw. entfernt sie; GET /api/version meldet busy', async () => {
+  const file = path.join(desktop, fileNames('run')[process.platform] ?? 'x');
+  assert.deepEqual((await api('/api/version')).data.busy, false);
+  if (!fileNames('run')[process.platform]) return; // keine Verknüpfungen auf dieser Plattform
+  let r = await api('/api/config', { method: 'POST', body: { runShortcut: true } });
+  assert.equal(r.status, 200, r.text);
+  assert.ok(fs.existsSync(file), 'angelegt');
+  assert.match(fs.readFileSync(path.join(dir, 'config.jsonc'), 'utf8'), /"runShortcut": true/);
+  assert.ok(!fs.existsSync(path.join(desktop, FILE_NAMES[process.platform])), 'die Verknüpfung der Oberfläche bleibt, wie sie ist');
+  r = await api('/api/config', { method: 'POST', body: { runShortcut: false } });
+  assert.equal(r.status, 200, r.text);
+  assert.ok(!fs.existsSync(file), 'entfernt');
 });

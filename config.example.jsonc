@@ -51,6 +51,10 @@
   // --- Spotify login ---
   "remindLogin": true,                // Show a system notification one week before your Spotify login expires (it lasts 180 days), at most once a day; false = off
 
+  // --- Shortcut ---
+  // Set this in the interface (tab Settings → Shortcut): only saving there adds it to the desktop or removes it.
+  "runShortcut": false,               // true = second shortcut “Tweakable DJ – Playlist neu”: rebuilds the playlist with a double-click, without the interface
+
   // --- Appearance ---
   "theme": "system",                  // Mode of the interface: "system" = like your device, "light" or "dark"
   "accent": "green",                  // Accent color of the interface: "green", "blue", "violet", "pink", "red", "orange", "gold" or "teal"

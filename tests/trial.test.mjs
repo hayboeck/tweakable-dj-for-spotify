@@ -292,3 +292,53 @@ test('Zeile nach der Zusammenfassung: Künstler, Erscheinungsjahre, zum ersten M
     cleanup(dir);
   }
 });
+
+// --- „Playlist jetzt neu erstellen“ (dj.mjs --now, zweite Verknüpfung) ---
+
+// Benachrichtigungen, die der Mock protokolliert hat: [{ title, text }] (unter macOS/Linux aus den Argumenten)
+const notices = dir => fs.readFileSync(path.join(dir, 'mock-log.jsonl'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l).notify).filter(Boolean)
+  .map(n => {
+    const unescape = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+    const [title, text] = n.toast ? [...n.toast.matchAll(/<text>([^<]*)<\/text>/g)].map(m => unescape(m[1])) : n.args.slice(-2);
+    return { title, text };
+  });
+
+test('--now: normaler Lauf mit Archiv, Ergebnis in jetzt.json (nicht automatik.json), Benachrichtigung; läuft schon einer → nur Hinweis', () => {
+  const dir = setup();
+  try {
+    // Port 1: keine Oberfläche zu fragen (nie die echte auf 8899)
+    const noUi = { TWEAKABLE_DJ_PORT: '1' };
+    const now = dj(dir, ['--now'], noUi);
+    assert.equal(now.code, 0, now.all);
+    assert.equal(now.result.ok, true);
+    assert.equal(store(dir).playlists.find(p => p.name === 'Test-DJ').uris.length, 20, 'Playlist geschrieben');
+    assert.equal(fs.readdirSync(path.join(dir, 'archiv')).length, 1, 'ins Archiv');
+    assert.equal(state(dir).history.length, 1, 'zählt als Lauf');
+    const result = JSON.parse(fs.readFileSync(path.join(dir, 'jetzt.json'), 'utf8'));
+    assert.deepEqual([result.ok, result.songs, typeof result.finishedAt], [true, 20, 'string']);
+    assert.ok(fs.existsSync(path.join(dir, 'jetzt.log')));
+    assert.ok(!fs.existsSync(path.join(dir, 'automatik.json')), 'kein automatischer Lauf');
+    assert.deepEqual(notices(dir), [{ title: 'Tweakable DJ', text: 'Playlist „Test-DJ“ neu erstellt ✓ – 20 Songs' }]);
+
+    // Fehler: Grund mit Rat für --now (jetzt.log), auch ohne notifyOnFailure
+    writeConfig(dir, { ...CONFIG, notifyOnFailure: false, lastfm: { apiKey: 'falscher-key', user: 'testhoerer' } });
+    const failed = dj(dir, ['--now'], { ...noUi, TWEAKABLE_DJ_LANG: 'en' });
+    assert.equal(failed.code, 1, failed.all);
+    assert.equal(notices(dir)[0].title, 'Tweakable DJ: playlist not rebuilt');
+    writeConfig(dir, CONFIG);
+
+    // Automatischer Lauf läuft gerade (automatik.json ohne finishedAt): kein zweiter Lauf, nur „läuft gerade“
+    const before = fs.readFileSync(path.join(dir, 'jetzt.json'), 'utf8');
+    fs.writeFileSync(path.join(dir, 'automatik.json'), JSON.stringify({ startedAt: new Date().toISOString(), finishedAt: null, ok: null }));
+    fs.rmSync(path.join(dir, 'mock-log.jsonl'), { force: true });
+    const busy = spawnSync(process.execPath, ['--import', MOCK, 'dj.mjs', '--now'], {
+      cwd: dir, encoding: 'utf8', timeout: 60_000,
+      env: { ...process.env, MOCK_LOG: path.join(dir, 'mock-log.jsonl'), MOCK_SPOTIFY_STORE: path.join(dir, 'store.json'), TWEAKABLE_DJ_LANG: 'de', TWEAKABLE_DJ_PORT: '1' },
+    });
+    assert.equal(busy.status, 0, busy.stderr);
+    assert.deepEqual(notices(dir), [{ title: 'Tweakable DJ: läuft gerade', text: 'Gerade läuft schon ein Lauf (Oberfläche oder Automatik). Versuch es gleich noch einmal.' }]);
+    assert.equal(fs.readFileSync(path.join(dir, 'jetzt.json'), 'utf8'), before, 'jetzt.json unverändert');
+  } finally {
+    cleanup(dir);
+  }
+});

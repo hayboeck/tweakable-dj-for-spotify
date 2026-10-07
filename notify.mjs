@@ -169,13 +169,27 @@ const KNOWN = ['login_expired', 'not_logged_in', 'forbidden', 'lastfm_key', 'set
 // Netzwerkfehler von fetch (errorCode 'other'): kein eigener errorCode, aber ein eigener Rat.
 const NETWORK = /fetch failed|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENETUNREACH|EHOSTUNREACH|UND_ERR|socket hang up/i;
 
-// Titel und Text für einen fehlgeschlagenen Lauf (errorCode und error wie in automatik.json).
-export function failureNotice(lang, { errorCode, error } = {}) {
+// Titel und Text für einen fehlgeschlagenen Lauf (errorCode und error wie in automatik.json). now: Lauf von „Playlist jetzt
+// neu erstellen“ (dj.mjs --now) – eigener Titel, Rat mit jetzt.log statt automatik.log und ohne „der nächste automatische Lauf“.
+const NOW_ACTIONS = ['forbidden', 'network', 'other'];
+export function failureNotice(lang, { errorCode, error } = {}, { now = false } = {}) {
   const code = errorCode === 'other' && NETWORK.test(String(error ?? '')) ? 'network' : errorCode;
   const known = KNOWN.includes(code);
   const reason = known ? t(lang, `notify.reason.${code}`) : firstLine(error) || t(lang, 'notify.reason.other');
-  return { title: t(lang, 'notify.failedTitle'), text: `${reason}\n${t(lang, `notify.action.${known ? code : 'other'}`)}` };
+  const action = known ? code : 'other';
+  return {
+    title: t(lang, now ? 'notify.nowFailedTitle' : 'notify.failedTitle'),
+    text: `${reason}\n${t(lang, `notify.action.${action}${now && NOW_ACTIONS.includes(action) ? 'Now' : ''}`)}`,
+  };
 }
+
+// „Playlist jetzt neu erstellen“ (dj.mjs --now): Ergebnis (wie @@RESULT) als Benachrichtigung – immer, auch ohne
+// notifyOnFailure, denn man hat gerade selbst doppelgeklickt.
+export function nowNotice(lang, result) {
+  if (result?.ok !== true) return failureNotice(lang, result, { now: true });
+  return { title: t(lang, 'notify.nowDoneTitle'), text: t(lang, 'notify.nowDoneText', { name: result.playlistName ?? '', songs: result.songs ?? 0 }) };
+}
+export const nowBusyNotice = lang => ({ title: t(lang, 'notify.nowBusyTitle'), text: t(lang, 'notify.nowBusyText') });
 
 // Erinnerung: Die Spotify-Anmeldung läuft in daysLeft Tagen ab (0 = heute).
 export function loginNotice(lang, daysLeft) {

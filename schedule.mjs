@@ -13,6 +13,9 @@ import { resolveLang, t, tError } from './i18n.mjs';
 
 export const AUTO_LOG = 'automatik.log';
 export const AUTO_RESULT = 'automatik.json';
+// „Playlist jetzt neu erstellen“ (zweite Verknüpfung, dj.mjs --now): eigene Dateien, damit es nicht als automatischer Lauf zählt.
+export const NOW_LOG = 'jetzt.log';
+export const NOW_RESULT = 'jetzt.json';
 
 // Name des Eintrags im Zeitplaner und frühere Namen, deren Einträge beim Eintragen bzw. Ausschalten mit verschwinden.
 export const TASK_NAME = 'Tweakable DJ';
@@ -365,10 +368,11 @@ export const PLATFORMS = {
 // Optionen für einen früheren Eintrag: dessen Kennungen statt der eigenen.
 const legacyOptions = (o, ids) => ({ ...o, ...ids });
 
-// Letzter automatischer Lauf aus automatik.json (von "node dj.mjs --auto"), null = noch keiner.
-export function lastRun(dir = HERE) {
+// Letzter automatischer Lauf aus automatik.json (von "node dj.mjs --auto"), null = noch keiner. file = NOW_RESULT: letzter
+// Lauf von „Playlist jetzt neu erstellen“.
+export function lastRun(dir = HERE, file = AUTO_RESULT) {
   try {
-    return JSON.parse(fs.readFileSync(path.join(dir, AUTO_RESULT), 'utf8'));
+    return JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
   } catch {
     return null;
   }
@@ -437,7 +441,8 @@ export async function applySchedule(cfg, opts = {}) {
 // in automatik.json – schon beim Start (ok = null heißt "läuft"), am Ende mit denselben Feldern wie @@RESULT
 // (ok, dry, songs, fresh, freshCurrent, familiar, durationMs, durationEstimated, playlistName, playlistUrl, errorCode, error,
 // missingScope, trialId, archiveFile, artists, yearFrom, yearTo, firstTime) plus summary.
-export function recordAutoRun(dir = HERE, lang = resolveLang()) {
+// Für "node dj.mjs --now" dasselbe mit files = { result: NOW_RESULT, log: NOW_LOG }.
+export function recordAutoRun(dir = HERE, lang = resolveLang(), files = { result: AUTO_RESULT, log: AUTO_LOG }) {
   const result = {
     startedAt: new Date().toISOString(), finishedAt: null, ok: null, dry: process.argv.includes('--dry'),
     songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null, playlistName: null, playlistUrl: null,
@@ -446,14 +451,14 @@ export function recordAutoRun(dir = HERE, lang = resolveLang()) {
   };
   const save = () => {
     try {
-      fs.writeFileSync(path.join(dir, AUTO_RESULT), `${JSON.stringify(result, null, 2)}\n`);
+      fs.writeFileSync(path.join(dir, files.result), `${JSON.stringify(result, null, 2)}\n`);
     } catch {
       // Nicht speicherbar (z. B. Ordner schreibgeschützt): der Lauf selbst geht trotzdem weiter.
     }
   };
   let log = null;
   try {
-    log = fs.openSync(path.join(dir, AUTO_LOG), 'w');
+    log = fs.openSync(path.join(dir, files.log), 'w');
   } catch {
     // ohne Protokolldatei weiter
   }

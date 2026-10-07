@@ -14,7 +14,8 @@
 //            Terminal, Symbol assets/logo.png; ausführbar und – wo es gio gibt – als vertrauenswürdig markiert.
 // Entfernt bzw. ersetzt wird nur die eigene Verknüpfung (Windows: Aufruf von "Tweakable DJ.cmd" mit dem Argument der Art,
 // macOS: Kennung in der Info.plist, Linux: Zeile X-Tweakable-DJ=…). Eine fremde Datei gleichen Namens bleibt immer unangetastet.
-// Arten (SHORTCUTS, Option kind): 'open' = die Oberfläche.
+// Arten (SHORTCUTS, Option kind): 'open' = die Oberfläche, 'run' = „Tweakable DJ – Playlist neu“ (Einstellung runShortcut):
+// erstellt die Playlist ohne Oberfläche neu (Startdatei mit --now, siehe dj.mjs) und meldet sich mit einer Benachrichtigung.
 // Die Inhalte (plist, Skript, Desktop-Eintrag) sind reine Funktionen; Befehle, Pfade und Plattform lassen sich für Tests
 // übergeben (wie in schedule.mjs).
 
@@ -31,6 +32,11 @@ export const SHORTCUTS = {
   open: {
     name: 'Tweakable DJ', arg: '--hidden', bundleId: 'io.github.tweakable-dj.launcher', linux: 'tweakable-dj.desktop',
     marker: 'X-Tweakable-DJ=launcher', description: 'shortcut.description',
+  },
+  // Name: auf allen Plattformen ein gültiger Dateiname (ohne / \ : * ? " < > |), in allen Sprachen derselbe.
+  run: {
+    name: 'Tweakable DJ – Playlist neu', arg: '--now', bundleId: 'io.github.tweakable-dj.run', linux: 'tweakable-dj-playlist.desktop',
+    marker: 'X-Tweakable-DJ=run', description: 'shortcut.runDescription',
   },
 };
 const kindOf = kind => SHORTCUTS[kind] ?? SHORTCUTS.open;

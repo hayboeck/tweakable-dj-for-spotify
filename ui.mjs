@@ -27,7 +27,8 @@ import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
 import { createShortcut, removeShortcut, SHORTCUTS, shortcutStatus } from './shortcut.mjs';
 import { createSpotify, isScopeError, LIBRARY_SCOPE, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
-import { autoRunMessage, installBlocker, installUpdate } from './install-update.mjs';
+import { autoRunMessage, autoRunSince, installBlocker, installUpdate } from './install-update.mjs';
+import { NOW_RESULT } from './schedule.mjs';
 import { notify, notifyProblem, remindLogin, testNotice } from './notify.mjs';
 import {
   exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, parseImport, readPlaylist, resolveImport, validUris,
@@ -274,6 +275,16 @@ let queue = Promise.resolve();
 const serial = fn => (queue = queue.then(fn, fn));
 const SCHEDULE_KEYS = ['schedule', 'scheduleTime', 'scheduleDay'];
 
+// Zweite Verknüpfung (runShortcut): beim Speichern anlegen bzw. die eigene entfernen; klappt das nicht, wird nichts gespeichert.
+async function applyRunShortcut(on, lang) {
+  try {
+    if (on) await createShortcut({ lang, kind: 'run' });
+    else if ((await shortcutStatus({ lang, kind: 'run' })).installed) await removeShortcut({ lang, kind: 'run' });
+  } catch (e) {
+    throw new Error(t(lang, 'ui.runShortcutNotSaved', { message: e.message }));
+  }
+}
+
 // Speichert Einstellungen aus der Oberfläche. Ändert sich die Automatik, wird zuerst der Zeitplaner angepasst;
 // nur wenn das klappt, kommen die Werte in die config.jsonc. Ergebnis: neuer Stand der Automatik oder null.
 // Fehlende Schlüssel kommen mit der Erklärung aus der Vorlage der gewählten Sprache dazu.
@@ -281,6 +292,7 @@ async function saveSettings(values, lang) {
   const tplLang = resolveLang(values.language, lang);
   const before = currentConfig(lang);
   const after = { ...before, ...values };
+  if ('runShortcut' in values && values.runShortcut !== (before.runShortcut === true)) await applyRunShortcut(values.runShortcut, lang);
   if (!SCHEDULE_KEYS.some(k => after[k] !== before[k])) {
     updateConfig(values, tplLang);
     return null;
@@ -324,12 +336,15 @@ const sessionBusy = lang => (running ? t(lang, 'update.runBusy') : importing ? t
   : loginJob?.status === 'pending' ? t(lang, 'update.loginBusy') : null);
 // Warum gerade kein Lauf geht bzw. kein Import, sonst null. Ein Import wartet zusätzlich auf eine laufende Anmeldung
 // (beide schreiben tokens.json), umgekehrt startet keine Anmeldung während eines Imports.
-const runBusy = lang => (running ? t(lang, 'ui.busy') : importing ? t(lang, 'ui.importBusy') : installing ? t(lang, 'update.inProgress') : null);
+// „Playlist jetzt neu erstellen“ (dj.mjs --now, zweite Verknüpfung) läuft außerhalb der Oberfläche: erkennbar an jetzt.json.
+const nowRunning = () => Boolean(autoRunSince(HERE, Date.now(), NOW_RESULT));
+const ownBusy = lang => (running ? t(lang, 'ui.busy') : importing ? t(lang, 'ui.importBusy') : installing ? t(lang, 'update.inProgress') : null);
+const runBusy = lang => ownBusy(lang) ?? (nowRunning() ? t(lang, 'ui.nowBusy') : null);
 const importBusy = lang => runBusy(lang) ?? (loginJob?.status === 'pending' ? t(lang, 'ui.loginBusy') : null);
 // Ohne Client ID oder Anmeldung geht nichts, was Spotify fragt.
 const loginMissing = cfg => missingCredentials(cfg).includes('spotify.clientId') || !readTokens();
 // Warum Tweakable DJ gerade nicht beendet werden kann (Lauf, Import, Update, Anmeldung), sonst null.
-const quitBusy = lang => importBusy(lang) ?? (restarting ? t(lang, 'update.inProgress') : null);
+const quitBusy = lang => ownBusy(lang) ?? (loginJob?.status === 'pending' ? t(lang, 'ui.loginBusy') : restarting ? t(lang, 'update.inProgress') : null);
 
 // Beenden: „Tweakable DJ beenden“ (reason 'ui.quit') bzw. ohne offene Seite (reason 'ui.idleQuit'). Die Startdatei endet dann
 // auch (Exit-Code 0).
@@ -511,7 +526,8 @@ const server = http.createServer(async (req, res) => {
 
     // Version dieses Servers; die Seite wartet nach einem Update darauf, dass der neue Server antwortet. Die Seite fragt
     // außerdem alle 30 Sekunden (Lebenszeichen, siehe IDLE_MS); ein zweiter Start erkennt daran die eigene Instanz.
-    if (route === 'GET /api/version') return send(200, { version: VERSION, app: APP_ID });
+    // busy: Lauf, Import oder Update der Oberfläche – dann startet „Playlist jetzt neu erstellen“ (dj.mjs --now) nicht.
+    if (route === 'GET /api/version') return send(200, { version: VERSION, app: APP_ID, busy: Boolean(running || importing || installing) });
 
     // „Tweakable DJ beenden“: nicht während eines Laufs, Imports, Updates oder einer Anmeldung (409 mit Grund).
     if (route === 'POST /api/quit') {
