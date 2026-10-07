@@ -13,7 +13,7 @@ The interface is available in English and German, and also in Spanish and French
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-playlist.dark.png">
-    <img src="docs/screenshot-playlist.light.png" width="440" alt="The tab Playlist after a test run: the presets with My current phase selected, the group Playlist with Number of songs at 50 songs (≈ 3 h 17 min) and Share of favorites at 20%, the output with the summary (50 songs · 3 h 17 min, 35 new, 15 favorites), the steps of the run and the start of the song list with a × after each song, the buttons Use this list, Save as text file and Import …, and at the bottom Discard, Save, Test run and Rebuild playlist. The other groups of controls are left out of the picture.">
+    <img src="docs/screenshot-playlist.light.png" width="440" alt="The tab Playlist in the view Simple after Create playlist: at the top the switch Simple / Pro with Simple selected, the presets with My current phase selected, the group Length with Number of songs at 50 songs (≈ 3 h 17 min), the output with the summary (Created: 50 songs · 3 h 17 min, 35 new, 15 favorites · not in Spotify yet), the steps of the run and the start of the song list with × and ♥ after each song, the buttons Overwrite “Tweakable DJ”, Save as new playlist, Save as text file and Import …, the note how long the list can be used and what a new playlist would be called, and at the bottom Discard, Save and Create playlist.">
   </picture>
 </p>
 
@@ -341,7 +341,7 @@ The page has two tabs: **Playlist** (presets, controls – in *Simple* only *Num
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-settings.dark.png">
-    <img src="docs/screenshot-settings.light.png" width="440" alt="The tab Settings: Rebuild automatically set to Daily at 07:00 with the next run and the last automatic run (✓ 50 songs · 3 h 17 min), the block list with No explicit songs, the artists Imagine Dragons and The Killers and the songs Tame Impala – The Less I Know the Better and Glass Animals – Heat Waves, the archive with Archived playlists at 20, Appearance with the mode and 8 accent colors, Credentials (Spotify: logged in, Last.fm: demo), Shortcut (On the desktop ✓) and Version v0.2.1 · You’re up to date ✓">
+    <img src="docs/screenshot-settings.light.png" width="440" alt="The tab Settings: the section Playlist with Playlist name (Tweakable DJ) and Source of your favorites (Liked Songs), Rebuild automatically set to Daily at 07:00 with the next run and the last automatic run (✓ 50 songs · 3 h 17 min), the block list with No explicit songs, the artists Imagine Dragons and The Killers and the songs Tame Impala – The Less I Know the Better and Glass Animals – Heat Waves, the archive with Archived playlists at 20, Appearance with the mode and 8 accent colors, Credentials (Spotify: logged in, Last.fm: demo) with Remind me to log in again, Shortcut (On the desktop ✓) with the second shortcut, and Program with v0.3.0 · You’re up to date ✓ and Quit Tweakable DJ.">
   </picture>
 </p>
 
