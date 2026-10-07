@@ -5,6 +5,20 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.2.3] – 2026-10-07
+
+### English
+
+**New**
+
+- **Space needed by the archive**: next to *Keep earlier playlists*, the interface shows roughly how much space the archive takes, e.g. *20 playlists (≈ 91 KB)* – estimated from the set *Number of songs* (about 90 bytes per song), like the play time next to *Number of songs*. The screenshot of the tab *Settings* shows it.
+
+### Deutsch
+
+**Neu**
+
+- **Platzbedarf des Archivs**: Neben *Frühere Playlists aufheben* steht, wie viel Platz das Archiv ungefähr braucht, z. B. *20 Playlists (≈ 91 KB)* – geschätzt aus der eingestellten *Anzahl Songs* (rund 90 Byte pro Song), wie die Spieldauer neben *Anzahl Songs*. Der Screenshot des Tabs *Einstellungen* zeigt das.
+
 ## [0.2.2] – 2026-10-07
 
 ### English
@@ -203,6 +217,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.2.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.3
 [0.2.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.2
 [0.2.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.1
 [0.2.0]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.0
