@@ -5,6 +5,18 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+### English
+
+**Changed**
+
+- **No play time in the playlist description**: the description that Tweakable DJ sets in Spotify no longer ends with the play time (e.g. *· 2 h 58 min*) – Spotify shows the exact length of the playlist itself. The interface, `@@RESULT`, `automatik.json` and `probelauf.json` still show and contain it.
+
+### Deutsch
+
+**Geändert**
+
+- **Keine Spieldauer mehr in der Beschreibung der Playlist**: Die Beschreibung, die Tweakable DJ in Spotify setzt, endet nicht mehr mit der Spieldauer (z. B. *· 2:58 Std.*) – die genaue Länge zeigt Spotify bei der Playlist selbst an. In der Oberfläche, in `@@RESULT`, `automatik.json` und `probelauf.json` bleibt sie.
+
 ## [0.2.4] – 2026-10-07
 
 ### English

@@ -133,8 +133,10 @@ test('t: Einzahl und Mehrzahl mit {name|eins|mehr}, Zahl im Format der Sprache',
   assert.equal(t('en', 'run.scrobbles', { total: 1000, current: 5, days: 7, artists: 1 }), '  1,000 scrobbles, 5 of them in the last 7 days (1 artist)');
   assert.equal(t('de', 'run.startingPoints', { current: 0, total: 1, factor: 3 }), '  0 von 1 Ausgangspunkt aus deinem aktuellen Hören (Faktor 3)');
   assert.equal(t('en', 'run.candidates', { count: 1, hits: 0, total: 1 }), '  1 candidate (0 of 1 Last.fm request from the cache)');
+  // Ohne Spieldauer: Die zeigt Spotify bei der Playlist selbst an.
   assert.equal(t('de', 'run.description', { date: 'd', time: 't', fresh: 1, familiar: 1, duration: formatDuration('de', 10_680_000) }),
-    'Tweakable DJ · d, t Uhr · 1 neuer Song, 1 Favorit · 2:58\u00a0Std.');
+    'Tweakable DJ · d, t Uhr · 1 neuer Song, 1 Favorit');
+  for (const lang of LANGS) assert.ok(!MESSAGES[lang]['run.description'].includes('{duration}'), lang);
   assert.equal(t('en', 'update.stepCopy', { count: 1, same: 1 }), 'Replacing 1 file (1 is unchanged) …');
   assert.equal(t('de', 'update.stepCopy', { count: 2, same: 1 }), 'Ersetze 2 Dateien (1 ist unverändert) …');
   assert.equal(t('en', 'ui.lastfmOk', { name: 'x', scrobbles: 12345 }), 'All good ✓ “x” has 12,345 scrobbles.');

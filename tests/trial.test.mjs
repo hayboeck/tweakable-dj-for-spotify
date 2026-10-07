@@ -149,7 +149,7 @@ test('Übernehmen: genau die Liste des Probelaufs, in derselben Reihenfolge, ohn
     assert.equal(shown.length, 20);
     assert.deepEqual(trial.tracks.map((t, i) => `${String(i + 1).padStart(3)}. ${t.artist} – ${t.name}  (${t.kind})`), shown);
     assert.ok(trial.tracks.every(t => /^spotify:track:[A-Za-z0-9]{22}$/.test(t.uri)));
-    assert.match(trial.description, /^Tweakable DJ · \d+\.\d+\.\d{4}, \d\d:\d\d Uhr · \d+ neue Songs?, \d+ Favorit(en)? · (\d+:\d\d\u00a0Std\.|\d+\u00a0Min\.)$/);
+    assert.match(trial.description, /^Tweakable DJ · \d+\.\d+\.\d{4}, \d\d:\d\d Uhr · \d+ neue Songs?, \d+ Favorit(en)?$/);
     const historyBefore = state(dir).history;
 
     const applied = dj(dir, ['--apply']);

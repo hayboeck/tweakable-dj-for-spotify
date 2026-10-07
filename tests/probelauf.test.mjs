@@ -862,7 +862,7 @@ test('Spieldauer: Einträge im Such-Cache ohne Dauer (bis 0.1.4) → ≈ geschä
     // probelauf.json und Übernehmen (--apply): dieselbe Dauer
     const trial = JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8'));
     assert.deepEqual([trial.durationMs, trial.durationEstimated], [r.durationMs, true]);
-    assert.ok(trial.description.endsWith(` · ${formatDuration('de', r.durationMs, true)}`), trial.description);
+    assert.ok(!trial.description.includes(formatDuration('de', r.durationMs, true)), `Spieldauer nicht in der Beschreibung: ${trial.description}`);
     const applied = run(dir, {}, ['--apply']);
     assert.equal(applied.code, 0, applied.all);
     assert.deepEqual([applied.result.durationMs, applied.result.durationEstimated], [r.durationMs, true]);

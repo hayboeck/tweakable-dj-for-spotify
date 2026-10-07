@@ -381,7 +381,7 @@ async function main() {
     warn(t(lang, 'run.windowRule', { max: cfg.maxPerWindow, window: cfg.artistWindow }));
   }
   lineup.forEach((track, i) => console.log(lineupLine(track, i)));
-  const description = t(lang, 'run.description', { ...dateTime(lang, new Date()), fresh: fresh.length, familiar: familiar.length, duration });
+  const description = t(lang, 'run.description', { ...dateTime(lang, new Date()), fresh: fresh.length, familiar: familiar.length });
 
   if (dry) {
     fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
