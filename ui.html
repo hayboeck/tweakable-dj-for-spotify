@@ -222,6 +222,10 @@
   pre button.block { font: inherit; font-size: 12px; line-height: 1.2; padding: 0 6px; margin-left: 6px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); cursor: pointer; }
   pre button.block:hover { color: var(--danger); border-color: currentColor; }
   pre button.block.undo:hover { color: var(--accent); }
+  /* ♥: Song zu den Lieblingssongs in Spotify (gefüllt = schon gespeichert, ein Klick entfernt ihn wieder) */
+  pre button.like { font: inherit; font-size: 12px; line-height: 1.2; padding: 0 6px; margin-left: 6px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); cursor: pointer; }
+  pre button.like:hover, pre button.like[aria-pressed="true"] { color: var(--accent); border-color: currentColor; }
+  pre button.like:disabled { opacity: .5; cursor: default; }
 
   /* Automatik */
   .row-head .label { font-weight: 600; }
@@ -828,6 +832,11 @@ const TEXT = {
       blockName: name => `„${name}“ sperren`,
       unblock: 'Sperre aufheben',
       unblockName: name => `Sperre für „${name}“ aufheben`,
+      // ♥ in der Liste eines Probelaufs: zu den Lieblingssongs in Spotify hinzufügen bzw. daraus entfernen
+      like: 'Zu deinen Lieblingssongs in Spotify hinzufügen',
+      likeName: name => `„${name}“ zu den Lieblingssongs hinzufügen`,
+      unlike: 'Aus deinen Lieblingssongs entfernen',
+      unlikeName: name => `„${name}“ aus den Lieblingssongs entfernen`,
     },
     reset: d => `Standard: ${d}`,
     on: 'an',
@@ -923,6 +932,7 @@ const TEXT = {
       left: n => `Deine Spotify-Anmeldung läuft in ${plural(n, 'Tag', 'Tagen')} ab. Spotify verlangt alle 6 Monate eine neue Anmeldung.`,
       probably: 'Deine Spotify-Anmeldung ist wahrscheinlich abgelaufen. Spotify verlangt alle 6 Monate eine neue Anmeldung.',
       scope: 'Für „Gefolgte Künstler“ bitte einmal neu bei Spotify anmelden.',
+      library: 'Für ♥ (Lieblingssongs) bitte einmal neu bei Spotify anmelden.',
     },
     setup: {
       done: 'erledigt ✓',
@@ -1222,6 +1232,11 @@ const TEXT = {
       blockName: name => `Block “${name}”`,
       unblock: 'Unblock',
       unblockName: name => `Unblock “${name}”`,
+      // ♥ in der Liste eines Probelaufs: zu den Lieblingssongs in Spotify hinzufügen bzw. daraus entfernen
+      like: 'Add to your Liked Songs in Spotify',
+      likeName: name => `Add “${name}” to Liked Songs`,
+      unlike: 'Remove from your Liked Songs',
+      unlikeName: name => `Remove “${name}” from Liked Songs`,
     },
     reset: d => `Default: ${d}`,
     on: 'on',
@@ -1314,6 +1329,7 @@ const TEXT = {
       left: n => `Your Spotify login expires in ${plural(n, 'day', 'days')}. Spotify requires a new login every 6 months.`,
       probably: 'Your Spotify login has probably expired. Spotify requires a new login every 6 months.',
       scope: 'For “Followed artists”, please log in to Spotify again once.',
+      library: 'For ♥ (Liked Songs), please log in to Spotify again once.',
     },
     setup: {
       done: 'done ✓',
@@ -1608,6 +1624,11 @@ const TEXT = {
       blockName: name => `Bloquear «${name}»`,
       unblock: 'Desbloquear',
       unblockName: name => `Desbloquear «${name}»`,
+      // ♥ in der Liste eines Probelaufs: zu den Lieblingssongs in Spotify hinzufügen bzw. daraus entfernen
+      like: 'Añadir a Tus me gusta en Spotify',
+      likeName: name => `Añadir «${name}» a Tus me gusta`,
+      unlike: 'Quitar de Tus me gusta',
+      unlikeName: name => `Quitar «${name}» de Tus me gusta`,
     },
     reset: d => `Predeterminado: ${d}`,
     on: 'sí',
@@ -1700,6 +1721,7 @@ const TEXT = {
       left: n => `Tu sesión de Spotify caduca dentro de ${plural(n, 'día', 'días')}. Spotify pide iniciar sesión de nuevo cada 6 meses.`,
       probably: 'Probablemente tu sesión de Spotify ha caducado. Spotify pide iniciar sesión de nuevo cada 6 meses.',
       scope: 'Para «Artistas que sigues», vuelve a iniciar sesión en Spotify una vez.',
+      library: 'Para ♥ (Tus me gusta), vuelve a iniciar sesión en Spotify una vez.',
     },
     setup: {
       done: 'hecho ✓',
@@ -1995,6 +2017,11 @@ const TEXT = {
       blockName: name => `Bloquer « ${name} »`,
       unblock: 'Débloquer',
       unblockName: name => `Débloquer « ${name} »`,
+      // ♥ in der Liste eines Probelaufs: zu den Lieblingssongs in Spotify hinzufügen bzw. daraus entfernen
+      like: 'Ajouter à tes Titres likés sur Spotify',
+      likeName: name => `Ajouter « ${name} » aux Titres likés`,
+      unlike: 'Retirer de tes Titres likés',
+      unlikeName: name => `Retirer « ${name} » des Titres likés`,
     },
     reset: d => `Par défaut : ${d}`,
     on: 'activé',
@@ -2087,6 +2114,7 @@ const TEXT = {
       left: n => `Ta connexion Spotify expire dans ${plural(n, 'jour', 'jours')}. Spotify demande une nouvelle connexion tous les 6 mois.`,
       probably: 'Ta connexion Spotify a probablement expiré. Spotify demande une nouvelle connexion tous les 6 mois.',
       scope: 'Pour « Artistes suivis », reconnecte-toi une fois à Spotify.',
+      library: 'Pour ♥ (Titres likés), reconnecte-toi une fois à Spotify.',
     },
     setup: {
       done: 'fait ✓',
@@ -2369,6 +2397,8 @@ const STEPS = [
 const LOGIN_CODES = ['login_expired', 'not_logged_in'];
 // Berechtigung für „Gefolgte Künstler“; ältere Anmeldungen haben sie nicht.
 const FOLLOW_SCOPE = 'user-follow-read';
+// Berechtigung für ♥ (Lieblingssongs hinzufügen bzw. entfernen); Anmeldungen von 0.2.x und älter haben sie nicht.
+const LIBRARY_SCOPE = 'user-library-modify';
 
 const ITEMS = GROUPS.flatMap(g => g.items);
 const $ = id => document.getElementById(id);
@@ -2403,6 +2433,10 @@ let variety = { keys: [], levels: [] };   // Stufen von „Abwechslung bei Küns
 let varietyControl = null;  // Hauptregler samt Details-Bereich
 let varietyOverwritten = false;   // eigene Werte gerade mit dem Hauptregler überschrieben → Hinweis
 let scopeFailed = false;    // letzter Lauf: Anmeldung ohne Berechtigung für gefolgte Künstler (missingScope)
+let libraryScopeFailed = false;   // ♥ angeklickt, aber der Anmeldung fehlt user-library-modify → Hinweis „neu anmelden“
+// ♥ in der Liste des Probelaufs: URI → true (Lieblingssong) bzw. false; fehlt eine URI, ist der Stand unbekannt (♡).
+let likes = {};
+const likeBusy = new Set(); // URIs, deren Klick gerade beim Server ist
 // Probelauf zum Übernehmen: { id, expiresAt, settings (Einstellungen beim Probelauf), serverReason, message } oder null
 let trial = null;
 let trialTimer = null;
@@ -2782,6 +2816,51 @@ function blockButton(track) {
   }), { 'aria-label': blocked ? T.list.unblockName(name) : T.list.blockName(name) });
 }
 
+// ♥ neben dem ×: gefüllt = schon Lieblingssong in Spotify. Ein Klick fügt hinzu bzw. entfernt wieder (POST /api/library).
+// Ein Umschalter statt nur „hinzufügen“: Den Stand fragt die Seite ohnehin ab (für das gefüllte ♥), und ein versehentlicher
+// Klick lässt sich so gleich hier rückgängig machen.
+function likeButton(track) {
+  const liked = likes[track.uri] === true;
+  const name = trackLabel(track);
+  return attr(el('button', {
+    type: 'button', className: 'like', textContent: liked ? '♥' : '♡', title: liked ? T.list.unlike : T.list.like,
+    disabled: likeBusy.has(track.uri), onclick: () => toggleLike(track),
+  }), { 'aria-label': liked ? T.list.unlikeName(name) : T.list.likeName(name), 'aria-pressed': String(liked) });
+}
+
+async function toggleLike(track) {
+  const saved = likes[track.uri] !== true;
+  likeBusy.add(track.uri);
+  renderLog(logText);
+  try {
+    await apiJson('/api/library', { method: 'POST', body: JSON.stringify({ uri: track.uri, saved }) });
+    likes[track.uri] = saved;
+  } catch (e) {
+    if (e.data?.missingScope === LIBRARY_SCOPE) {
+      libraryScopeFailed = true;
+      renderNotice();
+      $('notice').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      showError(e.message);
+      if (e.data?.login && setup?.loggedIn) showNotice('expired');
+    }
+  } finally {
+    likeBusy.delete(track.uri);
+    renderLog(logText);
+  }
+}
+
+// Welche Songs des Probelaufs schon Lieblingssongs sind (eine Abfrage für die ganze Liste); klappt das nicht, bleibt ♡.
+async function loadLikes(tracks) {
+  try {
+    const { saved } = await apiJson('/api/library/contains', { method: 'POST', body: JSON.stringify({ uris: tracks.map(t => t.uri) }) });
+    tracks.forEach((t, i) => { if (typeof saved?.[i] === 'boolean') likes[t.uri] = saved[i]; });
+    if (runState?.tracks === tracks) renderLog(logText);
+  } catch {
+    // dann eben ohne gefüllte ♥
+  }
+}
+
 // Bereich des Schiebereglers: der übliche (slider), erweitert bis zum gespeicherten bzw. eingestellten Wert, aber nie über
 // den erlaubten hinaus. So zeigt er auch größere Werte aus der config.jsonc an, ohne sie beim Speichern abzuschneiden:
 // Gespeichert wird ein Regler nur, wenn man ihn bewegt.
@@ -3122,7 +3201,7 @@ function runResult(text) {
 }
 
 // Ausgabe ohne Steuerzeilen (@@…); Fehler, Warnungen und aktuelles Hören hervorheben. Nach einem Probelauf (runState.tracks
-// aus GET /api/trial?tracks=1) bekommt jeder Song der Liste ("  3. Künstler – Titel  (…)") einen Knopf zum Sperren.
+// aus GET /api/trial?tracks=1) bekommt jeder Song der Liste ("  3. Künstler – Titel  (…)") einen Knopf zum Sperren und ein ♥.
 let logText = '';
 let logBlocked = null;   // Sperrliste der Songs beim letzten Zeichnen
 function renderLog(text) {
@@ -3142,7 +3221,7 @@ function renderLog(text) {
     const track = tracks?.[n - 1];
     if (!track || !line.includes(trackLabel(track))) return [span, '\n'];
     if (songBlocked(track)) span.classList.add('blocked');
-    return [span, blockButton(track), '\n'];
+    return [span, blockButton(track), likeButton(track), '\n'];
   }));
 }
 
@@ -3153,6 +3232,7 @@ async function loadTrialTracks(id) {
     if (runState?.trialId !== id || data.trial?.id !== id || !Array.isArray(data.trial.tracks)) return;
     runState.tracks = data.trial.tracks;
     renderLog(logText);
+    loadLikes(runState.tracks);
   } catch {
     // dann eben ohne Knöpfe
   }
@@ -3601,7 +3681,7 @@ async function cancelLogin() {
 
 async function loggedIn() {
   if (!$('notice').hidden) noticeReason = 'done';
-  scopeFailed = false;
+  scopeFailed = libraryScopeFailed = false;
   try {
     await load(true);
   } catch (e) {
@@ -3630,7 +3710,8 @@ function scopeNeeded() {
 
 function renderNotice() {
   const age = setup?.authAgeDays;
-  const reason = noticeReason ?? (loginNeeded(scheduleInfo?.lastRun) ? 'auto' : scopeNeeded() ? 'scope' : age != null && age >= 170 ? 'age' : null);
+  const reason = noticeReason ?? (loginNeeded(scheduleInfo?.lastRun) ? 'auto' : scopeNeeded() ? 'scope'
+    : libraryScopeFailed && setup?.loggedIn ? 'library' : age != null && age >= 170 ? 'age' : null);
   $('notice').hidden = view !== 'main' || !reason;
   $('notice-login').hidden = reason === 'done';
   const left = 180 - (age ?? 0);
@@ -3638,6 +3719,7 @@ function renderNotice() {
     : reason === 'auto' ? T.auto.notice
     : reason === 'expired' ? T.notice.expired
     : reason === 'scope' ? T.notice.scope
+    : reason === 'library' ? T.notice.library
     : left > 0 ? T.notice.left(left)
     : T.notice.probably;
 }

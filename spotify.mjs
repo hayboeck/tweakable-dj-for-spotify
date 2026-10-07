@@ -8,8 +8,9 @@ import { durationOf, sameTrack, yearOf } from './lineup.mjs';
 const API = 'https://api.spotify.com/v1';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 export const REDIRECT_URI = 'http://127.0.0.1:8888/callback';
-// Berechtigungen, um die die Anmeldung bittet. user-follow-read (gefolgte Künstler) kam später dazu:
-// Ältere Anmeldungen haben sie nicht, dann muss man sich einmal neu anmelden (siehe FOLLOW_SCOPE).
+// Berechtigungen, um die die Anmeldung bittet. user-follow-read (gefolgte Künstler) und user-library-modify (♥ in der Liste
+// eines Probelaufs) kamen später dazu: Ältere Anmeldungen haben sie nicht, dann muss man sich einmal neu anmelden (siehe
+// FOLLOW_SCOPE bzw. LIBRARY_SCOPE). Ob ein Song schon gespeichert ist, fragt user-library-read ab – das hatte jede Anmeldung.
 export const SCOPE_LIST = [
   'playlist-read-private',
   'playlist-read-collaborative',
@@ -17,9 +18,13 @@ export const SCOPE_LIST = [
   'playlist-modify-public',
   'user-library-read',
   'user-follow-read',
+  'user-library-modify',
 ];
 const SCOPES = SCOPE_LIST.join(' ');
 export const FOLLOW_SCOPE = 'user-follow-read';
+export const LIBRARY_SCOPE = 'user-library-modify';
+// Höchstens so viele URIs pro Anfrage an /me/library (Grenze von Spotify)
+export const LIBRARY_BATCH = 40;
 
 // Fehlt der Anmeldung eine Berechtigung? Spotify antwortet dann mit 401/403 bzw. "Insufficient client scope".
 export const isScopeError = e => [401, 403].includes(e?.status) || /insufficient[\s_-]*(client[\s_-]*)?scope/i.test(String(e?.message ?? ''));
@@ -260,6 +265,22 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
     },
 
     likedCount: async () => (await api('GET', '/me/tracks?limit=1'))?.total ?? null,
+
+    // Lieblingssongs (♥) seit Feb 2026 über /me/library mit Spotify-URIs (früher /me/tracks mit IDs), je Anfrage höchstens
+    // LIBRARY_BATCH. libraryContains: [true/false, …] in der Reihenfolge von uris (braucht user-library-read).
+    async libraryContains(uris) {
+      const out = [];
+      for (let i = 0; i < uris.length; i += LIBRARY_BATCH) {
+        const part = uris.slice(i, i + LIBRARY_BATCH);
+        const d = await api('GET', `/me/library/contains?uris=${part.map(encodeURIComponent).join(',')}`);
+        out.push(...part.map((_, k) => d?.[k] === true));
+      }
+      return out;
+    },
+
+    // Song zu den Lieblingssongs hinzufügen (saved true) bzw. daraus entfernen. Braucht user-library-modify; ohne diese
+    // Berechtigung wirft es (isScopeError).
+    setSaved: (uri, saved) => api(saved ? 'PUT' : 'DELETE', `/me/library?uris=${encodeURIComponent(uri)}`),
 
     // Eigene und gemeinsame Playlists – nur deren Inhalte gibt Spotify seit Feb 2026 heraus.
     async ownPlaylists(userId) {

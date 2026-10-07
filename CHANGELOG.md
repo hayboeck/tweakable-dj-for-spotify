@@ -7,11 +7,19 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ### English
 
+**New**
+
+- **♥ in the test run**: next to the × for blocking, every song in the list of a test run has a ♥ that adds it to your Liked Songs in Spotify. A filled ♥ shows songs that already are; clicking it again removes the song. Uses the library endpoints Spotify introduced in February 2026 (`PUT`/`DELETE /me/library`, `GET /me/library/contains`, one request per 40 songs). It needs the new permission `user-library-modify`: logins from version 0.2.4 or older don’t have it, so the first click shows a notice to log in again once – nothing else changes. New endpoints `POST /api/library/contains` and `POST /api/library`.
+
 **Changed**
 
 - **No play time in the playlist description**: the description that Tweakable DJ sets in Spotify no longer ends with the play time (e.g. *· 2 h 58 min*) – Spotify shows the exact length of the playlist itself. The interface, `@@RESULT`, `automatik.json` and `probelauf.json` still show and contain it.
 
 ### Deutsch
+
+**Neu**
+
+- **♥ im Probelauf**: Neben dem × zum Sperren hat jeder Song in der Liste eines Probelaufs ein ♥, das ihn in Spotify zu deinen Lieblingssongs hinzufügt. Ein gefülltes ♥ zeigt Songs, die es schon sind; ein weiterer Klick entfernt den Song wieder. Verwendet die Bibliotheks-Schnittstellen, die Spotify im Februar 2026 eingeführt hat (`PUT`/`DELETE /me/library`, `GET /me/library/contains`, eine Anfrage pro 40 Songs). Dafür braucht es die neue Berechtigung `user-library-modify`: Anmeldungen von Version 0.2.4 oder älter haben sie nicht, deshalb zeigt der erste Klick einen Hinweis, dich einmal neu anzumelden – sonst ändert sich nichts. Neue Schnittstellen `POST /api/library/contains` und `POST /api/library`.
 
 **Geändert**
 

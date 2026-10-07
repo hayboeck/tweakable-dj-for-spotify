@@ -309,6 +309,7 @@ export const MESSAGES = {
     'ui.keyOkNoUser': 'Der API-Key passt ✓ Ohne Benutzernamen kann der DJ deinen Hörverlauf nicht nutzen.',
     'ui.lastfmOk': 'Passt ✓ „{name}“ hat {scrobbles|# Scrobble|# Scrobbles}.',
     'ui.noScrobbles': 'Der API-Key passt ✓ Aber „{name}“ hat noch keine Scrobbles – Last.fm weiß also noch nicht, was du hörst.',
+    'ui.libraryScope': 'Für ♥ (Lieblingssongs) bitte einmal neu bei Spotify anmelden – die Anmeldung erlaubt das noch nicht.',
 
     // --- install-update.mjs („Jetzt aktualisieren“ in der Oberfläche) ---
     'update.stepCheck': 'Frage GitHub nach der neuesten Version …',
@@ -586,6 +587,7 @@ export const MESSAGES = {
     'ui.keyOkNoUser': 'The API key works ✓ Without a username, the DJ can’t use your listening history.',
     'ui.lastfmOk': 'All good ✓ “{name}” has {scrobbles|# scrobble|# scrobbles}.',
     'ui.noScrobbles': 'The API key works ✓ But “{name}” has no scrobbles yet – so Last.fm doesn’t know yet what you listen to.',
+    'ui.libraryScope': 'For ♥ (Liked Songs), please log in to Spotify again once – your login doesn’t allow this yet.',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Asking GitHub for the newest version …',
@@ -864,6 +866,7 @@ export const MESSAGES = {
     'ui.keyOkNoUser': 'La clave API funciona ✓ Sin nombre de usuario, el DJ no puede usar tu historial de escucha.',
     'ui.lastfmOk': '¡Todo bien! ✓ «{name}» tiene {scrobbles|# scrobble|# scrobbles}.',
     'ui.noScrobbles': 'La clave API funciona ✓ Pero «{name}» todavía no tiene scrobbles, así que Last.fm aún no sabe qué escuchas.',
+    'ui.libraryScope': 'Para ♥ (Tus me gusta), vuelve a iniciar sesión en Spotify una vez: tu inicio de sesión aún no lo permite.',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Consultando a GitHub la versión más reciente …',
@@ -1143,6 +1146,7 @@ export const MESSAGES = {
     'ui.keyOkNoUser': 'La clé API fonctionne ✓ Sans nom d’utilisateur, le DJ ne peut pas utiliser ton historique d’écoute.',
     'ui.lastfmOk': 'C’est bon ✓ « {name} » a {scrobbles|# scrobble|# scrobbles}.',
     'ui.noScrobbles': 'La clé API fonctionne ✓ Mais « {name} » n’a encore aucun scrobble – Last.fm ne sait donc pas encore ce que tu écoutes.',
+    'ui.libraryScope': 'Pour ♥ (Titres likés), reconnecte-toi une fois à Spotify – ta connexion ne le permet pas encore.',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Demande de la version la plus récente à GitHub …',

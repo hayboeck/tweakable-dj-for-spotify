@@ -162,8 +162,10 @@ test('GET /api/config: Stufen für „Abwechslung bei Künstlern“, gefolgte K�
     JSON.stringify({ access_token: 'abgelaufen', refresh_token: 'fake-refresh-token', expires_at: 0, authorized_at: Date.now(), scope }));
   try {
     tokens(all);
-    assert.deepEqual((await api('/api/config')).data.setup.missingScopes, ['user-follow-read']);
+    assert.deepEqual((await api('/api/config')).data.setup.missingScopes, ['user-follow-read', 'user-library-modify']);
     tokens(`${all} user-follow-read`);
+    assert.deepEqual((await api('/api/config')).data.setup.missingScopes, ['user-library-modify']);
+    tokens(`${all} user-follow-read user-library-modify`);
     assert.deepEqual((await api('/api/config')).data.setup.missingScopes, []);
   } finally {
     writeTokens('fake-refresh-token');
@@ -445,7 +447,8 @@ const preview = (text, { lang = 'de', headers = {} } = {}) => api('/api/import/p
 test('Neue Schnittstellen: ohne X-Tweakable-DJ bzw. mit fremdem Host 403, nichts gefragt', async () => {
   const before = spotifyRequests().length;
   const routes = [['GET', '/api/trial'], ['POST', '/api/apply'], ['GET', '/api/export'], ['GET', '/api/export?trial=0123456789ab'],
-    ['POST', '/api/import/preview'], ['POST', '/api/import'], ['GET', '/api/archive'], ['GET', '/api/archive/entry?id=x']];
+    ['POST', '/api/import/preview'], ['POST', '/api/import'], ['GET', '/api/archive'], ['GET', '/api/archive/entry?id=x'],
+    ['POST', '/api/library/contains'], ['POST', '/api/library']];
   for (const [method, route] of routes) {
     const r = await api(route, { lang: 'en', method, headers: { 'X-Tweakable-DJ': '0' }, body: method === 'POST' ? {} : undefined });
     assert.deepEqual([r.status, r.data], [403, { error: 'Not allowed' }], `${method} ${route}`);
@@ -877,6 +880,48 @@ test('GET /api/trial?tracks=1: Songs des Probelaufs; einen davon sperren → nic
     assert.deepEqual([bad.status, bad.data.error], [400, 'blockedTracks: Jeder Song braucht "artist" und "name" (Text); "uri" fehlt oder ist eine Spotify-URI (spotify:track:…).']);
   } finally {
     assert.equal((await api('/api/config', { method: 'POST', body: { blockedTracks: [] } })).status, 200);
+  }
+});
+
+test('♥: Lieblingssongs abfragen (zu je 40), hinzufügen und wieder entfernen; ohne Berechtigung 409 mit missingScope', async () => {
+  const uris = Array.from({ length: 45 }, (_, i) => `spotify:track:herz${String(i).padStart(18, '0')}`);
+  const contains = async list => (await api('/api/library/contains', { method: 'POST', body: { uris: list } })).data.saved;
+  const libraryCalls = () => spotifyRequests().filter(r => r.path.startsWith('/v1/me/library'));
+  const before = libraryCalls().length;
+  assert.deepEqual(await contains(uris), uris.map(() => false));
+  assert.equal(libraryCalls().length - before, 2, '45 Songs = 2 Anfragen');
+  // Ein Lieblingssong des Testbenutzers ist schon gespeichert
+  const likedUri = (await api('/api/run?dry=1', { method: 'POST' }), JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8')))
+    .tracks.find(t => t.kind.startsWith('Favorit'))?.uri;
+  if (likedUri) assert.deepEqual(await contains([likedUri]), [true]);
+
+  const set = (uri, saved, lang = 'de') => api('/api/library', { lang, method: 'POST', body: { uri, saved } });
+  assert.deepEqual((await set(uris[3], true)).data, { ok: true, saved: true });
+  assert.deepEqual(await contains(uris.slice(0, 5)), [false, false, false, true, false]);
+  assert.match(libraryCalls().at(-2).path, /^\/v1\/me\/library\?uris=spotify%3Atrack%3Aherz0+3$/);
+  assert.equal(libraryCalls().at(-2).verb, 'PUT');
+  assert.deepEqual((await set(uris[3], false)).data, { ok: true, saved: false });
+  assert.equal(libraryCalls().at(-1).verb, 'DELETE');
+  assert.deepEqual(await contains([uris[3]]), [false]);
+
+  // Ungültig: kein Song, kein true/false, zu viele
+  for (const body of [{ uri: 'x', saved: true }, { uri: uris[0] }, { uri: uris[0], saved: 'ja' }]) {
+    assert.equal((await api('/api/library', { method: 'POST', body })).status, 400, JSON.stringify(body));
+  }
+  assert.equal((await api('/api/library/contains', { method: 'POST', body: { uris: Array(501).fill(uris[0]) } })).status, 400);
+
+  // Anmeldung ohne user-library-modify (von 0.2.4 oder älter): Hinweis statt Fehler, Spotify wird nicht gefragt
+  const all = 'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-read user-follow-read';
+  fs.writeFileSync(path.join(dir, 'tokens.json'), JSON.stringify({ access_token: 'abgelaufen', refresh_token: 'fake-refresh-token', expires_at: 0, authorized_at: Date.now(), scope: all }));
+  try {
+    const n = libraryCalls().length;
+    const de = await set(uris[0], true);
+    assert.deepEqual([de.status, de.data], [409, { error: 'Für ♥ (Lieblingssongs) bitte einmal neu bei Spotify anmelden – die Anmeldung erlaubt das noch nicht.', missingScope: 'user-library-modify' }]);
+    assert.equal((await set(uris[0], false, 'en')).data.error, 'For ♥ (Liked Songs), please log in to Spotify again once – your login doesn’t allow this yet.');
+    assert.equal(libraryCalls().length, n);
+    assert.deepEqual(await contains([uris[0]]), [false], 'Abfragen geht weiter (user-library-read)');
+  } finally {
+    writeTokens('fake-refresh-token');
   }
 });
 

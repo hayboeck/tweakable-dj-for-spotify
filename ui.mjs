@@ -20,7 +20,7 @@ import {
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
 import { createShortcut, removeShortcut, shortcutStatus } from './shortcut.mjs';
-import { createSpotify, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
+import { createSpotify, isScopeError, LIBRARY_SCOPE, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
 import { autoRunMessage, installBlocker, installUpdate } from './install-update.mjs';
 import { notify, notifyProblem, testNotice } from './notify.mjs';
 import {
@@ -441,6 +441,36 @@ const server = http.createServer(async (req, res) => {
     if (route === 'POST /api/notify/test') {
       const sent = await notify(testNotice(lang));
       return send(200, sent.ok ? { ok: true } : { ok: false, error: notifyProblem(lang, sent) });
+    }
+
+    // ♥ in der Liste eines Probelaufs: Welche Songs sind schon Lieblingssongs? Body { uris } (wie beim Import höchstens 500)
+    // → { saved: [true/false, …] } in derselben Reihenfolge. Braucht nur user-library-read (hat jede Anmeldung).
+    if (route === 'POST /api/library/contains') {
+      const { uris } = await readJson(req, lang);
+      if (!validUris(uris)) return send(400, { error: t(lang, 'ui.badRequest') });
+      const cfg = currentConfig(lang);
+      if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
+      return send(200, { saved: await createSpotify(cfg.spotify.clientId, TOKENS, { lang }).libraryContains(uris) });
+    }
+
+    // ♥ anklicken: Body { uri, saved } – saved true = zu den Lieblingssongs hinzufügen, false = daraus entfernen → { ok, saved }.
+    // Fehlt der Anmeldung user-library-modify (Anmeldung von 0.2.x oder älter), 409 mit missingScope: Dann bittet die Seite,
+    // sich einmal neu anzumelden. Bekannt aus tokens.json (scope) oder aus der Antwort von Spotify.
+    if (route === 'POST /api/library') {
+      const { uri, saved } = await readJson(req, lang);
+      if (!validUris([uri]) || typeof saved !== 'boolean') return send(400, { error: t(lang, 'ui.badRequest') });
+      const cfg = currentConfig(lang);
+      if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
+      const noScope = () => send(409, { error: t(lang, 'ui.libraryScope'), missingScope: LIBRARY_SCOPE });
+      const granted = readTokens()?.scope;
+      if (typeof granted === 'string' && !granted.split(/\s+/).includes(LIBRARY_SCOPE)) return noScope();
+      try {
+        await createSpotify(cfg.spotify.clientId, TOKENS, { lang }).setSaved(uri, saved);
+      } catch (e) {
+        if (isScopeError(e) && !e.errorCode) return noScope();
+        throw e;
+      }
+      return send(200, { ok: true, saved });
     }
 
     // Lauf starten: Ausgabe von dj.mjs als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".

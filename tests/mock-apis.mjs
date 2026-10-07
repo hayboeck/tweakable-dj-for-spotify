@@ -13,6 +13,8 @@
 //   MOCK_NO_LIKED=1     keine Lieblingssongs auf Spotify
 //   MOCK_NO_FOLLOW_SCOPE=1  Anmeldung ohne user-follow-read (ältere Anmeldung): /me/following liefert 403
 //                       "Insufficient client scope", das erneuerte Token nennt die Berechtigung nicht
+//   MOCK_NO_LIBRARY_SCOPE=1  ebenso ohne user-library-modify: PUT/DELETE /me/library liefern 403. Die Lieblingssongs (♥) stehen
+//                       mit MOCK_SPOTIFY_STORE in store.library (anfangs die Lieblingssongs von /me/tracks)
 //   MOCK_NODE_VERSION   täuscht eine andere Node-Version vor
 //   MOCK_GITHUB         JSON-Datei mit der Antwort von GitHub auf die Frage nach dem neuesten Release (update.mjs):
 //                       { "status": 200, "body": { "tag_name": "v0.2.0", "assets": […], … } } oder { "offline": true }
@@ -201,6 +203,20 @@ function spotifyApi(url, init, headers) {
   }
   const p = url.pathname;
   const q = url.searchParams;
+  // Lieblingssongs seit Feb 2026: /me/library mit uris (Spotify-URIs, durch Komma getrennt, höchstens 40)
+  if (p === '/v1/me/library' || p === '/v1/me/library/contains') {
+    const uris = (q.get('uris') ?? '').split(',').filter(Boolean);
+    if (!uris.length || uris.length > 40) return json({ error: { status: 400, message: 'Invalid uris' } }, 400);
+    const store = STORE ? readStore() : { tracks: {} };
+    const library = new Set(store.library ?? likedItems().filter(t => !t.is_local).map(t => t.uri));
+    if (p.endsWith('/contains') && method === 'GET') return json(uris.map(u => library.has(u)));
+    if (process.env.MOCK_NO_LIBRARY_SCOPE === '1') return json({ error: { status: 403, message: 'Insufficient client scope' } }, 403);
+    if (method === 'PUT') uris.forEach(u => library.add(u));
+    else if (method === 'DELETE') uris.forEach(u => library.delete(u));
+    else throw new Error(`Mock: ${method} ${p}`);
+    writeStore({ ...store, library: [...library] });
+    return new Response('', { status: 200 });
+  }
   if (method !== 'GET') return storeWrite(url, method, JSON.parse(String(init?.body ?? '{}')));
 
   if (p === '/v1/me') return json({ id: 'testuser', display_name: 'Test' });
@@ -285,7 +301,8 @@ function spotifyApi(url, init, headers) {
 function spotifyToken(init) {
   const body = new URLSearchParams(String(init?.body ?? ''));
   if (body.get('grant_type') === 'refresh_token' && body.get('refresh_token') === REFRESH_TOKEN && body.get('client_id') === CLIENT_ID) {
-    const scope = process.env.MOCK_NO_FOLLOW_SCOPE === '1' ? SCOPES : `${SCOPES} user-follow-read`;
+    const scope = [SCOPES, process.env.MOCK_NO_FOLLOW_SCOPE === '1' ? '' : 'user-follow-read',
+      process.env.MOCK_NO_LIBRARY_SCOPE === '1' ? '' : 'user-library-modify'].filter(Boolean).join(' ');
     return json({ access_token: ACCESS_TOKEN, token_type: 'Bearer', expires_in: 3600, scope });
   }
   return json({ error: 'invalid_grant', error_description: 'Invalid refresh token' }, 400);
