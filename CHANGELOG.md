@@ -5,6 +5,22 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.2.1] – 2026-10-07
+
+### English
+
+**Changed**
+
+- **New screenshots**: the README shows two new pictures of the interface – the tab *Playlist* after a test run and the tab *Settings* – each in light and dark mode; GitHub shows the one that matches the setting of your device. Both READMEs show the English interface. The old pictures (main view, run, setup and block list, each in English and German) are gone, so the ZIP file is about 1.2 MB smaller.
+- The release workflow checks that everything the READMEs point to is in the ZIP file; this now also covers `srcset="…"` (the dark versions of the pictures).
+
+### Deutsch
+
+**Geändert**
+
+- **Neue Screenshots**: Die README zeigt zwei neue Bilder der Oberfläche – den Tab *Playlist* nach einem Probelauf und den Tab *Einstellungen* – jeweils im hellen und im dunklen Modus; GitHub zeigt die Fassung, die zur Einstellung deines Geräts passt. Beide READMEs zeigen die englische Oberfläche. Die alten Bilder (Hauptansicht, Lauf, Einrichtung und Sperrliste, je auf Deutsch und Englisch) sind weg, die ZIP-Datei ist dadurch rund 1,2 MB kleiner.
+- Der Release-Ablauf prüft, ob alles, worauf die READMEs verweisen, in der ZIP-Datei ist; das erfasst jetzt auch `srcset="…"` (die dunklen Fassungen der Bilder).
+
 ## [0.2.0] – 2026-10-07
 
 ### English
@@ -173,6 +189,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.2.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.1
 [0.2.0]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.0
 [0.1.4]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.4
 [0.1.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.3
