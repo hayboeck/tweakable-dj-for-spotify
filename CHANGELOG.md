@@ -5,7 +5,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
-## [0.2.0] – 2026-10-06
+## [0.2.0] – 2026-10-07
 
 ### English
 
