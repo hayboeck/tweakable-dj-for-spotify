@@ -28,7 +28,7 @@ import {
   writePlaylist,
 } from './playlist.mjs';
 import { readTrial, trialInfo, trialProblem } from './trial.mjs';
-import { archivePlaylist, listArchive, readArchive } from './archive.mjs';
+import { archiveFileCount, archivePlaylist, listArchive, readArchive } from './archive.mjs';
 import { checkForUpdate, currentVersion } from './update.mjs';
 
 // Sprache für Konsole und Anfragen ohne X-Lang.
@@ -323,7 +323,7 @@ const server = http.createServer(async (req, res) => {
       const values = Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, cfg[k]]));
       return send(200, {
         values, defaults: DEFAULTS, limits: LIMITS, variety: { keys: VARIETY_KEYS, levels: VARIETY_LEVELS }, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running), importing,
-        setup: setupStatus(cfg),
+        setup: setupStatus(cfg), archiveFiles: archiveFileCount(HERE),
       });
     }
 
@@ -334,7 +334,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Automatik: Stand abfragen bzw. den gespeicherten Stand neu eintragen (z. B. nach dem Verschieben des Ordners).
-    if (route === 'GET /api/schedule') return send(200, await scheduleStatus(currentConfig(lang), { lang }));
+    // archiveFiles: Dateien im Archiv (ändert sich mit jedem automatischen Lauf; die Seite fragt den Zeitplan danach ab).
+    if (route === 'GET /api/schedule') return send(200, { ...await scheduleStatus(currentConfig(lang), { lang }), archiveFiles: archiveFileCount(HERE) });
 
     if (route === 'POST /api/schedule') {
       try {
@@ -545,12 +546,13 @@ const server = http.createServer(async (req, res) => {
           name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang,
         });
         let warning = null;
+        let archiveRemoved = 0; // so viele ältere Playlists hat das Aufräumen des Archivs gelöscht
         try {
-          await archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount });
+          archiveRemoved = (await archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount }))?.removed?.length ?? 0;
         } catch (e) {
           warning = t(lang, 'archive.failed', { message: e.message });
         }
-        return send(200, { ok: true, songs: uris.length, playlistName: cfg.playlistName, playlistUrl, created, ...(warning && { warning }) });
+        return send(200, { ok: true, songs: uris.length, playlistName: cfg.playlistName, playlistUrl, created, archiveRemoved, ...(warning && { warning }) });
       } finally {
         importing = false;
       }

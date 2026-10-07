@@ -426,6 +426,7 @@ async function toArchive(save) {
   try {
     const saved = await save();
     if (saved) console.log(t(lang, 'archive.saved', { file: saved.file }));
+    if (saved?.removed?.length) console.log(t(lang, 'archive.removed', { count: saved.removed.length }));
   } catch (e) {
     warn(t(lang, 'archive.failed', { message: e.message }));
   }

@@ -179,6 +179,7 @@
   .scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
   .hint { margin: 6px 0 0; font-size: 13.5px; color: var(--accent); }
   .hint:empty { display: none; }
+  .hint.warn { color: var(--warn); }
   .help { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); }
   .help:empty { display: none; }
   .reset { margin-top: 6px; font-size: 12.5px; background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; cursor: pointer; }
@@ -656,6 +657,11 @@ const TEXT = {
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h}:${two(m)} Std.` : `${m} Min.`)),
     fileSize: ['KB', 'MB'], // Einheiten für den Platzbedarf des Archivs
+    // Archiv: Stand neben „Frühere Playlists aufheben“ (files = Dateien im Archiv, keep = eingestellte Anzahl) und Hinweis nach dem Import
+    archiveInfo: (files, keep) => (files == null ? '' : keep > 0
+      ? `${num(files)}/${plural(keep, 'Playlist', 'Playlists')} im Archiv${files > keep ? ` · Mit der nächsten Playlist ${isOne(files + 1 - keep) ? 'wird die älteste' : `werden die ${num(files + 1 - keep)} ältesten`} gelöscht.` : ''}`
+      : files > 0 ? `${plural(files, 'Playlist', 'Playlists')} im Archiv · Es kommen keine neuen dazu, die vorhandenen bleiben.` : ''),
+    archiveRemoved: n => ` · ${isOne(n) ? 'Älteste Playlist' : `Die ${num(n)} ältesten Playlists`} aus dem Archiv entfernt`,
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Einrichtung' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Einrichtung in 5 Schritten', main: 'Einstellungen für deine Playlist' },
     status: { loading: 'Lädt …', setup: 'Einrichtung', running: 'Läuft …', updating: 'Update läuft …', importing: 'Import läuft …', dirty: 'Ungespeicherte Änderungen', saved: 'Gespeichert', error: 'Fehler' },
@@ -1046,6 +1052,10 @@ const TEXT = {
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`)),
     fileSize: ['KB', 'MB'], // Einheiten für den Platzbedarf des Archivs
+    archiveInfo: (files, keep) => (files == null ? '' : keep > 0
+      ? `${num(files)}/${plural(keep, 'playlist', 'playlists')} in the archive${files > keep ? ` · With the next playlist, ${isOne(files + 1 - keep) ? 'the oldest one is' : `the ${num(files + 1 - keep)} oldest are`} deleted.` : ''}`
+      : files > 0 ? `${plural(files, 'playlist', 'playlists')} in the archive · No new ones are added; the existing ones stay.` : ''),
+    archiveRemoved: n => ` · ${isOne(n) ? 'Removed the oldest playlist' : `Removed the ${num(n)} oldest playlists`} from the archive`,
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Setup' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Setup in 5 steps', main: 'Settings for your playlist' },
     status: { loading: 'Loading …', setup: 'Setup', running: 'Running …', updating: 'Updating …', importing: 'Importing …', dirty: 'Unsaved changes', saved: 'Saved', error: 'Error' },
@@ -1428,6 +1438,10 @@ const TEXT = {
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`)),
     fileSize: ['KB', 'MB'], // Einheiten für den Platzbedarf des Archivs
+    archiveInfo: (files, keep) => (files == null ? '' : keep > 0
+      ? `${num(files)}/${plural(keep, 'playlist', 'playlists')} en el historial${files > keep ? ` · Con la próxima playlist ${isOne(files + 1 - keep) ? 'se borra la más antigua' : `se borran las ${num(files + 1 - keep)} más antiguas`}.` : ''}`
+      : files > 0 ? `${plural(files, 'playlist', 'playlists')} en el historial · No se añaden nuevas; las existentes se quedan.` : ''),
+    archiveRemoved: n => ` · ${isOne(n) ? 'Se borró la playlist más antigua' : `Se borraron las ${num(n)} playlists más antiguas`} del historial`,
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Configuración' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Configuración en 5 pasos', main: 'Ajustes de tu playlist' },
     status: { loading: 'Cargando …', setup: 'Configuración', running: 'En curso …', updating: 'Actualizando …', importing: 'Importando …', dirty: 'Cambios sin guardar', saved: 'Guardado', error: 'Error' },
@@ -1811,6 +1825,10 @@ const TEXT = {
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${two(m)}` : ''}` : `${m} min`)),
     fileSize: ['Ko', 'Mo'], // Einheiten für den Platzbedarf des Archivs
+    archiveInfo: (files, keep) => (files == null ? '' : keep > 0
+      ? `${num(files)}/${plural(keep, 'playlist', 'playlists')} dans les archives${files > keep ? ` · Avec la prochaine playlist, ${isOne(files + 1 - keep) ? 'la plus ancienne sera supprimée' : `les ${num(files + 1 - keep)} plus anciennes seront supprimées`}.` : ''}`
+      : files > 0 ? `${plural(files, 'playlist', 'playlists')} dans les archives · Aucune nouvelle n’est ajoutée ; les existantes restent.` : ''),
+    archiveRemoved: n => ` · ${isOne(n) ? 'La playlist la plus ancienne a été supprimée' : `Les ${num(n)} playlists les plus anciennes ont été supprimées`} des archives`,
     title: view => (view === 'setup' ? 'Tweakable DJ for Spotify – Configuration' : 'Tweakable DJ for Spotify'),
     sub: { setup: 'Configuration en 5 étapes', main: 'Réglages de ta playlist' },
     status: { loading: 'Chargement …', setup: 'Configuration', running: 'En cours …', updating: 'Mise à jour …', importing: 'Importation …', dirty: 'Modifications non enregistrées', saved: 'Enregistré', error: 'Erreur' },
@@ -2819,6 +2837,16 @@ const archiveText = v => (v > 0
   ? `${T.items.archiveCount.fmt(v)} (≈ ${fileSizeText(v * (ARCHIVE_HEAD_BYTES + (current.size || 0) * ARCHIVE_SONG_BYTES))})`
   : T.items.archiveCount.fmt(v));
 const OUT_TEXT = { size: sizeText, archiveCount: archiveText };
+// Stand des Archivs unter dem Regler, z. B. „33/50 Playlists im Archiv“; steht er unter der Zahl der Dateien, als Warnung,
+// wie viele die nächste Playlist löscht (pruneArchive in archive.mjs). archiveFiles kommt mit /api/config und /api/schedule.
+let archiveFiles = null;
+const OUT_HINT = { archiveCount: v => T.archiveInfo(archiveFiles, v) };
+const hintWarn = (key, v) => key === 'archiveCount' && v > 0 && archiveFiles > v;
+function setArchiveFiles(n) {
+  if (n === undefined || n === archiveFiles) return;
+  archiveFiles = n;
+  if (loaded) refresh(true);
+}
 
 const presetValues = p => Object.fromEntries(PRESET_KEYS.map(k => [k, p.values[k] ?? defaults[k]]));
 const matchingPreset = () => PRESETS.find(p => Object.entries(presetValues(p)).every(([k, v]) => current[k] === v));
@@ -2841,7 +2869,8 @@ function refresh(skipInput) {
     if (control.row) control.row.hidden = Boolean(item.show) && !item.show(current);
     if (item.type === 'seed') control.note.textContent = seedNoteText();
     out.textContent = item.type === 'swatches' ? text.fmt(v) : item.type ? '' : OUT_TEXT[item.key] ? OUT_TEXT[item.key](v) : text.fmt(v);
-    hint.textContent = text.hint ? text.hint(v, current) : '';
+    hint.textContent = OUT_HINT[item.key] ? OUT_HINT[item.key](v) : text.hint ? text.hint(v, current) : '';
+    hint.classList.toggle('warn', hintWarn(item.key, v));
     if (item.type === 'list' || item.type === 'tracks') continue;
     reset.hidden = same(v, defaults[item.key]);
     const d = defaults[item.key];
@@ -2896,6 +2925,7 @@ async function load(keepEdits = false) {
   limits = data.limits;
   problems = data.problems;
   setup = data.setup;
+  archiveFiles = data.archiveFiles ?? null;
   variety = data.variety ?? variety;
   varietyOverwritten = false;
   loaded = true;
@@ -3039,6 +3069,7 @@ function renderSchedule() {
 async function loadSchedule() {
   try {
     scheduleInfo = await apiJson('/api/schedule');
+    setArchiveFiles(scheduleInfo.archiveFiles);
   } catch (e) {
     scheduleInfo = null;
     setMsg($('auto-msg'), 'err', T.auto.statusError(e.message));
@@ -3191,7 +3222,7 @@ async function run(kind) {
     }
     scopeFailed = result?.missingScope === FOLLOW_SCOPE;
     // Der Lauf hat das Token eventuell erneuert und dabei die erteilten Berechtigungen gespeichert (setup.missingScopes).
-    apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); }).catch(() => {});
+    apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); setArchiveFiles(d.archiveFiles); }).catch(() => {});
   } catch (e) {
     runState = { phase: 'error', kind, dry, result: null };
     showError(e.message);
@@ -3367,7 +3398,8 @@ function renderImport() {
       ? el('a', { href: s.written.playlistUrl, target: '_blank', rel: 'noopener', textContent: T.files.open }) : '';
     // warning: Playlist geschrieben, aber nicht im Archiv abgelegt
     const warning = s.written.warning ? el('span', { className: 'warn-note', textContent: ` · ${s.written.warning}` }) : '';
-    setMsg($('files-msg'), 'ok', T.files.done(s.written.playlistName, s.written.songs), link, warning);
+    const removed = s.written.archiveRemoved > 0 ? T.archiveRemoved(s.written.archiveRemoved) : '';
+    setMsg($('files-msg'), 'ok', T.files.done(s.written.playlistName, s.written.songs), link, removed, warning);
   } else setMsg($('files-msg'), s.error ? 'err' : '', s.error ?? '');
   if (!preview) return;
   $('import-found').textContent = T.files.found(preview.found, preview.total);
@@ -3445,6 +3477,7 @@ async function importWrite() {
   try {
     const written = await apiJson('/api/import', { method: 'POST', body: JSON.stringify({ uris: s.result.uris }) });
     setImport({ phase: 'done', written });
+    apiJson('/api/config').then(d => setArchiveFiles(d.archiveFiles)).catch(() => {});
   } catch (e) {
     if (e.data?.login && setup?.loggedIn) showNotice('expired');
     setImport({ ...s, error: e.message });

@@ -99,6 +99,15 @@ export async function archivePlaylist(dir, spotify, { name, lang, keep }) {
 // Songs in einer Archivdatei: Zeilen, die weder leer noch Kommentar ("# …") sind.
 const songCount = text => text.split(/\r?\n/).filter(l => l.trim() && !/^#(\s|$)/.test(l.trim())).length;
 
+// Anzahl der eigenen Dateien im Archiv (dieselben, die pruneArchive zählt); null, wenn der Ordner nicht lesbar ist.
+export function archiveFileCount(dir) {
+  try {
+    return ownFiles(dir).length;
+  } catch {
+    return null;
+  }
+}
+
 // Für „Frühere Playlist …“: [{ id (Dateiname), at (ISO-Zeit), songs }], neueste zuerst. Unlesbare Dateien fehlen einfach.
 export function listArchive(dir) {
   const out = [];

@@ -551,7 +551,7 @@ test('Textdatei importieren: Vorschau mit Fortschritt und nicht gefundenen Zeile
 
   // Schreiben nach der Rückfrage
   const written = await api('/api/import', { lang: 'de', method: 'POST', body: { uris: r.uris } });
-  assert.deepEqual(written.data, { ok: true, songs: 21, playlistName: 'Test-DJ', playlistUrl: `https://open.spotify.com/playlist/${before.id}`, created: false });
+  assert.deepEqual(written.data, { ok: true, songs: 21, playlistName: 'Test-DJ', playlistUrl: `https://open.spotify.com/playlist/${before.id}`, created: false, archiveRemoved: 0 });
   const after = store().playlists.find(p => p.name === 'Test-DJ');
   assert.deepEqual(after.uris, r.uris);
   assert.match(after.description, /^Tweakable DJ · aus einer Textdatei, .+ · 21 Songs$/);

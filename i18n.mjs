@@ -214,6 +214,7 @@ export const MESSAGES = {
     'import.done': '"{name}" enthält jetzt {count|# Song|# Songs} aus der Datei ✓  {url}',
     // Playlist-Archiv (archive.mjs)
     'archive.saved': 'Im Archiv abgelegt: {file}',
+    'archive.removed': '{count|Die älteste Playlist|Die # ältesten Playlists} aus dem Archiv entfernt (Frühere Playlists aufheben).',
     'archive.failed': 'Nicht im Archiv abgelegt: {message}',
     'archive.notFound': 'Diesen Eintrag gibt es im Archiv nicht (mehr).',
 
@@ -490,6 +491,7 @@ export const MESSAGES = {
     'import.done': '"{name}" now contains {count|# song|# songs} from the file ✓  {url}',
     // Playlist-Archiv (archive.mjs)
     'archive.saved': 'Saved to the archive: {file}',
+    'archive.removed': '{count|Removed the oldest playlist|Removed the # oldest playlists} from the archive (Keep earlier playlists).',
     'archive.failed': 'Not saved to the archive: {message}',
     'archive.notFound': 'This entry isn’t in the archive (anymore).',
 
@@ -767,6 +769,7 @@ export const MESSAGES = {
     'import.done': '"{name}" contiene ahora {count|# canción|# canciones} del archivo ✓  {url}',
     // Playlist-Archiv (archive.mjs)
     'archive.saved': 'Guardada en el historial: {file}',
+    'archive.removed': '{count|Se borró la playlist más antigua|Se borraron las # playlists más antiguas} del historial (Guardar playlists anteriores).',
     'archive.failed': 'No se guardó en el historial: {message}',
     'archive.notFound': 'Esta entrada ya no está en el historial.',
 
@@ -1045,6 +1048,7 @@ export const MESSAGES = {
     'import.done': '"{name}" contient maintenant {count|# titre|# titres} du fichier ✓  {url}',
     // Playlist-Archiv (archive.mjs)
     'archive.saved': 'Enregistrée dans les archives : {file}',
+    'archive.removed': '{count|La playlist la plus ancienne a été supprimée|Les # playlists les plus anciennes ont été supprimées} des archives (Garder les playlists précédentes).',
     'archive.failed': 'Pas enregistrée dans les archives : {message}',
     'archive.notFound': 'Cette entrée n’est plus dans les archives.',
 
