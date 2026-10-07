@@ -253,3 +253,42 @@ test('--apply --dry: prüft und zeigt die Liste, schreibt nichts, der Probelauf 
     cleanup(dir);
   }
 });
+
+test('Zeile nach der Zusammenfassung: Künstler, Erscheinungsjahre, zum ersten Mal – auch beim Übernehmen; state.played', () => {
+  const dir = setup();
+  const statsLine = out => out.split(/\r?\n/).find(l => /^\d+ Künstler( · |$)/.test(l));
+  const firstTimeOf = (tracks, played) => tracks.filter(t => !played.has(trackKey(t.artist, t.name))).length;
+  try {
+    const dry = dj(dir, ['--dry']);
+    const r = dry.result;
+    assert.ok(r.artists > 1 && r.artists <= 20, String(r.artists));
+    assert.ok(r.yearFrom >= 1975 && r.yearTo <= 2026 && r.yearFrom <= r.yearTo, `${r.yearFrom}–${r.yearTo}`);
+    assert.equal(r.firstTime, 20, 'noch nie etwas geschrieben: alle zum ersten Mal');
+    assert.equal(statsLine(dry.out), `${r.artists} Künstler · Erscheinungsjahre ${r.yearFrom}–${r.yearTo} · 20 Songs zum ersten Mal dabei`);
+    const lines = dry.out.split(/\r?\n/);
+    assert.match(lines[lines.indexOf(statsLine(dry.out)) - 1], /^Test-DJ: 20 Songs · /, 'gleich unter der Zusammenfassung');
+    assert.deepEqual([readTrial(dir).yearFrom, readTrial(dir).yearTo], [r.yearFrom, r.yearTo]);
+
+    // Übernehmen: dieselben Zahlen; danach merkt sich state.played die Songs
+    const applied = dj(dir, ['--apply']);
+    assert.deepEqual(['artists', 'yearFrom', 'yearTo', 'firstTime'].map(k => applied.result[k]), [r.artists, r.yearFrom, r.yearTo, 20]);
+    assert.ok(applied.out.includes(statsLine(dry.out)));
+    const tracks = JSON.parse(fs.readFileSync(path.join(dir, 'store.json'), 'utf8')).playlists[0].uris;
+    const played = new Set(state(dir).played);
+    assert.equal(played.size, tracks.length);
+
+    // Nächster Probelauf: zum ersten Mal = nicht in state.played
+    const next = dj(dir, ['--dry']);
+    assert.equal(next.result.firstTime, firstTimeOf(readTrial(dir).tracks, played));
+    // Ohne state.played (Verlauf von 0.2.x): Verlauf und Archiv zählen – dasselbe Ergebnis
+    const s = state(dir);
+    delete s.played;
+    fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(s));
+    const again = dj(dir, ['--apply', '--dry']);
+    assert.equal(again.result.firstTime, next.result.firstTime);
+    // Englisch
+    assert.match(dj(dir, ['--apply', '--dry'], { TWEAKABLE_DJ_LANG: 'en' }).out, /^\d+ artists · release years \d{4}–\d{4} · \d+ songs? for the first time$/m);
+  } finally {
+    cleanup(dir);
+  }
+});

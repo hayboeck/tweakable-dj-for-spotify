@@ -81,6 +81,9 @@ export function saveTrial(dir, { cfg, lang, tracks, counts, summary, description
     familiar: counts.familiar,
     durationMs: counts.durationMs ?? null,
     durationEstimated: counts.durationEstimated ?? null,
+    // Spanne der Erscheinungsjahre (lineupStats; null = unbekannt): Die Songs hier haben kein Jahr mehr.
+    yearFrom: counts.yearFrom ?? null,
+    yearTo: counts.yearTo ?? null,
     tracks: tracks.map(s => ({
       uri: s.uri, artist: s.artist, artists: (s.artists?.length ? s.artists : [s.artist]).filter(text), name: s.name, kind: s.kind,
     })),

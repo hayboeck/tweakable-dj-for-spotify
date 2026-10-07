@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   arrange, artistBlocker, artistNames, cacheEntry, cacheValue, candidateWeight, durationOf, followedFactor, followedMatcher, FOLLOWED_MAX, newerFactor, yearOf,
-  lineupDuration, norm, playableDurationMs, playableUri, sameTrack, searchAgain, SONG_MS, trackBlocker, trackKey, weightedOrder, windowViolations,
+  lineupDuration, lineupStats, norm, PLAYED_MAX, playableDurationMs, rememberPlayed, playableUri, sameTrack, searchAgain, SONG_MS, trackBlocker, trackKey, weightedOrder, windowViolations,
 } from '../lineup.mjs';
 import { VARIETY_LEVELS } from '../config.mjs';
 
@@ -363,4 +363,27 @@ test('lineupDuration: Summe; fehlende Dauer mit dem Durchschnitt der bekannten g
   assert.equal(SONG_MS, 210_000);
   assert.deepEqual(lineupDuration([{}, { durationMs: null }]), { durationMs: 420_000, durationEstimated: true });
   assert.deepEqual(lineupDuration([]), { durationMs: 0, durationEstimated: false });
+});
+
+test('lineupStats: verschiedene Künstler, Spanne der bekannten Erscheinungsjahre, Songs zum ersten Mal', () => {
+  const tracks = [
+    { artist: 'Nordlicht', name: 'Polarnacht', releaseYear: 2024 },
+    { artist: 'THE NORDLICHT', name: 'Eisblau', releaseYear: '1978-05-01' }, // derselbe Künstler (norm)
+    { artist: 'Bergfunk', name: 'Gipfelglück', releaseYear: null },
+    { artist: 'Elbsand', name: 'Polarnacht Echo 1 (Remastered 2011)' },
+  ];
+  assert.deepEqual(lineupStats(tracks), { artists: 3, yearFrom: 1978, yearTo: 2024, firstTime: null }, 'ohne Verlauf: firstTime unbekannt');
+  const played = new Set([trackKey('Nordlicht', 'Polarnacht (Live)'), trackKey('Elbsand', 'Polarnacht Echo 1')]);
+  assert.equal(lineupStats(tracks, played).firstTime, 2, 'andere Versionen zählen als derselbe Song');
+  assert.equal(lineupStats(tracks, new Set()).firstTime, 4);
+  assert.deepEqual(lineupStats(tracks.map(t => ({ ...t, releaseYear: undefined }))), { artists: 3, yearFrom: null, yearTo: null, firstTime: null });
+  assert.deepEqual(lineupStats([]), { artists: 0, yearFrom: null, yearTo: null, firstTime: null });
+});
+
+test('rememberPlayed: anhängen, bekannte ans Ende, höchstens PLAYED_MAX', () => {
+  assert.deepEqual(rememberPlayed(undefined, ['a', 'b']), ['a', 'b']);
+  assert.deepEqual(rememberPlayed(['a', 'b', 'c'], ['b', 'd']), ['a', 'c', 'b', 'd']);
+  assert.deepEqual(rememberPlayed(['a', 'b', 'c'], ['d', 'e'], 3), ['c', 'd', 'e'], 'die ältesten fallen weg');
+  assert.deepEqual(rememberPlayed(['a', 42, null], ['b']), ['a', 'b'], 'nur Texte');
+  assert.ok(PLAYED_MAX >= 10_000);
 });

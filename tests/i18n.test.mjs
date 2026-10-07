@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { formatDuration, isOne, LANGS, MESSAGES, locale, resolveLang, systemLang, t, tError } from '../i18n.mjs';
+import { formatDuration, formatStats, isOne, LANGS, MESSAGES, locale, resolveLang, systemLang, t, tError } from '../i18n.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // Texte in Anführungszeichen, die wie Schlüssel aussehen, aber Dateinamen bzw. Stellen in der config.jsonc sind
@@ -250,4 +250,17 @@ test('formatDuration: unter und ab einer Stunde, Rundung, geschätzt mit ≈', (
   assert.equal(plain('xx', 45 * M), '45 min');
   // Nur geschützte Leerzeichen
   for (const lang of LANGS) assert.doesNotMatch(formatDuration(lang, 3 * H + 15 * M, true), / /, lang);
+});
+
+test('formatStats: Zeile nach der Zusammenfassung in allen Sprachen; fehlende Teile fallen weg', () => {
+  const stats = { artists: 34, yearFrom: 1978, yearTo: 2025, firstTime: 12 };
+  assert.equal(formatStats('de', stats), '34 Künstler · Erscheinungsjahre 1978–2025 · 12 Songs zum ersten Mal dabei');
+  assert.equal(formatStats('en', stats), '34 artists · release years 1978–2025 · 12 songs for the first time');
+  assert.equal(formatStats('es', stats), '34 artistas · años de lanzamiento 1978–2025 · 12 canciones por primera vez');
+  assert.equal(formatStats('fr', { ...stats, firstTime: 1 }), '34 artistes · années de sortie 1978–2025 · 1 titre pour la première fois');
+  assert.equal(formatStats('de', { artists: 1, yearFrom: 2025, yearTo: 2025, firstTime: 1 }), '1 Künstler · Erscheinungsjahr 2025 · 1 Song zum ersten Mal dabei');
+  assert.equal(formatStats('en', { artists: 1, yearFrom: 2025, yearTo: 2025, firstTime: 0 }), '1 artist · release year 2025 · 0 songs for the first time');
+  assert.equal(formatStats('de', { artists: 2, yearFrom: null, yearTo: null, firstTime: null }), '2 Künstler', 'ohne Jahr und ohne Verlauf');
+  assert.equal(formatStats('en', { artists: 1234, yearFrom: 1999, yearTo: 2001 }), '1,234 artists · release years 1999–2001', 'Jahre ohne Trennzeichen');
+  assert.equal(formatStats('de', {}), '');
 });

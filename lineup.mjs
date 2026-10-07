@@ -250,3 +250,31 @@ export function sameTrack(spotifyTrack, artist, name) {
   const nameOk = startsWithWords(gotName, wantName) || startsWithWords(wantName, gotName);
   return Boolean(artistOk && nameOk);
 }
+
+// --- Zusammenfassung nach dem Lauf: „34 Künstler · Erscheinungsjahre 1978–2025 · 12 Songs zum ersten Mal dabei“ ---
+
+// Kennzahlen einer Liste: artists = verschiedene Hauptkünstler (verglichen wie überall mit norm), yearFrom/yearTo = Spanne
+// der bekannten Erscheinungsjahre (beide null, wenn bei keinem Song eins bekannt ist), firstTime = Songs, die noch in keiner
+// gemerkten Playlist des DJ vorkamen (played: Set von trackKey, siehe rememberPlayed; null = unbekannt → firstTime null).
+export function lineupStats(tracks, played = null) {
+  const artists = new Set(tracks.map(t => norm(t.artist)).filter(Boolean)).size;
+  const years = tracks.map(t => yearOf(t.releaseYear)).filter(y => y !== null);
+  return {
+    artists,
+    yearFrom: years.length ? Math.min(...years) : null,
+    yearTo: years.length ? Math.max(...years) : null,
+    firstTime: played instanceof Set ? tracks.filter(t => !played.has(trackKey(t.artist, t.name))).length : null,
+  };
+}
+
+// Gespielte Songs (state.played: trackKey aller Listen, die der DJ geschrieben hat, älteste zuerst): keys anhängen; ein schon
+// bekannter rückt ans Ende. Höchstens max Einträge (rund 40 Zeichen je Song), die ältesten fallen weg.
+export const PLAYED_MAX = 20_000;
+export function rememberPlayed(played, keys, max = PLAYED_MAX) {
+  const set = new Set(Array.isArray(played) ? played.filter(k => typeof k === 'string') : []);
+  for (const k of keys) {
+    set.delete(k);
+    set.add(k);
+  }
+  return [...set].slice(-max);
+}

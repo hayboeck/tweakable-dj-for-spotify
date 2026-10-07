@@ -429,12 +429,13 @@ export async function applySchedule(cfg, opts = {}) {
 // Für "node dj.mjs --auto": Konsolenausgabe zusätzlich in automatik.log (bei jedem Lauf neu) und das Ergebnis
 // in automatik.json – schon beim Start (ok = null heißt "läuft"), am Ende mit denselben Feldern wie @@RESULT
 // (ok, dry, songs, fresh, freshCurrent, familiar, durationMs, durationEstimated, playlistName, playlistUrl, errorCode, error,
-// missingScope, trialId, archiveFile) plus summary.
+// missingScope, trialId, archiveFile, artists, yearFrom, yearTo, firstTime) plus summary.
 export function recordAutoRun(dir = HERE, lang = resolveLang()) {
   const result = {
     startedAt: new Date().toISOString(), finishedAt: null, ok: null, dry: process.argv.includes('--dry'),
     songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null, playlistName: null, playlistUrl: null,
-    errorCode: null, error: null, missingScope: null, trialId: null, archiveFile: null, summary: null,
+    errorCode: null, error: null, missingScope: null, trialId: null, archiveFile: null, artists: null, yearFrom: null, yearTo: null,
+    firstTime: null, summary: null,
   };
   const save = () => {
     try {

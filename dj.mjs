@@ -17,7 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { HERE, configLanguage, loadConfig, notifyOnFailure } from './config.mjs';
-import { formatDuration, resolveLang, t, tError } from './i18n.mjs';
+import { formatDuration, formatStats, resolveLang, t, tError } from './i18n.mjs';
 import { createLastfm } from './lastfm.mjs';
 import { autoRunNotice, notify, notifyProblem } from './notify.mjs';
 import { lastRun, recordAutoRun } from './schedule.mjs';
@@ -27,10 +27,10 @@ import {
   resolveImport, writePlaylist,
 } from './playlist.mjs';
 import { readTrial, removeTrial, saveTrial, trialProblem } from './trial.mjs';
-import { archivePlaylist, saveArchive } from './archive.mjs';
+import { archivedTracks, archivePlaylist, saveArchive } from './archive.mjs';
 import {
-  arrange, artistBlocker, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, lineupDuration, newerFactor, norm,
-  playableDurationMs, playableUri, searchAgain, shuffle, trackBlocker, trackKey, weightedOrder, windowViolations,
+  arrange, artistBlocker, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, lineupDuration, lineupStats, newerFactor,
+  norm, playableDurationMs, playableUri, rememberPlayed, searchAgain, shuffle, trackBlocker, trackKey, weightedOrder, windowViolations,
 } from './lineup.mjs';
 
 const lang = resolveLang(process.env.TWEAKABLE_DJ_LANG, configLanguage());
@@ -56,7 +56,8 @@ const readJson = (file, fallback) => (fs.existsSync(file) ? JSON.parse(fs.readFi
 // trialId: Kennung des gespeicherten Probelaufs (probelauf.json), sonst null.
 // durationMs: Spieldauer der Liste in Millisekunden; durationEstimated: true, wenn sie für einzelne Songs geschätzt ist.
 // archiveFile: Name der Archivdatei, die dieser Lauf angelegt hat (für „Vorige Playlist wiederherstellen“), sonst null.
-const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null, playlistName: null, playlistUrl: null, missingScope: null, trialId: null, archiveFile: null, summary: null };
+// artists, yearFrom, yearTo, firstTime: Zeile nach der Zusammenfassung (lineupStats in lineup.mjs; null = unbekannt).
+const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null, playlistName: null, playlistUrl: null, missingScope: null, trialId: null, archiveFile: null, artists: null, yearFrom: null, yearTo: null, firstTime: null, summary: null };
 
 // Fehlerart für die Oberfläche: login_expired, not_logged_in, forbidden, lastfm_key, setup_incomplete, node_version,
 // trial_expired (Probelauf lässt sich nicht mehr übernehmen), other.
@@ -70,6 +71,7 @@ function report(values) {
     durationMs: r.durationMs ?? null, durationEstimated: r.durationEstimated ?? null,
     playlistName: r.playlistName, playlistUrl: r.playlistUrl, errorCode: r.errorCode ?? null, error: r.error ?? null,
     missingScope: r.missingScope ?? null, trialId: r.trialId ?? null, archiveFile: r.archiveFile ?? null,
+    artists: r.artists ?? null, yearFrom: r.yearFrom ?? null, yearTo: r.yearTo ?? null, firstTime: r.firstTime ?? null,
   };
   auto?.finish({ ...out, summary: summary ?? null });
   if (!process.stdout.isTTY) process.stdout.write(`@@RESULT ${JSON.stringify(out)}\n`);
@@ -358,6 +360,7 @@ async function main() {
     track.artists = spotifyArtists.get(track.uri);
     // Spieldauer aus dem Cache; fehlt sie (Eintrag von 0.1.4 oder älter), wird sie geschätzt, nicht neu gesucht.
     track.durationMs = playableDurationMs(entry, excludeExplicit);
+    track.releaseYear = entry.year;
     if (fits(track)) take(fresh, track);
   }
 
@@ -377,7 +380,8 @@ async function main() {
   const counts = { songs: lineup.length, fresh: fresh.length, freshCurrent, familiar: familiar.length, ...lineupDuration(lineup) };
   const duration = formatDuration(lang, counts.durationMs, counts.durationEstimated);
   const summary = t(lang, 'run.summary', { name: cfg.playlistName, ...counts, duration });
-  console.log(`\n${summary}\n`);
+  const stats = lineupStats(lineup, playedSet(state));
+  console.log(`\n${summary}\n${formatStats(lang, stats)}\n`);
   if (windowViolations(lineup, cfg.artistWindow, cfg.maxPerWindow)) {
     warn(t(lang, 'run.windowRule', { max: cfg.maxPerWindow, window: cfg.artistWindow }));
   }
@@ -390,28 +394,37 @@ async function main() {
     // Für „Diese Liste übernehmen“ bzw. --apply merken; klappt das nicht, ist der Probelauf trotzdem gültig.
     let trial = null;
     try {
-      trial = saveTrial(HERE, { cfg, lang, tracks: lineup, counts, summary, description });
+      trial = saveTrial(HERE, { cfg, lang, tracks: lineup, counts: { ...counts, ...stats }, summary, description });
       console.log(t(lang, 'run.trialSaved'));
     } catch (e) {
       warn(t(lang, 'run.trialNotSaved', { message: e.message }));
     }
-    return { ...counts, summary, trialId: trial?.id ?? null };
+    return { ...counts, ...stats, summary, trialId: trial?.id ?? null };
   }
 
   // Such-Cache jetzt speichern, dann bleibt er auch bei Fehlern beim Schreiben erhalten.
   fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
   const playlistUrl = await toSpotify(cfg, spotify, lineup, description);
-  return { ...counts, summary, playlistUrl };
+  return { ...counts, ...stats, summary, playlistUrl };
+}
+
+// Songs, die der DJ schon in die Playlist geschrieben hat, als Set von trackKey (state.played, für „zum ersten Mal dabei“).
+// Fehlt state.played (Verlauf von 0.2.x oder älter), zählen die Läufe in state.history und die Playlists im Archiv.
+function playedSet(state) {
+  if (Array.isArray(state.played)) return new Set(state.played);
+  return new Set([...(state.history ?? []).flat(), ...archivedTracks(HERE).map(s => trackKey(s.artist, s.name))]);
 }
 
 // Songs eines Laufs (bzw. eines übernommenen Probelaufs) in die Playlist schreiben und als Lauf merken (state.history, für
-// „Vorige Läufe sperren“). Ein älterer Probelauf passt danach nicht mehr zum Verlauf: probelauf.json kommt weg.
+// „Vorige Läufe sperren“, und state.played, für „zum ersten Mal dabei“). Ein älterer Probelauf passt danach nicht mehr zum Verlauf: probelauf.json kommt weg.
 async function toSpotify(cfg, spotify, lineup, description) {
   const { url, created } = await writePlaylist(spotify, { name: cfg.playlistName, uris: lineup.map(track => track.uri), description, lang, warn });
   if (created) console.log(`\n${t(lang, 'run.created', { name: cfg.playlistName })}`);
   await toArchive(() => saveArchive(HERE, { name: cfg.playlistName, url, tracks: lineup, lang, keep: cfg.archiveCount }));
   const state = readJson(STATE, { history: [], cache: {} });
-  state.history = lastRuns(cfg, [...state.history, lineup.map(track => trackKey(track.artist, track.name))]);
+  const keys = lineup.map(track => trackKey(track.artist, track.name));
+  state.played = rememberPlayed([...playedSet(state)], keys);
+  state.history = lastRuns(cfg, [...state.history, keys]);
   fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
   try {
     removeTrial(HERE);
@@ -445,7 +458,11 @@ async function applyTrial(cfg, spotify) {
   const problem = trialProblem(trial, { cfg, id });
   if (problem) throw tError(lang, `trial.${problem}`, {}, { errorCode: 'trial_expired' });
   console.log(t(lang, 'apply.start', { ...dateTime(lang, new Date(trial.createdAt)), count: trial.tracks.length }));
-  console.log(`\n${trial.summary}\n`);
+  // Künstler und „zum ersten Mal“ jetzt (der Verlauf kann sich seit dem Probelauf geändert haben); die Erscheinungsjahre
+  // kennt nur der Probelauf (fehlen bei Probeläufen älterer Versionen).
+  const now = lineupStats(trial.tracks, playedSet(readJson(STATE, { history: [], cache: {} })));
+  const stats = { ...now, yearFrom: trial.yearFrom ?? null, yearTo: trial.yearTo ?? null };
+  console.log(`\n${trial.summary}\n${formatStats(lang, stats)}\n`);
   trial.tracks.forEach((track, i) => console.log(lineupLine(track, i)));
   // Spieldauer fehlt bei Probeläufen älterer Versionen (dann null).
   const counts = {
@@ -454,10 +471,10 @@ async function applyTrial(cfg, spotify) {
   };
   if (dry) {
     console.log(`\n${t(lang, 'run.dry')}`);
-    return { ...counts, summary: trial.summary, trialId: trial.id };
+    return { ...counts, ...stats, summary: trial.summary, trialId: trial.id };
   }
   const playlistUrl = await toSpotify(cfg, spotify, trial.tracks, trial.description);
-  return { ...counts, summary: trial.summary, playlistUrl };
+  return { ...counts, ...stats, summary: trial.summary, playlistUrl };
 }
 
 // export [datei.txt]: die Playlist so, wie sie gerade in Spotify ist, als Textdatei (Format in playlist.mjs).

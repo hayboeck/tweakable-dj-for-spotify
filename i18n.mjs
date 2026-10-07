@@ -75,6 +75,19 @@ export function formatDuration(lang, ms, approx = false) {
   return approx ? `≈${NBSP}${text}` : text;
 }
 
+// Zeile nach der Zusammenfassung eines Laufs (lineupStats in lineup.mjs), z. B. de "34 Künstler · Erscheinungsjahre
+// 1978–2025 · 12 Songs zum ersten Mal dabei". Ohne bekanntes Erscheinungsjahr bzw. ohne firstTime fällt der Teil weg;
+// Jahre ohne Tausendertrennzeichen.
+export function formatStats(lang, { artists, yearFrom = null, yearTo = null, firstTime = null } = {}) {
+  const parts = [];
+  if (Number.isInteger(artists)) parts.push(t(lang, 'run.statsArtists', { count: artists }));
+  if (Number.isInteger(yearFrom) && Number.isInteger(yearTo)) {
+    parts.push(yearFrom === yearTo ? t(lang, 'run.statsYear', { year: String(yearFrom) }) : t(lang, 'run.statsYears', { from: String(yearFrom), to: String(yearTo) }));
+  }
+  if (Number.isInteger(firstTime)) parts.push(t(lang, 'run.statsFirst', { count: firstTime }));
+  return parts.join(' · ');
+}
+
 export const MESSAGES = {
   de: {
     // --- Allgemein ---
@@ -160,6 +173,10 @@ export const MESSAGES = {
     'run.searchingSpotify': 'Suche die Songs auf Spotify …',
     'run.noSongs': 'Kein einziger Song gefunden – die Playlist bleibt, wie sie ist. Ist die Quelle leer (z. B. noch keine Lieblingssongs) oder sperren Sperrliste und Wiederholungsregeln alles?',
     'run.summary': '{name}: {songs|# Song|# Songs} · {duration} ({fresh|#|#} neu, davon {freshCurrent|#|#} über aktuelles Hören; {familiar|# Favorit|# Favoriten})',
+    'run.statsArtists': '{count|# Künstler|# Künstler}',
+    'run.statsYears': 'Erscheinungsjahre {from}–{to}',
+    'run.statsYear': 'Erscheinungsjahr {year}',
+    'run.statsFirst': '{count|# Song|# Songs} zum ersten Mal dabei',
     'run.windowRule': 'Regel "max. {max} aus {window}" ließ sich nicht überall einhalten.',
     'run.dry': '--dry: Playlist nicht verändert.',
     'run.newPlaylist': 'Wird von Tweakable DJ befüllt.',
@@ -438,6 +455,10 @@ export const MESSAGES = {
     'run.searchingSpotify': 'Looking up the songs on Spotify …',
     'run.noSongs': 'Not a single song found – the playlist stays as it is. Is the source empty (e.g. no Liked Songs yet), or do the block list and the no-repeat rules block everything?',
     'run.summary': '{name}: {songs|# song|# songs} · {duration} ({fresh|#|#} new, {freshCurrent|#|#} of them via current listening; {familiar|# favorite|# favorites})',
+    'run.statsArtists': '{count|# artist|# artists}',
+    'run.statsYears': 'release years {from}–{to}',
+    'run.statsYear': 'release year {year}',
+    'run.statsFirst': '{count|# song|# songs} for the first time',
     'run.windowRule': 'The rule "at most {max} in {window}" couldn’t be kept everywhere.',
     'run.dry': '--dry: playlist not changed.',
     'run.newPlaylist': 'Filled by Tweakable DJ.',
@@ -717,6 +738,10 @@ export const MESSAGES = {
     'run.searchingSpotify': 'Buscando las canciones en Spotify …',
     'run.noSongs': 'No se ha encontrado ni una canción; la playlist se queda como está. ¿Está vacía la fuente (p. ej. todavía no hay nada en Tus me gusta) o la lista de bloqueo y las reglas de repetición lo bloquean todo?',
     'run.summary': '{name}: {songs|# canción|# canciones} · {duration} ({fresh|# nueva|# nuevas}, {freshCurrent|#|#} de ellas por lo que escuchas ahora; {familiar|# favorita|# favoritas})',
+    'run.statsArtists': '{count|# artista|# artistas}',
+    'run.statsYears': 'años de lanzamiento {from}–{to}',
+    'run.statsYear': 'año de lanzamiento {year}',
+    'run.statsFirst': '{count|# canción|# canciones} por primera vez',
     'run.windowRule': 'La regla «máx. {max} de {window}» no se pudo cumplir en todas partes.',
     'run.dry': '--dry: playlist sin cambios.',
     'run.newPlaylist': 'La rellena Tweakable DJ.',
@@ -997,6 +1022,10 @@ export const MESSAGES = {
     'run.searchingSpotify': 'Recherche des titres sur Spotify …',
     'run.noSongs': 'Aucun titre trouvé : la playlist reste telle quelle. La source est-elle vide (p. ex. encore aucun titre liké) ou la liste de blocage et les règles anti-répétition bloquent-elles tout ?',
     'run.summary': '{name} : {songs|# titre|# titres} · {duration} ({fresh|# nouveau|# nouveaux}, dont {freshCurrent|#|#} via ce que tu écoutes en ce moment ; {familiar|# favori|# favoris})',
+    'run.statsArtists': '{count|# artiste|# artistes}',
+    'run.statsYears': 'années de sortie {from}–{to}',
+    'run.statsYear': 'année de sortie {year}',
+    'run.statsFirst': '{count|# titre|# titres} pour la première fois',
     'run.windowRule': 'La règle « max. {max} sur {window} » n’a pas pu être respectée partout.',
     'run.dry': '--dry : playlist inchangée.',
     'run.newPlaylist': 'Remplie par Tweakable DJ.',

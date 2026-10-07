@@ -258,6 +258,7 @@ function restartAfterUpdate(version) {
 const fallbackResult = (lang, dry, code) => ({
   ok: false, dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null,
   playlistName: null, playlistUrl: null, errorCode: 'other', error: t(lang, 'ui.exited', { code }), missingScope: null, trialId: null, archiveFile: null,
+  artists: null, yearFrom: null, yearTo: null, firstTime: null,
 });
 
 // Startet dj.mjs mit args und schickt seine Ausgabe als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".

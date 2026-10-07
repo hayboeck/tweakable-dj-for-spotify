@@ -10,7 +10,7 @@
 // archiv/ ist persönlich wie state.json: nie im Repository, nie in der ZIP-Datei, ein Update fasst es nie an.
 import fs from 'node:fs';
 import path from 'node:path';
-import { formatExport, IMPORT_MAX_BYTES, readPlaylist } from './playlist.mjs';
+import { formatExport, IMPORT_MAX_BYTES, parseImport, readPlaylist } from './playlist.mjs';
 
 export const ARCHIVE_DIR = 'archiv';
 // Datum, Uhrzeit und (ab der zweiten Datei derselben Sekunde) eine Nummer
@@ -98,6 +98,30 @@ export async function archivePlaylist(dir, spotify, { name, lang, keep }) {
 
 // Songs in einer Archivdatei: Zeilen, die weder leer noch Kommentar ("# …") sind.
 const songCount = text => text.split(/\r?\n/).filter(l => l.trim() && !/^#(\s|$)/.test(l.trim())).length;
+
+// Alle Songs aus den eigenen Archivdateien als [{ artist (Hauptkünstler), name }] – für „zum ersten Mal dabei“, wenn sich der
+// DJ die gespielten Songs noch nicht merkt (state.played fehlt, z. B. nach dem Update von 0.2.x). Unlesbares fehlt einfach.
+export function archivedTracks(dir) {
+  const out = [];
+  let files;
+  try {
+    files = ownFiles(dir);
+  } catch {
+    return out;
+  }
+  for (const f of files) {
+    const text = readArchive(dir, f.name);
+    if (text === null) continue;
+    try {
+      for (const e of parseImport(text, 'en')) {
+        if (e.artist && e.title) out.push({ artist: e.artist.split(/,\s+/)[0], name: e.title });
+      }
+    } catch {
+      // leer oder kaputt: zählt nicht
+    }
+  }
+  return out;
+}
 
 // Anzahl der eigenen Dateien im Archiv (dieselben, die pruneArchive zählt); null, wenn der Ordner nicht lesbar ist.
 export function archiveFileCount(dir) {
