@@ -4,10 +4,16 @@
 // Verknüpfung auf dem Desktop (shortcut.mjs).
 //   node ui.mjs                startet die Oberfläche auf http://127.0.0.1:8899 (anderer Port: TWEAKABLE_DJ_PORT)
 //   node ui.mjs --no-browser   dasselbe, ohne den Browser zu öffnen (so auch beim Neustart nach einem Update)
+//   node ui.mjs --hidden       ohne Fenster (so startet die Verknüpfung auf dem Desktop; auch TWEAKABLE_DJ_HIDDEN=1): Ausgaben
+//                              in ui.log, Probleme beim Start als Systembenachrichtigung, und ohne offene Seite beendet sich
+//                              der Server nach 10 Minuten von selbst (TWEAKABLE_DJ_IDLE_MS)
+// Läuft schon eine Oberfläche auf dem Port, öffnet ein zweiter Start nur den Browser und endet; ein fremdes Programm auf dem
+// Port meldet er. „Tweakable DJ beenden“ in der Oberfläche: POST /api/quit.
 // Sprache der Antworten: Header "X-Lang: de|en|es|fr" der Anfrage, sonst "language" aus config.jsonc, sonst die Systemsprache.
 // Nach „Jetzt aktualisieren“ (POST /api/update/install) beendet sich der Server mit Exit-Code 75, wenn ihn eine Startdatei
 // gestartet hat (TWEAKABLE_DJ_LAUNCHER=1); die startet ihn dann mit den neuen Dateien neu. Sonst endet er mit 0 und bittet
 // darum, Tweakable DJ neu zu starten.
+// Nur für Tests: TWEAKABLE_DJ_BROWSER=<Datei> hängt die Adresse an diese Datei an, statt den Browser zu öffnen.
 
 import fs from 'node:fs';
 import http from 'node:http';
@@ -19,7 +25,7 @@ import {
 } from './config.mjs';
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
-import { createShortcut, removeShortcut, shortcutStatus } from './shortcut.mjs';
+import { createShortcut, removeShortcut, SHORTCUTS, shortcutStatus } from './shortcut.mjs';
 import { createSpotify, isScopeError, LIBRARY_SCOPE, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
 import { autoRunMessage, installBlocker, installUpdate } from './install-update.mjs';
 import { notify, notifyProblem, remindLogin, testNotice } from './notify.mjs';
@@ -35,16 +41,83 @@ import { markSeen, whatsNew } from './whatsnew.mjs';
 // Sprache für Konsole und Anfragen ohne X-Lang.
 const defaultLang = () => resolveLang(configLanguage());
 
+// Ohne Fenster gestartet (Verknüpfung auf dem Desktop: Startdatei mit --hidden)?
+const HIDDEN = process.argv.includes('--hidden') || process.env.TWEAKABLE_DJ_HIDDEN === '1';
+// Protokoll ohne Fenster: ui.log, höchstens etwa LOG_MAX Bytes; dann kommt es nach ui.old.log und ui.log beginnt neu.
+const UI_LOG = 'ui.log';
+const UI_LOG_OLD = 'ui.old.log';
+const LOG_MAX = 1_000_000;
+// Ohne Fenster: so lange ohne Lebenszeichen einer Seite (sie fragt alle 30 s GET /api/version), dann beenden.
+const IDLE_MS = Number(process.env.TWEAKABLE_DJ_IDLE_MS) > 0 ? Number(process.env.TWEAKABLE_DJ_IDLE_MS) : 10 * 60_000;
+
+// Ohne Fenster: alles, was sonst in der Konsole stünde, nach ui.log (die Konsole sieht niemand).
+function logToFile() {
+  const file = path.join(HERE, UI_LOG);
+  let fd = null;
+  let size = 0;
+  const open = () => {
+    try {
+      if (fs.existsSync(file) && fs.statSync(file).size > LOG_MAX) fs.renameSync(file, path.join(HERE, UI_LOG_OLD));
+    } catch {
+      // z. B. von einem zweiten Start gerade offen: dann eben weiter anhängen
+    }
+    try {
+      size = fs.existsSync(file) ? fs.statSync(file).size : 0;
+      fd = fs.openSync(file, 'a');
+    } catch {
+      fd = null; // ohne Protokoll weiter
+    }
+  };
+  const write = chunk => {
+    if (fd === null) return;
+    try {
+      const data = Buffer.from(chunk);
+      fs.writeSync(fd, data);
+      size += data.length;
+      if (size > LOG_MAX) {
+        fs.closeSync(fd);
+        open();
+      }
+    } catch {
+      fd = null;
+    }
+  };
+  open();
+  for (const stream of [process.stdout, process.stderr]) {
+    stream.write = (chunk, encoding, callback) => {
+      write(chunk);
+      (typeof encoding === 'function' ? encoding : callback)?.();
+      return true;
+    };
+  }
+  console.log(`\n=== ${new Date().toISOString()} · Tweakable DJ ${currentVersion() ?? '?'} · ${process.argv.slice(2).join(' ')}`);
+}
+if (HIDDEN) logToFile();
+
+// Start bzw. Server gescheitert: Meldung in die Konsole bzw. nach ui.log. Ohne Fenster zusätzlich eine Systembenachrichtigung
+// (title = Schlüssel des Titels) und Ende mit 0 – sonst startete die Startdatei mit Fenster neu, der Grund ist ja gemeldet.
+async function giveUp(message, title = 'ui.startFailedTitle') {
+  const lang = defaultLang();
+  console.error(message);
+  if (!HIDDEN) process.exit(1);
+  const first = String(message).split('\n').find(l => l.trim()) ?? '';
+  await notify({ title: t(lang, title), text: `${first}\n${t(lang, 'ui.logHint')}` });
+  process.exit(0);
+}
+if (HIDDEN) {
+  const crashed = e => giveUp(t(defaultLang(), 'run.error', { message: e?.stack ?? e }), 'ui.crashedTitle');
+  process.on('uncaughtException', crashed);
+  process.on('unhandledRejection', crashed);
+}
+
 // Gleiche Mindestversion wie dj.mjs – sonst käme die Meldung erst beim ersten Lauf.
 if (Number(process.versions.node.split('.')[0]) < 18) {
-  console.error(t(defaultLang(), 'node.tooOld', { version: process.versions.node }));
-  process.exit(1);
+  await giveUp(t(defaultLang(), 'node.tooOld', { version: process.versions.node }));
 }
 
 const PORT = Number(process.env.TWEAKABLE_DJ_PORT || 8899);
 if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
-  console.error(t(defaultLang(), 'ui.badPort', { value: process.env.TWEAKABLE_DJ_PORT }));
-  process.exit(1);
+  await giveUp(t(defaultLang(), 'ui.badPort', { value: process.env.TWEAKABLE_DJ_PORT }));
 }
 const HOST = `127.0.0.1:${PORT}`;
 const URL_BASE = `http://${HOST}`;
@@ -64,10 +137,24 @@ const VERSION = currentVersion();
 // Von Tweakable DJ.cmd, Tweakable DJ.command bzw. start.sh gestartet? Die starten nach Exit-Code 75 neu.
 const LAUNCHER = process.env.TWEAKABLE_DJ_LAUNCHER === '1';
 const RESTART_CODE = 75;
+const APP_ID = 'tweakable-dj'; // in GET /api/version: So erkennt ein zweiter Start die eigene Oberfläche
 let running = null;           // gestarteter Lauf von dj.mjs (Probelauf, Neuerstellung oder Übernehmen)
 let loginJob = null;
 let installing = false;
 let importing = false;        // Import aus einer Textdatei (Suche oder Schreiben)
+let lastSeen = Date.now();    // letzte Anfrage einer Seite (für das Beenden ohne offene Seite)
+let quitting = false;
+
+// Browser mit der Oberfläche öffnen (TWEAKABLE_DJ_BROWSER: nur für Tests, siehe oben).
+function openPage() {
+  const file = process.env.TWEAKABLE_DJ_BROWSER;
+  if (!file) return openBrowser(URL_BASE);
+  try {
+    fs.appendFileSync(file, `${URL_BASE}\n`);
+  } catch {
+    // nur für Tests
+  }
+}
 
 // Body der Anfrage als Text, höchstens max Bytes; tooLarge = Schlüssel der Meldung, wenn er größer ist.
 function readBody(req, lang, max = 100_000, tooLarge = 'ui.tooLarge') {
@@ -241,6 +328,57 @@ const runBusy = lang => (running ? t(lang, 'ui.busy') : importing ? t(lang, 'ui.
 const importBusy = lang => runBusy(lang) ?? (loginJob?.status === 'pending' ? t(lang, 'ui.loginBusy') : null);
 // Ohne Client ID oder Anmeldung geht nichts, was Spotify fragt.
 const loginMissing = cfg => missingCredentials(cfg).includes('spotify.clientId') || !readTokens();
+// Warum Tweakable DJ gerade nicht beendet werden kann (Lauf, Import, Update, Anmeldung), sonst null.
+const quitBusy = lang => importBusy(lang) ?? (restarting ? t(lang, 'update.inProgress') : null);
+
+// Beenden: „Tweakable DJ beenden“ (reason 'ui.quit') bzw. ohne offene Seite (reason 'ui.idleQuit'). Die Startdatei endet dann
+// auch (Exit-Code 0).
+function quit(reason) {
+  if (quitting) return;
+  quitting = true;
+  console.log(`${new Date().toISOString()} ${t(defaultLang(), reason, { minutes: Math.round(IDLE_MS / 60_000) })}`);
+  server.close();
+  server.closeAllConnections?.();
+  setTimeout(() => process.exit(0), 200);
+}
+
+// Läuft auf dem Port schon Tweakable DJ? Fragt GET /api/version wie die Seite (mit node:http – fetch ersetzen die Tests).
+// Erkennt die eigene Antwort an app (bzw. bei Versionen bis 0.2.5 an version).
+function ownInstance() {
+  return new Promise(resolve => {
+    const req = http.get({ host: '127.0.0.1', port: PORT, path: '/api/version', headers: { 'X-Tweakable-DJ': '1' }, timeout: 5000 }, res => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => (body += (body.length < 10_000 ? chunk : '')));
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          resolve(res.statusCode === 200 && (data.app === APP_ID || typeof data.version === 'string'));
+        } catch {
+          resolve(false);
+        }
+      });
+    });
+    req.on('timeout', () => req.destroy());
+    req.on('error', () => resolve(false));
+  });
+}
+
+// Eigene Verknüpfungen auf dem Desktop, die auf diesen Ordner zeigen, aber veraltet sind (z. B. noch mit Fenster): beim Start
+// still erneuern, damit niemand etwas tun muss. Nur, wenn eine Startdatei gestartet hat (also nicht in Tests); fremde Dateien
+// und Verknüpfungen auf andere Ordner bleiben, wie sie sind.
+async function renewShortcuts(lang) {
+  for (const kind of Object.keys(SHORTCUTS)) {
+    try {
+      const status = await shortcutStatus({ lang, kind });
+      if (status.state !== 'outdated') continue;
+      await serial(() => createShortcut({ lang, kind }));
+      console.log(t(lang, 'shortcut.renewed', { file: status.file }));
+    } catch (e) {
+      console.warn(t(lang, 'shortcut.renewFailed', { message: e.message }));
+    }
+  }
+}
 
 // Nach einem Update: Server beenden, damit die neuen Dateien gelten. Mit Startdatei (Exit-Code 75) startet sie ihn
 // gleich wieder, ohne Browser (die Seite ist ja offen und lädt sich dann selbst neu); sonst bitte von Hand neu starten.
@@ -287,6 +425,7 @@ const server = http.createServer(async (req, res) => {
   // Nur Anfragen an genau diese Adresse und (für die API) nur von der eigenen Seite (X-Tweakable-DJ: 1) annehmen,
   // damit fremde Webseiten im Browser keine Einstellungen ändern oder Läufe starten können.
   if (req.headers.host !== HOST) return send(403, { error: t(lang, 'ui.wrongHost') });
+  lastSeen = Date.now(); // Lebenszeichen einer Seite
   let url;
   try {
     url = new URL(req.url, URL_BASE);
@@ -370,8 +509,17 @@ const server = http.createServer(async (req, res) => {
       return send(200, { ...await updateStatus(url.searchParams.get('force') === '1'), installable: !installBlocker(HERE) });
     }
 
-    // Version dieses Servers; die Seite wartet nach einem Update darauf, dass der neue Server antwortet.
-    if (route === 'GET /api/version') return send(200, { version: VERSION });
+    // Version dieses Servers; die Seite wartet nach einem Update darauf, dass der neue Server antwortet. Die Seite fragt
+    // außerdem alle 30 Sekunden (Lebenszeichen, siehe IDLE_MS); ein zweiter Start erkennt daran die eigene Instanz.
+    if (route === 'GET /api/version') return send(200, { version: VERSION, app: APP_ID });
+
+    // „Tweakable DJ beenden“: nicht während eines Laufs, Imports, Updates oder einer Anmeldung (409 mit Grund).
+    if (route === 'POST /api/quit') {
+      const busy = quitBusy(lang);
+      if (busy) return send(409, { error: busy });
+      send(200, { ok: true });
+      return quit('ui.quit');
+    }
 
     // „Neu in v0.x.y“ nach einem Update (whatsnew.mjs): { version, previous, items, more, url } oder { version: null }
     // (nichts zeigen). Punkte aus CHANGELOG.md in der Sprache der Anfrage (Deutsch bzw. sonst Englisch).
@@ -635,22 +783,35 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.on('error', e => {
-  if (e.code === 'EADDRINUSE') {
-    // Läuft schon – einfach die bestehende Oberfläche öffnen.
-    console.log(t(defaultLang(), 'ui.alreadyRunning', { url: URL_BASE }));
-    if (!noBrowser) openBrowser(URL_BASE);
-  } else {
-    console.error(t(defaultLang(), 'run.error', { message: e.message }));
-    process.exitCode = 1;
-  }
+server.on('error', async e => {
+  const lang = defaultLang();
+  if (e.code !== 'EADDRINUSE') return giveUp(t(lang, 'run.error', { message: e.message }));
+  // Läuft schon Tweakable DJ – einfach die bestehende Oberfläche öffnen. Sonst belegt ein anderes Programm den Port.
+  if (!(await ownInstance())) return giveUp(t(lang, 'ui.portBusy', { port: PORT }));
+  console.log(t(lang, 'ui.alreadyRunning', { url: URL_BASE }));
+  if (!noBrowser) openPage();
 });
+
+// Ohne Fenster: beenden, wenn IDLE_MS lang keine Seite mehr gefragt hat und nichts läuft. Ein großer Zeitsprung zwischen zwei
+// Prüfungen heißt: Der PC war im Ruhezustand – dann konnte die Seite nichts schicken, die Wartezeit beginnt neu.
+function watchIdle() {
+  const every = Math.min(30_000, Math.max(500, IDLE_MS / 10));
+  let lastCheck = Date.now();
+  setInterval(() => {
+    const now = Date.now();
+    if (now - lastCheck > 3 * every) lastSeen = now;
+    lastCheck = now;
+    if (now - lastSeen >= IDLE_MS && !quitBusy(defaultLang())) quit('ui.idleQuit');
+  }, every);
+}
 
 server.listen(PORT, '127.0.0.1', () => {
   const lang = defaultLang();
   console.log(t(lang, 'ui.listening', { url: URL_BASE }));
-  console.log(t(lang, 'ui.stopHint'));
-  if (!noBrowser) openBrowser(URL_BASE);
+  console.log(HIDDEN ? t(lang, 'ui.hiddenHint', { minutes: Math.round(IDLE_MS / 60_000) }) : t(lang, 'ui.stopHint'));
+  if (!noBrowser) openPage();
+  if (HIDDEN) watchIdle();
+  if (LAUNCHER) renewShortcuts(lang);
   // Läuft die Spotify-Anmeldung bald ab: Systembenachrichtigung (Einstellung remindLogin, höchstens einmal am Tag).
   remindLogin({ dir: HERE, lang, enabled: remindLoginOn() }).then(sent => {
     if (sent && !sent.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, sent) }));

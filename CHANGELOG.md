@@ -13,6 +13,9 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 **Changed**
 
+- **No console window**: the desktop shortcut now starts Tweakable DJ without a console or terminal window (Windows: `conhost.exe --headless`, Mac: in the background via `nohup` without a Dock icon, Linux: `Terminal=false`). Output goes to the new personal file `ui.log` (about 1 MB at most, then `ui.old.log`); if the start fails, a system notification says why. If Node.js is missing or too old, a window with the message opens after all. Double-clicking `Tweakable DJ.cmd` or `Tweakable DJ.command` still starts with a window, for troubleshooting. An existing shortcut from an older version that points to this folder is renewed automatically on the next start. The update restart works without a window too.
+- **Only one instance**: if Tweakable DJ is already running, another start just opens the browser; if another program uses the port, the message says so (`GET /api/version` now also returns `app`).
+- **Quit Tweakable DJ**: new button in the tab *Settings*, section *Program* (formerly *Version*), new endpoint `POST /api/quit` (not during a run, import, update or login). Automatic runs still take place. Without a window, Tweakable DJ also quits by itself after 10 minutes without an open page (the page sends a sign of life every 30 seconds; time asleep doesn’t count). A page left open then says that Tweakable DJ is no longer running.
 - **Notice at the top can be closed**: the notice above the tabs (e.g. *Logged in ✓ The Spotify login is valid for another 6 months.* or a reminder to log in again) now has an × on the right. Until now, only reloading the page made *Logged in ✓* go away. A closed reminder comes back after reloading the page or when its reason changes.
 
 ### Deutsch
@@ -23,6 +26,9 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 **Geändert**
 
+- **Ohne Konsolenfenster**: Die Verknüpfung auf dem Desktop startet Tweakable DJ jetzt ohne Konsolen- bzw. Terminalfenster (Windows: `conhost.exe --headless`, Mac: im Hintergrund per `nohup` ohne Symbol im Dock, Linux: `Terminal=false`). Die Ausgaben kommen in die neue persönliche Datei `ui.log` (höchstens etwa 1 MB, dann `ui.old.log`); scheitert der Start, sagt eine Systembenachrichtigung warum. Fehlt Node.js oder ist es zu alt, öffnet sich doch ein Fenster mit der Meldung. Ein Doppelklick auf `Tweakable DJ.cmd` bzw. `Tweakable DJ.command` startet weiterhin mit Fenster, zum Fehlersuchen. Eine vorhandene Verknüpfung einer älteren Version, die auf diesen Ordner zeigt, erneuert sich beim nächsten Start von selbst. Auch der Neustart nach einem Update klappt ohne Fenster.
+- **Nur eine Instanz**: Läuft Tweakable DJ schon, öffnet ein weiterer Start nur den Browser; belegt ein anderes Programm den Port, sagt die Meldung das (`GET /api/version` liefert zusätzlich `app`).
+- **Tweakable DJ beenden**: neuer Knopf im Tab *Einstellungen*, Abschnitt *Programm* (bisher *Version*), neuer Endpunkt `POST /api/quit` (nicht während eines Laufs, Imports, Updates oder einer Anmeldung). Automatische Läufe finden trotzdem statt. Ohne Fenster beendet sich Tweakable DJ außerdem nach 10 Minuten ohne offene Seite von selbst (die Seite meldet sich alle 30 Sekunden; der Ruhezustand zählt nicht mit). Eine offen gebliebene Seite sagt dann, dass Tweakable DJ nicht mehr läuft.
 - **Hinweis oben lässt sich schließen**: Der Hinweis über den Tabs (z. B. *Angemeldet ✓ Die Spotify-Anmeldung gilt jetzt wieder 6 Monate.* oder eine Erinnerung, dich neu anzumelden) hat jetzt rechts ein ×. Bisher ging *Angemeldet ✓* nur durch Neuladen der Seite weg. Eine geschlossene Erinnerung kommt nach dem Neuladen oder bei einem anderen Grund wieder.
 
 ## [0.2.5] – 2026-10-07

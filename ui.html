@@ -352,7 +352,11 @@
   .swatch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 5px; }
   /* Tab „Einstellungen“: Zugangsdaten und Version; „Nach Updates suchen“ wie ein Link, Ergebnis gleich daneben */
   #credentials .row > p, #version .row > p { margin: 0; }
-  #credentials .actions { margin-top: 10px; }
+  #credentials .actions, #version .actions { margin-top: 10px; }
+  /* Tweakable DJ beendet bzw. nicht mehr erreichbar: nur noch der Hinweis #stopped, alles andere weg */
+  body.stopped #setup, body.stopped #main-view, body.stopped #bar, body.stopped #banner, body.stopped #notice,
+  body.stopped #update, body.stopped #whatsnew { display: none !important; }
+  .stopped-box > p { margin: 0; font-weight: 600; }
   /* Abschnitt „Verknüpfung“: vereinfachtes Logo (so sieht die Verknüpfung klein aus) und Stand in einer Zeile */
   .shortcut-state { display: flex; align-items: center; gap: 10px; }
   .shortcut-state img { flex: none; width: 32px; height: 32px; }
@@ -417,6 +421,8 @@ try {
     </label>
   </header>
   <div id="banner" class="banner" role="alert" hidden></div>
+  <!-- Tweakable DJ beendet („Tweakable DJ beenden“) bzw. Server antwortet nicht mehr (Lebenszeichen alle 30 s) -->
+  <div id="stopped" class="notice stopped-box" role="status" hidden><p id="stopped-text"></p></div>
   <div id="notice" class="notice" hidden>
     <button type="button" class="close" id="notice-close">×</button>
     <p id="notice-text"></p>
@@ -634,12 +640,18 @@ try {
           <p class="msg" id="shortcut-msg" role="status"></p>
         </div>
       </section>
-      <!-- Eigene Version und „Nach Updates suchen“ (GET /api/update?force=1) mit dem Ergebnis daneben -->
-      <section id="version" aria-labelledby="version-title" hidden>
+      <!-- Programm: eigene Version und „Nach Updates suchen“ (GET /api/update?force=1) mit dem Ergebnis daneben;
+           „Tweakable DJ beenden“ (POST /api/quit) -->
+      <section id="version" aria-labelledby="version-title">
         <h2 id="version-title" data-t="version"></h2>
-        <div class="row">
+        <div class="row" id="version-row" hidden>
           <p><span id="version-text"></span><span id="update-check-box"> · <button type="button" class="link" id="update-check"></button></span>
             <span id="update-check-msg" role="status" aria-live="polite"></span></p>
+        </div>
+        <div class="row">
+          <p class="help" data-t="quitHelp"></p>
+          <div class="actions"><button type="button" class="btn" id="quit" data-t="quit"></button></div>
+          <p class="msg" id="quit-msg" role="status"></p>
         </div>
       </section>
     </div>
@@ -705,7 +717,12 @@ const TEXT = {
       tabPlaylist: 'Playlist',
       tabSettings: 'Einstellungen',
       credentials: 'Zugangsdaten',
-      version: 'Version',
+      version: 'Programm',
+      quit: 'Tweakable DJ beenden',
+      quitHelp: 'Schließt Tweakable DJ. Automatische Läufe finden trotzdem statt. Zum Starten die Verknüpfung auf dem Desktop doppelklicken.',
+      quitUnsaved: 'Ungespeicherte Änderungen gehen verloren. Trotzdem beenden?',
+      stoppedQuit: 'Tweakable DJ ist beendet – zum Starten die Verknüpfung doppelklicken.',
+      stoppedGone: 'Tweakable DJ läuft nicht mehr – bitte über die Verknüpfung neu starten.',
       shortcut: 'Verknüpfung',
       intro: 'Du brauchst Spotify Premium, ein kostenloses Last.fm-Konto und etwa 10 Minuten.',
       step1: 'Spotify-App anlegen',
@@ -1117,7 +1134,12 @@ const TEXT = {
       tabPlaylist: 'Playlist',
       tabSettings: 'Settings',
       credentials: 'Credentials',
-      version: 'Version',
+      version: 'Program',
+      quit: 'Quit Tweakable DJ',
+      quitHelp: 'Closes Tweakable DJ. Automatic runs still take place. To start it again, double-click the shortcut on the desktop.',
+      quitUnsaved: 'Unsaved changes will be lost. Quit anyway?',
+      stoppedQuit: 'Tweakable DJ has quit – double-click the shortcut to start it.',
+      stoppedGone: 'Tweakable DJ is no longer running – please start it again with the shortcut.',
       shortcut: 'Shortcut',
       intro: 'You need Spotify Premium, a free Last.fm account and about 10 minutes.',
       step1: 'Create a Spotify app',
@@ -1521,7 +1543,12 @@ const TEXT = {
       tabPlaylist: 'Playlist',
       tabSettings: 'Ajustes',
       credentials: 'Credenciales',
-      version: 'Versión',
+      version: 'Programa',
+      quit: 'Cerrar Tweakable DJ',
+      quitHelp: 'Cierra Tweakable DJ. Las ejecuciones automáticas se siguen haciendo. Para iniciarlo, haz doble clic en el acceso directo del escritorio.',
+      quitUnsaved: 'Se perderán los cambios sin guardar. ¿Cerrar de todos modos?',
+      stoppedQuit: 'Tweakable DJ está cerrado: haz doble clic en el acceso directo para iniciarlo.',
+      stoppedGone: 'Tweakable DJ ya no está en marcha: vuelve a iniciarlo con el acceso directo.',
       shortcut: 'Acceso directo',
       intro: 'Necesitas Spotify Premium, una cuenta gratuita de Last.fm y unos 10 minutos.',
       step1: 'Crear una app de Spotify',
@@ -1926,7 +1953,12 @@ const TEXT = {
       tabPlaylist: 'Playlist',
       tabSettings: 'Paramètres',
       credentials: 'Identifiants',
-      version: 'Version',
+      version: 'Programme',
+      quit: 'Quitter Tweakable DJ',
+      quitHelp: 'Ferme Tweakable DJ. Les exécutions automatiques ont quand même lieu. Pour le démarrer, double-clique sur le raccourci du Bureau.',
+      quitUnsaved: 'Les modifications non enregistrées seront perdues. Quitter quand même ?',
+      stoppedQuit: 'Tweakable DJ est arrêté – double-clique sur le raccourci pour le démarrer.',
+      stoppedGone: 'Tweakable DJ ne fonctionne plus – redémarre-le avec le raccourci.',
       shortcut: 'Raccourci',
       intro: 'Il te faut Spotify Premium, un compte Last.fm gratuit et une dizaine de minutes.',
       step1: 'Créer une app Spotify',
@@ -2568,6 +2600,7 @@ function renderLang() {
   renderHeader();
   renderUpdate();
   renderWhatsNew();
+  renderStopped();
   if (!loaded) return;
   refresh();
   renderSetup();
@@ -3908,7 +3941,7 @@ function renderUpdate() {
   // Eigene Version im Tab „Einstellungen“, sobald sie bekannt ist, daneben „Nach Updates suchen“ (nur, wenn die
   // Prüfung nicht abgeschaltet ist) und dessen Ergebnis.
   const version = typeof u?.current === 'string' ? bare(u.current) : '';
-  $('version').hidden = !version;
+  $('version-row').hidden = !version;
   $('version-text').textContent = version ? `v${version}` : '';
   $('update-check-box').hidden = !u?.enabled;
   $('update-check').textContent = T.update.check;
@@ -4010,6 +4043,60 @@ async function loadUpdate() {
 function dismissUpdate() {
   dismissedUpdate.set(updateInfo?.latest);
   setUpdate({ phase: '' });
+}
+
+// --- Beenden und Lebenszeichen ---
+
+// '' = läuft, 'quit' = mit „Tweakable DJ beenden“ beendet, 'gone' = der Server antwortet nicht mehr (z. B. ohne offene Seite
+// von selbst beendet, siehe ui.mjs). Dann zeigt die Seite nur noch einen Hinweis; antwortet später wieder ein Server (neu
+// gestartet), lädt sie sich neu.
+let stopped = '';
+const HEARTBEAT = 30_000;
+
+function renderStopped() {
+  document.body.classList.toggle('stopped', Boolean(stopped));
+  $('stopped').hidden = !stopped;
+  $('stopped-text').textContent = stopped === 'quit' ? T.page.stoppedQuit : stopped ? T.page.stoppedGone : '';
+}
+
+async function quitApp() {
+  if (dirty() && !confirm(T.page.quitUnsaved)) return;
+  $('quit').disabled = true;
+  setMsg($('quit-msg'), '', '');
+  try {
+    await apiJson('/api/quit', { method: 'POST' });
+    stopped = 'quit';
+    reloading = true; // keine Rückfrage wegen ungespeicherter Änderungen mehr
+    renderStopped();
+  } catch (e) {
+    setMsg($('quit-msg'), 'err', e.message); // z. B. „Es läuft bereits ein Durchgang.“
+  } finally {
+    $('quit').disabled = false;
+  }
+}
+
+// Lebenszeichen alle 30 Sekunden (und beim Zurückkehren auf die Seite): Ohne Fenster beendet sich der Server, wenn keine
+// Seite mehr fragt. Antwortet er zweimal nicht, ist er weg – außer während eines Updates (dann startet er gerade neu).
+async function heartbeat() {
+  const restarting = () => ['running', 'done', 'manual', 'slow'].includes(upd.phase);
+  for (let i = 0; i < 2; i++) {
+    try {
+      await api('/api/version');
+      if (stopped) {
+        reloading = true;
+        location.reload();
+      }
+      return;
+    } catch {
+      if (stopped || restarting()) return;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+  if (!restarting()) {
+    stopped = 'gone';
+    reloading = true;
+    renderStopped();
+  }
 }
 
 // --- „Neu in v0.x.y“ nach einem Update ---
@@ -4425,11 +4512,14 @@ $('update-cancel').onclick = () => {
   $('update-install').focus();
 };
 $('update-go').onclick = installUpdate;
+$('quit').onclick = quitApp;
+setInterval(heartbeat, HEARTBEAT);
 $('shortcut-create').onclick = () => changeShortcut('POST');
 $('shortcut-remove').onclick = () => changeShortcut('DELETE');
 window.addEventListener('beforeunload', e => { if (dirty() && !reloading) e.preventDefault(); });
 // Zurück auf der Seite (z. B. am nächsten Morgen): Stand der Automatik und letzten Lauf neu holen.
 document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) heartbeat();
   if (document.hidden || view !== 'main') return;
   loadSchedule();
   loadShortcut();

@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   BUNDLE_ID, createShortcut, DESKTOP_VAR, FILE_NAMES, LINUX_MARKER, linuxDesktopEntry, linuxEntryDir, macInfoPlist, macLauncher,
-  macLauncherDir, removeShortcut, RUN_TIMEOUT, shortcutStatus, windowsCommand, windowsShortcut,
+  macLauncherDir, removeShortcut, RUN_TIMEOUT, shortcutStatus, windowsCommand, windowsOwner, windowsShortcut,
 } from '../shortcut.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -61,10 +61,11 @@ test('macOS: Info.plist mit Kennung, Programm und Symbol', () => {
     assert.match(plist, new RegExp(`<key>${key}</key>\\s*<string>${value.replace(/\./g, '\\.')}</string>`), key);
   }
   assert.equal(BUNDLE_ID, 'io.github.tweakable-dj.launcher');
+  assert.match(plist, /<key>LSUIElement<\/key>\s*<true\/>/, 'kein Symbol im Dock');
   assert.match(plist, /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<!DOCTYPE plist/);
 });
 
-test('macOS: Startskript öffnet "Tweakable DJ.command" im Terminal, Pfad richtig gequotet, Ordner zurücklesbar', { skip: !sh && 'kein sh' }, () => {
+test('macOS: Startskript startet start.sh --hidden im Hintergrund, ohne Node.js "Tweakable DJ.command" im Terminal; Pfad gequotet', { skip: !sh && 'kein sh' }, () => {
   for (const dir of TRICKY) {
     const script = macLauncher(dir);
     assert.match(script, /^#!\/bin\/sh\n/);
@@ -72,11 +73,17 @@ test('macOS: Startskript öffnet "Tweakable DJ.command" im Terminal, Pfad richti
     const file = path.join(tmp('sh'), 'launcher');
     fs.writeFileSync(file, script);
     execFileSync(sh, ['-n', file]); // Syntax
-    // Statt open: Argumente ausgeben – so muss genau der Pfad ankommen.
-    const echo = script.replace('exec /usr/bin/open -a Terminal ', "printf '%s|' -a Terminal ");
-    fs.writeFileSync(file, echo);
-    assert.equal(execFileSync(sh, [file], { encoding: 'utf8' }), `-a|Terminal|${dir}/Tweakable DJ.command|`, dir);
+    // Statt cd, nohup und open: Argumente ausgeben – so muss genau der Pfad ankommen. Node.js da bzw. nicht da: true/false.
+    const echo = script.replace(/^cd /m, "printf 'cd:%s|' ").replace(/^if command -v node .*; then$/m, 'if NODE; then')
+      .replace('nohup /bin/sh ', "printf 'nohup:%s|' /bin/sh ").replace(' >/dev/null 2>&1 &', '')
+      .replace('exec /usr/bin/open -a Terminal ', "printf '%s|' -a Terminal ");
+    fs.writeFileSync(file, echo.replace('NODE', 'true'));
+    assert.equal(execFileSync(sh, [file], { encoding: 'utf8' }), `cd:${dir}|nohup:/bin/sh|nohup:./start.sh|nohup:--hidden|`, dir);
+    fs.writeFileSync(file, echo.replace('NODE', 'false'));
+    assert.equal(execFileSync(sh, [file], { encoding: 'utf8' }), `cd:${dir}|-a|Terminal|${dir}/Tweakable DJ.command|`, dir);
   }
+  // Startskript der früheren Fassung (nur Terminal): Ordner ebenfalls erkennbar
+  assert.equal(macLauncherDir("#!/bin/sh\nexec /usr/bin/open -a Terminal '/a/b c/Tweakable DJ.command'\n"), '/a/b c');
   assert.equal(macLauncherDir('#!/bin/sh\necho fremd\n'), null);
 });
 
@@ -113,14 +120,14 @@ function execArgs(exec) {
 }
 const field = (text, key) => text.split('\n').find(l => l.startsWith(`${key}=`))?.slice(key.length + 1);
 
-test('Linux: Desktop-Eintrag startet start.sh im Terminal, Exec nach der Spezifikation gequotet, Symbol = logo.png', () => {
+test('Linux: Desktop-Eintrag startet start.sh --hidden ohne Terminal, Exec nach der Spezifikation gequotet, Symbol = logo.png', () => {
   for (const dir of TRICKY) {
     const text = linuxDesktopEntry(dir, { lang: 'de' });
     assert.match(text, /^\[Desktop Entry\]\nType=Application\n/);
     assert.equal(field(text, 'Name'), 'Tweakable DJ');
-    assert.equal(field(text, 'Terminal'), 'true');
+    assert.equal(field(text, 'Terminal'), 'false');
     assert.ok(text.split('\n').includes(LINUX_MARKER));
-    assert.deepEqual(execArgs(unescapeValue(field(text, 'Exec'))), ['/bin/sh', `${dir}/start.sh`], dir);
+    assert.deepEqual(execArgs(unescapeValue(field(text, 'Exec'))), ['/bin/sh', `${dir}/start.sh`, '--hidden'], dir);
     assert.ok(!/%(?!%)/.test(field(text, 'Exec').replace(/%%/g, '')), `einzelnes % in Exec: ${field(text, 'Exec')}`);
     assert.equal(unescapeValue(field(text, 'Icon')), `${dir}/assets/logo.png`);
     assert.equal(unescapeValue(field(text, 'Path')), dir);
@@ -128,20 +135,28 @@ test('Linux: Desktop-Eintrag startet start.sh im Terminal, Exec nach der Spezifi
     assert.equal(unescapeValue(field(text, 'Comment')), `Startet Tweakable DJ for Spotify (Ordner: ${dir})`);
   }
   // $ und \ wie im Beispiel der Spezifikation: \\$ bzw. \\\\
-  assert.equal(field(linuxDesktopEntry('/a/$b', { lang: 'en' }), 'Exec'), '/bin/sh "/a/\\\\$b/start.sh"');
-  assert.equal(field(linuxDesktopEntry('/a\\b', { lang: 'en' }), 'Exec'), '/bin/sh "/a\\\\\\\\b/start.sh"');
-  assert.equal(field(linuxDesktopEntry('/a/50%', { lang: 'en' }), 'Exec'), '/bin/sh "/a/50%%/start.sh"');
+  assert.equal(field(linuxDesktopEntry('/a/$b', { lang: 'en' }), 'Exec'), '/bin/sh "/a/\\\\$b/start.sh" --hidden');
+  assert.equal(field(linuxDesktopEntry('/a\\b', { lang: 'en' }), 'Exec'), '/bin/sh "/a\\\\\\\\b/start.sh" --hidden');
+  assert.equal(field(linuxDesktopEntry('/a/50%', { lang: 'en' }), 'Exec'), '/bin/sh "/a/50%%/start.sh" --hidden');
   assert.equal(field(linuxDesktopEntry('/x', { lang: 'en' }), 'Comment'), 'Starts Tweakable DJ for Spotify (folder: /x)');
 });
 
 // --- Windows ---
 
-test('Windows: Ziel, Arbeitsordner, Symbol; Werte nur in der Umgebung, nie in der Befehlszeile', () => {
+test('Windows: Ziel conhost --headless, Arbeitsordner, Symbol; Werte nur in der Umgebung, nie in der Befehlszeile', () => {
   const dir = 'C:\\Users\\Manuel Hayböck\\Documents\\it\'s $HOME & 100% `x`';
-  const s = windowsShortcut(dir, { lang: 'de' });
+  const s = windowsShortcut(dir, { lang: 'de', env: { SystemRoot: 'C:\\Windows' } });
   assert.deepEqual(s, {
-    target: `${dir}\\Tweakable DJ.cmd`, workdir: dir, icon: `${dir}\\assets\\logo.ico,0`, description: `Startet Tweakable DJ for Spotify (Ordner: ${dir})`,
+    target: 'C:\\Windows\\System32\\conhost.exe',
+    arguments: `--headless "C:\\Windows\\System32\\cmd.exe" /d /c call "${dir}\\Tweakable DJ.cmd" --hidden`,
+    workdir: dir, icon: `${dir}\\assets\\logo.ico,0`, description: `Startet Tweakable DJ for Spotify (Ordner: ${dir})`,
   });
+  // Wem gehört eine .lnk? Neue Fassung, frühere Fassung (direkt "Tweakable DJ.cmd"), fremd
+  assert.deepEqual(windowsOwner(s), { kind: 'open', dir, legacy: false });
+  assert.deepEqual(windowsOwner({ target: `${dir}\\TWEAKABLE DJ.CMD`, arguments: '' }), { kind: 'open', dir, legacy: true });
+  assert.equal(windowsOwner({ target: s.target, arguments: '--headless cmd.exe /c call "C:\\x\\anderes.cmd" --hidden' }), null);
+  assert.equal(windowsOwner({ target: s.target, arguments: s.arguments.replace('--hidden', '--fremd') }), null);
+  assert.equal(windowsOwner({ target: 'C:\\Windows\\notepad.exe', arguments: s.arguments }), null);
   const c = windowsCommand('write', { dir, desktop: 'D:\\Test Desktop ü', lang: 'de', env: { SystemRoot: 'C:\\Windows', PATH: 'x' } });
   assert.equal(c.file, 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe');
   assert.equal(c.args.at(-2), '-EncodedCommand');
@@ -154,6 +169,7 @@ test('Windows: Ziel, Arbeitsordner, Symbol; Werte nur in der Umgebung, nie in de
   assert.equal(c.env.TWEAKABLE_DJ_SC_DESKTOP, 'D:\\Test Desktop ü');
   assert.equal(c.env.TWEAKABLE_DJ_SC_FILE, 'Tweakable DJ.lnk');
   assert.equal(c.env.TWEAKABLE_DJ_SC_TARGET, s.target);
+  assert.equal(c.env.TWEAKABLE_DJ_SC_ARGUMENTS, s.arguments);
   assert.equal(c.env.TWEAKABLE_DJ_SC_WORKDIR, dir);
   assert.equal(c.env.TWEAKABLE_DJ_SC_ICON, s.icon);
   assert.equal(c.env.PATH, 'x', 'übrige Umgebung bleibt');
@@ -168,7 +184,9 @@ function fakePowerShell(calls, { userDesktop } = {}) {
     const desktop = env.TWEAKABLE_DJ_SC_DESKTOP || userDesktop;
     const lnk = path.join(desktop, env.TWEAKABLE_DJ_SC_FILE);
     if (env.TWEAKABLE_DJ_SC_ACTION === 'write') {
-      fs.writeFileSync(lnk, JSON.stringify({ target: env.TWEAKABLE_DJ_SC_TARGET, workdir: env.TWEAKABLE_DJ_SC_WORKDIR, icon: env.TWEAKABLE_DJ_SC_ICON, arguments: '' }));
+      fs.writeFileSync(lnk, JSON.stringify({
+        target: env.TWEAKABLE_DJ_SC_TARGET, workdir: env.TWEAKABLE_DJ_SC_WORKDIR, icon: env.TWEAKABLE_DJ_SC_ICON, arguments: env.TWEAKABLE_DJ_SC_ARGUMENTS,
+      }));
     }
     const exists = fs.existsSync(lnk);
     const data = exists ? JSON.parse(fs.readFileSync(lnk, 'utf8')) : {};
@@ -191,8 +209,9 @@ test('Windows (simuliert): anlegen, Stand, anderer Ordner, ersetzen, fremde Date
 
   s = await createShortcut({ ...base, dir: dirA });
   assert.deepEqual([s.state, s.installed, s.matches], ['ok', true, true]);
+  const call = dir => `--headless "C:\\Windows\\System32\\cmd.exe" /d /c call "${dir}\\Tweakable DJ.cmd" --hidden`;
   assert.deepEqual(JSON.parse(fs.readFileSync(lnk, 'utf8')), {
-    target: `${dirA}\\Tweakable DJ.cmd`, workdir: dirA, icon: `${dirA}\\assets\\logo.ico,0`, arguments: '',
+    target: 'C:\\Windows\\System32\\conhost.exe', workdir: dirA, icon: `${dirA}\\assets\\logo.ico,0`, arguments: call(dirA),
   });
   assert.equal(calls.filter(c => c.env.TWEAKABLE_DJ_SC_ACTION === 'write').at(-1).env.TWEAKABLE_DJ_SC_DESKTOP, desktop, 'schreibt in denselben Ordner');
 
@@ -201,12 +220,16 @@ test('Windows (simuliert): anlegen, Stand, anderer Ordner, ersetzen, fremde Date
   s = await shortcutStatus({ ...base, dir: dirB });
   assert.deepEqual([s.state, s.installed, s.matches, s.folder], ['otherFolder', true, false, dirA]);
   // Symbol anders (z. B. von Hand geändert) → veraltet
-  fs.writeFileSync(lnk, JSON.stringify({ target: `${dirA}\\Tweakable DJ.cmd`, workdir: dirA, icon: 'C:\\x.ico,0', arguments: '' }));
+  fs.writeFileSync(lnk, JSON.stringify({ target: 'C:\\Windows\\System32\\conhost.exe', workdir: dirA, icon: 'C:\\x.ico,0', arguments: call(dirA) }));
   assert.equal((await shortcutStatus({ ...base, dir: dirA })).state, 'outdated');
+  // Frühere Fassung (mit Fenster: Ziel direkt "Tweakable DJ.cmd") für diesen Ordner → veraltet, für einen anderen → anderer Ordner
+  fs.writeFileSync(lnk, JSON.stringify({ target: `${dirA}\\Tweakable DJ.cmd`, workdir: dirA, icon: `${dirA}\\assets\\logo.ico,0`, arguments: '' }));
+  assert.deepEqual([(await shortcutStatus({ ...base, dir: dirA })).state, (await shortcutStatus({ ...base, dir: dirB })).state], ['outdated', 'otherFolder']);
+  assert.equal((await createShortcut({ ...base, dir: dirA })).state, 'ok', 'erneuert');
 
   s = await createShortcut({ ...base, dir: dirB });
   assert.equal(s.state, 'ok');
-  assert.equal(JSON.parse(fs.readFileSync(lnk, 'utf8')).target, `${dirB}\\Tweakable DJ.cmd`);
+  assert.equal(JSON.parse(fs.readFileSync(lnk, 'utf8')).arguments, call(dirB));
 
   s = await removeShortcut({ ...base, dir: dirA });
   assert.deepEqual([s.state, s.installed, fs.existsSync(lnk)], ['missing', false, false], 'eigene Verknüpfung, egal für welchen Ordner');
@@ -322,7 +345,7 @@ test('Linux (Dateien): Desktop-Ordner über xdg-user-dir bzw. ~/Desktop, anlegen
   assert.equal((await shortcutStatus({ ...base, dir: dirA, lang: 'en' })).state, 'ok');
   // Von Hand geändert (z. B. Exec) bzw. nicht mehr ausführbar → veraltet
   const text = fs.readFileSync(file, 'utf8');
-  fs.writeFileSync(file, text.replace('Terminal=true', 'Terminal=false'), { mode: 0o755 });
+  fs.writeFileSync(file, text.replace('Terminal=false', 'Terminal=true'), { mode: 0o755 });
   assert.equal((await shortcutStatus({ ...base, dir: dirA })).state, 'outdated');
   fs.writeFileSync(file, text);
   if (process.platform !== 'win32') {
@@ -390,10 +413,11 @@ test('Echtes System: anlegen, Stand, entfernen – Programmordner mit Leerzeiche
   if (process.platform === 'win32') {
     // .lnk mit WScript.Shell zurücklesen (unabhängig von shortcut.mjs)
     const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-    const script = "$ProgressPreference = 'SilentlyContinue'; [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; $l = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK); [Console]::Out.Write($l.TargetPath + '|' + $l.WorkingDirectory + '|' + $l.IconLocation)";
+    const script = "$ProgressPreference = 'SilentlyContinue'; [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; $l = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK); [Console]::Out.Write($l.TargetPath + '|' + $l.Arguments + '|' + $l.WorkingDirectory + '|' + $l.IconLocation)";
     const out = execFileSync(ps, ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
       { env: { ...process.env, LNK: s.file }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-    assert.equal(out, `${dir}\\Tweakable DJ.cmd|${dir}|${dir}\\assets\\logo.ico,0`);
+    const sys = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
+    assert.equal(out.toLowerCase(), `${sys}\\conhost.exe|--headless "${sys}\\cmd.exe" /d /c call "${dir}\\Tweakable DJ.cmd" --hidden|${dir}|${dir}\\assets\\logo.ico,0`.toLowerCase());
   } else if (process.platform === 'linux') {
     assert.equal(fs.statSync(s.file).mode & 0o777, 0o755);
   }

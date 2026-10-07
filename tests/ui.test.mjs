@@ -4,6 +4,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
+import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -1145,5 +1146,75 @@ test('Verknüpfung: nur mit X-Tweakable-DJ; Stand, anlegen, ersetzen, entfernen 
     assert.equal(foreign.print(), foreign.before, 'fremde Datei unverändert');
   } finally {
     fs.rmSync(foreign.file, { recursive: true, force: true });
+  }
+});
+
+// Weitere Starts im selben Ordner (eigener Port bzw. derselbe wie der Server oben): Ausgang abwarten, höchstens timeout ms.
+function startUi(args, env, timeout = 20_000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ['ui.mjs', ...args], {
+      cwd: dir,
+      env: { ...process.env, TWEAKABLE_DJ_LANG: 'de', NODE_OPTIONS: `--import=${MOCK}`, TWEAKABLE_DJ_DESKTOP: desktop, ...env },
+    });
+    let out = '';
+    child.stdout.on('data', chunk => (out += chunk));
+    child.stderr.on('data', chunk => (out += chunk));
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`läuft noch: ${out}`));
+    }, timeout);
+    child.on('exit', code => {
+      clearTimeout(timer);
+      resolve({ code, out });
+    });
+  });
+}
+
+test('Nur eine Instanz, fremdes Programm auf dem Port, ohne Fenster: ui.log, Beenden und Beenden ohne offene Seite', async () => {
+  const browser = path.join(dir, 'browser.txt');
+  // Zweiter Start auf demselben Port: öffnet nur den Browser (hier: TWEAKABLE_DJ_BROWSER) und endet mit 0
+  const second = await startUi([], { TWEAKABLE_DJ_PORT: new URL(base).port, TWEAKABLE_DJ_BROWSER: browser });
+  assert.equal(second.code, 0, second.out);
+  assert.match(second.out, /Die Oberfläche läuft bereits/);
+  assert.equal(fs.readFileSync(browser, 'utf8'), `${base}\n`);
+
+  // Fremdes Programm auf dem Port: mit Fenster Fehlercode 1, ohne Fenster Systembenachrichtigung, ui.log und 0
+  const foreign = http.createServer((req, res) => res.writeHead(404).end('nein'));
+  await new Promise(r => foreign.listen(0, '127.0.0.1', r));
+  const port = String(foreign.address().port);
+  const log = path.join(dir, 'ui.log');
+  const mockLog = path.join(dir, 'mock-ui.jsonl');
+  try {
+    const visible = await startUi(['--no-browser'], { TWEAKABLE_DJ_PORT: port });
+    assert.equal(visible.code, 1, visible.out);
+    assert.match(visible.out, new RegExp(`Port ${port} ist von einem anderen Programm belegt`));
+    const hidden = await startUi(['--hidden', '--no-browser'], { TWEAKABLE_DJ_PORT: port, MOCK_LOG: mockLog });
+    assert.deepEqual([hidden.code, hidden.out], [0, ''], 'ohne Fenster nichts in der Konsole');
+    assert.match(fs.readFileSync(log, 'utf8'), new RegExp(`=== .* · --hidden --no-browser\nPort ${port} ist von einem anderen Programm belegt`));
+    const toast = JSON.parse(fs.readFileSync(mockLog, 'utf8').trim().split('\n').at(-1)).notify;
+    assert.ok(toast, 'Benachrichtigung');
+  } finally {
+    foreign.close();
+  }
+
+  // Ohne Fenster, eigener Port: POST /api/quit beendet (Exit 0); ohne Lebenszeichen beendet er sich von selbst
+  for (const how of ['quit', 'idle']) {
+    const freeP = String(await freePort());
+    const run = startUi(['--hidden', '--no-browser'], { TWEAKABLE_DJ_PORT: freeP, TWEAKABLE_DJ_IDLE_MS: how === 'idle' ? '1500' : '600000' });
+    const url = `http://127.0.0.1:${freeP}`;
+    let up = false;
+    for (let i = 0; i < 100 && !up; i++) {
+      up = await fetch(`${url}/api/version`, { headers: { 'X-Tweakable-DJ': '1' } }).then(r => r.ok, () => false);
+      if (!up) await new Promise(r => setTimeout(r, 100));
+    }
+    assert.ok(up, 'Server läuft');
+    if (how === 'quit') {
+      assert.equal((await fetch(`${url}/api/quit`, { method: 'POST' })).status, 403, 'nur mit X-Tweakable-DJ');
+      const res = await fetch(`${url}/api/quit`, { method: 'POST', headers: { 'X-Tweakable-DJ': '1' } });
+      assert.deepEqual(await res.json(), { ok: true });
+    }
+    const ended = await run;
+    assert.equal(ended.code, 0, ended.out);
+    assert.match(fs.readFileSync(log, 'utf8'), how === 'quit' ? /Tweakable DJ wurde beendet\.\n$/ : /keine Seite von Tweakable DJ mehr offen – beendet\.\n$/);
   }
 });

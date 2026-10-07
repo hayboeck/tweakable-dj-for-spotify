@@ -329,6 +329,15 @@ export const MESSAGES = {
     'ui.lastfmOk': 'Passt ✓ „{name}“ hat {scrobbles|# Scrobble|# Scrobbles}.',
     'ui.noScrobbles': 'Der API-Key passt ✓ Aber „{name}“ hat noch keine Scrobbles – Last.fm weiß also noch nicht, was du hörst.',
     'ui.libraryScope': 'Für ♥ (Lieblingssongs) bitte einmal neu bei Spotify anmelden – die Anmeldung erlaubt das noch nicht.',
+    'ui.portBusy': 'Port {port} ist von einem anderen Programm belegt. Beende es oder wähle mit TWEAKABLE_DJ_PORT einen anderen Port.',
+    'ui.startFailedTitle': 'Tweakable DJ ließ sich nicht starten',
+    'ui.crashedTitle': 'Tweakable DJ wurde wegen eines Fehlers beendet',
+    'ui.logHint': 'Details stehen in ui.log im Ordner von Tweakable DJ.',
+    'ui.hiddenHint': 'Läuft ohne Fenster. Beenden: in der Oberfläche unter Einstellungen → „Tweakable DJ beenden“. Ist keine Seite mehr offen, beendet es sich nach {minutes} Minuten von selbst.',
+    'ui.quit': 'Tweakable DJ wurde beendet.',
+    'ui.idleQuit': 'Seit {minutes} Minuten ist keine Seite von Tweakable DJ mehr offen – beendet.',
+    'shortcut.renewed': 'Verknüpfung auf dem Desktop erneuert: {file}',
+    'shortcut.renewFailed': 'Die Verknüpfung auf dem Desktop ließ sich nicht erneuern: {message}',
 
     // --- install-update.mjs („Jetzt aktualisieren“ in der Oberfläche) ---
     'update.stepCheck': 'Frage GitHub nach der neuesten Version …',
@@ -613,6 +622,15 @@ export const MESSAGES = {
     'ui.lastfmOk': 'All good ✓ “{name}” has {scrobbles|# scrobble|# scrobbles}.',
     'ui.noScrobbles': 'The API key works ✓ But “{name}” has no scrobbles yet – so Last.fm doesn’t know yet what you listen to.',
     'ui.libraryScope': 'For ♥ (Liked Songs), please log in to Spotify again once – your login doesn’t allow this yet.',
+    'ui.portBusy': 'Port {port} is used by another program. Close it or choose another port with TWEAKABLE_DJ_PORT.',
+    'ui.startFailedTitle': 'Tweakable DJ couldn’t start',
+    'ui.crashedTitle': 'Tweakable DJ stopped because of an error',
+    'ui.logHint': 'Details are in ui.log in the Tweakable DJ folder.',
+    'ui.hiddenHint': 'Running without a window. To quit: in the interface under Settings → “Quit Tweakable DJ”. When no page is open any more, it quits by itself after {minutes} minutes.',
+    'ui.quit': 'Tweakable DJ has quit.',
+    'ui.idleQuit': 'No Tweakable DJ page has been open for {minutes} minutes – quit.',
+    'shortcut.renewed': 'Desktop shortcut renewed: {file}',
+    'shortcut.renewFailed': 'The desktop shortcut couldn’t be renewed: {message}',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Asking GitHub for the newest version …',
@@ -898,6 +916,15 @@ export const MESSAGES = {
     'ui.lastfmOk': '¡Todo bien! ✓ «{name}» tiene {scrobbles|# scrobble|# scrobbles}.',
     'ui.noScrobbles': 'La clave API funciona ✓ Pero «{name}» todavía no tiene scrobbles, así que Last.fm aún no sabe qué escuchas.',
     'ui.libraryScope': 'Para ♥ (Tus me gusta), vuelve a iniciar sesión en Spotify una vez: tu inicio de sesión aún no lo permite.',
+    'ui.portBusy': 'El puerto {port} lo usa otro programa. Ciérralo o elige otro puerto con TWEAKABLE_DJ_PORT.',
+    'ui.startFailedTitle': 'Tweakable DJ no se pudo iniciar',
+    'ui.crashedTitle': 'Tweakable DJ se cerró por un error',
+    'ui.logHint': 'Los detalles están en ui.log, en la carpeta de Tweakable DJ.',
+    'ui.hiddenHint': 'Funciona sin ventana. Para cerrarlo: en la interfaz, en Ajustes → «Cerrar Tweakable DJ». Si ya no hay ninguna página abierta, se cierra solo al cabo de {minutes} minutos.',
+    'ui.quit': 'Tweakable DJ se ha cerrado.',
+    'ui.idleQuit': 'Ninguna página de Tweakable DJ lleva {minutes} minutos abierta: se ha cerrado.',
+    'shortcut.renewed': 'Acceso directo del escritorio renovado: {file}',
+    'shortcut.renewFailed': 'No se pudo renovar el acceso directo del escritorio: {message}',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Consultando a GitHub la versión más reciente …',
@@ -1184,6 +1211,15 @@ export const MESSAGES = {
     'ui.lastfmOk': 'C’est bon ✓ « {name} » a {scrobbles|# scrobble|# scrobbles}.',
     'ui.noScrobbles': 'La clé API fonctionne ✓ Mais « {name} » n’a encore aucun scrobble – Last.fm ne sait donc pas encore ce que tu écoutes.',
     'ui.libraryScope': 'Pour ♥ (Titres likés), reconnecte-toi une fois à Spotify – ta connexion ne le permet pas encore.',
+    'ui.portBusy': 'Le port {port} est utilisé par un autre programme. Ferme-le ou choisis un autre port avec TWEAKABLE_DJ_PORT.',
+    'ui.startFailedTitle': 'Tweakable DJ n’a pas pu démarrer',
+    'ui.crashedTitle': 'Tweakable DJ s’est arrêté à cause d’une erreur',
+    'ui.logHint': 'Les détails sont dans ui.log, dans le dossier de Tweakable DJ.',
+    'ui.hiddenHint': 'Fonctionne sans fenêtre. Pour quitter : dans l’interface, sous Paramètres → « Quitter Tweakable DJ ». Si plus aucune page n’est ouverte, il s’arrête tout seul au bout de {minutes} minutes.',
+    'ui.quit': 'Tweakable DJ s’est arrêté.',
+    'ui.idleQuit': 'Aucune page de Tweakable DJ n’est ouverte depuis {minutes} minutes – arrêté.',
+    'shortcut.renewed': 'Raccourci du Bureau renouvelé : {file}',
+    'shortcut.renewFailed': 'Le raccourci du Bureau n’a pas pu être renouvelé : {message}',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Demande de la version la plus récente à GitHub …',

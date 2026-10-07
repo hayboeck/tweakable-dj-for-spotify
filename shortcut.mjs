@@ -1,15 +1,20 @@
-// Verknüpfung auf dem Desktop: startet Tweakable DJ per Doppelklick, mit dem Logo als Symbol. Genau eine, immer unter
-// demselben Namen; erneutes Anlegen ersetzt sie (z. B. nach dem Verschieben des Ordners).
+// Verknüpfung auf dem Desktop: startet Tweakable DJ per Doppelklick, mit dem Logo als Symbol, ohne Konsolen- bzw.
+// Terminalfenster (Startdatei mit --hidden; Ausgaben in ui.log, siehe ui.mjs). Genau eine je Art, immer unter demselben
+// Namen; erneutes Anlegen ersetzt sie (z. B. nach dem Verschieben des Ordners).
 //   Windows: "Tweakable DJ.lnk" auf dem Desktop (auch bei Umleitung nach OneDrive: [Environment]::GetFolderPath('Desktop')),
 //            angelegt mit PowerShell und WScript.Shell. Das Skript ist fest (-EncodedCommand), Pfade und Texte kommen nur
 //            über Umgebungsvariablen – Leerzeichen, Umlaute, Apostrophe und $ kommen unverändert an.
-//            Ziel "Tweakable DJ.cmd", Arbeitsordner = Programmordner, Symbol assets\logo.ico.
-//   macOS:   kleines Programm "Tweakable DJ.app" in ~/Desktop: Info.plist (Kennung io.github.tweakable-dj.launcher),
-//            Resources/logo.icns und Contents/MacOS/launcher (sh), das "Tweakable DJ.command" im Terminal öffnet.
-//   Linux:   "tweakable-dj.desktop" im Desktop-Ordner (xdg-user-dir DESKTOP, sonst ~/Desktop): startet start.sh in einem
+//            Ziel: conhost.exe --headless cmd.exe /d /c call "…\Tweakable DJ.cmd" --hidden (kein Fenster), Arbeitsordner =
+//            Programmordner, Symbol assets\logo.ico. Frühere Fassungen zielten direkt auf "Tweakable DJ.cmd" (mit Fenster).
+//   macOS:   kleines Programm "Tweakable DJ.app" in ~/Desktop: Info.plist (Kennung io.github.tweakable-dj.launcher,
+//            LSUIElement = kein Symbol im Dock), Resources/logo.icns und Contents/MacOS/launcher (sh), das start.sh --hidden
+//            per nohup im Hintergrund startet. Fehlt Node.js (oder ist es zu alt), öffnet es stattdessen
+//            "Tweakable DJ.command" im Terminal, damit man die Meldung sieht.
+//   Linux:   "tweakable-dj.desktop" im Desktop-Ordner (xdg-user-dir DESKTOP, sonst ~/Desktop): startet start.sh --hidden ohne
 //            Terminal, Symbol assets/logo.png; ausführbar und – wo es gio gibt – als vertrauenswürdig markiert.
-// Entfernt bzw. ersetzt wird nur die eigene Verknüpfung (Windows: Ziel heißt "Tweakable DJ.cmd", macOS: Kennung in der
-// Info.plist, Linux: Zeile X-Tweakable-DJ=launcher). Eine fremde Datei gleichen Namens bleibt immer unangetastet.
+// Entfernt bzw. ersetzt wird nur die eigene Verknüpfung (Windows: Aufruf von "Tweakable DJ.cmd" mit dem Argument der Art,
+// macOS: Kennung in der Info.plist, Linux: Zeile X-Tweakable-DJ=…). Eine fremde Datei gleichen Namens bleibt immer unangetastet.
+// Arten (SHORTCUTS, Option kind): 'open' = die Oberfläche.
 // Die Inhalte (plist, Skript, Desktop-Eintrag) sind reine Funktionen; Befehle, Pfade und Plattform lassen sich für Tests
 // übergeben (wie in schedule.mjs).
 
@@ -20,11 +25,24 @@ import { execFile } from 'node:child_process';
 import { HERE } from './config.mjs';
 import { resolveLang, t, tError } from './i18n.mjs';
 
-export const SHORTCUT_NAME = 'Tweakable DJ';
-export const BUNDLE_ID = 'io.github.tweakable-dj.launcher';
-export const LINUX_MARKER = 'X-Tweakable-DJ=launcher';
+// Arten von Verknüpfungen: name (auf dem Desktop), arg (für Tweakable DJ.cmd bzw. start.sh), bundleId (macOS), linux
+// (Dateiname), marker (Zeile im Desktop-Eintrag), description (Schlüssel in i18n.mjs).
+export const SHORTCUTS = {
+  open: {
+    name: 'Tweakable DJ', arg: '--hidden', bundleId: 'io.github.tweakable-dj.launcher', linux: 'tweakable-dj.desktop',
+    marker: 'X-Tweakable-DJ=launcher', description: 'shortcut.description',
+  },
+};
+const kindOf = kind => SHORTCUTS[kind] ?? SHORTCUTS.open;
 // Dateiname der Verknüpfung je Plattform
-export const FILE_NAMES = { win32: `${SHORTCUT_NAME}.lnk`, darwin: `${SHORTCUT_NAME}.app`, linux: 'tweakable-dj.desktop' };
+export const fileNames = kind => {
+  const k = kindOf(kind);
+  return { win32: `${k.name}.lnk`, darwin: `${k.name}.app`, linux: k.linux };
+};
+export const SHORTCUT_NAME = SHORTCUTS.open.name;
+export const BUNDLE_ID = SHORTCUTS.open.bundleId;
+export const LINUX_MARKER = SHORTCUTS.open.marker;
+export const FILE_NAMES = fileNames('open');
 // Nur für Tests: anderer Desktop-Ordner (der echte Desktop bleibt dann unberührt).
 export const DESKTOP_VAR = 'TWEAKABLE_DJ_DESKTOP';
 
@@ -34,17 +52,18 @@ const shell = s => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
 // --- macOS: kleines App-Paket ---
 
-export function macInfoPlist() {
+export function macInfoPlist(kind) {
+  const k = kindOf(kind);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key>
-  <string>${xml(SHORTCUT_NAME)}</string>
+  <string>${xml(k.name)}</string>
   <key>CFBundleDisplayName</key>
-  <string>${xml(SHORTCUT_NAME)}</string>
+  <string>${xml(k.name)}</string>
   <key>CFBundleIdentifier</key>
-  <string>${BUNDLE_ID}</string>
+  <string>${k.bundleId}</string>
   <key>CFBundleExecutable</key>
   <string>launcher</string>
   <key>CFBundleIconFile</key>
@@ -54,16 +73,28 @@ export function macInfoPlist() {
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>2</string>
+  <key>LSUIElement</key>
+  <true/>
 </dict>
 </plist>
 `;
 }
 
-// Startet "Tweakable DJ.command" im Terminal (wie ein Doppelklick darauf im Finder).
-export function macLauncher(dir) {
+// Startet start.sh mit dem Argument der Art per nohup im Hintergrund (ohne Terminal). Das Startskript endet gleich wieder,
+// so startet jeder Doppelklick neu (ein zweiter Start öffnet nur den Browser, siehe ui.mjs). Ohne passendes Node.js:
+// "Tweakable DJ.command" im Terminal öffnen (wie ein Doppelklick darauf im Finder), damit man die Meldung sieht.
+export function macLauncher(dir, kind) {
   return `#!/bin/sh
-# Angelegt von Tweakable DJ (Einstellungen → Verknüpfung): öffnet "Tweakable DJ.command" im Terminal.
+# Angelegt von Tweakable DJ (Einstellungen → Verknüpfung): startet Tweakable DJ ohne Terminalfenster (Ausgaben in ui.log).
+# Fehlt Node.js oder ist es zu alt, öffnet es "Tweakable DJ.command" im Terminal, damit man die Meldung sieht.
+PATH="$PATH:/usr/local/bin:/opt/homebrew/bin"
+export PATH
+cd ${shell(dir)} || exit 1
+if command -v node >/dev/null 2>&1 && node -e 'process.exit(parseInt(process.versions.node, 10) >= 18 ? 0 : 1)' >/dev/null 2>&1; then
+  nohup /bin/sh ./start.sh ${kindOf(kind).arg} >/dev/null 2>&1 &
+  exit 0
+fi
 exec /usr/bin/open -a Terminal ${shell(path.posix.join(dir, 'Tweakable DJ.command'))}
 `;
 }
@@ -82,18 +113,20 @@ const desktopValue = s => String(s).replace(/\\/g, '\\\\').replace(/\n/g, '\\n')
 // jeden \ noch einmal – so verlangt es die Spezifikation (aus einem $ wird also \\$, aus einem \ wird \\\\).
 const execArg = s => `"${String(s).replace(/["`$\\]/g, c => `\\${c}`).replace(/%/g, '%%')}"`;
 
-export function linuxDesktopEntry(dir, { lang } = {}) {
+// Ohne Terminal: start.sh schreibt mit --hidden in ui.log und meldet ein fehlendes Node.js per notify-send.
+export function linuxDesktopEntry(dir, { lang, kind } = {}) {
+  const k = kindOf(kind);
   return `[Desktop Entry]
 Type=Application
 Version=1.0
-Name=${SHORTCUT_NAME}
-Comment=${desktopValue(t(resolveLang(lang), 'shortcut.description', { dir }))}
-Exec=${desktopValue(`/bin/sh ${execArg(path.posix.join(dir, 'start.sh'))}`)}
+Name=${k.name}
+Comment=${desktopValue(t(resolveLang(lang), k.description, { dir }))}
+Exec=${desktopValue(`/bin/sh ${execArg(path.posix.join(dir, 'start.sh'))} ${k.arg}`)}
 Path=${desktopValue(dir)}
 Icon=${desktopValue(path.posix.join(dir, 'assets', 'logo.png'))}
-Terminal=true
+Terminal=false
 Categories=AudioVideo;Audio;
-${LINUX_MARKER}
+${k.marker}
 `;
 }
 
@@ -126,7 +159,7 @@ const PS_SCRIPT = [
   `    if ($env:${PS_PREFIX}ACTION -eq 'write') {`,
   '      $link = $shell.CreateShortcut($file)',
   `      $link.TargetPath = $env:${PS_PREFIX}TARGET`,
-  "      $link.Arguments = ''",
+  `      $link.Arguments = $env:${PS_PREFIX}ARGUMENTS`,
   `      $link.WorkingDirectory = $env:${PS_PREFIX}WORKDIR`,
   `      $link.IconLocation = $env:${PS_PREFIX}ICON`,
   `      $link.Description = $env:${PS_PREFIX}DESCRIPTION`,
@@ -149,27 +182,45 @@ const PS_SCRIPT = [
   '}',
 ].join('\n');
 
-// Was die Verknüpfung unter Windows enthalten soll (Pfade im Programmordner dir).
-export function windowsShortcut(dir, { lang } = {}) {
+const system32 = env => path.win32.join(env.SystemRoot || env.SYSTEMROOT || 'C:\\Windows', 'System32');
+
+// Was die Verknüpfung unter Windows enthalten soll (Pfade im Programmordner dir): conhost.exe --headless startet cmd.exe
+// ohne sichtbares Fenster; "call" davor, damit cmd /c die Anführungszeichen um den Pfad nicht entfernt.
+export function windowsShortcut(dir, { lang, kind, env = process.env } = {}) {
+  const k = kindOf(kind);
   return {
-    target: path.win32.join(dir, 'Tweakable DJ.cmd'),
+    target: path.win32.join(system32(env), 'conhost.exe'),
+    arguments: `--headless "${path.win32.join(system32(env), 'cmd.exe')}" /d /c call "${path.win32.join(dir, 'Tweakable DJ.cmd')}" ${k.arg}`,
     workdir: path.win32.normalize(dir),
     icon: `${path.win32.join(dir, 'assets', 'logo.ico')},0`,
-    description: t(resolveLang(lang), 'shortcut.description', { dir }),
+    description: t(resolveLang(lang), k.description, { dir }),
   };
+}
+
+// Von wem ist eine .lnk? → { kind, dir, legacy } oder null (fremd). Erkannt am Aufruf von "Tweakable DJ.cmd" mit dem
+// Argument einer Art; legacy = frühere Fassung von 'open' (Ziel direkt "Tweakable DJ.cmd", mit Fenster).
+export function windowsOwner(entry) {
+  const target = String(entry?.target ?? '');
+  const base = path.win32.basename(target).toLowerCase();
+  if (base === 'tweakable dj.cmd') return { kind: 'open', dir: path.win32.dirname(target), legacy: true };
+  if (base !== 'conhost.exe') return null;
+  const m = /\bcall "([^"]*\\Tweakable DJ\.cmd)" (--[a-z]+)\s*$/i.exec(String(entry.arguments ?? ''));
+  const kind = m ? Object.keys(SHORTCUTS).find(k => SHORTCUTS[k].arg === m[2].toLowerCase()) : null;
+  return kind ? { kind, dir: path.win32.dirname(m[1]), legacy: false } : null;
 }
 
 // Befehl für PowerShell: { file, args, env }. action: 'read' oder 'write'; desktop: fester Ordner oder '' (= Desktop des
 // Benutzers). Die Werte stehen nur in der Umgebung, nie in der Befehlszeile.
-export function windowsCommand(action, { dir, desktop = '', lang, env = process.env } = {}) {
+export function windowsCommand(action, { dir, desktop = '', lang, kind, env = process.env } = {}) {
   const root = env.SystemRoot || env.SYSTEMROOT || 'C:\\Windows';
-  const s = windowsShortcut(dir, { lang });
+  const s = windowsShortcut(dir, { lang, kind, env });
   return {
     file: `${root}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
     args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(PS_SCRIPT, 'utf16le').toString('base64')],
     env: {
-      ...env, [`${PS_PREFIX}ACTION`]: action, [`${PS_PREFIX}DESKTOP`]: desktop, [`${PS_PREFIX}FILE`]: FILE_NAMES.win32,
-      [`${PS_PREFIX}TARGET`]: s.target, [`${PS_PREFIX}WORKDIR`]: s.workdir, [`${PS_PREFIX}ICON`]: s.icon, [`${PS_PREFIX}DESCRIPTION`]: s.description,
+      ...env, [`${PS_PREFIX}ACTION`]: action, [`${PS_PREFIX}DESKTOP`]: desktop, [`${PS_PREFIX}FILE`]: fileNames(kind).win32,
+      [`${PS_PREFIX}TARGET`]: s.target, [`${PS_PREFIX}ARGUMENTS`]: s.arguments, [`${PS_PREFIX}WORKDIR`]: s.workdir, [`${PS_PREFIX}ICON`]: s.icon,
+      [`${PS_PREFIX}DESCRIPTION`]: s.description,
     },
   };
 }
@@ -202,10 +253,14 @@ const failure = (lang, who, r) => (r.code === 'timeout'
 
 // Optionen: dir = Programmordner, platform, desktop = fester Desktop-Ordner (Tests; sonst TWEAKABLE_DJ_DESKTOP bzw. der
 // des Systems), home, env, run(file, args, { env }) für die Befehle, lang.
+// kind: Art der Verknüpfung (SHORTCUTS, Standard 'open').
 function options({ dir = HERE, platform = process.platform, env = process.env, desktop = env[DESKTOP_VAR] || '', home = os.homedir(),
-  run = runFile, lang } = {}) {
+  run = runFile, lang, kind = 'open' } = {}) {
   // Windows-Pfade mit path.win32 (unter Windows dasselbe wie path.resolve; so auch in den simulierten Tests auf Linux/macOS)
-  return { dir: platform === 'win32' ? path.win32.resolve(dir) : path.resolve(dir), platform, env, desktop, home, run, lang: resolveLang(lang) };
+  return {
+    dir: platform === 'win32' ? path.win32.resolve(dir) : path.resolve(dir), platform, env, desktop, home, run, lang: resolveLang(lang),
+    kind: Object.hasOwn(SHORTCUTS, kind) ? kind : 'open',
+  };
 }
 
 const isDir = p => {
@@ -247,19 +302,21 @@ export const PLATFORMS = {
       }
       if (!data.desktop) throw tError(o.lang, 'shortcut.noDesktop');
       // path.join: unter Windows dasselbe wie path.win32.join; so laufen auch die simulierten Tests auf macOS und Linux.
-      return { desktop: data.desktop, file: path.join(data.desktop, FILE_NAMES.win32), entry: data.exists ? data : null };
+      return { desktop: data.desktop, file: path.join(data.desktop, fileNames(o.kind).win32), entry: data.exists ? data : null };
     },
     read(o) {
       return this.call(o, 'read');
     },
-    // Eigen = Ziel ist eine "Tweakable DJ.cmd" (egal in welchem Ordner).
+    // Eigen = ruft "Tweakable DJ.cmd" mit dem Argument dieser Art auf, egal in welchem Ordner (windowsOwner). Eine frühere
+    // Fassung für diesen Ordner ist veraltet (ui.mjs erneuert sie beim Start).
     check(entry, o) {
-      if (path.win32.basename(entry.target).toLowerCase() !== 'tweakable dj.cmd') return { own: false, state: 'foreign', dir: null };
+      const owner = windowsOwner(entry);
+      if (owner?.kind !== o.kind) return { own: false, state: 'foreign', dir: null };
+      if (!samePath(owner.dir, o.dir)) return { own: true, state: 'otherFolder', dir: owner.dir };
       const want = windowsShortcut(o.dir, o);
-      const dir = path.win32.dirname(entry.target);
-      if (!samePath(entry.target, want.target)) return { own: true, state: 'otherFolder', dir };
-      const same = samePath(entry.workdir, want.workdir) && samePath(entry.icon, want.icon) && !entry.arguments;
-      return { own: true, state: same ? 'ok' : 'outdated', dir };
+      const same = !owner.legacy && samePath(entry.target, want.target) && String(entry.arguments).toLowerCase() === want.arguments.toLowerCase()
+        && samePath(entry.workdir, want.workdir) && samePath(entry.icon, want.icon);
+      return { own: true, state: same ? 'ok' : 'outdated', dir: owner.dir };
     },
     async write(o, current) {
       // Erst die alte löschen, damit nichts von ihr übrig bleibt (z. B. Tastenkürzel); write legt sie neu an.
@@ -275,7 +332,7 @@ export const PLATFORMS = {
     read(o) {
       const desktop = o.desktop || path.join(o.home, 'Desktop');
       if (!isDir(desktop)) throw tError(o.lang, 'shortcut.noDesktop');
-      const file = path.join(desktop, FILE_NAMES.darwin);
+      const file = path.join(desktop, fileNames(o.kind).darwin);
       let st = null;
       try {
         st = fs.lstatSync(file);
@@ -294,11 +351,12 @@ export const PLATFORMS = {
     },
     // Eigen = echter Ordner mit unserer Kennung in der Info.plist.
     check(entry, o) {
-      const own = entry.dir && new RegExp(`<key>CFBundleIdentifier</key>\\s*<string>${BUNDLE_ID.replace(/\./g, '\\.')}</string>`).test(entry.plist ?? '');
+      const id = kindOf(o.kind).bundleId.replace(/\./g, '\\.');
+      const own = entry.dir && new RegExp(`<key>CFBundleIdentifier</key>\\s*<string>${id}</string>`).test(entry.plist ?? '');
       if (!own) return { own: false, state: 'foreign', dir: null };
       const dir = macLauncherDir(entry.launcher);
       if (dir !== o.dir) return { own: true, state: 'otherFolder', dir };
-      const same = entry.launcher === macLauncher(o.dir) && entry.plist === macInfoPlist() && entry.executable
+      const same = entry.launcher === macLauncher(o.dir, o.kind) && entry.plist === macInfoPlist(o.kind) && entry.executable
         && (entry.icon || !fs.existsSync(path.join(o.dir, 'assets', 'logo.icns')));
       return { own: true, state: same ? 'ok' : 'outdated', dir };
     },
@@ -307,9 +365,9 @@ export const PLATFORMS = {
       const contents = path.join(current.file, 'Contents');
       fs.mkdirSync(path.join(contents, 'MacOS'), { recursive: true });
       fs.mkdirSync(path.join(contents, 'Resources'), { recursive: true });
-      fs.writeFileSync(path.join(contents, 'Info.plist'), macInfoPlist());
+      fs.writeFileSync(path.join(contents, 'Info.plist'), macInfoPlist(o.kind));
       const launcher = path.join(contents, 'MacOS', 'launcher');
-      fs.writeFileSync(launcher, macLauncher(o.dir));
+      fs.writeFileSync(launcher, macLauncher(o.dir, o.kind));
       fs.chmodSync(launcher, 0o755);
       const icon = path.join(o.dir, 'assets', 'logo.icns');
       if (fs.existsSync(icon)) fs.copyFileSync(icon, path.join(contents, 'Resources', 'logo.icns'));
@@ -330,7 +388,7 @@ export const PLATFORMS = {
           .find(d => d && path.isAbsolute(d) && path.resolve(d) !== path.resolve(o.home) && isDir(d)) ?? '';
       }
       if (!desktop || !isDir(desktop)) throw tError(o.lang, 'shortcut.noDesktop');
-      const file = path.join(desktop, FILE_NAMES.linux);
+      const file = path.join(desktop, fileNames(o.kind).linux);
       let entry = null;
       try {
         const st = fs.lstatSync(file);
@@ -340,9 +398,9 @@ export const PLATFORMS = {
       }
       return { desktop, file, entry };
     },
-    // Eigen = normale Datei mit der Zeile X-Tweakable-DJ=launcher.
+    // Eigen = normale Datei mit der Zeile der Art (z. B. X-Tweakable-DJ=launcher).
     check(entry, o) {
-      const own = entry.file && (entry.text ?? '').split(/\r?\n/).includes(LINUX_MARKER);
+      const own = entry.file && (entry.text ?? '').split(/\r?\n/).includes(kindOf(o.kind).marker);
       if (!own) return { own: false, state: 'foreign', dir: null };
       const dir = linuxEntryDir(entry.text);
       if (dir !== o.dir) return { own: true, state: 'otherFolder', dir };

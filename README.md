@@ -50,12 +50,12 @@ Tweakable DJ is an independent project and not an official Spotify product (more
 
 First time here? Download Tweakable DJ, install Node.js and start it as described in the [setup](#7-setup-one-time). On the first start, a wizard guides you through the rest (about 10 minutes). After that, it works like this every time:
 
-1. Start Tweakable DJ: double-click **`Tweakable DJ.cmd`** (Windows) or **`Tweakable DJ.command`** (Mac); on Linux, run `./start.sh` in a terminal. The interface with its controls opens in your browser.
+1. Start Tweakable DJ: double-click the **shortcut *Tweakable DJ* on your desktop** (the setup wizard creates it). Without the shortcut: double-click **`Tweakable DJ.cmd`** (Windows) or **`Tweakable DJ.command`** (Mac); on Linux, run `./start.sh` in a terminal. The interface with its controls opens in your browser.
 2. Pick a **preset** (e.g. “Discover”) or adjust the controls yourself, then click **Test run**. The DJ shows which songs it would pick and doesn’t change anything.
 3. If you like the selection, click **Use this list** below it: exactly these songs go into “Tweakable DJ”, in this order. (**Rebuild playlist**, on the other hand, draws again and takes about a minute.)
 4. Listen to “Tweakable DJ” in Spotify, ideally without shuffle, because the DJ has already mixed the order.
 
-The console or terminal window that opens must stay open while you use the interface.
+Started from the shortcut, Tweakable DJ runs in the background without a window. To quit: in the tab *Settings*, under *Program*, click **Quit Tweakable DJ** – or just close the browser tab: after 10 minutes without an open page, Tweakable DJ quits by itself. If you start `Tweakable DJ.cmd`, `Tweakable DJ.command` or `./start.sh` directly instead, a console or terminal window opens that must stay open while you use the interface.
 
 ---
 
@@ -133,6 +133,7 @@ The numbers show the order of a run:
 | `probelauf.json` | Result of the last test run (songs, time, fingerprint of the settings) for *Use this list* or `node dj.mjs --apply`. A real run and applying it delete the file. Deleting it does no harm. |
 | `automatik.json` | Result of the last automatic run (time, ✓ or the reason it failed). The interface shows it under *Rebuild automatically* (tab *Settings*). |
 | `automatik.log` | The complete output of the last automatic run, for troubleshooting |
+| `ui.log` | What Tweakable DJ reports while running without a window (started from the desktop shortcut), for troubleshooting. At most about 1 MB; older entries move to `ui.old.log`. |
 | `update-check.json` | Result of the last [update check](#update-check) (time and newest version). Deleting it does no harm. |
 | `seen-version.json` | The version for which you last saw *New in v…* after an update. Deleting it does no harm (the notice then waits for the next update). |
 | `.update/` | Created by *Update now*: the backup of the program files of the previous version (`backup-<version>`). Deleting it does no harm. |
@@ -276,10 +277,16 @@ Both only change the interface, not the playlist, so a test run can still be use
 
 ### With the interface
 
-Double-click `Tweakable DJ.cmd` (Windows) or `Tweakable DJ.command` (Mac); on Linux, run `./start.sh` in a terminal. `node ui.mjs` in a terminal works everywhere too. Your browser opens <http://127.0.0.1:8899>.
+Double-click the shortcut *Tweakable DJ* on your desktop, `Tweakable DJ.cmd` (Windows) or `Tweakable DJ.command` (Mac); on Linux, run `./start.sh` in a terminal. `node ui.mjs` in a terminal works everywhere too. Your browser opens <http://127.0.0.1:8899>.
+
+- **No window**: the shortcut starts Tweakable DJ in the background, without a console or terminal window; what would show there goes to the file `ui.log` in the folder (at most about 1 MB, older entries in `ui.old.log`). If it can’t start (e.g. because another program uses port 8899), a system notification says so. If Node.js is missing or too old, a window with the message opens after all.
+- **Only once**: if Tweakable DJ is already running, another double-click just opens the interface in your browser.
+- **Quit**: in the tab *Settings*, under *Program*, click **Quit Tweakable DJ** (not during a run, import, update or login). Automatic runs still take place – your system’s scheduler starts them. Without a window, Tweakable DJ also quits by itself when no page has been open for 10 minutes (time the PC spends asleep doesn’t count). A page that’s still open then says *Tweakable DJ is no longer running – please start it again with the shortcut.*
+- **Troubleshooting with a window**: double-clicking `Tweakable DJ.cmd` (Windows) or `Tweakable DJ.command` (Mac), or `./start.sh` in a terminal (Linux), starts with a window as before, showing all messages. Without a window, they are in `ui.log`.
+- **Older shortcut**: a shortcut from version 0.2.5 or older (with a window) is renewed automatically on the next start if it points to this folder.
 On the very first start, your system may ask for confirmation, see [setup](#7-setup-one-time), step 3. If Tweakable DJ isn’t set up yet, the setup wizard appears instead of the controls.
 
-The page has two tabs: **Playlist** (presets, controls, output with text file and test run) and **Settings** (automatic runs, block list, archive, appearance, credentials, shortcut, version).
+The page has two tabs: **Playlist** (presets, controls, output with text file and test run) and **Settings** (automatic runs, block list, archive, appearance, credentials, shortcut, program with version and *Quit Tweakable DJ*).
 
 - **Language** (top right, a small selection field, e.g. **EN ▾**, with Deutsch, English, Español and Français): switches the whole interface immediately, including the wizard. Your choice is saved in `config.jsonc` (`language`) and then also applies to test runs, rebuilds, automatic runs and the terminal. Until you choose, the interface follows your browser’s language. Spanish and French are machine translated; a line at the bottom of the page says so and links to the [issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), where corrections are welcome.
 - **Presets**: four buttons set all rule controls at once:
@@ -303,7 +310,7 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
 - **Rebuild playlist**: draws again, refills “Tweakable DJ” and then shows a link to Spotify. The playlist description says when it was made and how many new songs and favorites it has; the play time is shown by Spotify itself.
 - **Output**: always visible; before the first run it shows a short placeholder. After a test run or a run, a line below the summary sums up the list, e.g. *34 artists · release years 1978–2025 · 12 songs for the first time*: different (main) artists, the span of release years according to Spotify (left out if none is known) and how many songs the DJ has never written to the playlist before. Tweakable DJ remembers these songs from this version on; before that, it only knows the playlists in the [archive](#playlist-archive) and the runs kept for *Block previous runs*. Below it are the buttons for the text file: *Save as text file* downloads “Tweakable DJ” as it currently is in Spotify (after a test run: the list of the test run, see above). *Import … → From file …* fills it with your own list: first a preview (“38 of 40 found” and the lines that don’t match), then *Write to playlist “Tweakable DJ” (replaces its contents)*. More under [Text file](#text-file-save-and-import). *Import … → Earlier playlist …* brings back a playlist from the [archive](#playlist-archive), with the same preview and confirmation.
 - **Credentials** (tab *Settings*): shows whether you’re logged in to Spotify and your Last.fm username. **Change credentials** opens the setup wizard with your previous entries. **Remind me to log in again** (on by default): one week before the Spotify login expires (after 180 days), a system notification reminds you, at most once a day.
-- <a id="desktop-shortcut"></a>**Shortcut** (tab *Settings*): shows whether there is a shortcut *Tweakable DJ* with the logo on your desktop. **Create shortcut** adds one, which starts Tweakable DJ with a double-click (Windows: `Tweakable DJ.lnk`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). If you moved the folder, the section says *Points to a different folder*; **Create again** fixes it. **Remove** deletes it. Tweakable DJ only ever touches its own shortcut: if something else on the desktop has that name, it stays as it is.
+- <a id="desktop-shortcut"></a>**Shortcut** (tab *Settings*): shows whether there is a shortcut *Tweakable DJ* with the logo on your desktop. **Create shortcut** adds one, which starts Tweakable DJ with a double-click, without a window (Windows: `Tweakable DJ.lnk`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). If you moved the folder, the section says *Points to a different folder*; **Create again** fixes it. **Remove** deletes it. Tweakable DJ only ever touches its own shortcut: if something else on the desktop has that name, it stays as it is.
 - **Log in with Spotify**: appears when your Spotify login expires soon or has expired. Spotify requires a new login every 6 months. It also appears if *Followed artists* isn’t at “no preference” and your login is from before that setting existed.
 - **Rebuild automatically** (tab *Settings*): *Off*, *Daily* or *Weekly*, plus the time and, if needed, the day of the week. When you click *Save*, Tweakable DJ adds itself to your system’s scheduler and then rebuilds the playlist by itself, even when the interface is closed. Below, you see the next run and the result of the last automatic run (✓ with the number of songs or ✗ with the reason). What happens if your computer is off at the set time:
   - Windows: the run is made up the next time you turn it on.
@@ -468,7 +475,7 @@ The update only writes the program files listed in the release (`manifest.json`)
 
 **By hand**
 
-1. Download `tweakable-dj-v….zip` of the new version from *Releases* on GitHub (as in [setup](#7-setup-one-time), step 1) and close the Tweakable DJ window.
+1. Download `tweakable-dj-v….zip` of the new version from *Releases* on GitHub (as in [setup](#7-setup-one-time), step 1) and quit Tweakable DJ (*Quit Tweakable DJ* or close its window).
 2. Unzip it **over your existing `tweakable-dj` folder** and replace the files:
    - Windows: right-click the ZIP file → *Extract All*, choose the folder that **contains** your `tweakable-dj` folder (e.g. *Documents*) as the destination and confirm *Replace the files in the destination*.
    - Mac and Linux: in a terminal, `unzip -o ~/Downloads/tweakable-dj-v….zip -d <folder that contains tweakable-dj>`. Don’t drag the new folder onto the old one in the Finder: the Finder replaces the whole folder, including your personal files.
@@ -484,7 +491,7 @@ Your personal files aren’t in the ZIP file, so they stay as they are, and auto
 
 1. **First turn automatic runs off:** in the interface, in the tab *Settings*, set *Rebuild automatically* to *Off* and click *Save*. That removes the entry from your system’s scheduler.
 2. **Remove the desktop shortcut**, if you have one: in the tab *Settings*, under *Shortcut*, click *Remove*. Or delete it from the desktop by hand (Windows: `Tweakable DJ`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). Otherwise it stays on the desktop and leads nowhere.
-3. Close the Tweakable DJ window and delete the `tweakable-dj` folder. Your personal files (settings, Spotify login, history, playlist archive) go with it. To keep earlier playlists, copy the `archiv` folder first.
+3. Quit Tweakable DJ (tab *Settings*, *Program*, **Quit Tweakable DJ**, or close its window) and delete the `tweakable-dj` folder. Your personal files (settings, Spotify login, history, playlist archive) go with it. To keep earlier playlists, copy the `archiv` folder first.
 4. If you like: delete the playlist in Spotify (by default “Tweakable DJ”) and your Spotify app in the [Spotify dashboard](https://developer.spotify.com/dashboard).
 
 **If you delete the folder while automatic runs are still on**, the entry stays in the scheduler. It keeps starting at the set time, but each run fails silently because the folder is gone, and the playlist is no longer rebuilt. You can remove the entry by hand:
@@ -523,7 +530,9 @@ There is only ever one entry: it always has the same name, whichever folder it c
 | *Use this list* is disabled, or “There’s no test run to apply” | A test run is valid for 24 hours and only with the same settings; a rebuild (also by automatic runs) ends it. The reason is shown below the button. Start a new test run. |
 | Import: “Line …: not found on Spotify” | Check the spelling of artist and title, or paste the link to the song instead of its name (in Spotify: Share → Copy link) |
 | “Update failed: …” | The message says whether nothing was changed or the old version was restored. Try again later, or update by hand ([Updating](#8-updating)). |
-| The interface doesn’t open / page can’t be reached | The console or terminal window of Tweakable DJ was closed: start Tweakable DJ again |
+| The interface doesn’t open / page can’t be reached | Tweakable DJ has quit (or its window was closed): start it again with the shortcut |
+| Double-clicking the shortcut does nothing | `ui.log` in the Tweakable DJ folder says what’s going on. Or start with a window for troubleshooting: double-click `Tweakable DJ.cmd` (Windows) or `Tweakable DJ.command` (Mac); on Linux, `./start.sh` in a terminal. |
+| “Port 8899 is used by another program” | Another program uses the address of Tweakable DJ. Close it, or start Tweakable DJ in a terminal with another port, e.g. `TWEAKABLE_DJ_PORT=8898` (the Spotify login works with any port). |
 | “Node.js was not found”, “Node.js is not installed” or “'node' is not recognized as an internal or external command” | Install Node.js ([setup](#7-setup-one-time), step 2) and restart Tweakable DJ. If it still doesn’t work, log out and back in once. |
 | “Node.js is too old” or “Tweakable DJ needs Node.js 18 or newer” | Install the newest version from <https://nodejs.org> |
 | Mac: “… can’t be opened because it is from an unidentified developer” | The first time, start it with right-click → *Open* ([setup](#7-setup-one-time), step 3) |

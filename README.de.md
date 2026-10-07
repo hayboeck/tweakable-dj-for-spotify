@@ -51,12 +51,12 @@ Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt 
 
 Zum ersten Mal hier? Dann Tweakable DJ herunterladen, Node.js installieren und starten, wie in der [Einrichtung](#7-einrichtung-einmalig) beschrieben. Beim ersten Start führt dich ein Assistent durch den Rest (ca. 10 Minuten). Danach geht es jedes Mal so:
 
-1. Tweakable DJ starten: Doppelklick auf **`Tweakable DJ.cmd`** (Windows) bzw. **`Tweakable DJ.command`** (Mac), unter Linux im Terminal `./start.sh`. Im Browser öffnet sich die Oberfläche mit Reglern.
+1. Tweakable DJ starten: Doppelklick auf die **Verknüpfung *Tweakable DJ* auf dem Desktop** (legt der Assistent an). Ohne Verknüpfung: Doppelklick auf **`Tweakable DJ.cmd`** (Windows) bzw. **`Tweakable DJ.command`** (Mac), unter Linux im Terminal `./start.sh`. Im Browser öffnet sich die Oberfläche mit Reglern.
 2. Eine **Voreinstellung** wählen (z. B. „Entdecken“) oder die Regler selbst einstellen, dann auf **Probelauf** klicken. Der DJ zeigt, welche Songs er auswählen würde, und ändert nichts.
 3. Passt die Auswahl, unter der Liste auf **Diese Liste übernehmen** klicken: Genau diese Songs kommen in dieser Reihenfolge nach „Tweakable DJ“. (**Playlist neu erstellen** lost dagegen neu aus und dauert etwa eine Minute.)
 4. In Spotify „Tweakable DJ“ anhören, am besten ohne Zufallswiedergabe, weil der DJ die Reihenfolge schon gemischt hat.
 
-Das Konsolen- bzw. Terminalfenster, das sich dabei öffnet, muss offen bleiben, solange du die Oberfläche benutzt.
+Über die Verknüpfung läuft Tweakable DJ ohne Fenster im Hintergrund. Beenden: im Tab *Einstellungen* unter *Programm* auf **Tweakable DJ beenden** klicken – oder einfach den Browser-Tab schließen: Nach 10 Minuten ohne offene Seite beendet sich Tweakable DJ von selbst. Startest du dagegen `Tweakable DJ.cmd`, `Tweakable DJ.command` bzw. `./start.sh` direkt, öffnet sich ein Konsolen- bzw. Terminalfenster, das offen bleiben muss, solange du die Oberfläche benutzt.
 
 ---
 
@@ -134,6 +134,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `probelauf.json` | Ergebnis des letzten Probelaufs (Songs, Zeitpunkt, Fingerabdruck der Einstellungen) für *Diese Liste übernehmen* bzw. `node dj.mjs --apply`. Ein echter Lauf und das Übernehmen löschen sie. Löschen schadet nicht. |
 | `automatik.json` | Ergebnis des letzten automatischen Laufs (Zeit, ✓ oder Fehlergrund). Die Oberfläche zeigt es unter *Automatisch neu erstellen* (Tab *Einstellungen*) an. |
 | `automatik.log` | Die komplette Ausgabe des letzten automatischen Laufs, für die Fehlersuche |
+| `ui.log` | Was Tweakable DJ ohne Fenster (Start über die Verknüpfung auf dem Desktop) meldet, für die Fehlersuche. Höchstens etwa 1 MB; ältere Einträge wandern nach `ui.old.log`. |
 | `update-check.json` | Ergebnis der letzten [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen) (Zeit und neueste Version). Löschen schadet nicht. |
 | `seen-version.json` | Die Version, zu der du *Neu in v…* nach einem Update zuletzt gesehen hast. Löschen schadet nicht (der Hinweis wartet dann auf das nächste Update). |
 | `.update/` | Legt *Jetzt aktualisieren* an: die Sicherung der Programmdateien der vorigen Version (`backup-<Version>`). Löschen schadet nicht. |
@@ -277,10 +278,16 @@ Beide ändern nur die Oberfläche, nicht die Playlist; ein Probelauf bleibt desh
 
 ### Mit der Oberfläche
 
-Doppelklick auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac), unter Linux im Terminal `./start.sh`. Überall geht auch `node ui.mjs` im Terminal. Der Browser öffnet <http://127.0.0.1:8899>.
+Doppelklick auf die Verknüpfung *Tweakable DJ* auf dem Desktop, auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac), unter Linux im Terminal `./start.sh`. Überall geht auch `node ui.mjs` im Terminal. Der Browser öffnet <http://127.0.0.1:8899>.
+
+- **Ohne Fenster**: Die Verknüpfung startet Tweakable DJ im Hintergrund, ohne Konsolen- bzw. Terminalfenster; was sonst dort stünde, kommt in die Datei `ui.log` im Ordner (höchstens etwa 1 MB, ältere Einträge in `ui.old.log`). Lässt es sich nicht starten (z. B. weil ein anderes Programm den Port 8899 belegt), meldet das eine Systembenachrichtigung. Fehlt Node.js oder ist es zu alt, öffnet sich doch ein Fenster mit der Meldung.
+- **Nur einmal**: Läuft Tweakable DJ schon, öffnet ein weiterer Doppelklick nur die Oberfläche im Browser.
+- **Beenden**: im Tab *Einstellungen* unter *Programm* auf **Tweakable DJ beenden** (nicht während eines Laufs, Imports, Updates oder einer Anmeldung). Automatische Läufe finden trotzdem statt – die startet der Zeitplaner deines Systems. Ohne Fenster beendet sich Tweakable DJ außerdem von selbst, wenn 10 Minuten lang keine Seite offen war (der Ruhezustand des PCs zählt nicht mit). Eine noch offene Seite sagt dann *Tweakable DJ läuft nicht mehr – bitte über die Verknüpfung neu starten.*
+- **Fehlersuche mit Fenster**: Doppelklick auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac) oder `./start.sh` im Terminal (Linux) startet wie früher mit Fenster, in dem alle Meldungen stehen. Ohne Fenster stehen sie in `ui.log`.
+- **Ältere Verknüpfung**: Eine Verknüpfung aus Version 0.2.5 oder älter (mit Fenster) erneuert Tweakable DJ beim nächsten Start von selbst, wenn sie auf diesen Ordner zeigt.
 Beim allerersten Start fragt das System eventuell nach, siehe [Einrichtung](#7-einrichtung-einmalig), Schritt 3. Ist Tweakable DJ noch nicht eingerichtet, erscheint statt der Regler der Einrichtungs-Assistent.
 
-Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Textdatei und Probelauf) und **Einstellungen** (Automatik, Sperrliste, Archiv, Aussehen, Zugangsdaten, Verknüpfung, Version).
+Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Textdatei und Probelauf) und **Einstellungen** (Automatik, Sperrliste, Archiv, Aussehen, Zugangsdaten, Verknüpfung, Programm mit Version und *Tweakable DJ beenden*).
 
 - **Sprache** (oben rechts, ein kleines Auswahlfeld, z. B. **DE ▾**, mit Deutsch, English, Español und Français): schaltet die ganze Oberfläche sofort um, auch im Assistenten. Die Wahl wird in `config.jsonc` gespeichert (`language`) und gilt dann auch für Probelauf, Neuerstellung, automatische Läufe und das Terminal. Solange du nichts wählst, richtet sich die Oberfläche nach der Sprache deines Browsers. Spanisch und Französisch sind maschinell übersetzt; eine Zeile ganz unten auf der Seite weist darauf hin und verlinkt die [Issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), wo Korrekturen willkommen sind.
 - **Voreinstellungen**: Vier Buttons setzen alle Regel-Regler auf einmal:
@@ -304,7 +311,7 @@ Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Tex
 - **Playlist neu erstellen**: Lost neu aus, befüllt „Tweakable DJ“ und zeigt danach einen Link zu Spotify. Die Beschreibung der Playlist nennt Zeitpunkt sowie Anzahl neuer Songs und Favoriten; die Spieldauer zeigt Spotify selbst an.
 - **Ausgabe**: immer sichtbar, vor dem ersten Lauf mit einem kurzen Platzhalter. Nach einem Probelauf bzw. Lauf fasst eine Zeile unter der Zusammenfassung die Liste zusammen, z. B. *34 Künstler · Erscheinungsjahre 1978–2025 · 12 Songs zum ersten Mal dabei*: verschiedene (Haupt-)Künstler, die Spanne der Erscheinungsjahre laut Spotify (fehlt, wenn keins bekannt ist) und wie viele Songs der DJ noch nie in die Playlist geschrieben hat. Diese Songs merkt sich Tweakable DJ ab dieser Version; davor kennt er nur die Playlists im [Archiv](#playlist-archiv) und die Läufe, die er für *Vorige Läufe sperren* aufhebt. Darunter stehen die Buttons für die Textdatei: *Als Textdatei speichern* lädt „Tweakable DJ“ so herunter, wie die Playlist gerade in Spotify ist (nach einem Probelauf: dessen Liste, siehe oben). *Importieren … → Aus Datei …* füllt sie mit einer eigenen Liste: erst eine Vorschau („38 von 40 gefunden“ und die Zeilen, die nicht passen), dann *In Playlist „Tweakable DJ“ schreiben (ersetzt den Inhalt)*. Mehr unter [Textdatei](#textdatei-speichern-und-importieren). *Importieren … → Frühere Playlist …* holt eine Playlist aus dem [Archiv](#playlist-archiv) zurück, mit derselben Vorschau und Rückfrage.
 - **Zugangsdaten** (Tab *Einstellungen*): zeigt, ob du bei Spotify angemeldet bist, und deinen Last.fm-Benutzernamen. **Zugangsdaten ändern** öffnet den Einrichtungs-Assistenten mit deinen bisherigen Angaben. **An neue Anmeldung erinnern** (standardmäßig an): Eine Woche bevor die Spotify-Anmeldung abläuft (nach 180 Tagen), erinnert eine Systembenachrichtigung daran, höchstens einmal am Tag.
-- <a id="verknüpfung-auf-dem-desktop"></a>**Verknüpfung** (Tab *Einstellungen*): zeigt, ob es auf deinem Desktop eine Verknüpfung *Tweakable DJ* mit dem Logo gibt. **Verknüpfung anlegen** legt eine an, die Tweakable DJ per Doppelklick startet (Windows: `Tweakable DJ.lnk`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). Hast du den Ordner verschoben, steht dort *Zeigt auf einen anderen Ordner*; **Neu anlegen** behebt das. **Entfernen** löscht sie. Tweakable DJ fasst nur die eigene Verknüpfung an: Liegt auf dem Desktop etwas anderes unter diesem Namen, bleibt es, wie es ist.
+- <a id="verknüpfung-auf-dem-desktop"></a>**Verknüpfung** (Tab *Einstellungen*): zeigt, ob es auf deinem Desktop eine Verknüpfung *Tweakable DJ* mit dem Logo gibt. **Verknüpfung anlegen** legt eine an, die Tweakable DJ per Doppelklick ohne Fenster startet (Windows: `Tweakable DJ.lnk`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). Hast du den Ordner verschoben, steht dort *Zeigt auf einen anderen Ordner*; **Neu anlegen** behebt das. **Entfernen** löscht sie. Tweakable DJ fasst nur die eigene Verknüpfung an: Liegt auf dem Desktop etwas anderes unter diesem Namen, bleibt es, wie es ist.
 - **Mit Spotify anmelden**: Erscheint, wenn die Spotify-Anmeldung bald abläuft oder abgelaufen ist. Spotify verlangt alle 6 Monate eine neue Anmeldung. Außerdem, wenn *Gefolgte Künstler* nicht auf „egal“ steht und deine Anmeldung älter ist als diese Einstellung.
 - **Automatisch neu erstellen** (Tab *Einstellungen*): *Aus*, *Täglich* oder *Wöchentlich*, dazu Uhrzeit und gegebenenfalls Wochentag. Beim *Speichern* trägt sich Tweakable DJ in den Zeitplaner deines Systems ein und erstellt die Playlist dann von selbst neu, auch wenn die Oberfläche geschlossen ist. Darunter stehen der nächste Lauf und das Ergebnis des letzten automatischen Laufs (✓ mit Anzahl Songs oder ✗ mit Grund). Was passiert, wenn der Rechner zur eingestellten Zeit aus ist:
   - Windows: Der Lauf wird beim nächsten Einschalten nachgeholt.
@@ -469,7 +476,7 @@ Das Update schreibt nur die Programmdateien, die im Release stehen (`manifest.js
 
 **Von Hand**
 
-1. Die ZIP-Datei `tweakable-dj-v….zip` der neuen Version unter *Releases* auf GitHub herunterladen (wie in der [Einrichtung](#7-einrichtung-einmalig), Schritt 1) und das Fenster von Tweakable DJ schließen.
+1. Die ZIP-Datei `tweakable-dj-v….zip` der neuen Version unter *Releases* auf GitHub herunterladen (wie in der [Einrichtung](#7-einrichtung-einmalig), Schritt 1) und Tweakable DJ beenden (*Tweakable DJ beenden* bzw. das Fenster schließen).
 2. Die ZIP-Datei **über deinen bisherigen Ordner `tweakable-dj`** entpacken und die Dateien ersetzen:
    - Windows: Rechtsklick auf die ZIP-Datei → *Alle extrahieren*, als Ziel den Ordner wählen, **in dem** dein Ordner `tweakable-dj` liegt (z. B. *Dokumente*), und *Dateien im Ziel ersetzen* bestätigen.
    - Mac und Linux: im Terminal `unzip -o ~/Downloads/tweakable-dj-v….zip -d <Ordner, in dem tweakable-dj liegt>`. Den neuen Ordner im Finder nicht auf den alten ziehen: Der Finder ersetzt dann den ganzen Ordner, samt deinen persönlichen Dateien.
@@ -485,7 +492,7 @@ Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie
 
 1. **Zuerst die Automatik ausschalten:** In der Oberfläche im Tab *Einstellungen* *Automatisch neu erstellen* auf *Aus* stellen und *Speichern* klicken. Damit verschwindet der Eintrag aus dem Zeitplaner deines Systems.
 2. **Die Verknüpfung auf dem Desktop entfernen**, falls du eine hast: im Tab *Einstellungen* unter *Verknüpfung* auf *Entfernen* klicken. Oder sie von Hand vom Desktop löschen (Windows: `Tweakable DJ`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). Sonst bleibt sie auf dem Desktop liegen und führt ins Leere.
-3. Das Fenster von Tweakable DJ schließen und den Ordner `tweakable-dj` löschen. Deine persönlichen Dateien (Einstellungen, Spotify-Anmeldung, Verlauf, Playlist-Archiv) sind damit auch weg. Willst du frühere Playlists behalten, kopiere vorher den Ordner `archiv`.
+3. Tweakable DJ beenden (Tab *Einstellungen*, *Programm*, **Tweakable DJ beenden**, bzw. das Fenster schließen) und den Ordner `tweakable-dj` löschen. Deine persönlichen Dateien (Einstellungen, Spotify-Anmeldung, Verlauf, Playlist-Archiv) sind damit auch weg. Willst du frühere Playlists behalten, kopiere vorher den Ordner `archiv`.
 4. Wenn du magst: die Playlist in Spotify löschen (standardmäßig „Tweakable DJ“) und deine Spotify-App im [Spotify-Dashboard](https://developer.spotify.com/dashboard).
 
 **Löschst du den Ordner, während die Automatik noch an ist**, bleibt der Eintrag im Zeitplaner. Er startet weiter zur eingestellten Zeit, aber jeder Lauf scheitert unbemerkt, weil der Ordner fehlt, und die Playlist wird nicht mehr neu erstellt. Den Eintrag kannst du von Hand entfernen:
@@ -524,7 +531,9 @@ Es gibt immer nur einen Eintrag: Er hat stets denselben Namen, egal aus welchem 
 | *Diese Liste übernehmen* ist gesperrt, oder „Es gibt keinen Probelauf zum Übernehmen“ | Der Probelauf gilt 24 Stunden und nur mit denselben Einstellungen; eine Neuerstellung (auch durch die Automatik) beendet ihn. Darunter steht der Grund. Einen neuen Probelauf starten. |
 | Import: „Zeile …: auf Spotify nicht gefunden“ | Schreibweise von Künstler und Titel prüfen, oder statt des Namens den Link zum Song einfügen (in Spotify: Teilen → Link kopieren) |
 | „Update fehlgeschlagen: …“ | Die Meldung sagt, ob nichts geändert oder die alte Version wiederhergestellt wurde. Später noch einmal versuchen oder von Hand aktualisieren ([Aktualisieren](#8-aktualisieren)). |
-| Oberfläche öffnet sich nicht / Seite nicht erreichbar | Das Konsolen- bzw. Terminalfenster von Tweakable DJ wurde geschlossen: Tweakable DJ noch einmal starten |
+| Oberfläche öffnet sich nicht / Seite nicht erreichbar | Tweakable DJ wurde beendet (oder sein Fenster geschlossen): über die Verknüpfung noch einmal starten |
+| Doppelklick auf die Verknüpfung, aber nichts passiert | In `ui.log` im Ordner von Tweakable DJ steht, was los ist. Oder zum Fehlersuchen mit Fenster starten: Doppelklick auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac), unter Linux `./start.sh` im Terminal. |
+| „Port 8899 ist von einem anderen Programm belegt“ | Ein anderes Programm nutzt die Adresse von Tweakable DJ. Beende es, oder starte Tweakable DJ im Terminal mit einem anderen Port, z. B. `TWEAKABLE_DJ_PORT=8898` (die Spotify-Anmeldung klappt mit jedem Port). |
 | „Node.js wurde nicht gefunden“, „Node.js ist nicht installiert“ oder „Der Befehl "node" ist entweder falsch geschrieben oder konnte nicht gefunden werden“ | Node.js installieren ([Einrichtung](#7-einrichtung-einmalig), Schritt 2) und Tweakable DJ neu starten. Klappt es dann immer noch nicht, einmal ab- und wieder anmelden. |
 | „Node.js ist zu alt“ oder „Tweakable DJ braucht Node.js 18 oder neuer“ | Die neueste Version von <https://nodejs.org> installieren |
 | Mac: „… kann nicht geöffnet werden, da es von einem nicht verifizierten Entwickler stammt“ | Beim ersten Mal mit Rechtsklick → *Öffnen* starten ([Einrichtung](#7-einrichtung-einmalig), Schritt 3) |

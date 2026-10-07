@@ -45,7 +45,7 @@ const AUTO_RUN_MAX = 30 * 60_000;
 // Persönliche und automatisch angelegte Dateien: Die schreibt ein Update nie, egal in welcher Ordnertiefe und in welcher
 // Groß-/Kleinschreibung (Windows und macOS unterscheiden die nicht).
 export const PERSONAL_FILES = ['config.jsonc', 'tokens.json', 'state.json', 'lastfm-cache.json', 'probelauf.json', 'automatik.json',
-  'automatik.log', 'update-check.json', 'seen-version.json'];
+  'automatik.log', 'update-check.json', 'seen-version.json', 'ui.log', 'ui.old.log'];
 // Persönliche Ordner: das Playlist-Archiv (archive.mjs). Kein Pfad aus manifest.json darf hindurchführen; das Update legt dort
 // nichts ab, und weil es nur Programmdateien sichert und zurückholt, löscht es dort auch beim Zurücksichern nichts.
 export const PERSONAL_DIRS = ['archiv'];

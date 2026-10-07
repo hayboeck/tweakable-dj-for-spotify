@@ -13,6 +13,7 @@ lastfm-cache.json
 probelauf.json
 # Ergebnis des letzten automatischen Laufs (das Protokoll automatik.log fällt unter *.log)
 automatik.json
+# Protokoll der Oberfläche ohne Fenster (ui.log, ältere Einträge in ui.old.log) – fällt ebenfalls unter *.log
 # Letzte Prüfung auf neue Versionen (update.mjs)
 update-check.json
 # Zuletzt gesehene Version für den Hinweis „Neu in v…“ nach einem Update (whatsnew.mjs)
