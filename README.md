@@ -51,8 +51,8 @@ Tweakable DJ is an independent project and not an official Spotify product (more
 First time here? Download Tweakable DJ, install Node.js and start it as described in the [setup](#7-setup-one-time). On the first start, a wizard guides you through the rest (about 10 minutes). After that, it works like this every time:
 
 1. Start Tweakable DJ: double-click the **shortcut *Tweakable DJ* on your desktop** (the setup wizard creates it). Without the shortcut: double-click **`Tweakable DJ.cmd`** (Windows) or **`Tweakable DJ.command`** (Mac); on Linux, run `./start.sh` in a terminal. The interface with its controls opens in your browser.
-2. Pick a **preset** (e.g. “Discover”) or adjust the controls yourself, then click **Test run**. The DJ shows which songs it would pick and doesn’t change anything.
-3. If you like the selection, click **Use this list** below it: exactly these songs go into “Tweakable DJ”, in this order. (**Rebuild playlist**, on the other hand, draws again and takes about a minute.)
+2. Pick a **preset** (e.g. “Discover”) or set the *Number of songs*, then click **Create playlist** (takes about a minute). The DJ shows which songs it picked; nothing goes to Spotify yet. (*Pro* at the top shows all controls.)
+3. If you like the selection, click **Overwrite “Tweakable DJ”** below it: exactly these songs go into “Tweakable DJ”, in this order. (**Save as new playlist** instead creates a separate playlist with date and time in its name.)
 4. Listen to “Tweakable DJ” in Spotify, ideally without shuffle, because the DJ has already mixed the order.
 
 Started from the shortcut, Tweakable DJ runs in the background without a window. To quit: in the tab *Settings*, under *Program*, click **Quit Tweakable DJ** – or just close the browser tab: after 10 minutes without an open page, Tweakable DJ quits by itself. If you start `Tweakable DJ.cmd`, `Tweakable DJ.command` or `./start.sh` directly instead, a console or terminal window opens that must stay open while you use the interface.
@@ -71,7 +71,7 @@ The numbers show the order of a run:
 - **Tweakable DJ** runs on your computer, fetches the data from both services, picks songs according to your rules and writes the result into the playlist.
 - **The interface** is a web page that runs only on your computer (<http://127.0.0.1:8899>). It guides you through the setup, changes the settings and starts the DJ.
 
-“Tweakable DJ” is always **the same playlist with the same link**. Each run only replaces its contents.
+“Tweakable DJ” is always **the same playlist with the same link**. Each run only replaces its contents. Only *Save as new playlist* creates a separate playlist.
 
 ---
 
@@ -95,7 +95,7 @@ The numbers show the order of a run:
 |---|---|
 | `dj.mjs` | The DJ itself: controls a run from start to finish (steps in section 4) |
 | `lineup.mjs` | The selection and ordering rules: the draw, “3 in 20”, gaps, comparing song titles |
-| `trial.mjs` | Remembers the last test run for *Use this list* and checks whether it is still valid |
+| `trial.mjs` | Remembers the last created list for *Overwrite* and *Save as new playlist* and checks whether it is still valid |
 | `playlist.mjs` | Writes and reads the playlist; format and import of the [text file](#text-file-save-and-import) |
 | `archive.mjs` | The [playlist archive](#playlist-archive): keeps every written playlist as a text file in `archiv/` and removes old ones |
 | `spotify.mjs` | Connection to Spotify: login, reading Liked Songs, finding songs, writing the playlist |
@@ -112,7 +112,7 @@ The numbers show the order of a run:
 | `whatsnew.mjs` | Shows *New in v…* once after an update, with the main points from `CHANGELOG.md` |
 | `manifest.json` | List of all program files of this version with their checksums. *Update now* only replaces files listed there. Only in the ZIP file, not in the GitHub repository. |
 | `package.json` | Shortcuts for developers: `npm start` (interface) and `npm test` (tests). Tweakable DJ needs no additional packages. |
-| `tests/` | Automated tests for the rules, the settings, the translations, automatic runs, the desktop shortcut (only in test folders), the update check and *Update now*, the interface, the text file and test runs including applying them, in which Spotify, Last.fm and GitHub are only simulated. Only in the GitHub repository, not in the ZIP file. |
+| `tests/` | Automated tests for the rules, the settings, the translations, automatic runs, the desktop shortcut (only in test folders), the update check and *Update now*, the interface, the text file and creating lists including overwriting and saving them as a new playlist, in which Spotify, Last.fm and GitHub are only simulated. Only in the GitHub repository, not in the ZIP file. |
 | `config.example.jsonc` | Empty settings template with English explanations. It becomes your `config.jsonc` when you set up in English, Spanish or French. |
 | `config.example.de.jsonc` | The same template with German explanations (for setting up in German) |
 | `overview.en.svg`, `overview.de.svg` | The diagram in section 2, in English and German |
@@ -130,7 +130,7 @@ The numbers show the order of a run:
 | `tokens.json` | Your Spotify login and when you logged in. **Don’t share it** – it would give someone access to your playlists. |
 | `state.json` | The DJ’s memory: which songs were in the last runs, which songs it has ever written to the playlist (for *for the first time*, at most 20,000) and which Spotify searches are already done. Deleting it resets all of that. That does no harm; the next run just takes a little longer. |
 | `lastfm-cache.json` | Cached answers from Last.fm (similar songs and artists), each valid for 7 days. Makes runs faster. Deleting it does no harm. |
-| `probelauf.json` | Result of the last test run (songs, time, fingerprint of the settings) for *Use this list* or `node dj.mjs --apply`. A real run and applying it delete the file. Deleting it does no harm. |
+| `probelauf.json` | The last list made with *Create playlist* (songs, time, fingerprint of the settings) for *Overwrite*, *Save as new playlist* or `node dj.mjs --apply`. A run that writes to Spotify and both buttons delete the file. Deleting it does no harm. |
 | `automatik.json` | Result of the last automatic run (time, ✓ or the reason it failed). The interface shows it under *Rebuild automatically* (tab *Settings*). |
 | `automatik.log` | The complete output of the last automatic run, for troubleshooting |
 | `ui.log` | What Tweakable DJ reports while running without a window (started from the desktop shortcut), for troubleshooting. At most about 1 MB; older entries move to `ui.old.log`. |
@@ -178,8 +178,8 @@ Every rule can be changed in `config.jsonc` or in the interface. The setting’s
 
 | Rule | Default | Allowed |
 |---|---|---|
-| Name of the playlist (`playlistName`). If it doesn’t exist, it is created. | Tweakable DJ | any name |
-| Source of your favorites (`seed`): your Liked Songs (`"liked"`) or one of your own or collaborative playlists. Favorites and most starting points come from here. | Liked Songs | `"liked"` or a playlist link |
+| Name of the playlist (`playlistName`, tab *Settings* → *Playlist*). *Overwrite*, automatic runs and the second shortcut write to this playlist. If it doesn’t exist, it is created. | Tweakable DJ | any name |
+| Source of your favorites (`seed`, tab *Settings* → *Playlist*): your Liked Songs (`"liked"`) or one of your own or collaborative playlists. Favorites and most starting points come from here. | Liked Songs | `"liked"` or a playlist link |
 | Length of the playlist (`size`) | 50 songs | 1–500 |
 | Share of favorites (`familiarShare`). The rest are new songs that aren’t in the source of your favorites. | 15% (≈ 8 songs) | 0–1 (`0.15` = 15%) |
 | Adventure (`adventure`): 0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant songs. Also sets for how many starting points the DJ wanders off to related artists. | 0.4 | 0–1 |
@@ -211,7 +211,7 @@ In the output, such songs are marked with “· current” (in German “· aktu
 | Recently played (`excludeRecentDays`): everything Last.fm says you played in this period. 0 = off. | 14 days | 0–365 |
 | Previous runs (`noRepeatRuns`): songs from the last N runs. 0 = off. | 3 runs | 0–100 |
 | Block list (`blockedArtists`): artists that never come up, neither as a song nor as a starting point nor as a detour. Whole words count: “Macloud” also blocks “Miksu / Macloud” and “feat. Macloud”, but “Rin” doesn’t block “Karin”. | none | list of names |
-| Blocked songs (`blockedTracks`): single songs that never come up, neither as a favorite nor as a new song nor as a starting point. A song counts as the same if it has the same Spotify link or the same artist and title, ignoring additions like “Remastered 2011”, “(Live)” or “feat.” – so other versions are blocked too. Easiest with × in the list of a test run ([Block list](#block-list-artists-and-songs)). | none | at most 1,000 entries `{ "uri": "spotify:track:…", "artist": "…", "name": "…" }` (`uri` may be missing) |
+| Blocked songs (`blockedTracks`): single songs that never come up, neither as a favorite nor as a new song nor as a starting point. A song counts as the same if it has the same Spotify link or the same artist and title, ignoring additions like “Remastered 2011”, “(Live)” or “feat.” – so other versions are blocked too. Easiest with × in the list made by *Create playlist* ([Block list](#block-list-artists-and-songs)). | none | at most 1,000 entries `{ "uri": "spotify:track:…", "artist": "…", "name": "…" }` (`uri` may be missing) |
 | No explicit songs (`excludeExplicit`): songs that Spotify marks as explicit stay out – favorites, new songs and the top-up with favorites. If Spotify has a clean version of a new song, the DJ takes that one. Starting points stay, because they only decide what Last.fm looks for. | off | `true` or `false` |
 | Songs that can’t be found unambiguously on Spotify (title and artist must match). Additions like “Remastered” or “feat.” are ignored in the comparison. | always | |
 
@@ -263,8 +263,9 @@ The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to se
 |---|---|---|
 | Mode of the interface (`theme`): `"system"` follows your device, `"light"` = always light, `"dark"` = always dark | `"system"` | `"system"`, `"light"`, `"dark"` |
 | Accent color of the interface (`accent`): color of links, controls and buttons | `"green"` | `"green"`, `"blue"`, `"violet"`, `"pink"`, `"red"`, `"orange"`, `"gold"`, `"teal"` |
+| View of the tab *Playlist* (`mode`, switch *Simple / Pro* at the top): `"simple"` = only presets and *Number of songs*, `"pro"` = all controls. Saved right away, without *Save*. Without `mode` (a `config.jsonc` from an older version), the view is *Pro*. | `"simple"` for new setups | `"simple"`, `"pro"` |
 
-Both only change the interface, not the playlist, so a test run can still be used.
+All three only change the interface, not the playlist, so a created list can still be written to Spotify.
 
 **Language**
 
@@ -287,9 +288,14 @@ Double-click the shortcut *Tweakable DJ* on your desktop, `Tweakable DJ.cmd` (Wi
 - **Older shortcut**: a shortcut from version 0.2.5 or older (with a window) is renewed automatically on the next start if it points to this folder.
 On the very first start, your system may ask for confirmation, see [setup](#7-setup-one-time), step 3. If Tweakable DJ isn’t set up yet, the setup wizard appears instead of the controls.
 
-The page has two tabs: **Playlist** (presets, controls, output with text file and test run) and **Settings** (automatic runs, block list, archive, appearance, credentials, shortcut, program with version and *Quit Tweakable DJ*).
+The page has two tabs: **Playlist** (presets, controls – in *Simple* only *Number of songs* –, output with text file) and **Settings** (*Playlist* with name and source, automatic runs, block list, archive, appearance, credentials, shortcut, program with version and *Quit Tweakable DJ*).
 
-- **Language** (top right, a small selection field, e.g. **EN ▾**, with Deutsch, English, Español and Français): switches the whole interface immediately, including the wizard. Your choice is saved in `config.jsonc` (`language`) and then also applies to test runs, rebuilds, automatic runs and the terminal. Until you choose, the interface follows your browser’s language. Spanish and French are machine translated; a line at the bottom of the page says so and links to the [issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), where corrections are welcome.
+- **Language** (top right, a small selection field, e.g. **EN ▾**, with Deutsch, English, Español and Français): switches the whole interface immediately, including the wizard. Your choice is saved in `config.jsonc` (`language`) and then also applies to created lists, automatic runs and the terminal. Until you choose, the interface follows your browser’s language. Spanish and French are machine translated; a line at the bottom of the page says so and links to the [issues](https://github.com/hayboeck/tweakable-dj-for-spotify/issues), where corrections are welcome.
+- **Simple / Pro** (at the top, left of the language): two views of the tab *Playlist*.
+  - *Simple* shows only the four presets and *Number of songs* (group *Length*, with the play time), plus the output with the list, ♥ and ×, the two buttons and text file / import.
+  - *Pro* shows all controls: *Share of favorites* (now in the group *Selection*), *Adventure*, starting points, Last.fm top songs, followed artists, release year, *What you’re listening to now*, *Variety* and *No repeats*.
+
+  Hidden controls keep working with their values. If they don’t match any preset in *Simple*, a notice says *Custom Pro settings active …*, with the button **Reset to “Default”**: it sets the values of the preset *Default* (*Save* or *Create playlist* then saves them). The view is saved right away (`mode` in `config.jsonc`), without *Save*, and doesn’t change the playlist. New users start with *Simple*. A `config.jsonc` from an older version (without `mode`) counts as *Pro*, so nothing changes unexpectedly after an update. The tab *Settings* is the same in both views.
 - **Presets**: four buttons set all rule controls at once:
   - *Discover*: lots of new songs, also further from your taste
   - *Familiar*: more favorites and very similar songs
@@ -299,20 +305,22 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
   Name, source, number of songs, followed artists, *Newer / older songs* and block list stay as they are. If your settings match a preset exactly, it is highlighted.
 - **Controls**: each setting has a control, an explanation and a green hint showing what the value does right now. If a value differs from the default, clicking “Default: …” resets it. A value from `config.jsonc` outside the allowed range is marked in red ([Rules and settings](#5-rules-and-settings)).
 - **Artist variety**: one slider with four steps (*low* to *very high*) sets all four artist rules at once. The individual values are under *Details for experts*; if they don’t match any step, the slider shows *Custom* and the details open.
-- **Source of your favorites**: a list with your Liked Songs and your playlists. Only playlists you own or collaborate on are offered, because Spotify only shares the contents of those.
+- **Playlist** (tab *Settings*, first section, in both views): **Playlist name** – *Overwrite*, automatic runs and the second shortcut write to this playlist; it is created if it doesn’t exist yet. **Source of your favorites**: a list with your Liked Songs and your playlists. Only playlists you own or collaborate on are offered, because Spotify only shares the contents of those.
 - **Block list** (tab *Settings*): artists, single songs and explicit songs, see [Block list](#block-list-artists-and-songs) below.
 - **Archive** (tab *Settings*): how many earlier playlists are kept as text files, see [Playlist archive](#playlist-archive).
 - **Appearance** (tab *Settings*): *Mode* (*System*, *Light*, *Dark*; *System* follows your device) and one of 8 *accent colors* as round swatches (default: green, the green of the Spotify logo). You see a change right away; *Save* keeps it, *Discard* brings back the previous one. So that nothing flashes when the page opens, the browser also remembers the saved choice.
-- **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*. They apply to both tabs; a dot on the other tab shows unsaved changes there. The tab *Settings* shows only these two buttons.
-- **Test run**: shows the selection without changing the playlist. Below it:
-  - **Use this list**: writes exactly these songs, in this order, to “Tweakable DJ” without drawing again, including the description. It counts like a run (the songs are then remembered for *Block previous runs*). The button is valid for 24 hours and only as long as the settings stay as they were for the test run; after that, after a rebuild (also by automatic runs) or if `probelauf.json` is missing, it is disabled and says why. Then just start a new test run. Setting the controls back makes it available again.
-  - **Save as text file** (below the output): after a test run, it downloads the list of the test run, even if it isn’t in the playlist (yet); the file name ends in `-test-run`.
+- **Save / Discard**: changes are only written to `config.jsonc` when you click *Save*. They apply to both tabs; a dot on the other tab shows unsaved changes there. In the tab *Playlist*, the bar at the bottom reads *Discard · Save · Create playlist*; the tab *Settings* shows only *Discard* and *Save*.
+- **Create playlist**: draws the list and shows it in the output (takes about a minute), but doesn’t write anything to Spotify yet. The summary starts with e.g. *Created: 50 songs · 3 h 17 min …* and ends with *· not in Spotify yet*. Below the list:
+  - **Overwrite “Tweakable DJ”** (with the name from the settings): writes exactly these songs, in this order, to the playlist from the settings without drawing again, and replaces its contents, including the description. The description says when it was made and how many new songs and favorites it has; the play time is shown by Spotify itself. This is the main button: one playlist that the DJ keeps fresh, like automatic runs and the second shortcut. Afterwards, **Restore previous playlist** appears ([Playlist archive](#playlist-archive)).
+  - **Save as new playlist**: creates a new playlist in Spotify with exactly these songs, named after the playlist from the settings plus date and time in the format of the interface’s language, e.g. “Tweakable DJ · 10/07/2026 03:32 PM”. The playlist from the settings stays as it is. Afterwards, **Open in Spotify ↗** leads to the new playlist. It goes into the archive as usual, under its own name; *Restore previous playlist* doesn’t appear.
+
+  Both count like a run (the songs are then remembered for *Block previous runs*). They are valid for 24 hours and only as long as the settings stay as they were when the list was created; after that, after another write of the playlist (also by automatic runs) or if `probelauf.json` is missing, they are disabled and the reason is shown below them. Then just click *Create playlist* again. Setting the controls back makes them available again. After one of the two, the created list is used up and both buttons disappear.
+  - **Save as text file** (below the output): after *Create playlist*, it downloads the created list, even if it isn’t in Spotify (yet); the file name ends in `-new.txt`.
   - **♥ next to each song** (beside the × for blocking): adds the song to your Liked Songs in Spotify. A filled ♥ means it already is one; clicking it again removes it. This needs the permission `user-library-modify`: if you logged in to Spotify before it existed (version 0.2.4 or older), the interface asks you to log in again once – everything else keeps working.
-- **Rebuild playlist**: draws again, refills “Tweakable DJ” and then shows a link to Spotify. The playlist description says when it was made and how many new songs and favorites it has; the play time is shown by Spotify itself.
-- **Output**: always visible; before the first run it shows a short placeholder. After a test run or a run, a line below the summary sums up the list, e.g. *34 artists · release years 1978–2025 · 12 songs for the first time*: different (main) artists, the span of release years according to Spotify (left out if none is known) and how many songs the DJ has never written to the playlist before. Tweakable DJ remembers these songs from this version on; before that, it only knows the playlists in the [archive](#playlist-archive) and the runs kept for *Block previous runs*. Below it are the buttons for the text file: *Save as text file* downloads “Tweakable DJ” as it currently is in Spotify (after a test run: the list of the test run, see above). *Import … → From file …* fills it with your own list: first a preview (“38 of 40 found” and the lines that don’t match), then *Write to playlist “Tweakable DJ” (replaces its contents)*. More under [Text file](#text-file-save-and-import). *Import … → Earlier playlist …* brings back a playlist from the [archive](#playlist-archive), with the same preview and confirmation.
+- **Output**: always visible; before the first run it shows a short placeholder. After *Create playlist* or a write to Spotify, a line below the summary sums up the list, e.g. *34 artists · release years 1978–2025 · 12 songs for the first time*: different (main) artists, the span of release years according to Spotify (left out if none is known) and how many songs the DJ has never written to the playlist before. Tweakable DJ remembers these songs from this version on; before that, it only knows the playlists in the [archive](#playlist-archive) and the runs kept for *Block previous runs*. Below it are the buttons for the text file: *Save as text file* downloads “Tweakable DJ” as it currently is in Spotify (after *Create playlist*: the created list, see above). *Import … → From file …* fills it with your own list: first a preview (“38 of 40 found” and the lines that don’t match), then *Write to playlist “Tweakable DJ” (replaces its contents)*. More under [Text file](#text-file-save-and-import). *Import … → Earlier playlist …* brings back a playlist from the [archive](#playlist-archive), with the same preview and confirmation.
 - **Credentials** (tab *Settings*): shows whether you’re logged in to Spotify and your Last.fm username. **Change credentials** opens the setup wizard with your previous entries. **Remind me to log in again** (on by default): one week before the Spotify login expires (after 180 days), a system notification reminds you, at most once a day.
 - <a id="desktop-shortcut"></a>**Shortcut** (tab *Settings*): shows whether there is a shortcut *Tweakable DJ* with the logo on your desktop. **Create shortcut** adds one, which starts Tweakable DJ with a double-click, without a window (Windows: `Tweakable DJ.lnk`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). If you moved the folder, the section says *Points to a different folder*; **Create again** fixes it. **Remove** deletes it. Tweakable DJ only ever touches its own shortcut: if something else on the desktop has that name, it stays as it is.
-  **Second shortcut: rebuild playlist now** (`runShortcut`, off by default): switched on and saved, *Tweakable DJ – New playlist* is also put on the desktop (named in the language of the interface; switched off and saved, it goes away again). Double-clicking it rebuilds the playlist with the saved settings – like *Rebuild playlist*, including the archive – without the interface and without a window. At the end, a system notification reports back, e.g. *Playlist “Tweakable DJ” rebuilt ✓ – 50 songs*, or with the reason if it didn’t work. If a run is already in progress (in the interface or automatic), it doesn’t start a second one but says *already running*. The output is in `jetzt.log`, the result in `jetzt.json`; it doesn’t count as the “last automatic run”.
+  **Second shortcut: rebuild playlist now** (`runShortcut`, off by default): switched on and saved, *Tweakable DJ – New playlist* is also put on the desktop (named in the language of the interface; switched off and saved, it goes away again). Double-clicking it rebuilds the playlist with the saved settings – like *Create playlist* followed by *Overwrite*, including the archive – without the interface and without a window. At the end, a system notification reports back, e.g. *Playlist “Tweakable DJ” rebuilt ✓ – 50 songs*, or with the reason if it didn’t work. If a run is already in progress (in the interface or automatic), it doesn’t start a second one but says *already running*. The output is in `jetzt.log`, the result in `jetzt.json`; it doesn’t count as the “last automatic run”.
 - **Log in with Spotify**: appears when your Spotify login expires soon or has expired. Spotify requires a new login every 6 months. It also appears if *Followed artists* isn’t at “no preference” and your login is from before that setting existed.
 - **Rebuild automatically** (tab *Settings*): *Off*, *Daily* or *Weekly*, plus the time and, if needed, the day of the week. When you click *Save*, Tweakable DJ adds itself to your system’s scheduler and then rebuilds the playlist by itself, even when the interface is closed. Below, you see the next run and the result of the last automatic run (✓ with the number of songs or ✗ with the reason). What happens if your computer is off at the set time:
   - Windows: the run is made up the next time you turn it on.
@@ -328,7 +336,7 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
 - **New version**: if a newer version of Tweakable DJ has been released, a notice appears at the top with a download link and the button **Update now** (see [Updating](#8-updating)). Close it with ×; it only comes back for the next version. The tab *Settings* shows under *Version* which version you have (e.g. *v0.1.3*), next to it **Check for updates**: it asks GitHub right away and then says *You’re up to date ✓*, shows the notice again (even if you closed it) or says *GitHub not reachable*. More in [Update check](#update-check).
 - **New in v…**: after an update, the interface shows once at the top what’s new in this version – the main points from the changelog (German in German, otherwise English) and a link *All changes* to the release on GitHub. Close it with ×; it comes back only after the next update. On the very first start, nothing is shown.
 
-*Test run* and *Rebuild playlist* save first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
+*Create playlist* saves unsaved changes first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
 
 <p align="center">
   <picture>
@@ -339,13 +347,13 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
 
 ### Block list: artists and songs
 
-The group *Block list* (tab *Settings*) has three parts. Like every setting, changes are only written to `config.jsonc` when you click *Save* (a test run saves first by itself).
+The group *Block list* (tab *Settings*) has three parts. Like every setting, changes are only written to `config.jsonc` when you click *Save* (*Create playlist* saves first by itself).
 
-- **No explicit songs**: a switch. When it’s on, no song that Spotify marks as explicit goes into the playlist ([Rules and settings](#5-rules-and-settings)). A test run then shows e.g. “4 explicit songs left out”.
+- **No explicit songs**: a switch. When it’s on, no song that Spotify marks as explicit goes into the playlist ([Rules and settings](#5-rules-and-settings)). *Create playlist* then shows e.g. “4 explicit songs left out”.
 - **Artists that are never played**: enter a name and click *Add*. Remove it again with ×.
-- **Songs that are never played**: after a test run, every song in the list has a small **×**. Clicking it blocks the song: it is struck through, appears as a chip under *Songs that are never played* and stays out of every run from then on, including other versions of it (remaster, live, a single with its own link). **↺** next to a struck-through song, or × on the chip, unblocks it. A test run shows e.g. “2 blocked songs left out”.
+- **Songs that are never played**: after *Create playlist*, every song in the list has a small **×**. Clicking it blocks the song: it is struck through, appears as a chip under *Songs that are never played* and stays out of every run from then on, including other versions of it (remaster, live, a single with its own link). **↺** next to a struck-through song, or × on the chip, unblocks it. *Create playlist* shows e.g. “2 blocked songs left out”.
 
-If you block a song from the list of a test run, *Use this list* is disabled (that list contains the song). Start a new test run; it saves your changes first.
+If you block a song from the created list, *Overwrite* and *Save as new playlist* are disabled (that list contains the song). Click *Create playlist* again; it saves your changes first.
 
 The block list doesn’t apply to an import from a text file: it’s your list. The preview names the songs a run of the DJ would leave out (“on your block list”, “explicit”), and they still go in.
 
@@ -355,8 +363,9 @@ In the `tweakable-dj` folder ([how to open a terminal there](#open-a-terminal-in
 
 ```
 node dj.mjs          # refill the playlist
-node dj.mjs --dry    # test run: only show, don't change the playlist (remembers the list in probelauf.json)
-node dj.mjs --apply  # write the last test run to the playlist exactly as it is, without drawing again (--dry: only check)
+node dj.mjs --dry    # create the list (like Create playlist): only show, don't change Spotify (remembers the list in probelauf.json)
+node dj.mjs --apply  # write the last created list to the playlist exactly as it is, without drawing again (like Overwrite; --dry: only check)
+node dj.mjs --apply --new   # the last created list as a new playlist with date and time in its name (the playlist from the settings stays)
 node dj.mjs export [file.txt]   # save the playlist as a text file (default: tweakable-dj-<date>.txt)
 node dj.mjs import <file.txt>   # write the songs from a text file to the playlist (--dry: only show)
 node dj.mjs login    # log in to Spotify (again)
@@ -403,10 +412,10 @@ Main artist, Guest – Title	https://open.spotify.com/track/…
 
 ### Playlist archive
 
-After each write of the playlist to Spotify – *Rebuild playlist*, automatic runs, *Use this list*, imports and `node dj.mjs` in the terminal – Tweakable DJ saves the written list as a text file in the folder `archiv` inside the Tweakable DJ folder, in the same format as *Save as text file*. The file name starts with date and time, e.g. `2026-10-06 18-30-05 Tweakable DJ.txt`, so the files sort by time.
+After each write of a playlist to Spotify – *Overwrite “Tweakable DJ”*, *Save as new playlist*, automatic runs, the second shortcut, imports and `node dj.mjs` in the terminal – Tweakable DJ saves the written list as a text file in the folder `archiv` inside the Tweakable DJ folder, in the same format as *Save as text file*. The file name starts with date and time, e.g. `2026-10-06 18-30-05 Tweakable DJ.txt`, so the files sort by time. A list saved with *Save as new playlist* has the name of the new playlist in its header line.
 
 - **Restore**: *Import … → Earlier playlist …* (below the output) lists the entries, newest first, with time and number of songs. A click shows the same preview as an import from a file; nothing is written until you confirm. Like every import, it doesn’t count as a run of the DJ.
-- **Undo the last write**: after *Rebuild playlist*, *Use this list* or an import, the button **Restore previous playlist** appears below the output. It brings back the playlist as it was before, i.e. the second-newest entry in the archive, with the same preview and confirmation. The restored list is then the newest entry, and the button disappears, so clicking again doesn’t switch back and forth. The button only appears while the archive is on, the previous state is in it and nothing else (e.g. an automatic run) has written the playlist in the meantime.
+- **Undo the last write**: after *Overwrite “Tweakable DJ”* or an import, the button **Restore previous playlist** appears below the output (not after *Save as new playlist*: the playlist from the settings stays unchanged then). It brings back the playlist as it was before, i.e. the previous entry of the same playlist in the archive, with the same preview and confirmation. Lists saved with *Save as new playlist* are skipped. The restored list is then the newest entry, and the button disappears, so clicking again doesn’t switch back and forth. The button only appears while the archive is on, the previous state is in it and nothing else (e.g. an automatic run) has written the playlist in the meantime.
 - **How many**: *Archived playlists* in the tab *Settings* (`archiveCount`, default 20, at most 200). Tweakable DJ deletes older files the next time it saves one. It never touches other files in the `archiv` folder.
 - **Off**: 0 saves nothing anymore; existing files stay and can still be restored.
 - If saving fails (e.g. the folder is read-only), the run only shows a warning (⚠); the playlist is written anyway.
@@ -441,7 +450,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
    2. **Last.fm**: [create an API key](https://www.last.fm/api/account/create) (leave the callback URL empty) and enter it together with your Last.fm username. *Check* shows whether both are right and how many scrobbles Last.fm already knows from you. If it says 0, connect Spotify to Last.fm under [last.fm → Settings → Applications](https://www.last.fm/settings/applications).
    3. **Log in with Spotify**: a Spotify page opens; agree there.
    4. Choose the **source of your favorites**: your Liked Songs or one of your playlists.
-   5. **Done**: the wizard offers *Create a shortcut on the desktop* (ticked by default). With it, you can later start Tweakable DJ with a double-click on the logo on your desktop; you can also create or remove it later in the tab *Settings* ([Shortcut](#desktop-shortcut)). Then the controls appear and you can start your first test run.
+   5. **Done**: the wizard offers *Create a shortcut on the desktop* (ticked by default). With it, you can later start Tweakable DJ with a double-click on the logo on your desktop; you can also create or remove it later in the tab *Settings* ([Shortcut](#desktop-shortcut)). Then the tab *Playlist* appears (in the view *Simple*) and you can create your first playlist.
 
    The wizard creates the file `config.jsonc` by itself, with explanations in the language you have selected (in English for Spanish and French). Later, you can reach it via *Change credentials* in the tab *Settings*.
 
@@ -465,7 +474,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
 
 ## 8. Updating
 
-When a new version is out, a notice appears at the top of the interface. What changed is listed in [CHANGELOG.md](CHANGELOG.md). Either way of updating keeps **your personal files exactly as they are**: `config.jsonc` (settings, Client ID, Last.fm key and username), `tokens.json` (Spotify login), `state.json` (history), `lastfm-cache.json`, `probelauf.json` (last test run), the files of automatic runs and the playlist archive `archiv/`. They aren’t in the ZIP file, and an update never writes them.
+When a new version is out, a notice appears at the top of the interface. What changed is listed in [CHANGELOG.md](CHANGELOG.md). Either way of updating keeps **your personal files exactly as they are**: `config.jsonc` (settings, Client ID, Last.fm key and username), `tokens.json` (Spotify login), `state.json` (history), `lastfm-cache.json`, `probelauf.json` (last created list), the files of automatic runs and the playlist archive `archiv/`. They aren’t in the ZIP file, and an update never writes them.
 
 **With the button**
 
@@ -473,7 +482,7 @@ When a new version is out, a notice appears at the top of the interface. What ch
 2. Click **Update**. Tweakable DJ downloads the new version from GitHub, checks every file against its checksum (SHA-256), backs up the files it replaces to `.update/backup-<old version>` and copies the new files in.
 3. Tweakable DJ restarts by itself, and the page reloads with the new version. If you started it with `node ui.mjs` in a terminal instead of a start file, start it again yourself; the page then reloads by itself.
 
-The update only writes the program files listed in the release (`manifest.json`) and deletes nothing outside `.update/` (there it only keeps the backup of the latest update). If a file doesn’t match its checksum, it changes nothing; if copying fails, it restores the old version automatically. It doesn’t start while a test run, a rebuild, an automatic run, an import from a text file or a Spotify login is in progress. Automatic runs keep working, because the folder stays the same.
+The update only writes the program files listed in the release (`manifest.json`) and deletes nothing outside `.update/` (there it only keeps the backup of the latest update). If a file doesn’t match its checksum, it changes nothing; if copying fails, it restores the old version automatically. It doesn’t start while a list is being created or written to Spotify, an automatic run, an import from a text file or a Spotify login is in progress. Automatic runs keep working, because the folder stays the same.
 
 **By hand**
 
@@ -528,8 +537,9 @@ There is only ever one entry: it always has the same name, whichever folder it c
 | “config.jsonc is invalid” | Usually a comma is missing at the end of a line, or there is one too many (there must be none after the last entry) |
 | “… in config.jsonc must be a whole number from … to …” | A value in `config.jsonc` was changed by hand and is outside the allowed range ([Rules and settings](#5-rules-and-settings)). Correct it there, or set the control in the interface and save. |
 | “The source of your favorites (playlist) is empty or can’t be read” | Spotify only returns playlists you own or collaborate on. In the interface, choose a playlist from the list under *Source of your favorites*; only readable ones are listed there. |
-| “A run is already in progress” | Wait until the current test run or rebuild is finished (about 1 minute) |
-| *Use this list* is disabled, or “There’s no test run to apply” | A test run is valid for 24 hours and only with the same settings; a rebuild (also by automatic runs) ends it. The reason is shown below the button. Start a new test run. |
+| “A run is already in progress” | Wait until the current run is finished, e.g. *Create playlist* (about 1 minute) |
+| *Overwrite* and *Save as new playlist* are disabled, or “There’s no created list to apply” | A created list is valid for 24 hours and only with the same settings; another write of the playlist (also by automatic runs) ends it. The reason is shown below the buttons. Click *Create playlist* again. |
+| In *Simple*: “Custom Pro settings active …” | Controls that are only shown in *Pro* differ from every preset and still apply. Click *Reset to “Default”* (then *Save* or *Create playlist*), or switch to *Pro* to see them. |
 | Import: “Line …: not found on Spotify” | Check the spelling of artist and title, or paste the link to the song instead of its name (in Spotify: Share → Copy link) |
 | “Update failed: …” | The message says whether nothing was changed or the old version was restored. Try again later, or update by hand ([Updating](#8-updating)). |
 | The interface doesn’t open / page can’t be reached | Tweakable DJ has quit (or its window was closed): start it again with the shortcut |
@@ -557,7 +567,7 @@ There is only ever one entry: it always has the same name, whichever folder it c
 
 ## 11. Limitations
 
-- **No endless mode:** the playlist has a fixed length. When it has finished, Spotify’s autoplay takes over (if enabled), which doesn’t know your rules. For new songs, click “Rebuild playlist”.
+- **No endless mode:** the playlist has a fixed length. When it has finished, Spotify’s autoplay takes over (if enabled), which doesn’t know your rules. For new songs, click *Create playlist* and then *Overwrite “Tweakable DJ”* (or let automatic runs do it).
 - **Automatic runs need your computer:** Tweakable DJ runs on your PC or Mac, not on the internet. The computer must be on at the set time. Missed runs are made up by Windows the next time it starts, by the Mac only after sleep, and not at all by Linux. Automatic runs haven’t been tested on a real Mac yet.
 - **Large libraries:** of your Liked Songs, the DJ uses the 1,000 you saved most recently.
 - **Listening history:** per run, the DJ fetches at most the 1,000 newest scrobbles from Last.fm, from the longer of the two periods `excludeRecentDays` and `currentDays` (14 days by default). If you listen to more, the oldest days of that period are missing: songs from those days aren’t blocked as recently played and don’t count as current listening. With the defaults, blocking recently played songs (14 days) is affected from about 70 songs a day, “current” (7 days) only from about 140 a day. With long periods (e.g. `excludeRecentDays` 90), the limit is reached much sooner. The line “… scrobbles, …” in the output shows how many were fetched; 1,000 means the limit was reached.
