@@ -5,6 +5,8 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.3.0] – 2026-10-07
+
 ### English
 
 **New**
@@ -307,6 +309,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.3.0]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.0
 [0.2.5]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.5
 [0.2.4]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.4
 [0.2.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.3
