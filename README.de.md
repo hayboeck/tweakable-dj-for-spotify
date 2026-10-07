@@ -251,7 +251,7 @@ Den Zeitplan selbst (`schedule`, `scheduleTime`, `scheduleDay`) stellst du am ei
 
 | Einstellung | Standard | Erlaubt |
 |---|---|---|
-| Frühere Playlists aufheben (`archiveCount`): Nach jedem Schreiben der Playlist kommt sie als Textdatei in den Ordner `archiv`; so viele der neuesten bleiben, ältere löscht Tweakable DJ selbst. 0 = aus: Es wird nichts gespeichert, vorhandene Dateien bleiben. Siehe [Playlist-Archiv](#playlist-archiv). | 20 | 0–200 |
+| Archivierte Playlists (`archiveCount`): Nach jedem Schreiben der Playlist kommt sie als Textdatei in den Ordner `archiv`; so viele der neuesten bleiben, ältere löscht Tweakable DJ selbst. 0 = aus: Es wird nichts gespeichert, vorhandene Dateien bleiben. Siehe [Playlist-Archiv](#playlist-archiv). | 20 | 0–200 |
 
 **Aussehen**
 
@@ -320,7 +320,7 @@ Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Tex
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-settings.dark.png">
-    <img src="docs/screenshot-settings.light.png" width="440" alt="Der Tab Settings (Einstellungen): Rebuild automatically (Automatisch neu erstellen) täglich um 07:00 mit dem nächsten Lauf und dem letzten automatischen Lauf (✓ 50 Songs · 3 h 17 min), die Sperrliste mit No explicit songs (Keine Songs mit expliziten Texten), den Künstlern Imagine Dragons und The Killers und den Songs Tame Impala – The Less I Know the Better und Glass Animals – Heat Waves, das Archiv mit Keep earlier playlists (Frühere Playlists aufheben) auf 20, Appearance (Aussehen) mit Modus und 8 Akzentfarben, Credentials (Zugangsdaten: bei Spotify angemeldet, Last.fm: demo), Shortcut (Verknüpfung: auf dem Desktop vorhanden) und Version v0.2.1 · You’re up to date ✓ (Du hast die neueste Version). Englische Oberfläche.">
+    <img src="docs/screenshot-settings.light.png" width="440" alt="Der Tab Settings (Einstellungen): Rebuild automatically (Automatisch neu erstellen) täglich um 07:00 mit dem nächsten Lauf und dem letzten automatischen Lauf (✓ 50 Songs · 3 h 17 min), die Sperrliste mit No explicit songs (Keine Songs mit expliziten Texten), den Künstlern Imagine Dragons und The Killers und den Songs Tame Impala – The Less I Know the Better und Glass Animals – Heat Waves, das Archiv mit Archived playlists (Archivierte Playlists) auf 20, Appearance (Aussehen) mit Modus und 8 Akzentfarben, Credentials (Zugangsdaten: bei Spotify angemeldet, Last.fm: demo), Shortcut (Verknüpfung: auf dem Desktop vorhanden) und Version v0.2.1 · You’re up to date ✓ (Du hast die neueste Version). Englische Oberfläche.">
   </picture>
 </p>
 
@@ -393,7 +393,7 @@ Hauptkünstler, Gast – Titel	https://open.spotify.com/track/…
 Nach jedem Schreiben der Playlist in Spotify – *Playlist neu erstellen*, automatischer Lauf, *Diese Liste übernehmen*, Import und `node dj.mjs` im Terminal – legt Tweakable DJ die geschriebene Liste als Textdatei im Ordner `archiv` im Ordner von Tweakable DJ ab, im selben Format wie *Als Textdatei speichern*. Der Dateiname beginnt mit Datum und Uhrzeit, z. B. `2026-10-06 18-30-05 Tweakable DJ.txt`, so stehen die Dateien zeitlich sortiert.
 
 - **Zurückholen**: *Importieren … → Frühere Playlist …* (unter der Ausgabe) zeigt die Einträge, die neueste zuerst, mit Zeitpunkt und Anzahl Songs. Ein Klick zeigt dieselbe Vorschau wie ein Import aus einer Datei; geschrieben wird erst nach der Rückfrage. Wie jeder Import zählt das nicht als Lauf des DJ.
-- **Wie viele**: *Frühere Playlists aufheben* im Tab *Einstellungen* (`archiveCount`, Standard 20, höchstens 200). Ältere Dateien löscht Tweakable DJ beim nächsten Ablegen. Andere Dateien im Ordner `archiv` fasst es nie an.
+- **Wie viele**: *Archivierte Playlists* im Tab *Einstellungen* (`archiveCount`, Standard 20, höchstens 200). Ältere Dateien löscht Tweakable DJ beim nächsten Ablegen. Andere Dateien im Ordner `archiv` fasst es nie an.
 - **Aus**: 0 speichert nichts mehr; vorhandene Dateien bleiben und lassen sich weiter zurückholen.
 - Klappt das Ablegen nicht (z. B. Ordner schreibgeschützt), zeigt der Lauf nur eine Warnung (⚠); die Playlist ist trotzdem geschrieben.
 - `archiv` gehört zu deinen persönlichen Dateien: nie im Repository, nie in der ZIP-Datei, ein Update fasst es nie an.

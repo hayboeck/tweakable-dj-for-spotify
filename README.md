@@ -250,7 +250,7 @@ The schedule itself (`schedule`, `scheduleTime`, `scheduleDay`) is easiest to se
 
 | Setting | Default | Allowed |
 |---|---|---|
-| Keep earlier playlists (`archiveCount`): after each write, the playlist is saved as a text file in the folder `archiv`; this many of the newest stay, Tweakable DJ deletes older ones itself. 0 = off: nothing is saved, existing files stay. See [Playlist archive](#playlist-archive). | 20 | 0–200 |
+| Archived playlists (`archiveCount`): after each write, the playlist is saved as a text file in the folder `archiv`; this many of the newest stay, Tweakable DJ deletes older ones itself. 0 = off: nothing is saved, existing files stay. See [Playlist archive](#playlist-archive). | 20 | 0–200 |
 
 **Appearance**
 
@@ -319,7 +319,7 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-settings.dark.png">
-    <img src="docs/screenshot-settings.light.png" width="440" alt="The tab Settings: Rebuild automatically set to Daily at 07:00 with the next run and the last automatic run (✓ 50 songs · 3 h 17 min), the block list with No explicit songs, the artists Imagine Dragons and The Killers and the songs Tame Impala – The Less I Know the Better and Glass Animals – Heat Waves, the archive with Keep earlier playlists at 20, Appearance with the mode and 8 accent colors, Credentials (Spotify: logged in, Last.fm: demo), Shortcut (On the desktop ✓) and Version v0.2.1 · You’re up to date ✓">
+    <img src="docs/screenshot-settings.light.png" width="440" alt="The tab Settings: Rebuild automatically set to Daily at 07:00 with the next run and the last automatic run (✓ 50 songs · 3 h 17 min), the block list with No explicit songs, the artists Imagine Dragons and The Killers and the songs Tame Impala – The Less I Know the Better and Glass Animals – Heat Waves, the archive with Archived playlists at 20, Appearance with the mode and 8 accent colors, Credentials (Spotify: logged in, Last.fm: demo), Shortcut (On the desktop ✓) and Version v0.2.1 · You’re up to date ✓">
   </picture>
 </p>
 
@@ -392,7 +392,7 @@ Main artist, Guest – Title	https://open.spotify.com/track/…
 After each write of the playlist to Spotify – *Rebuild playlist*, automatic runs, *Use this list*, imports and `node dj.mjs` in the terminal – Tweakable DJ saves the written list as a text file in the folder `archiv` inside the Tweakable DJ folder, in the same format as *Save as text file*. The file name starts with date and time, e.g. `2026-10-06 18-30-05 Tweakable DJ.txt`, so the files sort by time.
 
 - **Restore**: *Import … → Earlier playlist …* (below the output) lists the entries, newest first, with time and number of songs. A click shows the same preview as an import from a file; nothing is written until you confirm. Like every import, it doesn’t count as a run of the DJ.
-- **How many**: *Keep earlier playlists* in the tab *Settings* (`archiveCount`, default 20, at most 200). Tweakable DJ deletes older files the next time it saves one. It never touches other files in the `archiv` folder.
+- **How many**: *Archived playlists* in the tab *Settings* (`archiveCount`, default 20, at most 200). Tweakable DJ deletes older files the next time it saves one. It never touches other files in the `archiv` folder.
 - **Off**: 0 saves nothing anymore; existing files stay and can still be restored.
 - If saving fails (e.g. the folder is read-only), the run only shows a warning (⚠); the playlist is written anyway.
 - `archiv` is one of your personal files: never in the repository, never in the ZIP file, and an update never touches it.

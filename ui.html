@@ -657,7 +657,7 @@ const TEXT = {
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
     duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h}:${two(m)} Std.` : `${m} Min.`)),
     fileSize: ['KB', 'MB'], // Einheiten für den Platzbedarf des Archivs
-    // Archiv: Stand neben „Frühere Playlists aufheben“ (files = Dateien im Archiv, keep = eingestellte Anzahl) und Hinweis nach dem Import
+    // Archiv: Stand neben „Archivierte Playlists“ (files = Dateien im Archiv, keep = eingestellte Anzahl) und Hinweis nach dem Import
     archiveInfo: (files, keep) => (files == null ? '' : keep > 0
       ? `${num(files)}/${plural(keep, 'Playlist', 'Playlists')} im Archiv${files > keep ? ` · Mit der nächsten Playlist ${isOne(files + 1 - keep) ? 'wird die älteste' : `werden die ${num(files + 1 - keep)} ältesten`} gelöscht.` : ''}`
       : files > 0 ? `${plural(files, 'Playlist', 'Playlists')} im Archiv · Es kommen keine neuen dazu, die vorhandenen bleiben.` : ''),
@@ -802,7 +802,7 @@ const TEXT = {
       blockedArtists: { label: 'Künstler, die nie gespielt werden', placeholder: 'Name des Künstlers', help: 'Auch als Gast („feat.“).' },
       blockedTracks: { label: 'Songs, die nie gespielt werden',
         help: 'Sperren mit × in der Liste eines Probelaufs; andere Versionen (z. B. Live) sind mitgesperrt.' },
-      archiveCount: { label: 'Frühere Playlists aufheben', fmt: v => (v ? plural(v, 'Playlist', 'Playlists') : 'aus'),
+      archiveCount: { label: 'Archivierte Playlists', fmt: v => (v ? plural(v, 'Playlist', 'Playlists') : 'aus'),
         help: 'Jede geschriebene Playlist als Textdatei im Ordner „archiv“ von Tweakable DJ; zurückholen mit „Importieren … → Frühere Playlist …“. Der Platzbedarf ist geschätzt.' },
       theme: { label: 'Modus', options: { system: 'System', light: 'Hell', dark: 'Dunkel' },
         help: '„System“ folgt deinem Gerät. Änderungen siehst du sofort; „Speichern“ behält sie.' },
@@ -1196,7 +1196,7 @@ const TEXT = {
       blockedArtists: { label: 'Artists that are never played', placeholder: 'Artist name', help: 'Also as a guest (“feat.”).' },
       blockedTracks: { label: 'Songs that are never played',
         help: 'Block with the × in the list of a test run; other versions (e.g. live) are blocked too.' },
-      archiveCount: { label: 'Keep earlier playlists', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'off'),
+      archiveCount: { label: 'Archived playlists', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'off'),
         help: 'Each written playlist as a text file in the “archiv” folder of Tweakable DJ; restore it with “Import … → Earlier playlist …”. The space needed is an estimate.' },
       theme: { label: 'Mode', options: { system: 'System', light: 'Light', dark: 'Dark' },
         help: '“System” follows your device. You see changes right away; “Save” keeps them.' },
@@ -1582,7 +1582,7 @@ const TEXT = {
       blockedArtists: { label: 'Artistas que nunca suenan', placeholder: 'Nombre del artista', help: 'También como invitados («feat.»).' },
       blockedTracks: { label: 'Canciones que nunca suenan',
         help: 'Se bloquea con la × en la lista de una prueba; también otras versiones (p. ej. en directo).' },
-      archiveCount: { label: 'Guardar playlists anteriores', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'no'),
+      archiveCount: { label: 'Playlists en el historial', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'no'),
         help: 'Cada playlist escrita, como archivo de texto en la carpeta «archiv» de Tweakable DJ; se recupera con «Importar … → Playlist anterior …». El espacio necesario es una estimación.' },
       theme: { label: 'Modo', options: { system: 'Sistema', light: 'Claro', dark: 'Oscuro' },
         help: '«Sistema» sigue la configuración de tu dispositivo. Los cambios se ven al instante; «Guardar» los conserva.' },
@@ -1969,7 +1969,7 @@ const TEXT = {
       blockedArtists: { label: 'Artistes jamais joués', placeholder: 'Nom de l’artiste', help: 'Aussi en invité (« feat. »).' },
       blockedTracks: { label: 'Titres jamais joués',
         help: 'Bloque avec le × dans la liste d’un essai ; les autres versions (p. ex. live) sont bloquées aussi.' },
-      archiveCount: { label: 'Garder les playlists précédentes', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'désactivé'),
+      archiveCount: { label: 'Playlists archivées', fmt: v => (v ? plural(v, 'playlist', 'playlists') : 'désactivé'),
         help: 'Chaque playlist écrite, en fichier texte dans le dossier « archiv » de Tweakable DJ – à récupérer via « Importer … → Playlist précédente … ». L’espace nécessaire est une estimation.' },
       theme: { label: 'Mode', options: { system: 'Système', light: 'Clair', dark: 'Sombre' },
         help: '« Système » suit le réglage de ton appareil. Les changements s’affichent tout de suite – « Enregistrer » les garde.' },
@@ -2822,7 +2822,7 @@ function songMs() {
 }
 const sizeText = v => `${T.items.size.fmt(v)} (${T.duration(v * songMs(), true)})`;
 
-// „Frühere Playlists aufheben“ mit geschätztem Platzbedarf, z. B. „20 Playlists (≈ 89 KB)“: gerechnet mit der eingestellten
+// „Archivierte Playlists“ mit geschätztem Platzbedarf, z. B. „20 Playlists (≈ 89 KB)“: gerechnet mit der eingestellten
 // Anzahl Songs, nicht mit den Dateien im Archiv. Pro Datei zwei Kopfzeilen, pro Song eine Zeile „Künstler – Titel<Tab>Link“
 // (Link 53 Zeichen, Namen im Schnitt etwa 35).
 const ARCHIVE_HEAD_BYTES = 150;

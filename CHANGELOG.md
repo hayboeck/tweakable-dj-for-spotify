@@ -5,6 +5,20 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+### English
+
+**New**
+
+- **Archive status**: under *Archived playlists* (until now *Keep earlier playlists*) the tab *Settings* shows how many playlists are in the archive, e.g. *12/20 playlists in the archive*. If the slider is set below that number, a warning says how many of the oldest the next playlist deletes, e.g. *With the next playlist, the 5 oldest are deleted.*; at 0 it says that no new ones are added and the existing ones stay.
+- After a run or an import, the output says when older playlists were removed from the archive, e.g. *Removed the 5 oldest playlists from the archive*.
+
+### Deutsch
+
+**Neu**
+
+- **Stand des Archivs**: Unter *Archivierte Playlists* (bisher *Frühere Playlists aufheben*) zeigt der Tab *Einstellungen*, wie viele Playlists im Archiv sind, z. B. *12/20 Playlists im Archiv*. Steht der Regler darunter, sagt eine Warnung, wie viele der ältesten die nächste Playlist löscht, z. B. *Mit der nächsten Playlist werden die 5 ältesten gelöscht.*; bei 0, dass keine neuen dazukommen und die vorhandenen bleiben.
+- Nach einem Lauf oder Import steht in der Ausgabe, wenn ältere Playlists aus dem Archiv entfernt wurden, z. B. *Die 5 ältesten Playlists aus dem Archiv entfernt*.
+
 ## [0.2.3] – 2026-10-07
 
 ### English
