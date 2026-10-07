@@ -554,7 +554,8 @@ test('Textdatei importieren: Vorschau mit Fortschritt und nicht gefundenen Zeile
 
   // Schreiben nach der Rückfrage
   const written = await api('/api/import', { lang: 'de', method: 'POST', body: { uris: r.uris } });
-  assert.deepEqual(written.data, { ok: true, songs: 21, playlistName: 'Test-DJ', playlistUrl: `https://open.spotify.com/playlist/${before.id}`, created: false, archiveRemoved: 0 });
+  assert.deepEqual(written.data, { ok: true, songs: 21, playlistName: 'Test-DJ', playlistUrl: `https://open.spotify.com/playlist/${before.id}`, created: false, archiveRemoved: 0, archiveFile: written.data.archiveFile });
+  assert.match(written.data.archiveFile, /^\d{4}-\d\d-\d\d \d\d-\d\d-\d\d Tweakable DJ( \d+)?\.txt$/);
   const after = store().playlists.find(p => p.name === 'Test-DJ');
   assert.deepEqual(after.uris, r.uris);
   assert.match(after.description, /^Tweakable DJ · aus einer Textdatei, .+ · 21 Songs$/);
@@ -964,6 +965,33 @@ test('Playlist-Archiv: Übernehmen und Import legen die Liste ab; Liste und Eint
   }
   assert.ok(fs.existsSync(path.join(dir, 'archiv', 'notiz.txt')) && fs.existsSync(path.join(dir, 'archiv', 'alt', entries[0].id)), 'fremde Dateien bleiben');
   assert.ok(!(await api('/api/archive')).data.entries.some(e => /notiz|alt/.test(e.id)), 'fremde Dateien nicht in der Liste');
+});
+
+test('Vorige Playlist wiederherstellen: archiveFile nach Lauf und Import, undo = Eintrag davor, über den Import-Weg zurück', async () => {
+  const run = resultLine((await api('/api/run', { lang: 'de', method: 'POST' })).text);
+  assert.equal(run.ok, true);
+  assert.match(run.archiveFile, /^\d{4}-\d\d-\d\d \d\d-\d\d-\d\d Tweakable DJ( \d+)?\.txt$/);
+  const { entries, undo } = (await api(`/api/archive?after=${encodeURIComponent(run.archiveFile)}`)).data;
+  assert.equal(entries[0].id, run.archiveFile, 'der Lauf ist der neueste Eintrag');
+  assert.deepEqual(undo, entries[1], 'Ziel = Stand davor');
+  assert.equal((await api('/api/archive')).data.undo, undefined, 'ohne after kein undo');
+  assert.equal((await api(`/api/archive?after=${encodeURIComponent(entries[1].id)}`)).data.undo, null, 'nicht der neueste: nichts');
+
+  // Zurück über den vorhandenen Weg: Eintrag lesen → Vorschau → schreiben (wie „Frühere Playlist …“)
+  const history = JSON.parse(fs.readFileSync(path.join(dir, 'state.json'), 'utf8')).history;
+  const { text } = (await api(`/api/archive/entry?id=${encodeURIComponent(undo.id)}`)).data;
+  const pre = resultLine((await preview(text)).text);
+  assert.equal(pre.found, undo.songs);
+  const written = (await api('/api/import', { lang: 'de', method: 'POST', body: { uris: pre.uris } })).data;
+  assert.equal(written.ok, true);
+  assert.notEqual(written.archiveFile, run.archiveFile);
+  const after = (await api(`/api/archive?after=${encodeURIComponent(written.archiveFile)}`)).data;
+  assert.equal(after.entries[0].id, written.archiveFile, 'wiederhergestellt = jetzt der neueste');
+  assert.equal(after.undo.id, run.archiveFile, 'davor: die Liste des Laufs');
+  assert.equal((await api(`/api/archive?after=${encodeURIComponent(run.archiveFile)}`)).data.undo, null, 'alter Knopf zeigt nichts mehr');
+  const songs = t => t.split('\n').filter(l => l.includes('\t'));
+  assert.deepEqual(songs((await api(`/api/archive/entry?id=${encodeURIComponent(written.archiveFile)}`)).data.text), songs(text), 'gleiche Songs wie der vorige Stand');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'state.json'), 'utf8')).history, history, 'Import zählt nicht als Lauf');
 });
 
 // --- Systembenachrichtigungen: „Bei Fehlern benachrichtigen“ und „Testbenachrichtigung senden“ ---

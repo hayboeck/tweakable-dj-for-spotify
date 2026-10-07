@@ -406,3 +406,17 @@ test('Archiv: ablegen, aufräumen, auflisten und lesen', async () => {
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
   }
 });
+
+// „Vorige Playlist wiederherstellen“: Ziel ist der Eintrag vor der Datei des letzten Schreibens – nur, solange diese noch
+// die neueste ist.
+test('undoTarget: Eintrag vor dem letzten Schreiben, sonst null', async () => {
+  const { undoTarget } = await import('../archive.mjs');
+  const entries = [{ id: 'c.txt', at: '2026-10-07T09:00:00.000Z', songs: 50 }, { id: 'b.txt', at: '2026-10-06T09:00:00.000Z', songs: 48 },
+    { id: 'a.txt', at: '2026-10-05T09:00:00.000Z', songs: 50 }];
+  assert.deepEqual(undoTarget(entries, 'c.txt'), entries[1]);
+  assert.equal(undoTarget(entries, 'b.txt'), null, 'inzwischen etwas Neueres geschrieben (z. B. automatischer Lauf)');
+  assert.equal(undoTarget(entries.slice(0, 1), 'c.txt'), null, 'kein voriger Stand');
+  assert.equal(undoTarget([], 'c.txt'), null);
+  for (const bad of [null, undefined, '', 42]) assert.equal(undoTarget(entries, bad), null, String(bad));
+  assert.equal(undoTarget(null, 'c.txt'), null);
+});

@@ -538,7 +538,8 @@ try {
       <!-- Ausgabe von Probelauf und Neuerstellung (immer sichtbar, vor dem ersten Lauf mit Platzhalter), darunter eine Knopfreihe:
            nach einem Probelauf „Diese Liste übernehmen“ (POST /api/apply); „Als Textdatei speichern“ (GET /api/export, nach einem
            Probelauf dessen Liste); „Importieren …“ mit der Auswahl „Aus Datei …“ bzw. „Frühere Playlist …“ (Archiv: GET /api/archive,
-           Eintrag mit GET /api/archive/entry): Vorschau (POST /api/import/preview), nach der Rückfrage schreiben (POST /api/import) -->
+           Eintrag mit GET /api/archive/entry): Vorschau (POST /api/import/preview), nach der Rückfrage schreiben (POST /api/import);
+           nach dem Schreiben „Vorige Playlist wiederherstellen“ (derselbe Weg mit dem Archiv-Eintrag davor) -->
       <section id="out">
         <div class="out-head">
           <span id="summary" class="summary"></span>
@@ -550,6 +551,9 @@ try {
           <button type="button" class="btn" id="export" data-t="saveText"></button>
           <button type="button" class="btn" id="import" data-t="importFile" aria-expanded="false" aria-controls="import-menu"></button>
           <input type="file" id="import-file" accept=".txt,text/plain" hidden>
+          <!-- Nach einem Lauf bzw. Import, der die Playlist geschrieben hat: vorigen Stand aus dem Archiv zurückholen (wie
+               „Frühere Playlist …“, mit Vorschau und Rückfrage); nur, wenn es ihn gibt (GET /api/archive?after=…) -->
+          <button type="button" class="btn" id="undo" data-t="undo" hidden></button>
         </div>
         <div class="import-menu" id="import-menu" hidden>
           <div class="actions">
@@ -724,6 +728,7 @@ const TEXT = {
       importFile: 'Importieren …',
       importFromFile: 'Aus Datei …',
       importFromArchive: 'Frühere Playlist …',
+      undo: 'Vorige Playlist wiederherstellen',
       outEmpty: 'Hier erscheint die Ausgabe von Probelauf und Playlist-Erstellung.',
       language: 'Sprache',
       mtNote: '',
@@ -878,6 +883,8 @@ const TEXT = {
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
       entry: (when, n) => `${when} · ${plural(n, 'Song', 'Songs')}`,
+      // „Vorige Playlist wiederherstellen“ nach einem Lauf bzw. Import: Hinweis am Knopf (when = Zeitpunkt des vorigen Stands)
+      undoHelp: when => `Holt die Playlist vom ${when} aus dem Archiv zurück – mit Vorschau und Rückfrage.`,
       empty: 'Noch keine früheren Playlists im Archiv.',
       off: 'Das Archiv ist aus – einschalten im Tab „Einstellungen“ unter „Archiv“.',
       loading: 'Lade das Archiv …',
@@ -1124,6 +1131,7 @@ const TEXT = {
       importFile: 'Import …',
       importFromFile: 'From file …',
       importFromArchive: 'Earlier playlist …',
+      undo: 'Restore previous playlist',
       outEmpty: 'The output of test runs and playlist builds appears here.',
       language: 'Language',
       mtNote: '',
@@ -1276,6 +1284,8 @@ const TEXT = {
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
       entry: (when, n) => `${when} · ${plural(n, 'song', 'songs')}`,
+      // „Vorige Playlist wiederherstellen“ nach einem Lauf bzw. Import: Hinweis am Knopf (when = Zeitpunkt des vorigen Stands)
+      undoHelp: when => `Brings back the playlist from ${when} from the archive – with a preview and confirmation.`,
       empty: 'No earlier playlists in the archive yet.',
       off: 'The archive is off – turn it on in the “Settings” tab under “Archive”.',
       loading: 'Loading the archive …',
@@ -1516,6 +1526,7 @@ const TEXT = {
       importFile: 'Importar …',
       importFromFile: 'Desde archivo …',
       importFromArchive: 'Playlist anterior …',
+      undo: 'Restaurar la playlist anterior',
       outEmpty: 'Aquí aparece el resultado de las pruebas y de la creación de la playlist.',
       language: 'Idioma',
       mtNote: `Traducción automática – ${ext(ISSUES, 'las correcciones son bienvenidas')}`,
@@ -1668,6 +1679,8 @@ const TEXT = {
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
       entry: (when, n) => `${when} · ${plural(n, 'canción', 'canciones')}`,
+      // „Vorige Playlist wiederherstellen“ nach einem Lauf bzw. Import: Hinweis am Knopf (when = Zeitpunkt des vorigen Stands)
+      undoHelp: when => `Recupera del archivo la playlist del ${when}, con vista previa y confirmación.`,
       empty: 'Todavía no hay playlists anteriores en el historial.',
       off: 'El historial está desactivado: actívalo en la pestaña «Ajustes», en «Historial».',
       loading: 'Cargando el historial …',
@@ -1909,6 +1922,7 @@ const TEXT = {
       importFile: 'Importer …',
       importFromFile: 'Depuis un fichier …',
       importFromArchive: 'Playlist précédente …',
+      undo: 'Revenir à la playlist d’avant',
       outEmpty: 'Ici s’affiche le résultat des essais et de la création de la playlist.',
       language: 'Langue',
       mtNote: `Traduction automatique – ${ext(ISSUES, 'les corrections sont les bienvenues')}`,
@@ -2061,6 +2075,8 @@ const TEXT = {
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
       entry: (when, n) => `${when} · ${plural(n, 'titre', 'titres')}`,
+      // „Vorige Playlist wiederherstellen“ nach einem Lauf bzw. Import: Hinweis am Knopf (when = Zeitpunkt des vorigen Stands)
+      undoHelp: when => `Récupère dans l’archive la playlist du ${when}, avec aperçu et confirmation.`,
       empty: 'Pas encore de playlists précédentes dans les archives.',
       off: 'Les archives sont désactivées – active-les dans l’onglet « Paramètres », sous « Archives ».',
       loading: 'Chargement des archives …',
@@ -2494,6 +2510,7 @@ function renderLang() {
   renderSummary();
   renderImport();
   renderArchive();
+  renderUndo();
   if (runState?.tracks) renderLog(logText); // Knöpfe zum Sperren in der neuen Sprache
   renderShortcut();
   renderMainMsg();
@@ -2985,6 +3002,7 @@ function refresh(skipInput) {
   $('import-from-archive').disabled = working;
   for (const b of $('archive-list').querySelectorAll('button')) b.disabled = working;
   $('import-go').disabled = working;
+  $('undo').disabled = working;
   $('files-help').textContent = T.files.help(saved.playlistName ?? '');
   renderSchedule();
   renderTrial();
@@ -3267,6 +3285,7 @@ async function run(kind) {
     trial = null;
   }
   const settings = { ...current }; // Einstellungen dieses Probelaufs
+  setUndo(null);
   busy = true;
   refresh();
   runState = { phase: 'running', kind, dry, result: null };
@@ -3301,6 +3320,7 @@ async function run(kind) {
       trial = null; // steht jetzt in der Playlist
     }
     scopeFailed = result?.missingScope === FOLLOW_SCOPE;
+    if (result?.ok && !dry) checkUndo(result.archiveFile);
     // Der Lauf hat das Token eventuell erneuert und dabei die erteilten Berechtigungen gespeichert (setup.missingScopes).
     apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); setArchiveFiles(d.archiveFiles); }).catch(() => {});
   } catch (e) {
@@ -3451,11 +3471,12 @@ function renderArchive() {
 }
 
 // Eintrag holen und wie eine Datei in die Vorschau geben; danach geht es weiter wie beim Import aus einer Datei.
-async function importArchive(id) {
+// undo: true = „Vorige Playlist wiederherstellen“ (danach kein neuer Knopf, sonst spränge es hin und her).
+async function importArchive(id, { undo = false } = {}) {
   toggleImportMenu(false);
   try {
     const r = await apiJson(`/api/archive/entry?id=${encodeURIComponent(id)}`);
-    importPreview(new File([r.text], r.id, { type: 'text/plain' }));
+    importPreview(new File([r.text], r.id, { type: 'text/plain' }), { undo });
   } catch (e) {
     setImport({ phase: 'error', text: e.message });
   }
@@ -3512,7 +3533,7 @@ function renderImport() {
 }
 
 // Schritt 1: Datei lesen, an den Server schicken und den Fortschritt der Suche zeigen; danach die Vorschau.
-async function importPreview(file) {
+async function importPreview(file, { undo = false } = {}) {
   showError('');
   if (file.size > 1_000_000) return setImport({ phase: 'error', text: T.files.tooLarge });
   importRunning = true;
@@ -3537,7 +3558,7 @@ async function importPreview(file) {
       if (LOGIN_CODES.includes(result?.errorCode)) showNotice('expired');
       throw new Error(result?.error ?? T.files.failed);
     }
-    setImport({ phase: 'preview', result, file: file.name });
+    setImport({ phase: 'preview', result, file: file.name, undo });
   } catch (e) {
     setImport({ phase: 'error', text: e.message });
   } finally {
@@ -3557,6 +3578,9 @@ async function importWrite() {
   try {
     const written = await apiJson('/api/import', { method: 'POST', body: JSON.stringify({ uris: s.result.uris }) });
     setImport({ phase: 'done', written });
+    // Wiederhergestellt: Knopf weg. Nach jedem anderen Import: vorigen Stand anbieten.
+    if (s.undo) setUndo(null);
+    else checkUndo(written.archiveFile);
     apiJson('/api/config').then(d => setArchiveFiles(d.archiveFiles)).catch(() => {});
   } catch (e) {
     if (e.data?.login && setup?.loggedIn) showNotice('expired');
@@ -3564,6 +3588,37 @@ async function importWrite() {
   } finally {
     importRunning = false;
     refresh();
+  }
+}
+
+// --- Vorige Playlist wiederherstellen (nach einem Lauf, „Diese Liste übernehmen“ oder Import) ---
+
+let undoEntry = null;   // Eintrag im Archiv mit dem Stand vor dem letzten Schreiben ({ id, at, songs }); null = kein Knopf
+let undoCheck = 0;      // zählt die Abfragen: Eine ältere Antwort darf einen neueren Stand nicht überschreiben
+
+function setUndo(entry) {
+  undoCheck++;
+  undoEntry = entry;
+  renderUndo();
+}
+
+function renderUndo() {
+  $('undo').hidden = !undoEntry;
+  $('undo').title = undoEntry ? T.archive.undoHelp(when(undoEntry.at)) : '';
+}
+
+// Nach dem Schreiben: Liegt der Stand davor im Archiv? file = archiveFile aus @@RESULT bzw. POST /api/import (die Datei,
+// die das Schreiben gerade angelegt hat); null = Archiv aus oder nicht abgelegt → kein Knopf. Der Server nennt den
+// Eintrag davor nur, solange file der neueste ist (undoTarget in archive.mjs).
+async function checkUndo(file) {
+  setUndo(null);
+  const check = undoCheck;
+  if (!file) return;
+  try {
+    const data = await apiJson(`/api/archive?after=${encodeURIComponent(file)}`);
+    if (check === undoCheck && data.keep > 0 && data.undo) setUndo(data.undo);
+  } catch {
+    // dann eben ohne Knopf
   }
 }
 
@@ -4236,6 +4291,7 @@ $('import-file').onchange = () => {
   if (file) importPreview(file);
 };
 $('import-go').onclick = importWrite;
+$('undo').onclick = () => { if (undoEntry) importArchive(undoEntry.id, { undo: true }); };
 $('import-cancel').onclick = () => setImport(null);
 $('update-close').onclick = dismissUpdate;
 $('update-check').onclick = checkUpdate;

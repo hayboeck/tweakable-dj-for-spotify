@@ -28,7 +28,7 @@ import {
   writePlaylist,
 } from './playlist.mjs';
 import { readTrial, trialInfo, trialProblem } from './trial.mjs';
-import { archiveFileCount, archivePlaylist, listArchive, readArchive } from './archive.mjs';
+import { archiveFileCount, archivePlaylist, listArchive, readArchive, undoTarget } from './archive.mjs';
 import { checkForUpdate, currentVersion } from './update.mjs';
 
 // Sprache für Konsole und Anfragen ohne X-Lang.
@@ -256,7 +256,7 @@ function restartAfterUpdate(version) {
 // Ergebnis für die Oberfläche, falls dj.mjs ohne eigene "@@RESULT"-Zeile endet (z. B. abgestürzt).
 const fallbackResult = (lang, dry, code) => ({
   ok: false, dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null,
-  playlistName: null, playlistUrl: null, errorCode: 'other', error: t(lang, 'ui.exited', { code }), missingScope: null, trialId: null,
+  playlistName: null, playlistUrl: null, errorCode: 'other', error: t(lang, 'ui.exited', { code }), missingScope: null, trialId: null, archiveFile: null,
 });
 
 // Startet dj.mjs mit args und schickt seine Ausgabe als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".
@@ -561,7 +561,8 @@ const server = http.createServer(async (req, res) => {
 
     // Textdatei importieren, Schritt 2 (nach der Rückfrage): Body { uris } aus der Vorschau. Ersetzt den Inhalt der Playlist
     // und setzt die Beschreibung; zählt nicht als Lauf (state.json bleibt, wie es ist). Danach kommt die Playlist ins Archiv;
-    // klappt das nicht, steht der Grund in warning. → { ok, songs, playlistName, playlistUrl, created, warning? }
+    // klappt das nicht, steht der Grund in warning. → { ok, songs, playlistName, playlistUrl, created, archiveRemoved,
+    // archiveFile (Name der neuen Archivdatei oder null), warning? }
     if (route === 'POST /api/import') {
       const busy = importBusy(lang);
       if (busy) return send(409, { error: busy });
@@ -576,13 +577,17 @@ const server = http.createServer(async (req, res) => {
           name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang,
         });
         let warning = null;
-        let archiveRemoved = 0; // so viele ältere Playlists hat das Aufräumen des Archivs gelöscht
+        let archived = null;
         try {
-          archiveRemoved = (await archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount }))?.removed?.length ?? 0;
+          archived = await archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount });
         } catch (e) {
           warning = t(lang, 'archive.failed', { message: e.message });
         }
-        return send(200, { ok: true, songs: uris.length, playlistName: cfg.playlistName, playlistUrl, created, archiveRemoved, ...(warning && { warning }) });
+        // archiveRemoved: so viele ältere Playlists hat das Aufräumen des Archivs gelöscht
+        return send(200, {
+          ok: true, songs: uris.length, playlistName: cfg.playlistName, playlistUrl, created, archiveRemoved: archived?.removed?.length ?? 0,
+          archiveFile: archived ? path.basename(archived.file) : null, ...(warning && { warning }),
+        });
       } finally {
         importing = false;
       }
@@ -590,8 +595,12 @@ const server = http.createServer(async (req, res) => {
 
     // Playlist-Archiv für „Importieren … → Frühere Playlist …“: { keep (archiveCount, 0 = aus), entries: [{ id, at, songs }] },
     // neueste zuerst. Liest nur den Ordner archiv/, fragt Spotify nicht.
+    // ?after=<Archivdatei eines Laufs bzw. Imports> zusätzlich undo: Eintrag für „Vorige Playlist wiederherstellen“ oder null
+    // (undoTarget in archive.mjs).
     if (route === 'GET /api/archive') {
-      return send(200, { keep: currentConfig(lang).archiveCount, entries: listArchive(HERE) });
+      const entries = listArchive(HERE);
+      const after = url.searchParams.get('after');
+      return send(200, { keep: currentConfig(lang).archiveCount, entries, ...(after !== null && { undo: undoTarget(entries, after) }) });
     }
 
     // Inhalt eines Eintrags: ?id=<Dateiname aus der Liste> → { id, text }. Die Seite schickt text dann wie eine Datei an

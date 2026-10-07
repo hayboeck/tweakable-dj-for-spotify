@@ -123,6 +123,15 @@ export function listArchive(dir) {
   return out;
 }
 
+// „Vorige Playlist wiederherstellen“ nach einem Lauf bzw. Import, der die Archivdatei after angelegt hat: der Eintrag davor
+// (= Stand der Playlist vor diesem Lauf). Nur, solange after noch der neueste Eintrag ist – sonst hat inzwischen etwas
+// anderes die Playlist geschrieben (z. B. ein automatischer Lauf), und „zurück“ wäre nicht mehr eindeutig. entries wie
+// listArchive (neueste zuerst). Ergebnis: Eintrag { id, at, songs } oder null.
+export function undoTarget(entries, after) {
+  if (typeof after !== 'string' || !Array.isArray(entries) || entries[0]?.id !== after) return null;
+  return entries[1] ?? null;
+}
+
 // Inhalt eines Eintrags (id = Dateiname aus listArchive). Nur eigene Namen (kein Pfad, kein ..), nur normale Dateien bis
 // IMPORT_MAX_BYTES; sonst null (= gibt es nicht).
 export function readArchive(dir, id) {

@@ -10,6 +10,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 **New**
 
 - **♥ in the test run**: next to the × for blocking, every song in the list of a test run has a ♥ that adds it to your Liked Songs in Spotify. A filled ♥ shows songs that already are; clicking it again removes the song. Uses the library endpoints Spotify introduced in February 2026 (`PUT`/`DELETE /me/library`, `GET /me/library/contains`, one request per 40 songs). It needs the new permission `user-library-modify`: logins from version 0.2.4 or older don’t have it, so the first click shows a notice to log in again once – nothing else changes. New endpoints `POST /api/library/contains` and `POST /api/library`.
+- **Restore previous playlist**: after *Rebuild playlist*, *Use this list* or an import, a button below the output brings back the playlist as it was before – the second-newest entry in the archive – with the usual preview and confirmation. Afterwards the restored list is the newest entry and the button disappears. It only shows while the archive is on, the previous state is in it and nothing else has written the playlist in the meantime. `@@RESULT`, `automatik.json` and the answer of `POST /api/import` have the new field `archiveFile` (the archive file just written); `GET /api/archive?after=<file>` also returns `undo` (the entry before it or `null`).
 
 **Changed**
 
@@ -20,6 +21,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 **Neu**
 
 - **♥ im Probelauf**: Neben dem × zum Sperren hat jeder Song in der Liste eines Probelaufs ein ♥, das ihn in Spotify zu deinen Lieblingssongs hinzufügt. Ein gefülltes ♥ zeigt Songs, die es schon sind; ein weiterer Klick entfernt den Song wieder. Verwendet die Bibliotheks-Schnittstellen, die Spotify im Februar 2026 eingeführt hat (`PUT`/`DELETE /me/library`, `GET /me/library/contains`, eine Anfrage pro 40 Songs). Dafür braucht es die neue Berechtigung `user-library-modify`: Anmeldungen von Version 0.2.4 oder älter haben sie nicht, deshalb zeigt der erste Klick einen Hinweis, dich einmal neu anzumelden – sonst ändert sich nichts. Neue Schnittstellen `POST /api/library/contains` und `POST /api/library`.
+- **Vorige Playlist wiederherstellen**: Nach *Playlist neu erstellen*, *Diese Liste übernehmen* oder einem Import holt ein Button unter der Ausgabe die Playlist zurück, wie sie davor war – den zweitneuesten Eintrag im Archiv –, mit der üblichen Vorschau und Rückfrage. Danach ist die wiederhergestellte Liste der neueste Eintrag, und der Button verschwindet. Er erscheint nur, solange das Archiv an ist, der vorige Stand darin liegt und inzwischen nichts anderes die Playlist geschrieben hat. `@@RESULT`, `automatik.json` und die Antwort von `POST /api/import` haben das neue Feld `archiveFile` (die gerade geschriebene Archivdatei); `GET /api/archive?after=<Datei>` liefert zusätzlich `undo` (den Eintrag davor oder `null`).
 
 **Geändert**
 

@@ -55,7 +55,8 @@ const readJson = (file, fallback) => (fs.existsSync(file) ? JSON.parse(fs.readFi
 // missingScope: Berechtigung, die der Spotify-Anmeldung fehlte (z. B. 'user-follow-read'), sonst null.
 // trialId: Kennung des gespeicherten Probelaufs (probelauf.json), sonst null.
 // durationMs: Spieldauer der Liste in Millisekunden; durationEstimated: true, wenn sie für einzelne Songs geschätzt ist.
-const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null, playlistName: null, playlistUrl: null, missingScope: null, trialId: null, summary: null };
+// archiveFile: Name der Archivdatei, die dieser Lauf angelegt hat (für „Vorige Playlist wiederherstellen“), sonst null.
+const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null, playlistName: null, playlistUrl: null, missingScope: null, trialId: null, archiveFile: null, summary: null };
 
 // Fehlerart für die Oberfläche: login_expired, not_logged_in, forbidden, lastfm_key, setup_incomplete, node_version,
 // trial_expired (Probelauf lässt sich nicht mehr übernehmen), other.
@@ -68,7 +69,7 @@ function report(values) {
     ok: r.ok, dry: r.dry, songs: r.songs, fresh: r.fresh, freshCurrent: r.freshCurrent, familiar: r.familiar,
     durationMs: r.durationMs ?? null, durationEstimated: r.durationEstimated ?? null,
     playlistName: r.playlistName, playlistUrl: r.playlistUrl, errorCode: r.errorCode ?? null, error: r.error ?? null,
-    missingScope: r.missingScope ?? null, trialId: r.trialId ?? null,
+    missingScope: r.missingScope ?? null, trialId: r.trialId ?? null, archiveFile: r.archiveFile ?? null,
   };
   auto?.finish({ ...out, summary: summary ?? null });
   if (!process.stdout.isTTY) process.stdout.write(`@@RESULT ${JSON.stringify(out)}\n`);
@@ -422,10 +423,14 @@ async function toSpotify(cfg, spotify, lineup, description) {
 }
 
 // Geschriebene Liste ins Archiv (archive.mjs; archiveCount 0 = aus). Ein Fehler dabei ist nur eine Warnung, der Lauf zählt.
+// Der Name der neuen Datei kommt als archiveFile ins Ergebnis.
 async function toArchive(save) {
   try {
     const saved = await save();
-    if (saved) console.log(t(lang, 'archive.saved', { file: saved.file }));
+    if (saved) {
+      result.archiveFile = path.basename(saved.file);
+      console.log(t(lang, 'archive.saved', { file: saved.file }));
+    }
     if (saved?.removed?.length) console.log(t(lang, 'archive.removed', { count: saved.removed.length }));
   } catch (e) {
     warn(t(lang, 'archive.failed', { message: e.message }));
