@@ -18,6 +18,10 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 - **No play time in the playlist description**: the description that Tweakable DJ sets in Spotify no longer ends with the play time (e.g. *· 2 h 58 min*) – Spotify shows the exact length of the playlist itself. The interface, `@@RESULT`, `automatik.json` and `probelauf.json` still show and contain it.
 
+**Fixed**
+
+- **Slow PowerShell no longer ends in “exit code -1”**: creating the desktop shortcut and setting up automatic runs now wait up to 90 seconds (before: 30) for PowerShell, the Task Scheduler, launchd or crontab – on a freshly started or slow PC, PowerShell sometimes needs longer. If it still takes too long, the message says so (*PowerShell didn’t respond in time … Please try again.*) instead of showing *exit code -1*.
+
 ### Deutsch
 
 **Neu**
@@ -30,6 +34,10 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 **Geändert**
 
 - **Keine Spieldauer mehr in der Beschreibung der Playlist**: Die Beschreibung, die Tweakable DJ in Spotify setzt, endet nicht mehr mit der Spieldauer (z. B. *· 2:58 Std.*) – die genaue Länge zeigt Spotify bei der Playlist selbst an. In der Oberfläche, in `@@RESULT`, `automatik.json` und `probelauf.json` bleibt sie.
+
+**Behoben**
+
+- **Langsames PowerShell endet nicht mehr mit „Fehlercode -1“**: Das Anlegen der Verknüpfung auf dem Desktop und das Einrichten der Automatik warten jetzt bis zu 90 Sekunden (bisher 30) auf PowerShell, die Aufgabenplanung, launchd bzw. crontab – auf einem gerade gestarteten oder langsamen PC braucht PowerShell manchmal länger. Dauert es trotzdem zu lange, sagt die Meldung das (*PowerShell hat nicht rechtzeitig geantwortet … Bitte noch einmal versuchen.*) statt *Fehlercode -1*.
 
 ## [0.2.4] – 2026-10-07
 

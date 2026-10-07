@@ -195,11 +195,15 @@ const ownCronLine = (text, marker) => text.split('\n').find(l => hasMarker(l, ma
 
 // --- Aufrufe ans System ---
 
-// Programm ohne Shell starten: Pfade mit Leerzeichen und Umlauten kommen unverändert an.
+// Zeitlimit für einen Aufruf (schtasks, launchctl, crontab): großzügig, auf einem gerade gestarteten PC dauert es manchmal.
+export const RUN_TIMEOUT = 90_000;
+
+// Programm ohne Shell starten: Pfade mit Leerzeichen und Umlauten kommen unverändert an. code: Exit-Code bzw. z. B.
+// 'ENOENT', 'timeout' = nach RUN_TIMEOUT abgebrochen; 0 = in Ordnung.
 function run(file, args, input = '') {
   return new Promise(resolve => {
-    const child = execFile(file, args, { encoding: 'buffer', windowsHide: true, timeout: 30_000 }, (err, stdout, stderr) => {
-      resolve({ code: err ? err.code ?? -1 : 0, stdout, stderr });
+    const child = execFile(file, args, { encoding: 'buffer', windowsHide: true, timeout: RUN_TIMEOUT }, (err, stdout, stderr) => {
+      resolve({ code: err ? (err.killed ? 'timeout' : err.code ?? -1) : 0, stdout, stderr });
     });
     child.stdin?.on('error', () => {});
     child.stdin?.end(input);
@@ -215,10 +219,13 @@ function decode(buf) {
     return [...buf].map(b => (b < 0x80 ? String.fromCharCode(b) : OEM[b] ?? '?')).join('');
   }
 }
-const failure = (lang, who, r) => tError(lang, 'schedule.reports', {
-  who,
-  message: decode(r.stderr).trim() || decode(r.stdout).trim() || t(lang, 'schedule.exitCode', { code: r.code }),
-});
+// Fehler eines Aufrufs als Meldung in der Sprache lang (who = Programm); bei Zeitüberschreitung ohne Fehlercode.
+export const runFailure = (lang, who, r) => (r.code === 'timeout'
+  ? tError(lang, 'schedule.timeout', { who, seconds: RUN_TIMEOUT / 1000 })
+  : tError(lang, 'schedule.reports', {
+    who,
+    message: decode(r.stderr).trim() || decode(r.stdout).trim() || t(lang, 'schedule.exitCode', { code: r.code }),
+  }));
 
 // Node.js für den Lauf: das gerade laufende. Unter macOS/Linux lieber der gleichwertige Link aus dem PATH
 // (z. B. /opt/homebrew/bin/node), weil der aufgelöste Pfad in einen Versionsordner bei Updates verschwindet.
@@ -275,14 +282,14 @@ export const PLATFORMS = {
       fs.writeFileSync(file, utf16(windowsTaskXml(s, o.nodePath, o.dir, { ...o, conhost: conhost() })));
       try {
         const r = await run(SCHTASKS, ['/Create', '/TN', o.name, '/XML', file, '/F']);
-        if (r.code !== 0) throw failure(o.lang, t(o.lang, 'schedule.windows'), r);
+        if (r.code !== 0) throw runFailure(o.lang, t(o.lang, 'schedule.windows'), r);
       } finally {
         fs.rmSync(file, { force: true });
       }
     },
     async remove(o) {
       const r = await run(SCHTASKS, ['/Delete', '/TN', o.name, '/F']);
-      if (r.code !== 0) throw failure(o.lang, t(o.lang, 'schedule.windows'), r);
+      if (r.code !== 0) throw runFailure(o.lang, t(o.lang, 'schedule.windows'), r);
     },
   },
 
@@ -312,7 +319,7 @@ export const PLATFORMS = {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, launchAgentPlist(s, o.nodePath, o.dir, o));
       const r = await run('/bin/launchctl', ['bootstrap', this.domain(), file]);
-      if (r.code !== 0) throw failure(o.lang, 'launchd', r);
+      if (r.code !== 0) throw runFailure(o.lang, 'launchd', r);
     },
     async remove(o) {
       const file = this.file(o);
@@ -330,7 +337,7 @@ export const PLATFORMS = {
       if (r.code === 0) return decode(r.stdout);
       // Noch keine crontab = leer. Andere Fehler nicht als leer werten, sonst ginge beim Schreiben die crontab verloren.
       if (/no crontab|can't open|No such file/i.test(decode(r.stderr))) return '';
-      throw failure(o.lang, 'crontab', r);
+      throw runFailure(o.lang, 'crontab', r);
     },
     async read(o) {
       return ownCronLine(await this.crontab(o), o.marker);
@@ -344,7 +351,7 @@ export const PLATFORMS = {
     // Schreibt die crontab neu; dabei verschwinden auch Zeilen früherer Namen.
     async write(o, line) {
       const r = await run('crontab', ['-'], updateCrontab(await this.crontab(o), line, o.marker, o.legacy.map(l => l.marker)));
-      if (r.code !== 0) throw failure(o.lang, 'crontab', r);
+      if (r.code !== 0) throw runFailure(o.lang, 'crontab', r);
     },
     install(o, s) {
       return this.write(o, cronLine(s, o.nodePath, o.dir, o));

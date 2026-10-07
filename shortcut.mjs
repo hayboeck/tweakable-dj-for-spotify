@@ -180,19 +180,25 @@ const samePath = (a, b) => path.win32.normalize(String(a ?? '')).replace(/\\+$/,
 
 // --- Aufrufe ans System ---
 
-// Programm ohne Shell starten → { code, stdout, stderr } (code: Exit-Code bzw. z. B. 'ENOENT'; 0 = in Ordnung).
+// Zeitlimit für einen Aufruf: PowerShell mit WScript.Shell braucht auf einem frisch gestarteten bzw. langsamen PC (und auf
+// den Test-Rechnern von GitHub) manchmal deutlich über 30 Sekunden.
+export const RUN_TIMEOUT = 90_000;
+
+// Programm ohne Shell starten → { code, stdout, stderr } (code: Exit-Code bzw. z. B. 'ENOENT', 'timeout' = nach RUN_TIMEOUT
+// abgebrochen; 0 = in Ordnung).
 function runFile(file, args, { env } = {}) {
   return new Promise(resolve => {
-    execFile(file, args, { env, encoding: 'utf8', windowsHide: true, timeout: 30_000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
-      resolve({ code: err ? err.code ?? -1 : 0, stdout: stdout ?? '', stderr: stderr ?? '' });
+    execFile(file, args, { env, encoding: 'utf8', windowsHide: true, timeout: RUN_TIMEOUT, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+      resolve({ code: err ? (err.killed ? 'timeout' : err.code ?? -1) : 0, stdout: stdout ?? '', stderr: stderr ?? '' });
     });
   });
 }
 
 const firstLine = s => String(s ?? '').split(/\r?\n/).map(l => l.trim()).find(Boolean) ?? '';
-const failure = (lang, who, r) => tError(lang, 'shortcut.reports', {
-  who, message: firstLine(r.stderr) || firstLine(r.stdout) || t(lang, 'shortcut.exitCode', { code: r.code }),
-});
+// Zeitüberschreitung: verständliche Meldung statt eines Fehlercodes (die halbe Ausgabe davor hilft niemandem).
+const failure = (lang, who, r) => (r.code === 'timeout'
+  ? tError(lang, 'shortcut.timeout', { who, seconds: RUN_TIMEOUT / 1000 })
+  : tError(lang, 'shortcut.reports', { who, message: firstLine(r.stderr) || firstLine(r.stdout) || t(lang, 'shortcut.exitCode', { code: r.code }) }));
 
 // Optionen: dir = Programmordner, platform, desktop = fester Desktop-Ordner (Tests; sonst TWEAKABLE_DJ_DESKTOP bzw. der
 // des Systems), home, env, run(file, args, { env }) für die Befehle, lang.

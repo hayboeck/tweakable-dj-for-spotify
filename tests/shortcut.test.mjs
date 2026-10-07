@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   BUNDLE_ID, createShortcut, DESKTOP_VAR, FILE_NAMES, LINUX_MARKER, linuxDesktopEntry, linuxEntryDir, macInfoPlist, macLauncher,
-  macLauncherDir, removeShortcut, shortcutStatus, windowsCommand, windowsShortcut,
+  macLauncherDir, removeShortcut, RUN_TIMEOUT, shortcutStatus, windowsCommand, windowsShortcut,
 } from '../shortcut.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -230,6 +230,13 @@ test('Windows (simuliert): Fehler von PowerShell mit verständlicher Meldung, ke
   await assert.rejects(createShortcut({ platform: 'win32', run, dir: 'C:\\x', lang: 'en' }), { message: 'PowerShell reports: Zugriff verweigert' });
   const missing = async () => ({ code: 'ENOENT', stdout: '', stderr: '' });
   assert.equal((await shortcutStatus({ platform: 'win32', run: missing, dir: 'C:\\x', lang: 'de' })).message, 'PowerShell meldet: Fehlercode ENOENT');
+  // Zu langsam (z. B. kalter PC): nach RUN_TIMEOUT abgebrochen, verständliche Meldung statt eines Fehlercodes
+  const slow = async () => ({ code: 'timeout', stdout: '{"desk', stderr: '' });
+  assert.equal(RUN_TIMEOUT, 90_000);
+  assert.equal((await shortcutStatus({ platform: 'win32', run: slow, dir: 'C:\\x', lang: 'de' })).message,
+    'PowerShell hat nicht rechtzeitig geantwortet (nach 90 Sekunden abgebrochen). Bitte noch einmal versuchen.');
+  await assert.rejects(createShortcut({ platform: 'win32', run: slow, dir: 'C:\\x', lang: 'en' }),
+    { message: 'PowerShell didn’t respond in time (stopped after 90 seconds). Please try again.' });
   const empty = async () => ({ code: 0, stdout: JSON.stringify({ desktop: '', exists: false }), stderr: '' });
   assert.equal((await shortcutStatus({ platform: 'win32', run: empty, dir: 'C:\\x', lang: 'fr' })).message, 'Aucun dossier Bureau trouvé.');
 });
@@ -369,7 +376,9 @@ test('TWEAKABLE_DJ_DESKTOP gibt den Desktop-Ordner vor (für Tests der Oberfläc
 
 // --- Echtes System (nur in Testordnern) ---
 
-test('Echtes System: anlegen, Stand, entfernen – Programmordner mit Leerzeichen, Umlaut und Apostroph', async () => {
+// PowerShell braucht auf einem kalten Windows-Rechner (z. B. bei GitHub) je Aufruf manchmal über 30 s: Zeit für alle Aufrufe
+// dieses Tests, jeweils bis RUN_TIMEOUT.
+test('Echtes System: anlegen, Stand, entfernen – Programmordner mit Leerzeichen, Umlaut und Apostroph', { timeout: 8 * RUN_TIMEOUT }, async () => {
   const desktop = tmp('echt-desktop');
   const dir = programDir("echt Hayböck's");
   const opts = { desktop, dir, lang: 'de' };

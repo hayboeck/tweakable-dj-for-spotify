@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { WEEKDAYS } from '../config.mjs';
 import {
   applySchedule, checkWindowsTask, cronLine, entryIds, lastRun, launchAgentPlist, LEGACY_NAMES, nextRun, PLATFORMS,
-  scheduleStatus, TASK_NAME, updateCrontab, utf16, windowsTaskXml,
+  RUN_TIMEOUT, runFailure, scheduleStatus, TASK_NAME, updateCrontab, utf16, windowsTaskXml,
 } from '../schedule.mjs';
 
 // Zeitzone mit Sommerzeit, damit die Umstellung geprüft werden kann (wirkt auch unter Windows).
@@ -397,4 +397,13 @@ test('READMEs, Abschnitt Deinstallieren: Befehle zum Entfernen von Hand mit den 
       assert.ok(section.includes(s), `${file}: ${s}`);
     }
   }
+});
+
+test('Zeitlimit: großzügig, Zeitüberschreitung mit verständlicher Meldung statt Fehlercode', () => {
+  assert.equal(RUN_TIMEOUT, 90_000);
+  const slow = { code: 'timeout', stdout: Buffer.from('halb'), stderr: Buffer.from('') };
+  assert.equal(runFailure('de', 'Die Aufgabenplanung', slow).message,
+    'Die Aufgabenplanung hat nicht rechtzeitig geantwortet (nach 90 Sekunden abgebrochen). Bitte noch einmal versuchen.');
+  assert.equal(runFailure('en', 'crontab', slow).message, 'crontab didn’t respond in time (stopped after 90 seconds). Please try again.');
+  assert.equal(runFailure('de', 'crontab', { code: 1, stdout: Buffer.from(''), stderr: Buffer.from('kaputt\n') }).message, 'crontab meldet: kaputt');
 });
