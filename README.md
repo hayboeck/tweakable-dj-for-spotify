@@ -10,7 +10,12 @@ Spotify’s own AI DJ talks between the songs, and its voice can’t be turned o
 You decide how much variety you want, how many favorites, and how often the same artist comes up.
 The interface is available in English and German, and also in Spanish and French (machine translated – corrections are welcome as an [issue](https://github.com/hayboeck/tweakable-dj-for-spotify/issues)); choose the language at the top right.
 
-<p align="center"><img src="docs/screenshot-main.en.png" width="440" alt="The Tweakable DJ interface: presets such as Discover and My current phase, the groups Selection (with Adventure and Followed artists) and Variety (Artist variety with Details for experts), and the buttons Test run and Rebuild playlist"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-playlist.dark.png">
+    <img src="docs/screenshot-playlist.light.png" width="440" alt="The tab Playlist after a test run: the presets with My current phase selected, the group Playlist with Number of songs at 50 songs (≈ 3 h 17 min) and Share of favorites at 20%, the output with the summary (50 songs · 3 h 17 min, 35 new, 15 favorites), the steps of the run and the start of the song list with a × after each song, the buttons Use this list, Save as text file and Import …, and at the bottom Discard, Save, Test run and Rebuild playlist. The other groups of controls are left out of the picture.">
+  </picture>
+</p>
 
 Tweakable DJ is an independent project and not an official Spotify product (more in [section 12](#12-data-sources-trademarks-and-license)).
 
@@ -110,7 +115,7 @@ The numbers show the order of a run:
 | `config.example.jsonc` | Empty settings template with English explanations. It becomes your `config.jsonc` when you set up in English, Spanish or French. |
 | `config.example.de.jsonc` | The same template with German explanations (for setting up in German) |
 | `overview.en.svg`, `overview.de.svg` | The diagram in section 2, in English and German |
-| `docs/` | Screenshots of the interface for this guide, in English and German |
+| `docs/` | Screenshots of the interface for this guide (English interface), in light and dark mode |
 | `assets/` | The logo: `logo.png` (interface and this guide), `logo-small.svg` (browser tab), `logo.ico` and `logo.icns` (icon of the desktop shortcut on Windows and Mac) |
 | `LICENSE` | The license (MIT), see section 12 |
 | `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, the files of automatic runs, the result of the update check, `.update/` and the archive `archiv/` are never uploaded |
@@ -311,6 +316,13 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
 
 *Test run* and *Rebuild playlist* save first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-settings.dark.png">
+    <img src="docs/screenshot-settings.light.png" width="440" alt="The tab Settings: Rebuild automatically set to Daily at 07:00 with the next run and the last automatic run (✓ 50 songs · 3 h 17 min), the block list with No explicit songs, the artists Imagine Dragons and The Killers and the songs Tame Impala – The Less I Know the Better and Glass Animals – Heat Waves, the archive with Keep earlier playlists at 20, Appearance with the mode and 8 accent colors, Credentials (Spotify: logged in, Last.fm: demo), Shortcut (On the desktop ✓) and Version v0.2.1 · You’re up to date ✓">
+  </picture>
+</p>
+
 ### Block list: artists and songs
 
 The group *Block list* (tab *Settings*) has three parts. Like every setting, changes are only written to `config.jsonc` when you click *Save* (a test run saves first by itself).
@@ -319,13 +331,9 @@ The group *Block list* (tab *Settings*) has three parts. Like every setting, cha
 - **Artists that are never played**: enter a name and click *Add*. Remove it again with ×.
 - **Songs that are never played**: after a test run, every song in the list has a small **×**. Clicking it blocks the song: it is struck through, appears as a chip under *Songs that are never played* and stays out of every run from then on, including other versions of it (remaster, live, a single with its own link). **↺** next to a struck-through song, or × on the chip, unblocks it. A test run shows e.g. “2 blocked songs left out”.
 
-<p align="center"><img src="docs/screenshot-blocklist.en.png" width="560" alt="The groups Block list and Text file: the switch No explicit songs, the blocked artists Imagine Dragons and The Killers and the blocked songs Tame Impala – The Less I Know the Better and Glass Animals – Heat Waves as chips with ×, the buttons Save as text file and Import text file …, and at the bottom v0.1.2 · Check for updates"></p>
-
 If you block a song from the list of a test run, *Use this list* is disabled (that list contains the song). Start a new test run; it saves your changes first.
 
 The block list doesn’t apply to an import from a text file: it’s your list. The preview names the songs a run of the DJ would leave out (“on your block list”, “explicit”), and they still go in.
-
-<p align="center"><img src="docs/screenshot-run.en.png" width="640" alt="Result of a test run: Tweakable DJ with 50 songs, 40 new (all found via current listening) and 10 favorites, the steps of the run (including followed artists and 2 blocked songs left out), the start of the song list with a × after each song to block it, and the buttons Use this list and Save as text file"></p>
 
 ### In the terminal
 
@@ -421,8 +429,6 @@ You do these steps once before using Tweakable DJ for the first time, and again 
    5. **Done**: the wizard offers *Create a shortcut on the desktop* (ticked by default). With it, you can later start Tweakable DJ with a double-click on the logo on your desktop; you can also create or remove it later in the tab *Settings* ([Shortcut](#desktop-shortcut)). Then the controls appear and you can start your first test run.
 
    The wizard creates the file `config.jsonc` by itself, with explanations in the language you have selected (in English for Spanish and French). Later, you can reach it via *Change credentials* in the tab *Settings*.
-
-   <p align="center"><img src="docs/screenshot-setup.en.png" width="560" alt="Step 1 of the setup wizard: create a Spotify app, with the redirect URI, a Copy button and a field for the Client ID; below it steps 2 to 5"></p>
 
 **Setting up without the interface** (for those who prefer the terminal):
 

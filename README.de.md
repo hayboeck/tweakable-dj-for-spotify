@@ -10,7 +10,13 @@ Der KI-DJ von Spotify spricht zwischen den Songs, und seine Stimme lässt sich n
 Wie viel Abwechslung, wie viele Favoriten und wie oft derselbe Künstler vorkommt, stellst du selbst ein.
 Die Oberfläche gibt es auf Deutsch und Englisch, außerdem auf Spanisch und Französisch (maschinell übersetzt – Korrekturen gern als [Issue](https://github.com/hayboeck/tweakable-dj-for-spotify/issues)); die Sprache wählst du oben rechts.
 
-<p align="center"><img src="docs/screenshot-main.de.png" width="440" alt="Die Oberfläche von Tweakable DJ: Voreinstellungen wie Entdecken und Meine aktuelle Phase, die Gruppen Auswahl (mit Abenteuer und Gefolgte Künstler) und Abwechslung (Abwechslung bei Künstlern mit Details für Fortgeschrittene) und die Buttons Probelauf und Playlist neu erstellen"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-playlist.dark.png">
+    <img src="docs/screenshot-playlist.light.png" width="440" alt="Der Tab Playlist nach einem Probelauf: die Voreinstellungen mit My current phase (Meine aktuelle Phase) ausgewählt, die Gruppe Playlist mit Number of songs (Anzahl Songs) auf 50 Songs (≈ 3 h 17 min) und Share of favorites (Anteil Favoriten) auf 20 %, die Ausgabe mit der Zusammenfassung (50 Songs · 3 h 17 min, 35 neu, 15 Favoriten), den Schritten des Laufs und dem Anfang der Songliste mit einem × hinter jedem Song, die Buttons Use this list (Diese Liste übernehmen), Save as text file (Als Textdatei speichern) und Import … (Importieren …) und ganz unten Discard, Save, Test run und Rebuild playlist (Verwerfen, Speichern, Probelauf, Playlist neu erstellen). Die übrigen Gruppen mit Reglern sind im Bild ausgelassen. Englische Oberfläche.">
+  </picture>
+</p>
+<p align="center"><sub>Die Bilder in dieser Anleitung zeigen die englische Oberfläche; sie ist auch auf Deutsch verfügbar (Sprache oben rechts).</sub></p>
 
 Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt (mehr dazu in [Abschnitt 12](#12-datenquellen-marken-und-lizenz)).
 
@@ -110,7 +116,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `config.example.de.jsonc` | Leere Vorlage der Einstellungen mit deutschen Erklärungen. Daraus wird bei der Einrichtung auf Deutsch deine `config.jsonc`. |
 | `config.example.jsonc` | Dieselbe Vorlage mit englischen Erklärungen (für die Einrichtung auf Englisch, Spanisch oder Französisch) |
 | `overview.de.svg`, `overview.en.svg` | Die Grafik in Abschnitt 2, auf Deutsch und Englisch |
-| `docs/` | Bildschirmfotos der Oberfläche für diese Anleitung, auf Deutsch und Englisch |
+| `docs/` | Bildschirmfotos der Oberfläche für diese Anleitung (englische Oberfläche), hell und dunkel |
 | `assets/` | Das Logo: `logo.png` (Oberfläche und diese Anleitung), `logo-small.svg` (Browser-Tab), `logo.ico` und `logo.icns` (Symbol der Verknüpfung auf dem Desktop unter Windows und auf dem Mac) |
 | `LICENSE` | Die Lizenz (MIT), siehe Abschnitt 12 |
 | `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, die Dateien der Automatik, das Ergebnis der Prüfung auf neue Versionen, `.update/` und das Archiv `archiv/` nie mit hochgeladen werden |
@@ -311,6 +317,13 @@ Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Tex
 
 *Probelauf* und *Playlist neu erstellen* speichern vorher automatisch. Die Oberfläche ist nur auf deinem PC erreichbar, andere Geräte im Netzwerk und fremde Webseiten haben keinen Zugriff.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-settings.dark.png">
+    <img src="docs/screenshot-settings.light.png" width="440" alt="Der Tab Settings (Einstellungen): Rebuild automatically (Automatisch neu erstellen) täglich um 07:00 mit dem nächsten Lauf und dem letzten automatischen Lauf (✓ 50 Songs · 3 h 17 min), die Sperrliste mit No explicit songs (Keine Songs mit expliziten Texten), den Künstlern Imagine Dragons und The Killers und den Songs Tame Impala – The Less I Know the Better und Glass Animals – Heat Waves, das Archiv mit Keep earlier playlists (Frühere Playlists aufheben) auf 20, Appearance (Aussehen) mit Modus und 8 Akzentfarben, Credentials (Zugangsdaten: bei Spotify angemeldet, Last.fm: demo), Shortcut (Verknüpfung: auf dem Desktop vorhanden) und Version v0.2.1 · You’re up to date ✓ (Du hast die neueste Version). Englische Oberfläche.">
+  </picture>
+</p>
+
 ### Sperrliste: Künstler und Songs
 
 Die Gruppe *Sperrliste* (Tab *Einstellungen*) hat drei Teile. Wie bei jeder Einstellung kommen Änderungen erst mit *Speichern* in die `config.jsonc` (ein Probelauf speichert vorher von selbst).
@@ -319,13 +332,9 @@ Die Gruppe *Sperrliste* (Tab *Einstellungen*) hat drei Teile. Wie bei jeder Eins
 - **Künstler, die nie gespielt werden**: Namen eintragen und auf *Hinzufügen* klicken. Mit × wieder entfernen.
 - **Songs, die nie gespielt werden**: Nach einem Probelauf steht hinter jedem Song der Liste ein kleines **×**. Ein Klick sperrt den Song: Er wird durchgestrichen, erscheint als Chip unter *Songs, die nie gespielt werden* und kommt ab dann bei keinem Lauf mehr vor, auch nicht in anderen Versionen (Remaster, Live, Single mit eigenem Link). **↺** neben einem durchgestrichenen Song oder × am Chip hebt die Sperre wieder auf. Ein Probelauf zeigt z. B. „2 gesperrte Songs ausgelassen“.
 
-<p align="center"><img src="docs/screenshot-blocklist.de.png" width="560" alt="Die Gruppen Sperrliste und Textdatei: der Schalter Keine Songs mit expliziten Texten, die gesperrten Künstler Imagine Dragons und The Killers und die gesperrten Songs Tame Impala – The Less I Know the Better und Glass Animals – Heat Waves als Chips mit ×, die Buttons Als Textdatei speichern und Textdatei importieren …, ganz unten v0.1.2 · Nach Updates suchen"></p>
-
 Sperrst du einen Song aus der Liste eines Probelaufs, ist *Diese Liste übernehmen* gesperrt (die Liste enthält ja den Song). Starte einen neuen Probelauf; er speichert deine Änderungen vorher.
 
 Für einen Import aus einer Textdatei gilt die Sperrliste nicht: Es ist deine Liste. Die Vorschau nennt die Songs, die ein Lauf des DJ auslassen würde („auf deiner Sperrliste“, „explizit“), und sie kommen trotzdem hinein.
-
-<p align="center"><img src="docs/screenshot-run.de.png" width="640" alt="Ergebnis eines Probelaufs: Tweakable DJ mit 50 Songs, 34 neu (alle über aktuelles Hören gefunden) und 16 Favoriten, die Schritte des Laufs (samt gefolgten Künstlern und 2 ausgelassenen gesperrten Songs), der Anfang der Songliste mit einem × zum Sperren hinter jedem Song und die Buttons Diese Liste übernehmen und Als Textdatei speichern"></p>
 
 ### Im Terminal
 
@@ -421,8 +430,6 @@ Diese Schritte machst du einmal, bevor du Tweakable DJ zum ersten Mal benutzt, u
    5. **Fertig**: Der Assistent bietet *Verknüpfung auf dem Desktop anlegen* an (schon angehakt). Damit startest du Tweakable DJ später per Doppelklick auf das Logo auf deinem Desktop; anlegen oder entfernen kannst du sie auch später im Tab *Einstellungen* ([Verknüpfung](#verknüpfung-auf-dem-desktop)). Danach erscheinen die Regler, und du kannst den ersten Probelauf starten.
 
    Dabei legt der Assistent die Datei `config.jsonc` selbst an, mit Erklärungen in der Sprache, die du gerade eingestellt hast (bei Spanisch und Französisch auf Englisch). Später erreichst du ihn über *Zugangsdaten ändern* im Tab *Einstellungen*.
-
-   <p align="center"><img src="docs/screenshot-setup.de.png" width="560" alt="Schritt 1 des Einrichtungs-Assistenten: Spotify-App anlegen, mit der Redirect URI, einem Kopieren-Button und einem Feld für die Client ID; darunter die Schritte 2 bis 5"></p>
 
 **Ohne Oberfläche einrichten** (für alle, die lieber im Terminal arbeiten):
 

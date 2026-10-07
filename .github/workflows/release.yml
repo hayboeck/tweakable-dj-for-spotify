@@ -74,19 +74,23 @@ jobs:
           done
 
           # Die READMEs sollen auch in der ZIP-Datei vollständig sein: Alles, worauf sie relativ verweisen (Screenshots in
-          # docs/, zusammen rund 1,3 MB, das Logo assets/logo.png, overview.*.svg, LICENSE, die README der anderen Sprache …), muss dabei sein.
-          # Links ins Internet und auf Abschnitte (#…) zählen nicht. LICENSE muss immer mit (MIT: Lizenztext in jeder Kopie).
+          # docs/ in hell und dunkel, zusammen rund 0,7 MB, das Logo assets/logo.png, overview.*.svg, LICENSE, die README der anderen
+          # Sprache …), muss dabei sein. Links ins Internet und auf Abschnitte (#…) zählen nicht. LICENSE muss immer mit (MIT: Lizenztext
+          # in jeder Kopie).
           (cd "build/${ordner}" && node -e '
             const fs = require("fs");
             const missing = new Set(fs.existsSync("LICENSE") ? [] : ["LICENSE"]);
             for (const readme of ["README.md", "README.de.md"]) {
               const text = fs.readFileSync(readme, "utf8");
-              // [Text](Ziel) und ![Bild](Ziel), dazu src="Ziel" bzw. href="Ziel" in HTML
-              for (const m of text.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\b(?:src|href)="([^"]+)"/g)) {
-                const target = m[1] ?? m[2];
-                if (/^([a-z][a-z0-9+.-]*:|#|\/\/)/i.test(target)) continue;
-                const file = decodeURIComponent(target.replace(/[?#].*$/, ""));
-                if (!fs.existsSync(file)) missing.add(`${file} (aus ${readme})`);
+              // [Text](Ziel) und ![Bild](Ziel), dazu src="Ziel" bzw. href="Ziel" in HTML und srcset="Ziel" in <picture>
+              // (z. B. die dunkle Fassung eines Screenshots; mehrere Ziele durch Komma getrennt, je mit Angabe wie 2x dahinter)
+              for (const m of text.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\b(?:src|href)="([^"]+)"|\bsrcset="([^"]+)"/g)) {
+                const targets = m[3] !== undefined ? m[3].split(",").map(s => s.trim().split(/\s+/)[0]).filter(Boolean) : [m[1] ?? m[2]];
+                for (const target of targets) {
+                  if (/^([a-z][a-z0-9+.-]*:|#|\/\/)/i.test(target)) continue;
+                  const file = decodeURIComponent(target.replace(/[?#].*$/, ""));
+                  if (!fs.existsSync(file)) missing.add(`${file} (aus ${readme})`);
+                }
               }
             }
             if (missing.size) {
