@@ -1,0 +1,161 @@
+// „Neu in v0.x.y“ (whatsnew.mjs): Punkte aus CHANGELOG.md und wann der Hinweis erscheint.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { MAX_ITEMS, SEEN_FILE, markSeen, parseChangelog, seenVersion, shortItem, updatedFrom, whatsNew } from '../whatsnew.mjs';
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+
+const CHANGELOG = `# Changelog
+
+## [Unreleased]
+
+### English
+
+- **Not yet released**: nothing to show.
+
+## [0.3.0] – 2026-10-08
+
+### English
+
+**New**
+
+- **Heart in the test run**: next to the ×, every song has a ♥.
+- After a run, the output says e.g. *34 artists*. More text follows here.
+- **Restore previous playlist**: a button below the output.
+  - an indented detail that doesn’t count
+
+**Fixed**
+
+- **\`Update now\`** works without a window.
+
+### Deutsch
+
+**Neu**
+
+- **Herz im Probelauf**: Neben dem × hat jeder Song ein ♥.
+- **Vorige Playlist wiederherstellen**: ein Button unter der Ausgabe.
+
+## [0.2.4] – 2026-10-07
+
+### English
+
+- Only sentences here, z. B. with an abbreviation: and more. Second sentence.
+- A very long sentence ${'without any end '.repeat(12)}.
+
+### Deutsch
+
+- Nur Sätze, z. B. mit Abkürzung. Zweiter Satz.
+`;
+
+test('parseChangelog: fett gedruckte Stichworte der Version, deutsch bzw. sonst englisch', () => {
+  assert.deepEqual(parseChangelog(CHANGELOG, '0.3.0', 'en'),
+    { items: ['Heart in the test run', 'Restore previous playlist', 'Update now'], more: 0 }, 'nur die Punkte mit Stichwort');
+  assert.deepEqual(parseChangelog(CHANGELOG, '0.3.0', 'de'), { items: ['Herz im Probelauf', 'Vorige Playlist wiederherstellen'], more: 0 });
+  for (const lang of ['es', 'fr', undefined]) assert.deepEqual(parseChangelog(CHANGELOG, '0.3.0', lang), parseChangelog(CHANGELOG, '0.3.0', 'en'), String(lang));
+  assert.deepEqual(parseChangelog(CHANGELOG, 'v0.3.0', 'en').items[0], 'Heart in the test run', 'mit v davor');
+  // Ohne Stichworte: der erste Satz (Abkürzungen beenden ihn nicht), lange gekürzt
+  const old = parseChangelog(CHANGELOG, '0.2.4', 'en');
+  assert.equal(old.items[0], 'Only sentences here, z. B. with an abbreviation');
+  assert.ok(old.items[1].length <= 120 && old.items[1].endsWith('…'), old.items[1]);
+  assert.deepEqual(parseChangelog(CHANGELOG, '0.2.4', 'de').items, ['Nur Sätze, z. B. mit Abkürzung']);
+  // Fehlt etwas: null
+  assert.equal(parseChangelog(CHANGELOG, '0.9.9', 'en'), null);
+  assert.equal(parseChangelog(CHANGELOG, 'Unreleased', 'en'), null, 'keine Versionsnummer');
+  assert.equal(parseChangelog(CHANGELOG.replace(/### Deutsch[\s\S]*?(?=## \[0\.2\.4\])/, ''), '0.3.0', 'de'), null, 'Abschnitt fehlt');
+  assert.equal(parseChangelog(null, '0.3.0', 'en'), null);
+  // Höchstens MAX_ITEMS, Rest als Anzahl
+  const many = `## [1.0.0]\n\n### English\n\n${Array.from({ length: 8 }, (_, i) => `- **Item ${i + 1}**: text`).join('\n')}\n`;
+  assert.deepEqual(parseChangelog(many, '1.0.0', 'en'), { items: Array.from({ length: MAX_ITEMS }, (_, i) => `Item ${i + 1}`), more: 3 });
+  assert.equal(parseChangelog(many.replace(/\r?\n/g, '\r\n'), '1.0.0', 'en').more, 3, 'Windows-Zeilenenden');
+});
+
+test('shortItem: Markdown weg, Stichwort bzw. erster Satz', () => {
+  assert.equal(shortItem('- **Archive status**: under *Archived playlists* …'), 'Archive status');
+  assert.equal(shortItem('- After a run, the output says when older playlists were removed, e.g. *Removed the 5 oldest*. More.'),
+    'After a run, the output says when older playlists were removed, e.g. Removed the 5 oldest');
+  assert.equal(shortItem('- `@@RESULT` has the new field `archiveFile`.'), '@@RESULT has the new field archiveFile');
+  assert.equal(shortItem('- See [the README](README.md): it explains it.'), 'See the README');
+});
+
+test('Die echte CHANGELOG.md: jede veröffentlichte Version hat Punkte auf Deutsch und Englisch', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
+  const versions = [...text.matchAll(/^## \[(\d+\.\d+\.\d+)\]/gm)].map(m => m[1]);
+  assert.ok(versions.length >= 5, versions.join());
+  for (const v of versions) {
+    for (const lang of ['de', 'en']) {
+      const notes = parseChangelog(text, v, lang);
+      assert.ok(notes?.items.length > 0, `${v} ${lang}`);
+      assert.ok(notes.items.every(i => i.length <= 120 && !/[*`]/.test(i)), `${v} ${lang}: ${notes.items.join(' | ')}`);
+    }
+  }
+});
+
+function withDir(fn) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj neu ü-'));
+  try {
+    return fn(dir);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+  }
+}
+const backup = (dir, from, to) => {
+  const b = path.join(dir, '.update', `backup-${from}`);
+  fs.mkdirSync(b, { recursive: true });
+  fs.writeFileSync(path.join(b, 'backup.json'), JSON.stringify({ from, to, createdAt: '2026-10-08T10:00:00Z', replaced: [], added: [] }));
+};
+const show = (dir, current = '0.3.0', lang = 'de') => whatsNew({ dir, current, lang, changelog: CHANGELOG, slug: 'owner/repo' });
+
+test('whatsNew: allererster Start nichts; nach einem Update einmal, bis geschlossen', () => withDir(dir => {
+  assert.equal(show(dir), null, 'allererster Start');
+  assert.equal(seenVersion(dir), '0.3.0', 'ab jetzt gemerkt');
+  assert.equal(show(dir), null, 'dieselbe Version');
+
+  // Update auf eine neuere Version (Datei sagt 0.2.4)
+  markSeen(dir, '0.2.4');
+  assert.deepEqual(show(dir), {
+    version: '0.3.0', previous: '0.2.4', items: ['Herz im Probelauf', 'Vorige Playlist wiederherstellen'], more: 0,
+    url: 'https://github.com/owner/repo/releases/tag/v0.3.0',
+  });
+  assert.equal(show(dir, '0.3.0', 'fr').items[0], 'Heart in the test run');
+  assert.equal(seenVersion(dir), '0.2.4', 'Anzeigen allein merkt nichts');
+  assert.ok(markSeen(dir, '0.3.0'));
+  assert.equal(show(dir), null, 'geschlossen: kommt nicht wieder');
+  assert.equal(show(dir, '0.2.4'), null, 'zurück auf eine ältere Version: nichts');
+
+  // Version ohne Punkte in CHANGELOG.md: nichts, gilt als gesehen
+  markSeen(dir, '0.2.4');
+  assert.equal(show(dir, '0.9.9'), null);
+  assert.equal(seenVersion(dir), '0.9.9');
+  // Ohne Repository kein Link
+  markSeen(dir, '0.2.4');
+  assert.equal(whatsNew({ dir, current: '0.3.0', lang: 'en', changelog: CHANGELOG, slug: null }).url, null);
+  // Kaputte Datei bzw. ungültige Version = keine gemerkte
+  fs.writeFileSync(path.join(dir, SEEN_FILE), '{ kaputt');
+  assert.equal(seenVersion(dir), null);
+  assert.equal(whatsNew({ dir, current: null, lang: 'de', changelog: CHANGELOG }), null);
+  assert.equal(markSeen(dir, 'neu'), false);
+}));
+
+test('whatsNew: erstes Update auf eine Version mit Hinweis – vorige Version aus .update/backup-*/backup.json', () => withDir(dir => {
+  backup(dir, '0.2.4', '0.3.0');
+  backup(dir, '0.2.3', '0.2.4'); // älteres Update auf eine andere Version zählt nicht
+  assert.equal(updatedFrom(dir, '0.3.0'), '0.2.4');
+  assert.equal(updatedFrom(dir, '0.2.4'), '0.2.3');
+  assert.equal(updatedFrom(dir, '0.4.0'), null);
+  const w = show(dir);
+  assert.deepEqual([w.version, w.previous], ['0.3.0', '0.2.4']);
+  assert.equal(fs.existsSync(path.join(dir, SEEN_FILE)), false, 'erst beim Schließen gemerkt');
+  markSeen(dir, '0.3.0');
+  assert.equal(show(dir), null);
+  // Kaputte Sicherung: zählt nicht
+  withDir(other => {
+    fs.mkdirSync(path.join(other, '.update', 'backup-x'), { recursive: true });
+    fs.writeFileSync(path.join(other, '.update', 'backup-x', 'backup.json'), '{ kaputt');
+    assert.equal(updatedFrom(other, '0.3.0'), null);
+    assert.equal(show(other), null, 'wie ein allererster Start');
+  });
+}));

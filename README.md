@@ -109,6 +109,7 @@ The numbers show the order of a run:
 | `notify.mjs` | System notification when an automatic run fails, using only what your system has built in (Windows: PowerShell, Mac: `osascript`, Linux: `notify-send`) |
 | `update.mjs` | Checks at most once a day whether a new version is available on GitHub (see [Update check](#update-check)) |
 | `install-update.mjs` | Installs a new version when you click *Update now* (see [Updating](#8-updating)) |
+| `whatsnew.mjs` | Shows *New in v…* once after an update, with the main points from `CHANGELOG.md` |
 | `manifest.json` | List of all program files of this version with their checksums. *Update now* only replaces files listed there. Only in the ZIP file, not in the GitHub repository. |
 | `package.json` | Shortcuts for developers: `npm start` (interface) and `npm test` (tests). Tweakable DJ needs no additional packages. |
 | `tests/` | Automated tests for the rules, the settings, the translations, automatic runs, the desktop shortcut (only in test folders), the update check and *Update now*, the interface, the text file and test runs including applying them, in which Spotify, Last.fm and GitHub are only simulated. Only in the GitHub repository, not in the ZIP file. |
@@ -118,7 +119,7 @@ The numbers show the order of a run:
 | `docs/` | Screenshots of the interface for this guide (English interface), in light and dark mode |
 | `assets/` | The logo: `logo.png` (interface and this guide), `logo-small.svg` (browser tab), `logo.ico` and `logo.icns` (icon of the desktop shortcut on Windows and Mac) |
 | `LICENSE` | The license (MIT), see section 12 |
-| `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, the files of automatic runs, the result of the update check, `.update/` and the archive `archiv/` are never uploaded |
+| `.gitignore` | Makes sure `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, the files of automatic runs, the result of the update check, the last seen version (`seen-version.json`), `.update/` and the archive `archiv/` are never uploaded |
 | `.gitattributes` | Consistent line endings for Windows, Mac and Linux; marks images as binary. Only in the GitHub repository, not in the ZIP file. |
 | `.github/` | Templates for bug reports and ideas, automated workflows on GitHub (e.g. the ZIP file for new versions). Only in the GitHub repository, not in the ZIP file. |
 
@@ -133,6 +134,7 @@ The numbers show the order of a run:
 | `automatik.json` | Result of the last automatic run (time, ✓ or the reason it failed). The interface shows it under *Rebuild automatically* (tab *Settings*). |
 | `automatik.log` | The complete output of the last automatic run, for troubleshooting |
 | `update-check.json` | Result of the last [update check](#update-check) (time and newest version). Deleting it does no harm. |
+| `seen-version.json` | The version for which you last saw *New in v…* after an update. Deleting it does no harm (the notice then waits for the next update). |
 | `.update/` | Created by *Update now*: the backup of the program files of the previous version (`backup-<version>`). Deleting it does no harm. |
 | `archiv/` | The [playlist archive](#playlist-archive): every written playlist as a text file, e.g. `2026-10-06 18-30-05 Tweakable DJ.txt`. Deleting it does no harm, the earlier playlists are just gone. |
 
@@ -314,6 +316,7 @@ The page has two tabs: **Playlist** (presets, controls, output with text file an
 
   If a notification can’t be shown, the run still counts as usual; `automatik.log` then contains a short note why.
 - **New version**: if a newer version of Tweakable DJ has been released, a notice appears at the top with a download link and the button **Update now** (see [Updating](#8-updating)). Close it with ×; it only comes back for the next version. The tab *Settings* shows under *Version* which version you have (e.g. *v0.1.3*), next to it **Check for updates**: it asks GitHub right away and then says *You’re up to date ✓*, shows the notice again (even if you closed it) or says *GitHub not reachable*. More in [Update check](#update-check).
+- **New in v…**: after an update, the interface shows once at the top what’s new in this version – the main points from the changelog (German in German, otherwise English) and a link *All changes* to the release on GitHub. Close it with ×; it comes back only after the next update. On the very first start, nothing is shown.
 
 *Test run* and *Rebuild playlist* save first automatically. The interface can only be reached from your own computer; other devices on the network and other websites have no access.
 

@@ -127,8 +127,16 @@
   .update { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; padding: 8px 6px 8px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--accent); }
   .update > p { margin: 0; min-width: 0; overflow-wrap: anywhere; }
   .update a { font-weight: 600; white-space: nowrap; }
-  .update .close { flex: none; font: inherit; font-size: 17px; line-height: 1; width: 28px; height: 28px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
-  .update .close:hover { background: var(--border); color: var(--text); }
+  .update .close, .whatsnew .close { flex: none; font: inherit; font-size: 17px; line-height: 1; width: 28px; height: 28px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
+  .update .close:hover, .whatsnew .close:hover { background: var(--border); color: var(--text); }
+  /* „Neu in v0.x.y“: Rahmen wie der Hinweis auf eine neue Version, kurze Liste, × oben rechts */
+  .whatsnew { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 8px; padding: 10px 6px 10px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--accent); }
+  .whatsnew > div { min-width: 0; overflow-wrap: anywhere; }
+  .whatsnew p { margin: 0; }
+  .whatsnew-title { font-weight: 600; }
+  .whatsnew ul { margin: 4px 0 6px; padding-left: 20px; font-size: 14px; }
+  .whatsnew li.more { list-style: none; margin-left: -20px; color: var(--muted); }
+  .whatsnew a { font-weight: 600; font-size: 14px; }
   .update-panel { grid-column: 1 / -1; padding-right: 8px; }
   .update-panel p { margin: 0 0 8px; }
   .update-panel .actions { margin-top: 0; }
@@ -426,6 +434,16 @@ try {
     <div class="update-panel" id="update-state" role="status" aria-live="polite" hidden>
       <p class="msg" id="update-msg"></p>
     </div>
+  </div>
+  <!-- „Neu in v0.x.y“ einmal nach einem Update (GET /api/whatsnew): die wichtigsten Punkte aus CHANGELOG.md und ein Link zum
+       Release; × merkt sich die Version als gesehen (POST /api/whatsnew) -->
+  <div id="whatsnew" class="whatsnew" role="status" hidden>
+    <div>
+      <p class="whatsnew-title" id="whatsnew-title"></p>
+      <ul id="whatsnew-list"></ul>
+      <p><a id="whatsnew-link" target="_blank" rel="noopener"></a></p>
+    </div>
+    <button type="button" class="close" id="whatsnew-close">×</button>
   </div>
 
   <!-- Einrichtungs-Assistent -->
@@ -1013,6 +1031,13 @@ const TEXT = {
       found: v => `Version ${v} ist verfügbar – siehe Hinweis oben`,
       offline: 'GitHub nicht erreichbar',
     },
+    // „Neu in v0.x.y“ einmal nach einem Update (Punkte vom Server aus CHANGELOG.md, Deutsch bzw. sonst Englisch)
+    whatsnew: {
+      title: v => `Neu in v${v}`,
+      more: n => `… und ${num(n)} weitere`,
+      link: 'Alle Änderungen ↗',
+      close: 'Hinweis schließen',
+    },
     // „Testbenachrichtigung senden“ beim Schalter „Bei Fehlern benachrichtigen“
     notify: {
       test: 'Testbenachrichtigung senden',
@@ -1411,6 +1436,13 @@ const TEXT = {
       found: v => `Version ${v} is available – see the notice at the top`,
       offline: 'GitHub not reachable',
     },
+    // „Neu in v0.x.y“ einmal nach einem Update (Punkte vom Server aus CHANGELOG.md, Deutsch bzw. sonst Englisch)
+    whatsnew: {
+      title: v => `New in v${v}`,
+      more: n => `… and ${num(n)} more`,
+      link: 'All changes ↗',
+      close: 'Close notice',
+    },
     notify: {
       test: 'Send test notification',
       sending: 'Sending …',
@@ -1805,6 +1837,13 @@ const TEXT = {
       latest: 'Tienes la versión más reciente ✓',
       found: v => `La versión ${v} está disponible: mira el aviso de arriba`,
       offline: 'No se puede acceder a GitHub',
+    },
+    // „Neu in v0.x.y“ einmal nach einem Update (Punkte vom Server aus CHANGELOG.md, Deutsch bzw. sonst Englisch)
+    whatsnew: {
+      title: v => `Novedades de la v${v}`,
+      more: n => `… y ${num(n)} más`,
+      link: 'Todos los cambios ↗',
+      close: 'Cerrar aviso',
     },
     notify: {
       test: 'Enviar notificación de prueba',
@@ -2202,6 +2241,13 @@ const TEXT = {
       found: v => `La version ${v} est disponible – voir l’avis en haut`,
       offline: 'GitHub injoignable',
     },
+    // „Neu in v0.x.y“ einmal nach einem Update (Punkte vom Server aus CHANGELOG.md, Deutsch bzw. sonst Englisch)
+    whatsnew: {
+      title: v => `Nouveautés de la v${v}`,
+      more: n => `… et ${plural(n, 'autre', 'autres')}`,
+      link: 'Toutes les modifications ↗',
+      close: 'Fermer l’avis',
+    },
     notify: {
       test: 'Envoyer une notification de test',
       sending: 'Envoi …',
@@ -2502,6 +2548,7 @@ function renderLang() {
   build();
   renderHeader();
   renderUpdate();
+  renderWhatsNew();
   if (!loaded) return;
   refresh();
   renderSetup();
@@ -2527,6 +2574,7 @@ function setLang(next, { save = true } = {}) {
     // Meldungen des Servers zur Automatik bzw. zu ungültigen Zahlenwerten in der neuen Sprache holen.
     if (save && view === 'main') loadSchedule();
     if (Object.keys(problems).length) loadProblems();
+    if (whatsNewInfo) loadWhatsNew(); // Punkte in der neuen Sprache (Deutsch bzw. Englisch)
   }
   if (save) saveLang();
 }
@@ -3938,6 +3986,46 @@ function dismissUpdate() {
   setUpdate({ phase: '' });
 }
 
+// --- „Neu in v0.x.y“ nach einem Update ---
+
+let whatsNewInfo = null;   // Antwort von GET /api/whatsnew ({ version, items, more, url }); null = nichts zeigen
+
+async function loadWhatsNew() {
+  try {
+    const data = await apiJson('/api/whatsnew');
+    whatsNewInfo = data.version && Array.isArray(data.items) && data.items.length ? data : null;
+  } catch {
+    whatsNewInfo = null; // dann eben ohne Hinweis
+  }
+  renderWhatsNew();
+}
+
+function renderWhatsNew() {
+  const w = whatsNewInfo;
+  $('whatsnew').hidden = !w;
+  if (!w) return;
+  $('whatsnew-title').textContent = T.whatsnew.title(w.version);
+  $('whatsnew-list').replaceChildren(...w.items.map(text => el('li', { textContent: text })),
+    ...(w.more > 0 ? [el('li', { className: 'more', textContent: T.whatsnew.more(w.more) })] : []));
+  const link = githubLink(w.url);
+  $('whatsnew-link').hidden = !link;
+  $('whatsnew-link').textContent = T.whatsnew.link;
+  if (link) $('whatsnew-link').href = w.url;
+  $('whatsnew-close').title = T.whatsnew.close;
+  $('whatsnew-close').setAttribute('aria-label', T.whatsnew.close);
+}
+
+// × : Hinweis weg; die Version gilt beim Server als gesehen und kommt nicht wieder (erst beim nächsten Update).
+async function dismissWhatsNew() {
+  whatsNewInfo = null;
+  renderWhatsNew();
+  try {
+    await apiJson('/api/whatsnew', { method: 'POST', body: '{}' });
+  } catch {
+    // dann eben beim nächsten Öffnen noch einmal
+  }
+}
+
 // --- Einrichtungs-Assistent ---
 
 const stepEls = [...document.querySelectorAll('.step')];
@@ -4294,6 +4382,7 @@ $('import-go').onclick = importWrite;
 $('undo').onclick = () => { if (undoEntry) importArchive(undoEntry.id, { undo: true }); };
 $('import-cancel').onclick = () => setImport(null);
 $('update-close').onclick = dismissUpdate;
+$('whatsnew-close').onclick = dismissWhatsNew;
 $('update-check').onclick = checkUpdate;
 $('update-install').onclick = () => {
   setUpdate({ phase: 'confirm' });
@@ -4336,6 +4425,7 @@ load().then(async () => {
   renderHeader();
 });
 loadUpdate(); // parallel zum Laden der Einstellungen
+loadWhatsNew();
 </script>
 </body>
 </html>

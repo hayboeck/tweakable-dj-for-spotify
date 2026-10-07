@@ -15,6 +15,8 @@ probelauf.json
 automatik.json
 # Letzte Prüfung auf neue Versionen (update.mjs)
 update-check.json
+# Zuletzt gesehene Version für den Hinweis „Neu in v…“ nach einem Update (whatsnew.mjs)
+seen-version.json
 # Arbeitsordner von „Jetzt aktualisieren“ (install-update.mjs): Zwischenablage und Sicherung der alten Programmdateien
 .update/
 # Playlist-Archiv: jede geschriebene Playlist als Textdatei (archive.mjs)

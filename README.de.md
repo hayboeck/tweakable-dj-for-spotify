@@ -110,6 +110,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `notify.mjs` | Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt – nur mit Bordmitteln deines Systems (Windows: PowerShell, Mac: `osascript`, Linux: `notify-send`) |
 | `update.mjs` | Prüft höchstens einmal am Tag, ob es auf GitHub eine neue Version gibt (siehe [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen)) |
 | `install-update.mjs` | Installiert eine neue Version, wenn du auf *Jetzt aktualisieren* klickst (siehe [Aktualisieren](#8-aktualisieren)) |
+| `whatsnew.mjs` | Zeigt nach einem Update einmal *Neu in v…* mit den wichtigsten Punkten aus `CHANGELOG.md` |
 | `manifest.json` | Liste aller Programmdateien dieser Version mit Prüfsummen. *Jetzt aktualisieren* ersetzt nur Dateien, die dort stehen. Nur in der ZIP-Datei, nicht im GitHub-Repository. |
 | `package.json` | Kurzbefehle für Entwickler: `npm start` (Oberfläche) und `npm test` (Tests). Tweakable DJ braucht keine zusätzlichen Pakete. |
 | `tests/` | Automatische Tests für die Regeln, die Einstellungen, die Übersetzungen, die Automatik, die Verknüpfung auf dem Desktop (nur in Testordnern), die Prüfung auf neue Versionen und *Jetzt aktualisieren*, die Oberfläche, die Textdatei und Probeläufe samt Übernehmen, bei denen Spotify, Last.fm und GitHub nur simuliert werden. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
@@ -119,7 +120,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `docs/` | Bildschirmfotos der Oberfläche für diese Anleitung (englische Oberfläche), hell und dunkel |
 | `assets/` | Das Logo: `logo.png` (Oberfläche und diese Anleitung), `logo-small.svg` (Browser-Tab), `logo.ico` und `logo.icns` (Symbol der Verknüpfung auf dem Desktop unter Windows und auf dem Mac) |
 | `LICENSE` | Die Lizenz (MIT), siehe Abschnitt 12 |
-| `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, die Dateien der Automatik, das Ergebnis der Prüfung auf neue Versionen, `.update/` und das Archiv `archiv/` nie mit hochgeladen werden |
+| `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, die Dateien der Automatik, das Ergebnis der Prüfung auf neue Versionen, die zuletzt gesehene Version (`seen-version.json`), `.update/` und das Archiv `archiv/` nie mit hochgeladen werden |
 | `.gitattributes` | Einheitliche Zeilenenden für Windows, Mac und Linux; kennzeichnet Bilder als binär. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 | `.github/` | Vorlagen für Fehlermeldungen und Ideen, automatische Abläufe auf GitHub (z. B. die ZIP-Datei für neue Versionen). Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 
@@ -134,6 +135,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `automatik.json` | Ergebnis des letzten automatischen Laufs (Zeit, ✓ oder Fehlergrund). Die Oberfläche zeigt es unter *Automatisch neu erstellen* (Tab *Einstellungen*) an. |
 | `automatik.log` | Die komplette Ausgabe des letzten automatischen Laufs, für die Fehlersuche |
 | `update-check.json` | Ergebnis der letzten [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen) (Zeit und neueste Version). Löschen schadet nicht. |
+| `seen-version.json` | Die Version, zu der du *Neu in v…* nach einem Update zuletzt gesehen hast. Löschen schadet nicht (der Hinweis wartet dann auf das nächste Update). |
 | `.update/` | Legt *Jetzt aktualisieren* an: die Sicherung der Programmdateien der vorigen Version (`backup-<Version>`). Löschen schadet nicht. |
 | `archiv/` | Das [Playlist-Archiv](#playlist-archiv): jede geschriebene Playlist als Textdatei, z. B. `2026-10-06 18-30-05 Tweakable DJ.txt`. Löschen schadet nicht, die früheren Playlists sind dann nur weg. |
 
@@ -315,6 +317,7 @@ Die Seite hat zwei Tabs: **Playlist** (Voreinstellungen, Regler, Ausgabe mit Tex
 
   Lässt sich eine Benachrichtigung nicht anzeigen, zählt der Lauf trotzdem wie sonst; in `automatik.log` steht dann ein kurzer Hinweis, warum.
 - **Neue Version**: Gibt es eine neuere Version von Tweakable DJ, erscheint oben ein Hinweis mit Link zum Download und der Schaltfläche **Jetzt aktualisieren** (siehe [Aktualisieren](#8-aktualisieren)). Mit × blendest du ihn aus; er kommt erst bei der nächsten Version wieder. Im Tab *Einstellungen* steht unter *Version*, welche Version du hast (z. B. *v0.1.3*), daneben **Nach Updates suchen**: Das fragt sofort bei GitHub nach und meldet dann *Du hast die neueste Version ✓*, zeigt den Hinweis wieder an (auch wenn du ihn ausgeblendet hattest) oder sagt *GitHub nicht erreichbar*. Mehr unter [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen).
+- **Neu in v…**: Nach einem Update zeigt die Oberfläche einmal oben, was in dieser Version neu ist – die wichtigsten Punkte aus dem Changelog (auf Deutsch, in den anderen Sprachen auf Englisch) und einen Link *Alle Änderungen* zum Release auf GitHub. Mit × schließt du ihn; er kommt erst nach dem nächsten Update wieder. Beim allerersten Start erscheint nichts.
 
 *Probelauf* und *Playlist neu erstellen* speichern vorher automatisch. Die Oberfläche ist nur auf deinem PC erreichbar, andere Geräte im Netzwerk und fremde Webseiten haben keinen Zugriff.
 

@@ -448,7 +448,7 @@ test('Neue Schnittstellen: ohne X-Tweakable-DJ bzw. mit fremdem Host 403, nichts
   const before = spotifyRequests().length;
   const routes = [['GET', '/api/trial'], ['POST', '/api/apply'], ['GET', '/api/export'], ['GET', '/api/export?trial=0123456789ab'],
     ['POST', '/api/import/preview'], ['POST', '/api/import'], ['GET', '/api/archive'], ['GET', '/api/archive/entry?id=x'],
-    ['POST', '/api/library/contains'], ['POST', '/api/library']];
+    ['POST', '/api/library/contains'], ['POST', '/api/library'], ['GET', '/api/whatsnew'], ['POST', '/api/whatsnew']];
   for (const [method, route] of routes) {
     const r = await api(route, { lang: 'en', method, headers: { 'X-Tweakable-DJ': '0' }, body: method === 'POST' ? {} : undefined });
     assert.deepEqual([r.status, r.data], [403, { error: 'Not allowed' }], `${method} ${route}`);
@@ -466,6 +466,13 @@ test('Neue Schnittstellen: ohne X-Tweakable-DJ bzw. mit fremdem Host 403, nichts
   });
   assert.equal(status, 'HTTP/1.1 403 Forbidden');
   assert.equal(spotifyRequests().length, before, 'keine Anfrage an Spotify');
+});
+
+// Die Testkopie hat kein package.json (keine eigene Version): kein Hinweis, nichts gemerkt. Die Logik prüft whatsnew.test.mjs.
+test('GET /api/whatsnew: ohne Version kein Hinweis; POST merkt nichts', async () => {
+  assert.deepEqual((await api('/api/whatsnew', { lang: 'de' })).data, { version: null });
+  assert.deepEqual((await api('/api/whatsnew', { method: 'POST', body: {} })).data, { ok: false });
+  assert.equal(fs.existsSync(path.join(dir, 'seen-version.json')), false);
 });
 
 test('„Diese Liste übernehmen“: Playlist = Liste des Probelaufs; abgelaufen nach Änderung der Einstellungen bzw. nach dem Übernehmen', async () => {

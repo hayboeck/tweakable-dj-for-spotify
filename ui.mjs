@@ -30,6 +30,7 @@ import {
 import { readTrial, trialInfo, trialProblem } from './trial.mjs';
 import { archiveFileCount, archivePlaylist, listArchive, readArchive, undoTarget } from './archive.mjs';
 import { checkForUpdate, currentVersion } from './update.mjs';
+import { markSeen, whatsNew } from './whatsnew.mjs';
 
 // Sprache für Konsole und Anfragen ohne X-Lang.
 const defaultLang = () => resolveLang(configLanguage());
@@ -370,6 +371,20 @@ const server = http.createServer(async (req, res) => {
 
     // Version dieses Servers; die Seite wartet nach einem Update darauf, dass der neue Server antwortet.
     if (route === 'GET /api/version') return send(200, { version: VERSION });
+
+    // „Neu in v0.x.y“ nach einem Update (whatsnew.mjs): { version, previous, items, more, url } oder { version: null }
+    // (nichts zeigen). Punkte aus CHANGELOG.md in der Sprache der Anfrage (Deutsch bzw. sonst Englisch).
+    // POST: Hinweis geschlossen – die laufende Version gilt ab jetzt als gesehen.
+    if (route === 'GET /api/whatsnew') {
+      let changelog = null;
+      try {
+        changelog = fs.readFileSync(path.join(HERE, 'CHANGELOG.md'), 'utf8');
+      } catch {
+        // ohne CHANGELOG.md kein Hinweis
+      }
+      return send(200, whatsNew({ dir: HERE, current: VERSION, lang, changelog }) ?? { version: null });
+    }
+    if (route === 'POST /api/whatsnew') return send(200, { ok: markSeen(HERE, VERSION) });
 
     // „Jetzt aktualisieren“: Body { version } = in der Seite bestätigte Version. Fortschritt als Text, am Ende eine Zeile
     // "@@RESULT {…}" wie bei /api/run: { ok: true, from, to, changed, same, restart } bzw. { ok: false, outcome, error }
