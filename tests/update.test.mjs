@@ -105,7 +105,7 @@ test('Neue Version: eine GET-Anfrage ohne persönliche Daten, v-Präfix entfernt
   const r = await checkForUpdate({ ...opts, fetch });
   assert.deepEqual(r, {
     enabled: true, current: '1.2.0', latest: '1.3.0', updateAvailable: true,
-    url: releaseUrl('v1.3.0'), checkedAt: '2026-10-01T08:00:00.000Z', error: null,
+    url: releaseUrl('v1.3.0'), checkedAt: '2026-10-01T08:00:00.000Z', okAt: '2026-10-01T08:00:00.000Z', error: null,
   });
   assert.equal(fetch.calls.length, 1);
   const { url, init } = fetch.calls[0];
@@ -190,7 +190,7 @@ test('404 (noch kein Release): kein Update, kein Fehler, ebenfalls einen Tag gem
   const r = await checkForUpdate({ ...opts, fetch });
   assert.deepEqual(r, {
     enabled: true, current: '1.2.0', latest: null, updateAvailable: false,
-    url: null, checkedAt: '2026-10-01T08:00:00.000Z', error: null,
+    url: null, checkedAt: '2026-10-01T08:00:00.000Z', okAt: '2026-10-01T08:00:00.000Z', error: null,
   });
   await checkForUpdate({ ...opts, fetch, now: T0 + 23 * HOUR });
   assert.equal(fetch.calls.length, 1);
@@ -245,7 +245,7 @@ test('Fehler mit Cache: letzter erfolgreicher Stand bleibt, neuer Versuch frühe
 test('Abschalten mit TWEAKABLE_DJ_NO_UPDATE_CHECK=1: keine Abfrage, keine Datei', () => withProject(PKG, async (opts, dir) => {
   const fetch = fakeFetch(release('v1.3.0'));
   const off = {
-    enabled: false, current: '1.2.0', latest: null, updateAvailable: false, url: null, checkedAt: null, error: null,
+    enabled: false, current: '1.2.0', latest: null, updateAvailable: false, url: null, checkedAt: null, okAt: null, error: null,
   };
   assert.deepEqual(await checkForUpdate({ ...opts, fetch, env: { TWEAKABLE_DJ_NO_UPDATE_CHECK: '1' } }), off);
   assert.deepEqual(await checkForUpdate({ ...opts, fetch, force: true, env: { TWEAKABLE_DJ_NO_UPDATE_CHECK: 'true' } }), off);
@@ -289,4 +289,16 @@ test('Schreibgeschützter bzw. fehlender Cache-Ordner: kein Fehler', () => withP
   const r = await checkForUpdate({ ...opts, cacheFile: path.join(dir, 'gibt-es-nicht', 'update-check.json'), fetch: fakeFetch(release('v1.3.0')) });
   assert.equal(r.updateAvailable, true);
   assert.equal(r.error, null);
+}));
+
+test('okAt: letzte erfolgreiche Prüfung – bleibt bei einem Fehler; ältere update-check.json ohne okAt', () => withProject(PKG, async opts => {
+  await checkForUpdate({ ...opts, fetch: fakeFetch(release('v1.2.0')) });
+  const failed = await checkForUpdate({ ...opts, now: T0 + 25 * HOUR, fetch: fakeFetch(() => { throw new Error('offline'); }) });
+  assert.deepEqual([failed.checkedAt, failed.okAt, Boolean(failed.error)], [new Date(T0 + 25 * HOUR).toISOString(), new Date(T0).toISOString(), true]);
+  // update-check.json einer älteren Version (ohne okAt): erfolgreiche Abfrage → checkedAt, gescheiterte → unbekannt
+  const old = { repo: 'beispiel/tweakable-dj', latest: '1.2.0', url: releaseUrl('v1.2.0'), checkedAt: new Date(T0 + 30 * HOUR).toISOString(), error: null };
+  fs.writeFileSync(opts.cacheFile, JSON.stringify(old));
+  assert.equal((await checkForUpdate({ ...opts, now: T0 + 31 * HOUR, fetch: fakeFetch(release('v1.2.0')) })).okAt, old.checkedAt);
+  fs.writeFileSync(opts.cacheFile, JSON.stringify({ ...old, error: 'GitHub: HTTP 500' }));
+  assert.equal((await checkForUpdate({ ...opts, now: T0 + 30.5 * HOUR, fetch: fakeFetch(release('v1.2.0')) })).okAt, null);
 }));

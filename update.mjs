@@ -88,7 +88,9 @@ function readCache(file, repo) {
   try {
     const c = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (c?.repo !== repo || !Number.isFinite(Date.parse(c.checkedAt))) return null;
-    return { latest: str(c.latest), url: githubUrl(c.url), checkedAt: c.checkedAt, error: str(c.error) };
+    // okAt fehlt in update-check.json älterer Versionen: dann zählt checkedAt, wenn diese Abfrage geklappt hat.
+    const okAt = Number.isFinite(Date.parse(c.okAt)) ? c.okAt : c.error ? null : c.checkedAt;
+    return { latest: str(c.latest), url: githubUrl(c.url), checkedAt: c.checkedAt, okAt, error: str(c.error) };
   } catch {
     return null;
   }
@@ -127,16 +129,17 @@ async function fetchLatest(repo, fetch, timeout) {
   };
 }
 
-// Wirft nie. Ergebnis: { enabled, current, latest, updateAvailable, url, checkedAt, error }
-//   checkedAt: Zeitpunkt der letzten echten Abfrage (ISO), error: Grund, falls sie fehlschlug;
+// Wirft nie. Ergebnis: { enabled, current, latest, updateAvailable, url, checkedAt, okAt, error }
+//   checkedAt: Zeitpunkt der letzten echten Abfrage (ISO), okAt: der letzten erfolgreichen (ISO oder null; die Oberfläche
+//   zeigt ihn bei „Du hast die neueste Version“), error: Grund, falls sie fehlschlug;
 //   latest/url stammen dann aus der letzten erfolgreichen Abfrage (oder null).
 // now: Zeitpunkt (ms oder Date); force: Cache übergehen; cacheFile: null = ohne Cache.
 // pkgFile, env, timeout: für Tests.
 export async function checkForUpdate({ now = Date.now(), fetch = globalThis.fetch, cacheFile = CACHE, force = false,
   pkgFile = PKG, env = process.env, timeout = TIMEOUT } = {}) {
   const current = currentVersion(pkgFile);
-  const view = ({ latest = null, url = null, checkedAt = null, error = null } = {}, enabled = true) =>
-    ({ enabled, current, latest, updateAvailable: enabled && isUpdate(latest, current), url, checkedAt, error });
+  const view = ({ latest = null, url = null, checkedAt = null, okAt = null, error = null } = {}, enabled = true) =>
+    ({ enabled, current, latest, updateAvailable: enabled && isUpdate(latest, current), url, checkedAt, okAt, error });
 
   const repo = repoSlug(pkgFile);
   if (switchedOff(env) || !repo) return view({}, false);
@@ -151,9 +154,9 @@ export async function checkForUpdate({ now = Date.now(), fetch = globalThis.fetc
   const checkedAt = new Date(t).toISOString();
   let fresh;
   try {
-    fresh = { ...(await fetchLatest(repo, fetch, timeout)), checkedAt, error: null };
+    fresh = { ...(await fetchLatest(repo, fetch, timeout)), checkedAt, okAt: checkedAt, error: null };
   } catch (e) {
-    fresh = { latest: cached?.latest ?? null, url: cached?.url ?? null, checkedAt, error: String(e?.message ?? e) };
+    fresh = { latest: cached?.latest ?? null, url: cached?.url ?? null, checkedAt, okAt: cached?.okAt ?? null, error: String(e?.message ?? e) };
   }
   writeCache(cacheFile, { repo, ...fresh });
   return view(fresh);

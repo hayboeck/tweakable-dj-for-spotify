@@ -324,9 +324,10 @@ test('GET /api/update: neuere Version → updateAvailable, Link aufs Release; zw
   const before = githubRequests().length;
   const { status, data } = await api('/api/update', { lang: 'en' });
   assert.equal(status, 200);
-  assert.deepEqual({ ...data, checkedAt: typeof data.checkedAt }, {
+  assert.equal(data.okAt, data.checkedAt, 'erfolgreich geprüft');
+  assert.deepEqual({ ...data, checkedAt: typeof data.checkedAt, okAt: typeof data.okAt }, {
     enabled: true, current: '0.1.0', latest: '0.2.0', updateAvailable: true,
-    url: 'https://github.com/beispiel/tweakable-dj-for-spotify/releases/tag/v0.2.0', checkedAt: 'string', error: null, installable: true,
+    url: 'https://github.com/beispiel/tweakable-dj-for-spotify/releases/tag/v0.2.0', checkedAt: 'string', okAt: 'string', error: null, installable: true,
   });
   assert.deepEqual(githubRequests().slice(before).map(e => e.path), ['/repos/beispiel/tweakable-dj-for-spotify/releases/latest']);
   assert.deepEqual((await api('/api/update', { lang: 'en' })).data, data);

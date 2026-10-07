@@ -1056,7 +1056,10 @@ const TEXT = {
       failed: 'Das Update hat nicht geklappt.',
       check: 'Nach Updates suchen',
       checking: 'Suche …',
-      latest: 'Du hast die neueste Version ✓',
+      // Stand der letzten erfolgreichen Prüfung (when = Zeitpunkt im Format von T.when); älter als 24 h: kein ✓ mehr
+      latest: when => `Du hast die neueste Version ✓ (geprüft am ${when})`,
+      stale: when => `Zuletzt geprüft am ${when} – „Nach Updates suchen“ prüft jetzt.`,
+      never: 'Noch nicht geprüft – „Nach Updates suchen“ prüft jetzt.',
       found: v => `Version ${v} ist verfügbar – siehe Hinweis oben`,
       offline: 'GitHub nicht erreichbar',
     },
@@ -1470,7 +1473,10 @@ const TEXT = {
       failed: 'The update didn’t work.',
       check: 'Check for updates',
       checking: 'Checking …',
-      latest: 'You’re up to date ✓',
+      // Stand der letzten erfolgreichen Prüfung (when = Zeitpunkt im Format von T.when); älter als 24 h: kein ✓ mehr
+      latest: when => `You’re up to date ✓ (checked ${when})`,
+      stale: when => `Last checked ${when} – “Check for updates” checks now.`,
+      never: 'Not checked yet – “Check for updates” checks now.',
       found: v => `Version ${v} is available – see the notice at the top`,
       offline: 'GitHub not reachable',
     },
@@ -1881,7 +1887,10 @@ const TEXT = {
       failed: 'La actualización no ha funcionado.',
       check: 'Buscar actualizaciones',
       checking: 'Buscando …',
-      latest: 'Tienes la versión más reciente ✓',
+      // Stand der letzten erfolgreichen Prüfung (when = Zeitpunkt im Format von T.when); älter als 24 h: kein ✓ mehr
+      latest: when => `Tienes la versión más reciente ✓ (comprobado el ${when})`,
+      stale: when => `Última comprobación: ${when}. «Buscar actualizaciones» comprueba ahora.`,
+      never: 'Aún sin comprobar. «Buscar actualizaciones» comprueba ahora.',
       found: v => `La versión ${v} está disponible: mira el aviso de arriba`,
       offline: 'No se puede acceder a GitHub',
     },
@@ -2293,7 +2302,10 @@ const TEXT = {
       failed: 'La mise à jour n’a pas fonctionné.',
       check: 'Rechercher des mises à jour',
       checking: 'Recherche …',
-      latest: 'Tu as la dernière version ✓',
+      // Stand der letzten erfolgreichen Prüfung (when = Zeitpunkt im Format von T.when); älter als 24 h: kein ✓ mehr
+      latest: when => `Tu as la dernière version ✓ (vérifié le ${when})`,
+      stale: when => `Dernière vérification : ${when} – « Rechercher des mises à jour » vérifie maintenant.`,
+      never: 'Pas encore vérifié – « Rechercher des mises à jour » vérifie maintenant.',
       found: v => `La version ${v} est disponible – voir l’avis en haut`,
       offline: 'GitHub injoignable',
     },
@@ -3961,8 +3973,13 @@ function renderUpdate() {
   $('update-check').textContent = T.update.check;
   $('update-check').disabled = updCheck.phase === 'checking';
   const c = updCheck.phase;
-  $('update-check-msg').className = ['latest', 'found'].includes(c) ? 'ok' : ['offline', 'failed'].includes(c) ? 'err' : '';
-  $('update-check-msg').textContent = c === 'checking' ? T.update.checking : c === 'latest' ? T.update.latest
+  // Ohne neue Version: Stand der letzten erfolgreichen Prüfung (okAt) – ✓ nur, wenn sie höchstens 24 Stunden her ist.
+  const okAt = Date.parse(u?.okAt);
+  const recent = Number.isFinite(okAt) && Date.now() - okAt < 86_400_000;
+  const known = Boolean(u?.enabled && !available && ['', 'latest'].includes(c));
+  const status = !known ? '' : recent ? T.update.latest(when(u.okAt)) : Number.isFinite(okAt) ? T.update.stale(when(u.okAt)) : T.update.never;
+  $('update-check-msg').className = (known && recent) || c === 'found' ? 'ok' : ['offline', 'failed'].includes(c) ? 'err' : '';
+  $('update-check-msg').textContent = c === 'checking' ? T.update.checking : known ? status
     : c === 'found' ? T.update.found(bare(u?.latest)) : c === 'offline' ? T.update.offline : c === 'failed' ? updCheck.text : '';
 }
 
@@ -4096,6 +4113,7 @@ async function heartbeat() {
   for (let i = 0; i < 2; i++) {
     try {
       await api('/api/version');
+      renderUpdate();
       if (stopped) {
         reloading = true;
         location.reload();
