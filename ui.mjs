@@ -14,15 +14,15 @@ import http from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import {
-  CONFIG, DEFAULTS, HERE, LIMITS, VARIETY_KEYS, VARIETY_LEVELS, checkValues, configLanguage, isPlaceholder, missingCredentials, numberProblems, readConfig, saveCredentials,
-  updateConfig,
+  CONFIG, DEFAULTS, HERE, LIMITS, VARIETY_KEYS, VARIETY_LEVELS, checkValues, configLanguage, isPlaceholder, missingCredentials, numberProblems, readConfig, remindLoginOn,
+  saveCredentials, updateConfig,
 } from './config.mjs';
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
 import { createShortcut, removeShortcut, shortcutStatus } from './shortcut.mjs';
 import { createSpotify, isScopeError, LIBRARY_SCOPE, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
 import { autoRunMessage, installBlocker, installUpdate } from './install-update.mjs';
-import { notify, notifyProblem, testNotice } from './notify.mjs';
+import { notify, notifyProblem, remindLogin, testNotice } from './notify.mjs';
 import {
   exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, parseImport, readPlaylist, resolveImport, validUris,
   writePlaylist,
@@ -651,4 +651,8 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(t(lang, 'ui.listening', { url: URL_BASE }));
   console.log(t(lang, 'ui.stopHint'));
   if (!noBrowser) openBrowser(URL_BASE);
+  // Läuft die Spotify-Anmeldung bald ab: Systembenachrichtigung (Einstellung remindLogin, höchstens einmal am Tag).
+  remindLogin({ dir: HERE, lang, enabled: remindLoginOn() }).then(sent => {
+    if (sent && !sent.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, sent) }));
+  });
 });

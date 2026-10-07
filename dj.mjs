@@ -9,18 +9,19 @@
 //   node dj.mjs import <datei.txt>   Songs aus einer Textdatei in die Playlist schreiben (mit --dry nur anzeigen);
 //                       zählt nicht als Lauf des DJ, der Verlauf in state.json bleibt unverändert
 //   node dj.mjs --auto  Lauf aus dem Zeitplaner: Ausgabe zusätzlich in automatik.log, Ergebnis in automatik.json; schlägt er
-//                       fehl, meldet er sich mit einer Systembenachrichtigung (notifyOnFailure, notify.mjs)
+//                       fehl, meldet er sich mit einer Systembenachrichtigung (notifyOnFailure, notify.mjs); läuft die
+//                       Spotify-Anmeldung bald ab, erinnert er daran (remindLogin)
 // Nach jedem Schreiben der Playlist (Lauf, --apply, import) kommt die Liste als Textdatei in den Ordner archiv/ (archive.mjs).
 // Sprache der Ausgabe: TWEAKABLE_DJ_LANG (de/en/es/fr), sonst "language" in config.jsonc, sonst die Systemsprache.
 // Letzte Zeile auf stdout (nicht im Terminal): "@@RESULT " + JSON mit dem Ergebnis für die Oberfläche.
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { HERE, configLanguage, loadConfig, notifyOnFailure } from './config.mjs';
+import { HERE, configLanguage, loadConfig, notifyOnFailure, remindLoginOn } from './config.mjs';
 import { formatDuration, formatStats, resolveLang, t, tError } from './i18n.mjs';
 import { createLastfm } from './lastfm.mjs';
-import { autoRunNotice, notify, notifyProblem } from './notify.mjs';
-import { lastRun, recordAutoRun } from './schedule.mjs';
+import { autoRunNotice, notify, notifyProblem, remindLogin } from './notify.mjs';
+import { recordAutoRun } from './schedule.mjs';
 import { createSpotify, FOLLOW_SCOPE, isScopeError, login, REDIRECT_URI } from './spotify.mjs';
 import {
   dateTime, exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, mapLimit, parseImport, readPlaylist,
@@ -39,10 +40,8 @@ const apply = process.argv.includes('--apply');
 // Befehl (login, export, import) und dessen Datei; sonst ein Lauf.
 const [command, fileArg] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 
-// Automatischer Lauf (--auto, auch zusammen mit --dry): Ausgabe und Ergebnis mitschreiben. Beginn des vorigen automatischen
-// Laufs vorher merken (recordAutoRun überschreibt automatik.json): Die Erinnerung an die Anmeldung kommt höchstens einmal am Tag.
+// Automatischer Lauf (--auto, auch zusammen mit --dry): Ausgabe und Ergebnis mitschreiben.
 const isAuto = process.argv.includes('--auto');
-const previousAutoStart = isAuto ? lastRun(HERE)?.startedAt ?? null : null;
 const auto = isAuto ? recordAutoRun(HERE, lang) : null;
 
 const TOKENS = path.join(HERE, 'tokens.json');
@@ -78,23 +77,15 @@ function report(values) {
   if (auto) notifyAutoRun(out);
 }
 
-// Systembenachrichtigung nach einem automatischen Lauf (nur bei --auto): bei einem Fehler, nach Erfolg nur als Erinnerung
-// an die bald ablaufende Spotify-Anmeldung (autoRunNotice in notify.mjs). Kommt nach dem Ergebnis, wartet höchstens
-// 10 Sekunden und ändert weder automatik.json noch den Exit-Code; klappt sie nicht, steht nur ein Hinweis in automatik.log.
+// Systembenachrichtigung nach einem automatischen Lauf (nur bei --auto): bei einem Fehler (autoRunNotice in notify.mjs),
+// sonst ggf. die Erinnerung an die bald ablaufende Spotify-Anmeldung (remindLogin, höchstens einmal am Tag). Kommt nach dem
+// Ergebnis, wartet höchstens 10 Sekunden und ändert weder automatik.json noch den Exit-Code; klappt sie nicht, steht nur ein
+// Hinweis in automatik.log.
 async function notifyAutoRun(out) {
   try {
-    let authorizedAt = null;
-    if (out.ok) {
-      try {
-        authorizedAt = Number(readJson(TOKENS, null)?.authorized_at) || null;
-      } catch {
-        // ohne Zeitpunkt der Anmeldung keine Erinnerung
-      }
-    }
-    const notice = autoRunNotice({ result: out, lang, enabled: notifyOnFailure(), authorizedAt, previousStart: previousAutoStart });
-    if (!notice) return;
-    const sent = await notify(notice);
-    if (!sent.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, sent) }));
+    const notice = autoRunNotice({ result: out, lang, enabled: notifyOnFailure() });
+    const sent = notice ? await notify(notice) : await remindLogin({ dir: HERE, lang, enabled: remindLoginOn() });
+    if (sent && !sent.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, sent) }));
   } catch {
     // Eine Benachrichtigung darf den Lauf nie stören.
   }

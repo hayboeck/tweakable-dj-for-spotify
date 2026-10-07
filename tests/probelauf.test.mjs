@@ -355,37 +355,35 @@ test('Systembenachrichtigung: nur bei einem fehlgeschlagenen automatischen Lauf,
   }
 });
 
-test('Erinnerung an die Spotify-Anmeldung: ab Tag 170 nach einem erfolgreichen automatischen Lauf, höchstens einmal am Tag', () => {
+test('Erinnerung an die Spotify-Anmeldung: in der letzten Woche nach einem automatischen Lauf, höchstens einmal am Tag', () => {
   const dir = setup();
-  const auto = path.join(dir, 'automatik.json');
   const loggedIn = days => fs.writeFileSync(path.join(dir, 'tokens.json'), JSON.stringify({
     access_token: 'abgelaufen', refresh_token: 'fake-refresh-token', expires_at: 0, authorized_at: Date.now() - days * 86_400_000 - 60_000,
   }));
+  const state = () => JSON.parse(fs.readFileSync(path.join(dir, 'state.json'), 'utf8'));
   try {
-    loggedIn(169);
+    loggedIn(172);
     const early = run(dir, {}, ['--auto']);
     assert.equal(early.code, 0, early.all);
-    assert.deepEqual(early.notifications, [], 'Tag 169: noch keine');
-    // Tag 175, aber der vorige automatische Lauf war heute: keine zweite am selben Tag
+    assert.deepEqual(early.notifications, [], 'Tag 172: noch keine');
     loggedIn(175);
-    assert.deepEqual(run(dir, {}, ['--auto']).notifications, []);
-    // Voriger automatischer Lauf gestern: Erinnerung
-    fs.writeFileSync(auto, JSON.stringify({ ...JSON.parse(fs.readFileSync(auto, 'utf8')), startedAt: new Date(Date.now() - 86_400_000).toISOString() }));
+    // ohne --auto nie
+    assert.deepEqual(run(dir).notifications, []);
     const due = run(dir, {}, ['--auto']);
     assert.equal(due.code, 0, due.all);
     assert.deepEqual(noticeOf(due.notifications[0]), {
       title: 'Tweakable DJ: Spotify-Anmeldung läuft bald ab',
-      text: 'Die Spotify-Anmeldung läuft in 5 Tagen ab. Öffne Tweakable DJ und melde dich neu bei Spotify an, damit die automatischen Läufe weiter klappen.',
+      text: 'Die Spotify-Anmeldung läuft in 5 Tagen ab – öffne Tweakable DJ und melde dich neu an.',
     });
-    assert.equal(JSON.parse(fs.readFileSync(auto, 'utf8')).ok, true);
-    // Erster automatischer Lauf überhaupt (ohne automatik.json): ebenfalls; ohne --auto nie
-    fs.rmSync(auto);
-    assert.equal(run(dir, { TWEAKABLE_DJ_LANG: 'en' }, ['--auto']).notifications.length, 1);
-    fs.rmSync(auto);
-    assert.deepEqual(run(dir).notifications, []);
-    // Schalter aus: auch keine Erinnerung
-    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, notifyOnFailure: false }));
+    assert.ok(state().cache && state().loginReminderAt, 'Tag gemerkt, Such-Cache bleibt');
+    // Heute schon erinnert: keine zweite
     assert.deepEqual(run(dir, {}, ['--auto']).notifications, []);
+    // Gestern erinnert: wieder; mit remindLogin: false nicht (notifyOnFailure egal)
+    fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify({ ...state(), loginReminderAt: new Date(Date.now() - 86_400_000).toISOString() }));
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, remindLogin: false }));
+    assert.deepEqual(run(dir, {}, ['--auto']).notifications, []);
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, notifyOnFailure: false }));
+    assert.equal(run(dir, { TWEAKABLE_DJ_LANG: 'en' }, ['--auto']).notifications.length, 1);
   } finally {
     cleanup(dir);
   }

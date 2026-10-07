@@ -48,6 +48,9 @@
   "scheduleDay": "MON",               // Day of the week for "weekly": "MON", "TUE", "WED", "THU", "FRI", "SAT" or "SUN"
   "notifyOnFailure": true,            // Show a system notification when an automatic run fails (e.g. Spotify login expired); false = off
 
+  // --- Spotify login ---
+  "remindLogin": true,                // Show a system notification one week before your Spotify login expires (it lasts 180 days), at most once a day; false = off
+
   // --- Appearance ---
   "theme": "system",                  // Mode of the interface: "system" = like your device, "light" or "dark"
   "accent": "green",                  // Accent color of the interface: "green", "blue", "violet", "pink", "red", "orange", "gold" or "teal"

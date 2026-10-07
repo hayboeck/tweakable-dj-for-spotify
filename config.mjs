@@ -44,6 +44,7 @@ export const DEFAULTS = {
   scheduleTime: '07:00',
   scheduleDay: 'MON',
   notifyOnFailure: true, // Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt (notify.mjs)
+  remindLogin: true, // Systembenachrichtigung eine Woche bevor die Spotify-Anmeldung abläuft (remindLogin in notify.mjs)
   theme: 'system', // Aussehen der Oberfläche: 'system', 'light' oder 'dark' (THEMES)
   accent: 'green', // Akzentfarbe der Oberfläche (ACCENTS); beide ändern die Playlist nicht
   language: '', // '' = noch nicht gewählt, dann gilt die Systemsprache
@@ -168,15 +169,17 @@ export function configLanguage() {
   }
 }
 
-// notifyOnFailure aus der config.jsonc, ohne sie anzulegen oder zu prüfen: Nur ein ausdrückliches false schaltet die
-// Benachrichtigungen aus. Fehlt die Datei oder ist sie kaputt, meldet ein fehlgeschlagener automatischer Lauf trotzdem.
-export function notifyOnFailure() {
+// Schalter für Benachrichtigungen aus der config.jsonc, ohne sie anzulegen oder zu prüfen: Nur ein ausdrückliches false
+// schaltet sie aus. Fehlt die Datei oder ist sie kaputt, gilt an (ein fehlgeschlagener automatischer Lauf meldet trotzdem).
+function switchOn(key) {
   try {
-    return JSON.parse(stripComments(fs.readFileSync(CONFIG, 'utf8'))).notifyOnFailure !== false;
+    return JSON.parse(stripComments(fs.readFileSync(CONFIG, 'utf8')))[key] !== false;
   } catch {
     return true;
   }
 }
+export const notifyOnFailure = () => switchOn('notifyOnFailure');
+export const remindLoginOn = () => switchOn('remindLogin');
 
 // Liest die Config ohne Prüfung der Zugangsdaten.
 export function readConfig(lang) {

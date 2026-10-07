@@ -12,6 +12,7 @@
 
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 import { t } from './i18n.mjs';
 
 export const NOTIFY_TIMEOUT = 10_000;
@@ -22,10 +23,10 @@ export const APP_VAR = 'TWEAKABLE_DJ_TOAST_APP';
 // Exit-Code des Skripts, wenn Windows Benachrichtigungen dieser App abgeschaltet hat (Einstellung auf stderr).
 const BLOCKED_EXIT = 3;
 
-// Spotify verlangt nach 180 Tagen eine neue Anmeldung (spotify.mjs); ab Tag 170 erinnert ein erfolgreicher automatischer
-// Lauf daran – wie der Hinweis in der Oberfläche.
+// Spotify verlangt nach 180 Tagen eine neue Anmeldung (spotify.mjs); eine Woche vorher erinnert eine Benachrichtigung daran
+// (Einstellung remindLogin, remindLogin() unten), höchstens einmal am Tag.
 export const LOGIN_DAYS = 180;
-export const LOGIN_WARN_DAYS = 170;
+export const REMIND_DAYS = 7;
 const DAY = 86_400_000;
 
 // Festes PowerShell-Skript: liest XML und App-Kennung nur aus der Umgebung. Exit 3 = von Windows blockiert.
@@ -185,20 +186,59 @@ export const testNotice = lang => ({ title: t(lang, 'notify.testTitle'), text: t
 
 const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
-// Benachrichtigung nach einem automatischen Lauf: { title, text } oder null (= keine).
+// Benachrichtigung nach einem automatischen Lauf: { title, text } oder null (= keine). Nur bei einem Fehler.
 //   result:  Ergebnis wie in automatik.json (ok, errorCode, error)
 //   enabled: Einstellung notifyOnFailure (aus = gar keine Benachrichtigung)
-//   authorizedAt: Zeitpunkt der Spotify-Anmeldung (ms, aus tokens.json), previousStart: Beginn des vorigen
-//   automatischen Laufs (ISO, aus automatik.json vor diesem Lauf)
-// Fehlgeschlagen → immer. Erfolgreich → nur ab Tag 170 der Anmeldung, und höchstens einmal am Tag: nur, wenn der vorige
-// automatische Lauf nicht schon heute war (dann hätte der bereits erinnert bzw. ist selbst fehlgeschlagen und hat gemeldet).
-export function autoRunNotice({ result, lang, enabled = true, authorizedAt = null, previousStart = null, now = new Date() }) {
-  if (!enabled || !result) return null;
-  if (result.ok === false) return failureNotice(lang, result);
-  if (result.ok !== true || !Number.isFinite(authorizedAt)) return null;
-  const age = Math.floor((now - authorizedAt) / DAY);
-  if (age < LOGIN_WARN_DAYS) return null;
-  const previous = previousStart ? new Date(previousStart) : null;
-  if (previous && !Number.isNaN(previous.getTime()) && sameDay(previous, now)) return null;
-  return loginNotice(lang, Math.max(0, LOGIN_DAYS - age));
+// Die Erinnerung an die Spotify-Anmeldung ist davon getrennt (remindLogin, Einstellung remindLogin).
+export function autoRunNotice({ result, lang, enabled = true }) {
+  if (!enabled || result?.ok !== false) return null;
+  return failureNotice(lang, result);
+}
+
+// Erinnerung an die Spotify-Anmeldung fällig? → Tage bis zum Ablauf (0 = heute) oder null.
+//   authorizedAt: Zeitpunkt der Anmeldung (ms, aus tokens.json); lastAt: letzte Erinnerung (ISO, aus state.json)
+// Fällig in den letzten REMIND_DAYS Tagen vor dem Ablauf, höchstens einmal am Tag. Danach ist die Anmeldung abgelaufen –
+// das meldet dann der Lauf selbst (notifyOnFailure) bzw. der Hinweis in der Oberfläche.
+export function loginReminderDays({ authorizedAt, lastAt = null, now = new Date() }) {
+  if (!Number.isFinite(authorizedAt)) return null;
+  const left = LOGIN_DAYS - Math.floor((now - authorizedAt) / DAY);
+  if (left > REMIND_DAYS || left < 0) return null;
+  const last = lastAt ? new Date(lastAt) : null;
+  if (last && !Number.isNaN(last.getTime()) && sameDay(last, now)) return null;
+  return left;
+}
+
+const readJsonFile = file => {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return undefined;
+  }
+};
+const isObject = v => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+
+// Erinnerung an die Spotify-Anmeldung senden, wenn sie fällig ist (beim Start der Oberfläche und nach automatischen Läufen).
+// dir = Programmordner (tokens.json, state.json); enabled = Einstellung remindLogin. Die letzte Erinnerung kommt nach
+// state.json (loginReminderAt), aber nur, wenn sie angekommen ist. Ergebnis: null (aus bzw. nicht fällig) oder das von
+// notify(); wirft nie.
+export async function remindLogin({ dir, lang, enabled = true, now = new Date(), send = notify }) {
+  try {
+    if (!enabled) return null;
+    const authorizedAt = Number(readJsonFile(path.join(dir, 'tokens.json'))?.authorized_at) || null;
+    const stateFile = path.join(dir, 'state.json');
+    const state = fs.existsSync(stateFile) ? readJsonFile(stateFile) : {};
+    // Kaputte state.json nie überschreiben (Verlauf und Such-Cache); dann eben ohne Erinnerung.
+    if (!isObject(state)) return null;
+    const days = loginReminderDays({ authorizedAt, lastAt: state.loginReminderAt, now });
+    if (days === null) return null;
+    const sent = await send(loginNotice(lang, days));
+    if (sent.ok) {
+      // Frisch lesen: Ein Lauf kann state.json inzwischen geschrieben haben. Ohne Datei so, wie dj.mjs sie anlegt.
+      const fresh = fs.existsSync(stateFile) ? readJsonFile(stateFile) : { history: [], cache: {} };
+      if (isObject(fresh)) fs.writeFileSync(stateFile, JSON.stringify({ ...fresh, loginReminderAt: now.toISOString() }, null, 2));
+    }
+    return sent;
+  } catch (e) {
+    return { ok: false, reason: 'failed', platform: process.platform, detail: firstLine(e?.message) };
+  }
 }

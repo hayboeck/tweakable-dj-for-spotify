@@ -48,6 +48,9 @@
   "scheduleDay": "MON",               // Wochentag bei "weekly": "MON", "TUE", "WED", "THU", "FRI", "SAT" oder "SUN"
   "notifyOnFailure": true,            // Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt (z. B. Spotify-Anmeldung abgelaufen); false = aus
 
+  // --- Spotify-Anmeldung ---
+  "remindLogin": true,                // Systembenachrichtigung eine Woche bevor die Spotify-Anmeldung abläuft (sie gilt 180 Tage), höchstens einmal am Tag; false = aus
+
   // --- Aussehen ---
   "theme": "system",                  // Modus der Oberfläche: "system" = wie dein Gerät, "light" = hell oder "dark" = dunkel
   "accent": "green",                  // Akzentfarbe der Oberfläche: "green", "blue", "violet", "pink", "red", "orange", "gold" oder "teal"

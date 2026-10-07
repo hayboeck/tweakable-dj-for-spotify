@@ -113,7 +113,7 @@ test('Einzahl und Mehrzahl nach den Regeln der Sprache (Intl.PluralRules)', () =
   assert.equal(t('fr', 'run.startingPoints', { current: 1, total: 20, factor: 3 }), '  1 point de départ sur 20 vient de ce que tu écoutes en ce moment (facteur 3)');
   assert.equal(t('fr', 'run.startingPoints', { current: 5, total: 20, factor: 1.5 }), '  5 points de départ sur 20 viennent de ce que tu écoutes en ce moment (facteur 1,5)');
   assert.equal(t('es', 'import.hintBlocked', { count: 1 }), 'Aviso: 1 canción está en tu lista de bloqueo y entra igualmente; el archivo es tu lista:');
-  assert.ok(t('fr', 'notify.loginText', { days: 1 }).startsWith('Ta connexion Spotify expire dans 1 jour.'));
+  assert.ok(t('fr', 'notify.loginText', { days: 1 }).startsWith('Ta connexion Spotify expire dans 1 jour :'));
 });
 
 test('t: Einzahl und Mehrzahl mit {name|eins|mehr}, Zahl im Format der Sprache', () => {

@@ -615,6 +615,8 @@ try {
           <p id="cred-state"></p>
           <div class="actions"><button type="button" class="btn" id="open-setup" data-t="openSetup"></button></div>
         </div>
+        <!-- Gruppe login (siehe GROUPS, root: 'credentials'): Erinnerung vor Ablauf der Anmeldung -->
+        <div id="groups-credentials"></div>
       </section>
       <!-- Verknüpfung auf dem Desktop (shortcut.mjs): Stand, anlegen bzw. neu anlegen, entfernen. Ausgeblendet, wo es keine gibt. -->
       <section id="shortcut" aria-labelledby="shortcut-title" hidden>
@@ -847,6 +849,8 @@ const TEXT = {
         hint: (v, c) => `${c.schedule === 'weekly' ? `Jeden ${T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay}` : 'Jeden Tag'} um ${v} Uhr` },
       notifyOnFailure: { label: 'Bei Fehlern benachrichtigen',
         help: 'Meldet sich, wenn ein automatischer Lauf scheitert – z. B. bei abgelaufener Spotify-Anmeldung oder ungültigem Last.fm-Key.' },
+      remindLogin: { label: 'An neue Anmeldung erinnern',
+        help: 'Die Spotify-Anmeldung gilt 180 Tage. Eine Woche vorher kommt eine Systembenachrichtigung.' },
     },
     list: {
       add: 'Hinzufügen',
@@ -1257,6 +1261,8 @@ const TEXT = {
         hint: (v, c) => `${c.schedule === 'weekly' ? `Every ${T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay}` : 'Every day'} at ${v}` },
       notifyOnFailure: { label: 'Notify on failures',
         help: 'Notifies you when an automatic run fails – e.g. because the Spotify login expired or the Last.fm key is invalid.' },
+      remindLogin: { label: 'Remind me to log in again',
+        help: 'Your Spotify login lasts 180 days. One week before it ends, you get a system notification.' },
     },
     list: {
       add: 'Add',
@@ -1659,6 +1665,8 @@ const TEXT = {
         hint: (v, c) => `${c.schedule === 'weekly' ? `Cada ${(T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay).toLowerCase()}` : 'Todos los días'} a las ${v}` },
       notifyOnFailure: { label: 'Avisar si algo falla',
         help: 'Avisa si falla una ejecución automática, p. ej. porque la sesión de Spotify ha caducado o la clave de Last.fm no es válida.' },
+      remindLogin: { label: 'Recordarme volver a iniciar sesión',
+        help: 'La sesión de Spotify dura 180 días. Una semana antes recibes una notificación del sistema.' },
     },
     list: {
       add: 'Añadir',
@@ -2062,6 +2070,8 @@ const TEXT = {
         hint: (v, c) => `${c.schedule === 'weekly' ? `Chaque ${(T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay).toLowerCase()}` : 'Tous les jours'} à ${v}` },
       notifyOnFailure: { label: 'Prévenir en cas d’échec',
         help: 'Te prévient quand une exécution automatique échoue – p. ex. connexion Spotify expirée ou clé Last.fm non valide.' },
+      remindLogin: { label: 'Me rappeler de me reconnecter',
+        help: 'La connexion Spotify dure 180 jours. Une semaine avant, tu reçois une notification système.' },
     },
     list: {
       add: 'Ajouter',
@@ -2412,6 +2422,10 @@ const GROUPS = [
     // Mit „Testbenachrichtigung senden“ (notifyTestBox) darunter.
     { key: 'notifyOnFailure', type: 'toggle', show: c => c.schedule !== 'off', test: true },
   ]},
+  // Gruppen mit root stehen ohne eigene Überschrift in einem festen Abschnitt der Seite (hier „Zugangsdaten“).
+  { id: 'login', tab: 'settings', root: 'credentials', items: [
+    { key: 'remindLogin', type: 'toggle' },
+  ]},
   { id: 'blocked', tab: 'settings', items: [
     { key: 'excludeExplicit', type: 'toggle' },
     { key: 'blockedArtists', type: 'list' },
@@ -2429,7 +2443,7 @@ const GROUPS = [
 ];
 // Einstellungen, die die Auswahl eines Probelaufs nicht ändern (wie NOT_RELEVANT in trial.mjs): Ändert man sie, bleibt
 // „Diese Liste übernehmen“ möglich.
-const NOT_FOR_TRIAL = [...SCHEDULE_KEYS, 'notifyOnFailure', 'archiveCount', 'theme', 'accent'];
+const NOT_FOR_TRIAL = [...SCHEDULE_KEYS, 'notifyOnFailure', 'remindLogin', 'archiveCount', 'theme', 'accent'];
 const TABS = ['playlist', 'settings'];
 const tabOf = group => group.tab ?? 'playlist';
 // Texte eines Reglers in der aktuellen Sprache; Auswahllisten zeigen ohne eigenes fmt den Namen der Option.
@@ -2630,11 +2644,11 @@ function build() {
     return p.button;
   }));
 
-  const roots = { playlist: $('groups'), settings: $('groups-settings') };
+  const roots = { playlist: $('groups'), settings: $('groups-settings'), credentials: $('groups-credentials') };
   for (const root of Object.values(roots)) root.replaceChildren();
   const detailsOpen = varietyControl?.details.open ?? false; // bleibt beim Umschalten der Sprache, wie er war
   for (const group of GROUPS) {
-    const section = el('section', {}, [el('h2', { textContent: T.groups[group.id] })]);
+    const section = group.root ? roots[group.root] : el('section', {}, [el('h2', { textContent: T.groups[group.id] })]);
     let details = null;
     if (group.variety) {
       varietyControl = varietyBox();
@@ -2728,7 +2742,7 @@ function build() {
       controls[item.key] = control;
     }
     if (group.status) section.append(scheduleBox());
-    roots[tabOf(group)].append(section);
+    if (!group.root) roots[tabOf(group)].append(section);
   }
 }
 

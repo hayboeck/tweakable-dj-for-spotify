@@ -7,11 +7,19 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ### English
 
+**New**
+
+- **Reminder before the Spotify login expires**: new switch *Remind me to log in again* under *Credentials* in the tab *Settings* (`remindLogin`, on by default). In the last 7 days before the Spotify login expires (it lasts 180 days), a system notification says e.g. *Your Spotify login expires in 5 days – open Tweakable DJ and log in again.* – when the interface starts and after automatic runs, at most once a day. The day of the last reminder is kept in `state.json` (`loginReminderAt`). Until now, only successful automatic runs reminded you, from 10 days before, and only with *Notify on failures* on; that switch is now only about failures.
+
 **Changed**
 
 - **Notice at the top can be closed**: the notice above the tabs (e.g. *Logged in ✓ The Spotify login is valid for another 6 months.* or a reminder to log in again) now has an × on the right. Until now, only reloading the page made *Logged in ✓* go away. A closed reminder comes back after reloading the page or when its reason changes.
 
 ### Deutsch
+
+**Neu**
+
+- **Erinnerung vor Ablauf der Spotify-Anmeldung**: neuer Schalter *An neue Anmeldung erinnern* unter *Zugangsdaten* im Tab *Einstellungen* (`remindLogin`, standardmäßig an). In den letzten 7 Tagen bevor die Spotify-Anmeldung abläuft (sie gilt 180 Tage), meldet eine Systembenachrichtigung z. B. *Die Spotify-Anmeldung läuft in 5 Tagen ab – öffne Tweakable DJ und melde dich neu an.* – beim Start der Oberfläche und nach automatischen Läufen, höchstens einmal am Tag. Der Tag der letzten Erinnerung steht in `state.json` (`loginReminderAt`). Bisher erinnerten nur erfolgreiche automatische Läufe, ab 10 Tagen vorher und nur mit *Bei Fehlern benachrichtigen*; dieser Schalter gilt jetzt nur noch für Fehler.
 
 **Geändert**
 

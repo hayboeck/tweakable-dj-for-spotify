@@ -2,9 +2,12 @@
 // errorCode und wann ein automatischer Lauf überhaupt meldet. Gestartet wird hier nichts: exec ist immer ein Ersatz.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
-  APP_VAR, LOGIN_DAYS, NOTIFY_TIMEOUT, TOAST_VAR, WINDOWS_APP_ID, autoRunNotice, escapeXml, failureNotice, notify, notifyCommand,
-  notifyProblem, testNotice, toastXml,
+  APP_VAR, LOGIN_DAYS, NOTIFY_TIMEOUT, REMIND_DAYS, TOAST_VAR, WINDOWS_APP_ID, autoRunNotice, escapeXml, failureNotice, loginReminderDays,
+  notify, notifyCommand, notifyProblem, remindLogin, testNotice, toastXml,
 } from '../notify.mjs';
 
 // Text mit allem, was in einer Befehlszeile, in XML oder in AppleScript Ärger machen könnte.
@@ -157,30 +160,49 @@ test('failureNotice: Grund aus errorCode und was zu tun ist; sonst die erste Zei
   assert.deepEqual(testNotice('en'), { title: 'Tweakable DJ: test notification', text: 'This is how Tweakable DJ tells you when an automatic run fails.' });
 });
 
-test('autoRunNotice: nur bei Fehlern, Schalter wirkt; Erinnerung an die Anmeldung ab Tag 170, höchstens einmal am Tag', () => {
+test('autoRunNotice: nur bei Fehlern, Schalter wirkt; Erfolg und laufende Läufe melden nie', () => {
+  const failed = { ok: false, errorCode: 'login_expired', error: 'abgelaufen' };
+  assert.equal(autoRunNotice({ result: failed, lang: 'de' }).title, 'Tweakable DJ: automatischer Lauf fehlgeschlagen');
+  assert.equal(autoRunNotice({ result: failed, lang: 'de', enabled: false }), null, 'Schalter aus');
+  assert.equal(autoRunNotice({ result: { ok: true }, lang: 'de' }), null);
+  assert.equal(autoRunNotice({ result: { ok: null }, lang: 'de' }), null);
+  assert.equal(autoRunNotice({ result: null, lang: 'de' }), null);
+});
+
+test('loginReminderDays: in der letzten Woche vor dem Ablauf, höchstens einmal am Tag', () => {
   const now = new Date(2026, 9, 6, 7, 0);
   const days = n => now.getTime() - n * 86_400_000;
-  const failed = { ok: false, errorCode: 'login_expired', error: 'abgelaufen' };
-  const ok = { ok: true, errorCode: null, error: null };
-  assert.equal(autoRunNotice({ result: failed, lang: 'de', now }).title, 'Tweakable DJ: automatischer Lauf fehlgeschlagen');
-  assert.equal(autoRunNotice({ result: failed, lang: 'de', enabled: false, now }), null, 'Schalter aus');
-  // Fehler: auch, wenn heute schon einer gemeldet hat
-  assert.ok(autoRunNotice({ result: failed, lang: 'de', previousStart: new Date(days(0) - 3600_000).toISOString(), now }));
-  // Erfolg: ohne bzw. mit junger Anmeldung nichts; Lauf ohne Ergebnis (ok: null) nichts
-  assert.equal(autoRunNotice({ result: ok, lang: 'de', now }), null);
-  assert.equal(autoRunNotice({ result: ok, lang: 'de', authorizedAt: days(169.9), now }), null);
-  assert.equal(autoRunNotice({ result: { ok: null }, lang: 'de', authorizedAt: days(175), now }), null);
-  assert.equal(autoRunNotice({ result: null, lang: 'de', now }), null);
-  // Ab Tag 170
-  assert.deepEqual(autoRunNotice({ result: ok, lang: 'de', authorizedAt: days(170), now }), {
-    title: 'Tweakable DJ: Spotify-Anmeldung läuft bald ab',
-    text: 'Die Spotify-Anmeldung läuft in 10 Tagen ab. Öffne Tweakable DJ und melde dich neu bei Spotify an, damit die automatischen Läufe weiter klappen.',
-  });
-  assert.match(autoRunNotice({ result: ok, lang: 'en', authorizedAt: days(LOGIN_DAYS - 1), now }).text, /^Your Spotify login expires in 1 day\./);
-  assert.match(autoRunNotice({ result: ok, lang: 'en', authorizedAt: days(LOGIN_DAYS + 3), now }).text, /^Your Spotify login expires today\./);
-  assert.equal(autoRunNotice({ result: ok, lang: 'de', authorizedAt: days(175), enabled: false, now }), null, 'Schalter aus');
-  // Höchstens einmal am Tag: voriger automatischer Lauf heute → nichts; gestern bzw. unlesbar → Erinnerung
-  assert.equal(autoRunNotice({ result: ok, lang: 'de', authorizedAt: days(175), previousStart: new Date(2026, 9, 6, 0, 1).toISOString(), now }), null);
-  assert.ok(autoRunNotice({ result: ok, lang: 'de', authorizedAt: days(175), previousStart: new Date(2026, 9, 5, 23, 59).toISOString(), now }));
-  assert.ok(autoRunNotice({ result: ok, lang: 'de', authorizedAt: days(175), previousStart: 'kaputt', now }));
+  assert.equal(loginReminderDays({ authorizedAt: null, now }), null);
+  assert.equal(loginReminderDays({ authorizedAt: days(LOGIN_DAYS - REMIND_DAYS - 0.5), now }), null, 'Tag 172: noch nicht');
+  assert.equal(loginReminderDays({ authorizedAt: days(LOGIN_DAYS - REMIND_DAYS), now }), 7);
+  assert.equal(loginReminderDays({ authorizedAt: days(LOGIN_DAYS + 0.5), now }), 0, 'heute');
+  assert.equal(loginReminderDays({ authorizedAt: days(LOGIN_DAYS + 1), now }), null, 'schon abgelaufen');
+  assert.equal(loginReminderDays({ authorizedAt: days(175), lastAt: new Date(2026, 9, 6, 0, 1).toISOString(), now }), null, 'heute schon');
+  assert.equal(loginReminderDays({ authorizedAt: days(175), lastAt: new Date(2026, 9, 5, 23, 59).toISOString(), now }), 5);
+  assert.equal(loginReminderDays({ authorizedAt: days(175), lastAt: 'kaputt', now }), 5);
+});
+
+test('remindLogin: sendet, merkt sich den Tag in state.json (Rest bleibt), Schalter wirkt, kaputte state.json bleibt', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj erinnerung ö-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const now = new Date(2026, 9, 6, 7, 0);
+  fs.writeFileSync(path.join(dir, 'tokens.json'), JSON.stringify({ refresh_token: 'x', authorized_at: now.getTime() - 175 * 86_400_000 }));
+  const sent = [];
+  const send = async notice => (sent.push(notice), { ok: true });
+  assert.equal(await remindLogin({ dir, lang: 'de', enabled: false, now, send }), null);
+  assert.deepEqual(await remindLogin({ dir, lang: 'de', now, send }), { ok: true });
+  assert.deepEqual(sent, [{ title: 'Tweakable DJ: Spotify-Anmeldung läuft bald ab', text: 'Die Spotify-Anmeldung läuft in 5 Tagen ab – öffne Tweakable DJ und melde dich neu an.' }]);
+  const state = file => JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+  assert.deepEqual(state('state.json'), { history: [], cache: {}, loginReminderAt: now.toISOString() }, 'neu angelegt wie von dj.mjs');
+  assert.equal(await remindLogin({ dir, lang: 'de', now, send }), null, 'heute schon erinnert');
+  // Nicht angekommen: nicht merken (nächster Start versucht es wieder)
+  fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify({ history: [['a|b']], cache: { k: null } }));
+  assert.deepEqual(await remindLogin({ dir, lang: 'en', now, send: async () => ({ ok: false, reason: 'blocked' }) }), { ok: false, reason: 'blocked' });
+  assert.equal(state('state.json').loginReminderAt, undefined);
+  await remindLogin({ dir, lang: 'en', now, send });
+  assert.deepEqual(state('state.json'), { history: [['a|b']], cache: { k: null }, loginReminderAt: now.toISOString() });
+  assert.equal(sent.at(-1).text, 'Your Spotify login expires in 5 days – open Tweakable DJ and log in again.');
+  fs.writeFileSync(path.join(dir, 'state.json'), '{ kaputt');
+  assert.equal(await remindLogin({ dir, lang: 'de', now, send }), null);
+  assert.equal(fs.readFileSync(path.join(dir, 'state.json'), 'utf8'), '{ kaputt');
 });
