@@ -158,7 +158,24 @@
   .row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
   .row-head label { font-weight: 600; }
   output { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); white-space: nowrap; }
-  input[type=range] { width: 100%; margin: 10px 0 2px; accent-color: var(--accent-fill); }
+  /* Schieberegler selbst gezeichnet: Mit accent-color allein wählt der Browser die Farbe der leeren Spur nach der Helligkeit
+     der Akzentfarbe (beim hellen Spotify-Grün dunkel, sonst hell). So ist sie bei allen Farben gleich (--track); der gefüllte
+     Teil reicht bis --pct, das rangeFill() setzt. */
+  :root { --track: #dfe2e7; }
+  :root[data-mode="dark"] { --track: #3a404c; }
+  input[type=range] { width: 100%; margin: 10px 0 2px; height: 20px; padding: 0; background: transparent; cursor: pointer;
+    -webkit-appearance: none; appearance: none; --pct: 50%; }
+  input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px;
+    background: linear-gradient(to right, var(--accent-fill) var(--pct), var(--track) var(--pct)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin-top: -6px;
+    border-radius: 50%; background: var(--accent-fill); border: 2px solid var(--card); box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
+  input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--track); }
+  input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent-fill); }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--accent-fill);
+    border: 2px solid var(--card); box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
+  input[type=range]:focus { outline: none; }
+  input[type=range]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input[type=range]:focus-visible::-moz-range-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
   .scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
   .hint { margin: 6px 0 0; font-size: 13.5px; color: var(--accent); }
   .hint:empty { display: none; }
@@ -2646,6 +2663,7 @@ function renderVariety() {
   const i = varietyIndex(current);
   Object.assign(v.input, { max: levels.length - 1, step: i >= 0 ? 1 : 'any' }); // vor value, sonst wird gerundet
   v.input.value = i >= 0 ? i : varietyPosition(current);
+  rangeFill(v.input);
   v.out.textContent = i >= 0 ? T.variety.levels[levels[i].id] : T.variety.custom;
   attr(v.input, { 'aria-valuetext': v.out.textContent });
   v.scale[0].textContent = T.variety.levels[levels[0].id];
@@ -2751,12 +2769,22 @@ function sliderRange(key) {
   return [Math.max(l.min, Math.min(l.slider[0], ...values)), Math.min(l.max, Math.max(l.slider[1], ...values))];
 }
 
+// Gefüllter Teil eines Schiebereglers (CSS --pct), nach jedem Setzen des Werts und bei jeder Eingabe.
+function rangeFill(input) {
+  const min = Number(input.min) || 0;
+  const max = input.max === '' ? 100 : Number(input.max);
+  const pct = max > min ? (Number(input.value) - min) / (max - min) * 100 : 0;
+  input.style.setProperty('--pct', `${Math.max(0, Math.min(100, pct))}%`);
+}
+document.addEventListener('input', e => { if (e.target.matches?.('input[type=range]')) rangeFill(e.target); });
+
 function setSlider(control, v) {
   const { item, input, text, scale } = control;
   if (!limits[item.key]) return;
   const [min, max] = sliderRange(item.key);
   Object.assign(input, { min, max, step: limits[item.key].step }); // vor value, sonst schneidet der alte Bereich ab
   input.value = v;
+  rangeFill(input);
   scale[0].textContent = text.fmt(min);
   scale[1].textContent = text.fmt(max);
 }

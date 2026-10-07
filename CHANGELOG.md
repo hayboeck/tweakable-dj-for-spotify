@@ -5,6 +5,20 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.2.2] – 2026-10-07
+
+### English
+
+**Fixed**
+
+- **Sliders look the same with every accent color**: with the default green, the empty part of the sliders was dark in light mode, with all other colors light – the browser chose its color from the brightness of the accent color. Tweakable DJ now draws the sliders itself: the empty part is light gray in light mode and dark gray in dark mode, whatever color you choose. The screenshots in the README show the new sliders.
+
+### Deutsch
+
+**Behoben**
+
+- **Schieberegler sehen bei jeder Akzentfarbe gleich aus**: Mit dem Standard-Grün war der leere Teil der Regler im hellen Modus dunkel, bei allen anderen Farben hell – der Browser hat die Farbe nach der Helligkeit der Akzentfarbe gewählt. Tweakable DJ zeichnet die Regler jetzt selbst: Der leere Teil ist im hellen Modus hellgrau, im dunklen Modus dunkelgrau, egal welche Farbe du wählst. Die Screenshots in der README zeigen die neuen Regler.
+
 ## [0.2.1] – 2026-10-07
 
 ### English
@@ -189,6 +203,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.2.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.2
 [0.2.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.1
 [0.2.0]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.2.0
 [0.1.4]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.1.4
