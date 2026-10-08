@@ -224,6 +224,13 @@ function spotifyApi(url, init, headers) {
     const lists = STORE ? readStore().playlists : [];
     return json({ items: lists.map(x => ({ id: x.id, name: x.name, owner: { id: 'testuser' }, collaborative: false, items: { total: x.uris.length } })), next: null });
   }
+  // Eine Playlist direkt (writePlaylist mit knownId prüft, ob sie noch dir gehört und so heißt)
+  const single = p.match(/^\/v1\/playlists\/([^/]+)$/);
+  if (single) {
+    const found = STORE && readStore().playlists.find(x => x.id === single[1]);
+    if (!found) return json({ error: { status: 404, message: 'Not found.' } }, 404);
+    return json({ id: found.id, name: found.name, owner: { id: 'testuser' }, collaborative: false, items: { total: found.uris.length } });
+  }
 
   if (p === '/v1/me/following') {
     if (process.env.MOCK_NO_FOLLOW_SCOPE === '1') return json({ error: { status: 403, message: 'Insufficient client scope' } }, 403);

@@ -462,10 +462,12 @@ function playedSet(state) {
 async function toSpotify(cfg, spotify, lineup, description) {
   const name = asNew ? newPlaylistName(cfg.playlistName, lang) : cfg.playlistName;
   result.playlistName = name;
-  const { url, created } = await writePlaylist(spotify, { name, uris: lineup.map(track => track.uri), description, lang, warn, create: asNew });
+  const knownId = asNew ? null : readJson(STATE, {}).playlistIds?.[name] ?? null;
+  const { id, url, created } = await writePlaylist(spotify, { name, uris: lineup.map(track => track.uri), description, lang, warn, create: asNew, knownId });
   if (created) console.log(`\n${t(lang, 'run.created', { name })}`);
   await toArchive(() => saveArchive(HERE, { name, url, tracks: lineup, lang, keep: cfg.archiveCount }));
   const state = readJson(STATE, { history: [], cache: {} });
+  if (!asNew) state.playlistIds = { [name]: id }; // für das nächste Schreiben (writePlaylist, knownId)
   const keys = lineup.map(track => trackKey(track.artist, track.name));
   state.played = rememberPlayed([...playedSet(state)], keys);
   state.history = lastRuns(cfg, [...state.history, keys]);
@@ -569,6 +571,7 @@ async function importFile(cfg, spotify) {
   }
   const { url, created } = await writePlaylist(spotify, {
     name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang, warn,
+    knownId: readJson(STATE, {}).playlistIds?.[cfg.playlistName] ?? null,
   });
   if (created) console.log(`\n${t(lang, 'run.created', { name: cfg.playlistName })}`);
   await toArchive(() => archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount }));

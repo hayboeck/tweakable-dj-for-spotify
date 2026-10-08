@@ -46,10 +46,14 @@ export function dateTime(lang, d) {
 
 // Schreibt uris (in dieser Reihenfolge) in die eigene Playlist name und setzt die Beschreibung; legt sie bei Bedarf an.
 // create: immer eine neue Playlist anlegen, auch wenn es schon eine mit diesem Namen gibt („Als neue Playlist anlegen“).
+// knownId: ID der Playlist vom letzten Schreiben (state.json, playlistIds). Gehört sie noch dir und heißt noch so, nimmt
+// Tweakable DJ sie direkt – ohne die Liste deiner Playlists zu durchsuchen. Die kann Spotify bei einer Störung unvollständig
+// liefern; dann würde eine zweite Playlist gleichen Namens entstehen.
 // Eine Beschreibung, die sich nicht setzen lässt, ist nur eine Warnung (warn). Ergebnis: { id, url, created }.
-export async function writePlaylist(spotify, { name, uris, description, lang, warn = () => {}, create = false }) {
+export async function writePlaylist(spotify, { name, uris, description, lang, warn = () => {}, create = false, knownId = null }) {
   const userId = (await spotify.me()).id;
-  let id = create ? null : await spotify.findPlaylist(name, userId);
+  let id = !create && knownId && await spotify.isOwnPlaylist(knownId, name, userId) ? knownId : null;
+  if (!create && !id) id = await spotify.findPlaylist(name, userId);
   const created = !id;
   if (created) id = await spotify.createPlaylist(name, t(lang, 'run.newPlaylist'), userId);
   await spotify.replacePlaylist(id, uris);

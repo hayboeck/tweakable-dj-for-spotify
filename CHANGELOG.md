@@ -10,6 +10,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 **Fixed**
 
 - **Brief Spotify outages no longer make a run fail**: if Spotify answers with a temporary error (500, 502, 503 or 504, e.g. *An unexpected error occurred. Please try again later.*), Tweakable DJ tries again after 2, 5 and 10 seconds. Before creating a playlist again, it first checks whether Spotify created it anyway, so it never appears twice.
+- **The playlist is found by its ID**: Tweakable DJ remembers the ID of “Tweakable DJ” after each write (in `state.json`) and uses it directly next time, instead of searching the list of your playlists by name. During a Spotify outage that list can come back incomplete – an automatic run then tried to create a second “Tweakable DJ”. If the playlist was deleted or renamed, it searches by name as before.
 
 **Changed**
 
@@ -20,6 +21,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 **Behoben**
 
 - **Kurze Störungen bei Spotify lassen einen Lauf nicht mehr scheitern**: Antwortet Spotify mit einem vorübergehenden Fehler (500, 502, 503 oder 504, z. B. *An unexpected error occurred. Please try again later.*), versucht Tweakable DJ es nach 2, 5 und 10 Sekunden noch einmal. Bevor es eine Playlist noch einmal anlegt, sieht es nach, ob Spotify sie nicht doch angelegt hat – so entsteht sie nie doppelt.
+- **Die Playlist wird über ihre ID gefunden**: Tweakable DJ merkt sich nach jedem Schreiben die ID von „Tweakable DJ“ (in `state.json`) und nimmt sie beim nächsten Mal direkt, statt die Liste deiner Playlists nach dem Namen zu durchsuchen. Bei einer Störung von Spotify kann diese Liste unvollständig sein – ein automatischer Lauf wollte dann ein zweites „Tweakable DJ“ anlegen. Wurde die Playlist gelöscht oder umbenannt, sucht es wie bisher nach dem Namen.
 
 **Geändert**
 

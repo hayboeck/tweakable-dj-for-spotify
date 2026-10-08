@@ -67,3 +67,29 @@ test('Anlegen bei 502 und noch nicht da: noch einmal anlegen', async () => {
     assert.equal(calls.filter(c => c === 'POST /me/playlists').length, 2);
   } finally { done(); }
 });
+
+test('Bekannte ID: Playlist direkt nehmen, auch wenn die Liste der Playlists unvollständig ist – nie doppelt anlegen', async () => {
+  const { spotify, calls, done } = fakeSpotify({
+    'GET /me': [[200, { id: 'ich' }]],
+    'GET /playlists/alt1': [[200, { id: 'alt1', name: 'Tweakable DJ', owner: { id: 'ich' } }]],
+    'GET /me/playlists': [[200, { items: [], next: null }]],
+  });
+  try {
+    const r = await writePlaylist(spotify, { name: 'Tweakable DJ', uris: ['spotify:track:0123456789abcdefABCDEF'], description: 'd', lang: 'de', knownId: 'alt1' });
+    assert.deepEqual([r.id, r.created], ['alt1', false]);
+    assert.ok(!calls.includes('POST /me/playlists'));
+    assert.ok(!calls.includes('GET /me/playlists'), 'ohne Suche in der Liste');
+  } finally { done(); }
+});
+
+test('Bekannte ID gibt es nicht mehr bzw. heißt anders: Suche nach dem Namen wie bisher', async () => {
+  const { spotify, done } = fakeSpotify({
+    'GET /me': [[200, { id: 'ich' }]],
+    'GET /playlists/weg': [[404, { error: { status: 404, message: 'Not found.' } }]],
+    'GET /me/playlists': [[200, { items: [{ id: 'da2', name: 'Tweakable DJ', owner: { id: 'ich' } }], next: null }]],
+  });
+  try {
+    const r = await writePlaylist(spotify, { name: 'Tweakable DJ', uris: ['spotify:track:0123456789abcdefABCDEF'], description: 'd', lang: 'de', knownId: 'weg' });
+    assert.deepEqual([r.id, r.created], ['da2', false]);
+  } finally { done(); }
+});

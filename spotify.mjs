@@ -303,6 +303,18 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
       return out;
     },
 
+    // Ist id noch die eigene Playlist mit diesem Namen? false, wenn es sie nicht (mehr) gibt, sie nicht dir gehört oder
+    // anders heißt; bei einer Störung von Spotify wirft es (dann lieber abbrechen als eine zweite Playlist anlegen).
+    async isOwnPlaylist(id, name, userId) {
+      try {
+        const p = await api('GET', `/playlists/${encodeURIComponent(id)}`);
+        return p?.name === name && p?.owner?.id === userId;
+      } catch (e) {
+        if ([400, 403, 404].includes(e.status)) return false;
+        throw e;
+      }
+    },
+
     async findPlaylist(name, userId) {
       for await (const p of pages('/me/playlists?limit=50')) {
         if (p?.name === name && p.owner?.id === userId) return p.id;

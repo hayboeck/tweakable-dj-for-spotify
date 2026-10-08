@@ -762,8 +762,15 @@ const server = http.createServer(async (req, res) => {
         const cfg = currentConfig(lang);
         if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
         const spotify = createSpotify(cfg.spotify.clientId, TOKENS, { lang });
+        // ID der Playlist vom letzten Lauf (state.json, nur gelesen): writePlaylist nimmt sie direkt, statt zu suchen.
+        let knownId = null;
+        try {
+          knownId = JSON.parse(fs.readFileSync(path.join(HERE, 'state.json'), 'utf8')).playlistIds?.[cfg.playlistName] ?? null;
+        } catch {
+          // noch kein Lauf
+        }
         const { url: playlistUrl, created } = await writePlaylist(spotify, {
-          name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang,
+          name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang, knownId,
         });
         let warning = null;
         let archived = null;
