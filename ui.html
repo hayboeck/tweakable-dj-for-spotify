@@ -319,6 +319,12 @@
   .open { font-weight: 600; color: var(--accent); }
   /* Unter der Ausgabe: erstellte Liste überschreiben bzw. neu anlegen, Textdatei speichern und importieren */
   #out-actions { margin: 0 0 14px; }
+  .out-row { margin: 0 0 14px; }
+  .out-row .actions { margin-top: 6px; }
+  .out-row .msg { margin: 8px 0 0 !important; }
+  .out-label { margin: 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .file-row { align-items: center; gap: 6px; }
+  .file-row .out-label { font-size: 12px; margin-right: 4px; }
   #out .msg { margin: -6px 0 14px; }
   .import-menu { margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
   .import-menu .actions { margin-top: 0; }
@@ -583,7 +589,7 @@ try {
       <div id="groups"></div>
       <!-- Ausgabe von „Playlist erstellen“ (Probelauf) und dem Übernehmen (immer sichtbar, vor dem ersten Lauf mit Platzhalter),
            darunter eine Knopfreihe: nach dem Erstellen „„<Name>“ überschreiben“ (POST /api/apply, Primärknopf) und „Neu in Spotify
-           anlegen“ (POST /api/apply mit target 'new'); „Als Textdatei speichern“ (GET /api/export, nach dem Erstellen die erstellte
+           anlegen“ (POST /api/apply mit target 'new'); „Playlist speichern“ (Textdatei) (GET /api/export, nach dem Erstellen die erstellte
            Liste); „Importieren …“ mit der Auswahl „Aus Datei …“ bzw. „Frühere Playlist …“ (Archiv: GET /api/archive,
            Eintrag mit GET /api/archive/entry): Vorschau (POST /api/import/preview), nach der Rückfrage schreiben (POST /api/import);
            nach dem Überschreiben bzw. Import „Vorige Playlist wiederherstellen“ (derselbe Weg mit dem Archiv-Eintrag davor) -->
@@ -593,15 +599,24 @@ try {
           <a id="open" class="open" target="_blank" rel="noopener" data-t="open" hidden></a>
         </div>
         <pre id="log"></pre>
-        <div class="actions" id="out-actions">
-          <button type="button" class="btn primary" id="trial-apply" hidden></button>
-          <button type="button" class="btn" id="trial-new" hidden></button>
-          <button type="button" class="btn" id="export" data-t="saveText"></button>
-          <button type="button" class="btn" id="import" data-t="importFile" aria-expanded="false" aria-controls="import-menu"></button>
+        <!-- Zeile 1 „Spotify“: erstellte Liste überschreiben bzw. als neue Playlist anlegen; nach dem Schreiben den vorigen
+             Stand aus dem Archiv zurückholen (wie „Frühere Playlist …“, mit Vorschau und Rückfrage; nur, wenn es ihn gibt:
+             GET /api/archive?after=…). Ohne erstellte Liste und ohne vorigen Stand ausgeblendet (syncSpotifyRow). -->
+        <div class="out-row" id="spotify-row" hidden>
+          <h3 class="out-label">Spotify</h3>
+          <div class="actions">
+            <button type="button" class="btn primary" id="trial-apply" hidden></button>
+            <button type="button" class="btn" id="trial-new" hidden></button>
+            <button type="button" class="btn" id="undo" data-t="undo" hidden></button>
+          </div>
+          <p class="msg" id="trial-msg" role="status" hidden></p>
+        </div>
+        <!-- Zeile 2, kleiner: als Textdatei speichern bzw. importieren -->
+        <div class="actions file-row" id="out-actions">
+          <span class="out-label" data-t="fileHead"></span>
+          <button type="button" class="btn small" id="export" data-t="saveText"></button>
+          <button type="button" class="btn small" id="import" data-t="importFile" aria-expanded="false" aria-controls="import-menu"></button>
           <input type="file" id="import-file" accept=".txt,text/plain" hidden>
-          <!-- Nach einem Lauf bzw. Import, der die Playlist geschrieben hat: vorigen Stand aus dem Archiv zurückholen (wie
-               „Frühere Playlist …“, mit Vorschau und Rückfrage); nur, wenn es ihn gibt (GET /api/archive?after=…) -->
-          <button type="button" class="btn" id="undo" data-t="undo" hidden></button>
         </div>
         <div class="import-menu" id="import-menu" hidden>
           <div class="actions">
@@ -615,7 +630,6 @@ try {
             <ul class="archive-list" id="archive-list"></ul>
           </div>
         </div>
-        <p class="msg" id="trial-msg" role="status" hidden></p>
         <p class="msg" id="files-msg" role="status" aria-live="polite"></p>
         <div class="import-preview" id="import-preview" hidden>
           <p class="summary" id="import-found"></p>
@@ -790,7 +804,8 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Einfach: nur Voreinstellungen und Anzahl Songs. Pro: alle Regler.',
       presetReset: 'Auf „Standard“ zurücksetzen',
-      saveText: 'Als Textdatei speichern',
+      saveText: 'Playlist speichern',
+      fileHead: 'Textdatei',
       importFile: 'Importieren …',
       importFromFile: 'Aus Datei …',
       importFromArchive: 'Frühere Playlist …',
@@ -951,7 +966,7 @@ const TEXT = {
       // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
       help: (name, until, example) => `Möglich bis ${until} Uhr, solange die Einstellungen gleich bleiben. Als neue Playlist heißt sie z. B. „${example}“; „${name}“ bleibt dann, wie sie ist.`,
       overwrite: name => `„${name}“ überschreiben`,
-      saveNew: 'Neu in Spotify anlegen',
+      saveNew: 'Neue Playlist anlegen',
       dirty: 'Geht nicht mehr: Du hast seit dem Erstellen Einstellungen geändert. Stelle sie zurück oder klicke noch einmal auf „Playlist erstellen“.',
       old: 'Geht nicht mehr: Die Liste ist älter als 24 Stunden. Klicke noch einmal auf „Playlist erstellen“.',
       blocked: 'Geht nicht mehr: Du hast einen Song aus dieser Liste gesperrt. Klicke noch einmal auf „Playlist erstellen“ – das speichert vorher.',
@@ -965,7 +980,7 @@ const TEXT = {
       off: 'Das Archiv ist aus – einschalten im Tab „Einstellungen“ unter „Archiv“.',
       loading: 'Lade das Archiv …',
     },
-    // Als Textdatei speichern und Textdatei importieren
+    // Playlist als Textdatei speichern und Textdatei importieren
     files: {
       help: name => `Ersetzt den Inhalt von „${name}“ nach einer Vorschau. Textdatei: je Zeile „Künstler – Titel“ oder ein Spotify-Link.`,
       loading: 'Lese die Playlist aus Spotify …',
@@ -1222,7 +1237,8 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Simple: only presets and number of songs. Pro: all controls.',
       presetReset: 'Reset to “Default”',
-      saveText: 'Save as text file',
+      saveText: 'Save playlist',
+      fileHead: 'Text file',
       importFile: 'Import …',
       importFromFile: 'From file …',
       importFromArchive: 'Earlier playlist …',
@@ -1381,7 +1397,7 @@ const TEXT = {
       // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
       help: (name, until, example) => `Possible until ${until} as long as the settings stay the same. As a new playlist, it’s named e.g. “${example}”; “${name}” then stays as it is.`,
       overwrite: name => `Overwrite “${name}”`,
-      saveNew: 'Save as new playlist',
+      saveNew: 'Create new playlist',
       dirty: 'No longer possible: you’ve changed settings since creating it. Change them back or click “Create playlist” again.',
       old: 'No longer possible: the list is more than 24 hours old. Click “Create playlist” again.',
       blocked: 'No longer possible: you blocked a song from this list. Click “Create playlist” again – it saves first.',
@@ -1646,7 +1662,8 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Sencillo: solo ajustes predefinidos y número de canciones. Pro: todos los controles.',
       presetReset: 'Volver a «Predeterminado»',
-      saveText: 'Guardar como texto',
+      saveText: 'Guardar playlist',
+      fileHead: 'Archivo de texto',
       importFile: 'Importar …',
       importFromFile: 'Desde archivo …',
       importFromArchive: 'Playlist anterior …',
@@ -1805,7 +1822,7 @@ const TEXT = {
       // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
       help: (name, until, example) => `Posible hasta el ${until}, mientras no cambies los ajustes. Como playlist nueva se llama p. ej. «${example}»; «${name}» se queda como está.`,
       overwrite: name => `Sobrescribir «${name}»`,
-      saveNew: 'Guardar como playlist nueva',
+      saveNew: 'Crear playlist nueva',
       dirty: 'Ya no es posible: has cambiado ajustes desde que la creaste. Vuelve a dejarlos como estaban o haz clic otra vez en «Crear playlist».',
       old: 'Ya no es posible: la lista tiene más de 24 horas. Haz clic otra vez en «Crear playlist».',
       blocked: 'Ya no es posible: has bloqueado una canción de esta lista. Haz clic otra vez en «Crear playlist» (antes se guarda todo).',
@@ -2071,7 +2088,8 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Simple : seulement les préréglages et le nombre de titres. Pro : tous les réglages.',
       presetReset: 'Revenir à « Par défaut »',
-      saveText: 'Enregistrer en texte',
+      saveText: 'Enregistrer la playlist',
+      fileHead: 'Fichier texte',
       importFile: 'Importer …',
       importFromFile: 'Depuis un fichier …',
       importFromArchive: 'Playlist précédente …',
@@ -2230,7 +2248,7 @@ const TEXT = {
       // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
       help: (name, until, example) => `Possible jusqu’au ${until}, tant que les réglages ne changent pas. En nouvelle playlist, elle s’appelle p. ex. « ${example} » ; « ${name} » reste alors telle quelle.`,
       overwrite: name => `Remplacer « ${name} »`,
-      saveNew: 'Enregistrer comme nouvelle playlist',
+      saveNew: 'Créer une nouvelle playlist',
       dirty: 'Plus possible : tu as modifié des réglages depuis sa création. Remets-les comme avant ou clique de nouveau sur « Créer la playlist ».',
       old: 'Plus possible : la liste date de plus de 24 heures. Clique de nouveau sur « Créer la playlist ».',
       blocked: 'Plus possible : tu as bloqué un titre de cette liste. Clique de nouveau sur « Créer la playlist » – elle enregistre d’abord.',
@@ -3493,7 +3511,7 @@ function renderSummary() {
 }
 
 // kind: 'dry' („Playlist erstellen“, Probelauf), 'apply' (erstellte Liste in die Playlist aus den Einstellungen schreiben,
-// „„<Name>“ überschreiben“) oder 'new' (als neue Playlist mit Datum und Uhrzeit im Namen, „Neu in Spotify anlegen“).
+// „„<Name>“ überschreiben“) oder 'new' (als neue Playlist mit Datum und Uhrzeit im Namen, „Neue Playlist anlegen“).
 // Vor dem Erstellen werden ungespeicherte Änderungen gespeichert; danach gilt eine früher erstellte Liste nicht mehr.
 async function run(kind) {
   const dry = kind === 'dry';
@@ -3574,8 +3592,8 @@ function trialReason() {
   return null;
 }
 
-// Steht gerade eine erstellte Liste in der Ausgabe? Dann gibt es „„<Name>“ überschreiben“ und „Neu in Spotify anlegen“, und
-// „Als Textdatei speichern“ speichert ihre Liste.
+// Steht gerade eine erstellte Liste in der Ausgabe? Dann gibt es „„<Name>“ überschreiben“ und „Neue Playlist anlegen“, und
+// „Playlist speichern“ (Textdatei) speichert ihre Liste.
 const trialShown = () => Boolean(trial) && runState?.phase === 'done' && ['dry', 'apply', 'new'].includes(runState.kind);
 // Speichern geht, solange probelauf.json zu diesem Probelauf gehört (auch mit geänderten Einstellungen).
 const trialExportable = () => trialShown() && !['missing', 'replaced', 'invalid', 'server'].includes(trial.serverReason);
@@ -3592,6 +3610,7 @@ const shortName = name => (name.length > 30 ? `${name.slice(0, 29)}…` : name);
 function renderTrial() {
   const show = trialShown();
   $('trial-apply').hidden = $('trial-new').hidden = $('trial-msg').hidden = !show;
+  syncSpotifyRow();
   clearTimeout(trialTimer);
   if (!show) return;
   const reason = trialReason();
@@ -3643,7 +3662,7 @@ function download(text, filename) {
 
 // --- Textdatei: speichern und importieren (Knopfreihe unter der Ausgabe) ---
 
-// „Als Textdatei speichern“ (GET /api/export): nach einem Probelauf dessen Liste (Dateiname mit „-neu“), sonst die
+// „Playlist speichern“ (Textdatei) (GET /api/export): nach einem Probelauf dessen Liste (Dateiname mit „-neu“), sonst die
 // Playlist, wie sie gerade in Spotify ist. So gibt es nur einen Knopf, und er speichert, was die Ausgabe gerade zeigt.
 async function exportList() {
   const id = trialExportable() ? trial.id : null;
@@ -3841,8 +3860,14 @@ function setUndo(entry) {
   renderUndo();
 }
 
+// Zeile „Spotify“ unter der Ausgabe: sichtbar, sobald einer ihrer Knöpfe sichtbar ist
+function syncSpotifyRow() {
+  $('spotify-row').hidden = $('trial-apply').hidden && $('trial-new').hidden && $('undo').hidden;
+}
+
 function renderUndo() {
   $('undo').hidden = !undoEntry;
+  syncSpotifyRow();
   $('undo').title = undoEntry ? T.archive.undoHelp(when(undoEntry.at)) : '';
 }
 

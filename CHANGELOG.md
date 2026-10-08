@@ -5,6 +5,18 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+### English
+
+**Changed**
+
+- **Buttons below the output in two rows**: the first row, headed *Spotify*, has *Overwrite “Tweakable DJ”*, *Create new playlist* (until now *Save as new playlist*) and, after writing, *Restore previous playlist*; it only shows up when one of them is available. The second, smaller row *Text file* has *Save playlist* (until now *Save as text file*) and *Import …*.
+
+### Deutsch
+
+**Geändert**
+
+- **Knöpfe unter der Ausgabe in zwei Zeilen**: Die erste Zeile mit der Überschrift *Spotify* hat *„Tweakable DJ“ überschreiben*, *Neue Playlist anlegen* (bisher *Neu in Spotify anlegen*) und nach dem Schreiben *Vorige Playlist wiederherstellen*; sie erscheint nur, wenn einer davon verfügbar ist. Die zweite, kleinere Zeile *Textdatei* hat *Playlist speichern* (bisher *Als Textdatei speichern*) und *Importieren …*.
+
 ## [0.3.0] – 2026-10-07
 
 ### English
