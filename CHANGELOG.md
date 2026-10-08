@@ -9,7 +9,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 **New**
 
-- **Legend below the output**: a small line below the list explains the colors – green = matches what you’re listening to now (*· current*), others = favorites and other new songs, struck through = blocked (×), ♥ = in your Liked Songs.
+- **Legend below the output**: a small line below the list explains the colors – the accent color (named as chosen, e.g. *Green* or *Blue*) = matches what you’re listening to now (*· current*), others = favorites and other new songs, struck through = blocked (×), ♥ = in your Liked Songs.
 
 **Fixed**
 
@@ -19,7 +19,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 **Neu**
 
-- **Legende unter der Ausgabe**: Eine kleine Zeile unter der Liste erklärt die Farben – grün = passt zu dem, was du gerade hörst (*· aktuell*), sonst Favoriten und übrige neue Songs, durchgestrichen = gesperrt (×), ♥ = in deinen Lieblingssongs.
+- **Legende unter der Ausgabe**: Eine kleine Zeile unter der Liste erklärt die Farben – die Akzentfarbe (mit ihrem Namen, z. B. *Grün* oder *Blau*) = passt zu dem, was du gerade hörst (*· aktuell*), sonst Favoriten und übrige neue Songs, durchgestrichen = gesperrt (×), ♥ = in deinen Lieblingssongs.
 
 **Behoben**
 

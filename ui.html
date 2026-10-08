@@ -602,7 +602,7 @@ try {
         </div>
         <pre id="log"></pre>
         <!-- Was die Farben in der Liste bedeuten; nur, wenn die Ausgabe eine Songliste enthält (renderLog) -->
-        <p class="help log-legend" id="log-legend" hidden><span class="now" data-t="legendNow"></span><span data-t="legendText"></span></p>
+        <p class="help log-legend" id="log-legend" hidden><span class="now" id="legend-now"></span><span data-t="legendText"></span></p>
         <!-- Zeile 1 „Spotify“: erstellte Liste überschreiben bzw. als neue Playlist anlegen; nach dem Schreiben den vorigen
              Stand aus dem Archiv zurückholen (wie „Frühere Playlist …“, mit Vorschau und Rückfrage; nur, wenn es ihn gibt:
              GET /api/archive?after=…). Ohne erstellte Liste und ohne vorigen Stand ausgeblendet (syncSpotifyRow). -->
@@ -808,7 +808,6 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Einfach: nur Voreinstellungen und Anzahl Songs. Pro: alle Regler.',
       presetReset: 'Auf „Standard“ zurücksetzen',
-      legendNow: 'Grün',
       legendText: ' = passt zu dem, was du gerade hörst („· aktuell“) · sonst: Favoriten und übrige neue Songs · durchgestrichen = gesperrt (×) · ♥ = in deinen Lieblingssongs',
       saveText: 'Playlist speichern',
       fileHead: 'Textdatei',
@@ -1243,7 +1242,6 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Simple: only presets and number of songs. Pro: all controls.',
       presetReset: 'Reset to “Default”',
-      legendNow: 'Green',
       legendText: ' = matches what you’re listening to now (“· current”) · others: favorites and other new songs · struck through = blocked (×) · ♥ = in your Liked Songs',
       saveText: 'Save playlist',
       fileHead: 'Text file',
@@ -1670,7 +1668,6 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Sencillo: solo ajustes predefinidos y número de canciones. Pro: todos los controles.',
       presetReset: 'Volver a «Predeterminado»',
-      legendNow: 'Verde',
       legendText: ' = encaja con lo que escuchas ahora («· actual») · el resto: favoritas y otras canciones nuevas · tachada = bloqueada (×) · ♥ = en tus Me gusta',
       saveText: 'Guardar playlist',
       fileHead: 'Archivo de texto',
@@ -2098,7 +2095,6 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Simple : seulement les préréglages et le nombre de titres. Pro : tous les réglages.',
       presetReset: 'Revenir à « Par défaut »',
-      legendNow: 'Vert',
       legendText: ' = correspond à ce que tu écoutes en ce moment (« · actuel ») · les autres : favoris et autres nouveaux titres · barré = bloqué (×) · ♥ = dans tes titres likés',
       saveText: 'Enregistrer la playlist',
       fileHead: 'Fichier texte',
@@ -3195,6 +3191,8 @@ async function setMode(mode) {
 }
 
 function refresh(skipInput) {
+  // Legende unter der Ausgabe: Name der gewählten Akzentfarbe (in der die Songs zum aktuellen Hören markiert sind)
+  $('legend-now').textContent = T.items.accent.options[current.accent] ?? T.items.accent.options.green;
   for (const control of Object.values(controls)) {
     const { item, text, input, out, hint, reset } = control;
     const v = current[item.key];
