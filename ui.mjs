@@ -424,13 +424,14 @@ const fallbackResult = (lang, dry, code) => ({
 // Startet dj.mjs mit args und schickt seine Ausgabe als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".
 function streamRun(res, args, lang, dry) {
   res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
-  running = spawn(process.execPath, args, { cwd: HERE, env: { ...process.env, TWEAKABLE_DJ_LANG: lang } });
+  const child = spawn(process.execPath, args, { cwd: HERE, env: { ...process.env, TWEAKABLE_DJ_LANG: lang } });
+  running = child;
   let out = '';
-  running.stdout.on('data', chunk => (out += chunk));
-  running.stdout.pipe(res, { end: false });
-  running.stderr.pipe(res, { end: false });
-  running.on('close', code => {
-    running = null;
+  child.stdout.on('data', chunk => (out += chunk));
+  child.stdout.pipe(res, { end: false });
+  child.stderr.pipe(res, { end: false });
+  child.on('close', code => {
+    if (running === child) running = null;
     if (code === 0) return res.end('');
     const result = /^@@RESULT /m.test(out) ? '' : `@@RESULT ${JSON.stringify(fallbackResult(lang, dry, code))}\n`;
     res.end(`${result}\n${t(lang, 'ui.exited', { code })}`);
@@ -684,9 +685,11 @@ const server = http.createServer(async (req, res) => {
     // Prüft wie dj.mjs --apply, ob er noch gilt (409 mit reason, sonst), und schreibt ihn dann mit dj.mjs --apply (bzw.
     // --apply --new) – Ausgabe und @@RESULT wie bei /api/run.
     if (route === 'POST /api/apply') {
+      // Erst den Inhalt lesen, dann prüfen und gleich starten (ohne await dazwischen): Sonst kämen zwei Anfragen kurz
+      // hintereinander (Doppelklick, zweiter Tab) beide an der Prüfung vorbei, während die erste noch ihren Inhalt liest.
+      const { id, target = 'standard' } = await readJson(req, lang);
       const busy = runBusy(lang);
       if (busy) return send(409, { error: busy });
-      const { id, target = 'standard' } = await readJson(req, lang);
       if (typeof id !== 'string' || !/^[0-9a-f]{12}$/.test(id) || !['standard', 'new'].includes(target)) return send(400, { error: t(lang, 'ui.badRequest') });
       const reason = trialProblem(readTrial(HERE), { cfg: currentConfig(lang), id });
       if (reason) return send(409, { error: t(lang, `trial.${reason}`), reason });

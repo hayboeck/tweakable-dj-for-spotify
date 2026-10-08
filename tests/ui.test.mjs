@@ -1271,3 +1271,55 @@ test('runShortcut: Speichern legt die zweite Verknüpfung an bzw. entfernt sie; 
   assert.equal(r.status, 200, r.text);
   assert.ok(!fs.existsSync(file), 'entfernt');
 });
+
+// POST mit JSON-Inhalt, der erst auf release() hin ankommt (wie bei einer langsamen Verbindung): Kopfzeilen sofort, Inhalt
+// später. Ergebnis: { done: Promise<{ status, text }>, release }
+function delayedPost(route, body, lang = 'de') {
+  const data = Buffer.from(JSON.stringify(body));
+  let req;
+  const done = new Promise((resolve, reject) => {
+    req = http.request({
+      host: '127.0.0.1', port: Number(new URL(base).port), path: route, method: 'POST',
+      headers: { 'X-Tweakable-DJ': '1', 'X-Lang': lang, 'Content-Type': 'application/json', 'Content-Length': data.length },
+    }, res => {
+      let text = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => (text += chunk));
+      res.on('end', () => resolve({ status: res.statusCode, text }));
+    });
+    req.on('error', reject);
+    req.flushHeaders();
+  });
+  return { done, release: () => req.end(data) };
+}
+
+test('Sperre: zwei Anfragen fast gleichzeitig (Inhalt der ersten kommt verzögert) → nur ein Lauf, die andere 409', async () => {
+  const dry = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
+  const { trialId } = resultLine(dry.text);
+  assert.match(trialId, /^[0-9a-f]{12}$/);
+  const before = store().playlists.map(p => ({ id: p.id, uris: [...p.uris] }));
+  // A: „überschreiben“, der Inhalt kommt erst, während B schon läuft; B: „Neue Playlist anlegen“ sofort (Doppelklick, zweiter Tab)
+  const slow = delayedPost('/api/apply', { id: trialId });
+  await new Promise(resolve => setTimeout(resolve, 100)); // A ist beim Server angekommen und wartet auf den Inhalt
+  const res = await fetch(`${base}/api/apply`, {
+    method: 'POST', headers: { 'X-Tweakable-DJ': '1', 'X-Lang': 'de', 'Content-Type': 'application/json' }, body: JSON.stringify({ id: trialId, target: 'new' }),
+  });
+  assert.equal(res.status, 200);
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let text = decoder.decode((await reader.read()).value, { stream: true }); // B läuft sicher
+  slow.release();
+  const a = await slow.done;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    text += decoder.decode(value, { stream: true });
+  }
+  assert.equal(resultLine(text).ok, true, text);
+  assert.equal(a.status, 409, a.text);
+  assert.equal(JSON.parse(a.text).error, 'Es läuft bereits ein Durchgang.');
+  const after = store().playlists;
+  assert.equal(after.length, before.length + 1, 'genau eine neue Playlist');
+  for (const p of before) assert.deepEqual(after.find(x => x.id === p.id).uris, p.uris, 'die bisherigen Playlists bleiben, wie sie sind');
+  assert.equal((await api('/api/version')).data.busy, false, 'danach wieder frei');
+});
