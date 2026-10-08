@@ -7,11 +7,19 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ### English
 
+**Fixed**
+
+- **Brief Spotify outages no longer make a run fail**: if Spotify answers with a temporary error (500, 502, 503 or 504, e.g. *An unexpected error occurred. Please try again later.*), Tweakable DJ tries again after 2, 5 and 10 seconds. Before creating a playlist again, it first checks whether Spotify created it anyway, so it never appears twice.
+
 **Changed**
 
 - **Buttons below the output in two rows**: the first row, headed *Spotify*, has *Overwrite “Tweakable DJ”*, *Create new playlist* (until now *Save as new playlist*) and, after writing, *Restore previous playlist*; it only shows up when one of them is available. The second, smaller row *Text file* has *Save playlist* (until now *Save as text file*) and *Import …*.
 
 ### Deutsch
+
+**Behoben**
+
+- **Kurze Störungen bei Spotify lassen einen Lauf nicht mehr scheitern**: Antwortet Spotify mit einem vorübergehenden Fehler (500, 502, 503 oder 504, z. B. *An unexpected error occurred. Please try again later.*), versucht Tweakable DJ es nach 2, 5 und 10 Sekunden noch einmal. Bevor es eine Playlist noch einmal anlegt, sieht es nach, ob Spotify sie nicht doch angelegt hat – so entsteht sie nie doppelt.
 
 **Geändert**
 

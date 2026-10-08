@@ -48,9 +48,10 @@ export function dateTime(lang, d) {
 // create: immer eine neue Playlist anlegen, auch wenn es schon eine mit diesem Namen gibt („Als neue Playlist anlegen“).
 // Eine Beschreibung, die sich nicht setzen lässt, ist nur eine Warnung (warn). Ergebnis: { id, url, created }.
 export async function writePlaylist(spotify, { name, uris, description, lang, warn = () => {}, create = false }) {
-  let id = create ? null : await spotify.findPlaylist(name, (await spotify.me()).id);
+  const userId = (await spotify.me()).id;
+  let id = create ? null : await spotify.findPlaylist(name, userId);
   const created = !id;
-  if (created) id = await spotify.createPlaylist(name, t(lang, 'run.newPlaylist'));
+  if (created) id = await spotify.createPlaylist(name, t(lang, 'run.newPlaylist'), userId);
   await spotify.replacePlaylist(id, uris);
   await spotify.setDescription(id, description).catch(e => warn(t(lang, 'run.descriptionFailed', { message: e.message })));
   return { id, url: playlistUrl(id), created };

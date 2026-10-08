@@ -162,9 +162,16 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
     return tokens.access_token;
   }
 
+  // Vorübergehende Störung bei Spotify (500, 502, 503, 504): Lesen, Ersetzen und Löschen lassen sich gefahrlos wiederholen
+  // (nach 2, 5 und 10 Sekunden). POST nicht – ein zweites Anhängen bzw. Anlegen könnte doppelt wirken; createPlaylist prüft
+  // stattdessen selbst nach (siehe dort).
+  const TRANSIENT = new Set([500, 502, 503, 504]);
+  // Nur für Tests kürzer (TWEAKABLE_DJ_FAST_RETRY=1).
+  const RETRY_WAIT = process.env.TWEAKABLE_DJ_FAST_RETRY === '1' ? [1, 1, 1] : [2000, 5000, 10000];
   async function api(method, path, body) {
     const url = path.startsWith('http') ? path : API + path;
-    for (let attempt = 0; attempt < 5; attempt++) {
+    let failures = 0;
+    for (let attempt = 0; attempt < 5 + RETRY_WAIT.length; attempt++) {
       const res = await fetch(url, {
         method,
         headers: {
@@ -184,6 +191,10 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
         continue;
       }
       const text = await res.text();
+      if (TRANSIENT.has(res.status) && method !== 'POST' && failures < RETRY_WAIT.length) {
+        await sleep(RETRY_WAIT[failures++]);
+        continue;
+      }
       if (!res.ok) throw Object.assign(new Error(`Spotify ${method} ${path}: ${res.status} ${text}`), { status: res.status });
       return text ? JSON.parse(text) : null;
     }
@@ -299,9 +310,19 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
       return null;
     },
 
-    async createPlaylist(name, description) {
-      const p = await api('POST', '/me/playlists', { name, description, public: false });
-      return p.id;
+    // Bei einer vorübergehenden Störung (5xx) kann Spotify die Playlist trotzdem angelegt haben: erst nachsehen, dann höchstens
+    // noch einmal anlegen – so entsteht sie nicht doppelt. userId: für die Suche nach dem Namen (ohne: ohne Nachsehen).
+    async createPlaylist(name, description, userId = null) {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return (await api('POST', '/me/playlists', { name, description, public: false })).id;
+        } catch (e) {
+          if (!TRANSIENT.has(e.status) || attempt >= 2) throw e;
+          await sleep(RETRY_WAIT[attempt]);
+          const found = userId ? await this.findPlaylist(name, userId) : null;
+          if (found) return found;
+        }
+      }
     },
 
     async replacePlaylist(id, uris) {
