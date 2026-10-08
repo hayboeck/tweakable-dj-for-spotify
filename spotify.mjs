@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs';
 import http from 'node:http';
 import { exec } from 'node:child_process';
+import { readText, writeAtomic } from './files.mjs';
 import { resolveLang, t, tError } from './i18n.mjs';
 import { durationOf, sameTrack, yearOf } from './lineup.mjs';
 
@@ -42,9 +42,20 @@ function storeTokens(file, data, previous = {}, authorizedAt = previous.authoriz
     authorized_at: authorizedAt,
     scope: data.scope ?? previous.scope,
   };
-  // Nur für den eigenen Benutzer lesbar (Mac/Linux; gilt beim Anlegen der Datei)
-  fs.writeFileSync(file, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+  // Nur für den eigenen Benutzer lesbar (Mac/Linux; gilt beim Anlegen der Datei). Atomar (files.mjs): Ein anderer Prozess,
+  // der gerade erneuert, liest nie eine halbe Datei.
+  writeAtomic(file, JSON.stringify(tokens, null, 2), { mode: 0o600 });
   return tokens;
+}
+
+// Inhalt von tokens.json; null = gibt es nicht oder unlesbar (dann wie nicht angemeldet).
+function readTokens(file) {
+  try {
+    const tokens = JSON.parse(readText(file));
+    return tokens && typeof tokens === 'object' && !Array.isArray(tokens) ? tokens : null;
+  } catch {
+    return null;
+  }
 }
 
 function callbackPage(res, status, lang, title, text) {
@@ -135,7 +146,7 @@ export async function login(clientId, tokenFile, { signal, timeoutMs = 5 * 60_00
       code_verifier: verifier,
     }),
   });
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) throw tError(lang, 'login.tokenFailed', { detail: data.error_description ?? data.error });
   storeTokens(tokenFile, data, {}, Date.now());
 }
@@ -143,22 +154,40 @@ export async function login(clientId, tokenFile, { signal, timeoutMs = 5 * 60_00
 // Fehler der API haben die Form "Spotify <METHODE> <pfad>: <status> <text>" und tragen status (z. B. 403);
 // abgelaufene oder fehlende Anmeldung haben errorCode 'login_expired' bzw. 'not_logged_in'.
 export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}) {
-  let tokens = fs.existsSync(tokenFile) ? JSON.parse(fs.readFileSync(tokenFile, 'utf8')) : null;
+  let tokens = readTokens(tokenFile);
   const again = () => t(lang, 'spotify.loginAgain');
+  // Erneuern des Zugangs-Tokens: Mehrere Anfragen gleichzeitig (z. B. die Suchen eines Imports) warten auf dasselbe Erneuern,
+  // statt jede mit demselben Refresh-Token einzeln zu fragen – Spotify kann das Refresh-Token dabei ersetzen.
+  let refreshing = null;
+  let rejected = null; // Zugangs-Token, das Spotify gerade abgelehnt hat (401): nicht noch einmal nehmen
+  const usable = tok => tok?.access_token && tok.access_token !== rejected && Date.now() < tok.expires_at - 60_000;
 
   async function accessToken() {
     if (!tokens) throw tError(lang, 'spotify.notLoggedIn', { again: again() }, { errorCode: 'not_logged_in' });
-    if (Date.now() < tokens.expires_at - 60_000) return tokens.access_token;
+    if (usable(tokens)) return tokens.access_token;
+    refreshing ??= refresh().finally(() => (refreshing = null));
+    return refreshing;
+  }
+
+  async function refresh() {
+    // Ein anderer Prozess (automatischer Lauf, Oberfläche) kann inzwischen erneuert haben: tokens.json frisch lesen und dessen
+    // Token nehmen bzw. dessen Refresh-Token – das bisherige ist dann vielleicht schon ersetzt.
+    const disk = readTokens(tokenFile);
+    if (disk?.refresh_token) {
+      tokens = disk;
+      if (usable(disk)) return disk.access_token;
+    }
     const res = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: clientId }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       throw tError(lang, 'spotify.expired', { detail: data.error_description ?? data.error, again: again() }, { errorCode: 'login_expired' });
     }
     tokens = storeTokens(tokenFile, data, tokens);
+    rejected = null;
     return tokens.access_token;
   }
 
@@ -172,10 +201,11 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
     const url = path.startsWith('http') ? path : API + path;
     let failures = 0;
     for (let attempt = 0; attempt < 5 + RETRY_WAIT.length; attempt++) {
+      const token = await accessToken();
       const res = await fetch(url, {
         method,
         headers: {
-          Authorization: `Bearer ${await accessToken()}`,
+          Authorization: `Bearer ${token}`,
           ...(body && { 'Content-Type': 'application/json' }),
         },
         body: body && JSON.stringify(body),
@@ -187,7 +217,7 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
         continue;
       }
       if (res.status === 401 && attempt === 0) {
-        tokens.expires_at = 0;
+        rejected = token; // abgelehnt (z. B. vorzeitig ungültig): einmal erneuern und noch einmal versuchen
         continue;
       }
       const text = await res.text();

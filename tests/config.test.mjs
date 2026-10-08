@@ -457,3 +457,17 @@ test('notifyOnFailure: Standard an, nur true/false; in einer config.jsonc von 0.
     assert.equal(notifyOnFailure(), true);
   });
 });
+
+test('config.jsonc mit Byte Order Mark (UTF-8 mit BOM): lesbar, Sprache und Schalter erkannt; Speichern entfernt das BOM', async () => {
+  const text = `﻿// Einstellungen\n{\n  "playlistName": "Mix",   // Name\n  "language": "de",\n  "notifyOnFailure": false\n}\n`;
+  await withConfig(text, async ({ configLanguage, notifyOnFailure, readConfig, updateConfig }, read, dir) => {
+    assert.equal(configLanguage(), 'de');
+    assert.equal(notifyOnFailure(), false);
+    assert.equal(readConfig('de').playlistName, 'Mix');
+    updateConfig({ size: 30 }, 'de');
+    assert.ok(!read().startsWith('﻿'), 'ohne BOM gespeichert');
+    assert.equal(readConfig('de').size, 30);
+    assert.match(read(), /^\/\/ Einstellungen\n\{\n {2}"playlistName": "Mix", {3}\/\/ Name\n/);
+    assert.deepEqual(fs.readdirSync(dir).filter(n => n.endsWith('.tmp')), [], 'keine Zwischendatei übrig');
+  });
+});

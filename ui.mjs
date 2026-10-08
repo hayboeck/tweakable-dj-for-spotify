@@ -23,6 +23,7 @@ import {
   CONFIG, DEFAULTS, HERE, LIMITS, VARIETY_KEYS, VARIETY_LEVELS, checkValues, configLanguage, isPlaceholder, missingCredentials, numberProblems, readConfig, remindLoginOn,
   saveCredentials, updateConfig,
 } from './config.mjs';
+import { readJson, readText } from './files.mjs';
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
 import { createShortcut, removeShortcut, SHORTCUTS, shortcutStatus } from './shortcut.mjs';
@@ -181,7 +182,7 @@ const currentConfig = lang => (fs.existsSync(CONFIG) ? readConfig(lang) : { ...D
 
 function readTokens() {
   try {
-    return JSON.parse(fs.readFileSync(TOKENS, 'utf8'));
+    return JSON.parse(readText(TOKENS));
   } catch {
     return null;
   }

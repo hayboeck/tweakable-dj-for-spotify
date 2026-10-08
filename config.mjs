@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writeAtomic } from './files.mjs';
+import { readText, writeAtomic } from './files.mjs';
 import { LANGS, resolveLang, t, tError } from './i18n.mjs';
 import { trackKey } from './lineup.mjs';
 
@@ -151,6 +151,8 @@ export function stripComments(text) {
   return out;
 }
 
+// readText (files.mjs) entfernt ein Byte Order Mark am Anfang (Editoren mit „UTF-8 mit BOM“, Set-Content -Encoding UTF8 in
+// Windows PowerShell 5.1) – sonst hielte JSON.parse die ganze Datei für fehlerhaft. Beim Speichern fällt es weg.
 function parse(text, lang) {
   try {
     return JSON.parse(stripComments(text));
@@ -169,7 +171,7 @@ export function ensureConfig(lang) {
 // Gewählte Sprache aus der config.jsonc, ohne sie anzulegen oder zu prüfen ('' = keine oder nicht lesbar).
 export function configLanguage() {
   try {
-    const value = JSON.parse(stripComments(fs.readFileSync(CONFIG, 'utf8'))).language;
+    const value = JSON.parse(stripComments(readText(CONFIG))).language;
     return LANGS.includes(value) ? value : '';
   } catch {
     return '';
@@ -180,7 +182,7 @@ export function configLanguage() {
 // schaltet sie aus. Fehlt die Datei oder ist sie kaputt, gilt an (ein fehlgeschlagener automatischer Lauf meldet trotzdem).
 function switchOn(key) {
   try {
-    return JSON.parse(stripComments(fs.readFileSync(CONFIG, 'utf8')))[key] !== false;
+    return JSON.parse(stripComments(readText(CONFIG)))[key] !== false;
   } catch {
     return true;
   }
@@ -193,7 +195,7 @@ export function readConfig(lang) {
   if (ensureConfig(lang)) {
     throw tError(lang, 'config.created', { file: CONFIG }, { errorCode: 'setup_incomplete' });
   }
-  const values = parse(fs.readFileSync(CONFIG, 'utf8'), lang);
+  const values = parse(readText(CONFIG), lang);
   return { ...DEFAULTS, ...(values?.mode === undefined && { mode: 'pro' }), ...values };
 }
 
@@ -360,7 +362,7 @@ const canon = v => JSON.stringify(v, (_, x) => (x && typeof x === 'object' && !A
 // Fehlende Schlüssel kommen samt Erklärung aus der Vorlage der Sprache lang dazu.
 function writeValues(entries, lang) {
   if (!fs.existsSync(CONFIG)) throw tError(lang, 'config.missing');
-  const original = fs.readFileSync(CONFIG, 'utf8');
+  const original = readText(CONFIG);
   const before = parse(original, lang);
   const expected = structuredClone(before);
   const nodes = scan(original, lang);
@@ -531,7 +533,7 @@ function setValue(text, keyPath, value, layout = {}) {
 function template(name, lang) {
   let tpl;
   try {
-    tpl = fs.readFileSync(exampleFile(lang), 'utf8');
+    tpl = readText(exampleFile(lang));
     JSON.parse(stripComments(tpl));
   } catch {
     return null;
