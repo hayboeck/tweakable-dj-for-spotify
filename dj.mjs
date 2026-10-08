@@ -404,8 +404,9 @@ async function main() {
         entry = cacheEntry(state.cache[c.key]);
         for (const h of [hit, hit?.clean]) if (h) spotifyArtists.set(h.uri, h.artists);
       } catch (e) {
-        // Fehler nicht als "nicht gefunden" merken, beim nächsten Lauf wird neu gesucht. Bei 403 abbrechen.
-        if (e.status === 403) throw e;
+        // Fehler nicht als "nicht gefunden" merken, beim nächsten Lauf wird neu gesucht. Bei 403 bzw. wenn Spotify nicht
+        // erreichbar ist abbrechen (sonst wartete jede weitere Suche auf ihr Zeitlimit).
+        if (e.status === 403 || e.errorCode === 'network') throw e;
         warn(e.message);
         continue;
       }

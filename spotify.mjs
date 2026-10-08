@@ -44,7 +44,7 @@ async function request(url, init, lang) {
   try {
     return await fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT) });
   } catch (e) {
-    throw tError(lang, 'spotify.offline', { detail: netDetail(e) }, { errorCode: 'network' });
+    throw tError(lang, 'spotify.offline', { detail: netDetail(e) }, { errorCode: 'network', timeout: netDetail(e) === 'Timeout' });
   }
 }
 
@@ -232,10 +232,11 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
         }, lang);
         // Auch das Lesen der Antwort kann am Zeitlimit scheitern.
         text = await res.text().catch(e => {
-          throw tError(lang, 'spotify.offline', { detail: netDetail(e) }, { errorCode: 'network' });
+          throw tError(lang, 'spotify.offline', { detail: netDetail(e) }, { errorCode: 'network', timeout: netDetail(e) === 'Timeout' });
         });
       } catch (e) {
-        if (e.errorCode === 'network' && method !== 'POST' && failures < RETRY_WAIT.length) {
+        // Netzfehler beim Lesen: wiederholen – nicht nach einem Zeitlimit (dann wartete jeder Versuch noch einmal so lange)
+        if (e.errorCode === 'network' && !e.timeout && method !== 'POST' && failures < RETRY_WAIT.length) {
           await sleep(RETRY_WAIT[failures++]);
           continue;
         }
