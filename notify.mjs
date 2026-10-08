@@ -191,6 +191,10 @@ export function nowNotice(lang, result) {
   return { title: t(lang, 'notify.nowDoneTitle'), text: t(lang, 'notify.nowDoneText', { name: result.playlistName ?? '', songs: result.songs ?? 0 }) };
 }
 export const nowBusyNotice = lang => ({ title: t(lang, 'notify.nowBusyTitle'), text: t(lang, 'notify.nowBusyText') });
+// … und gleich beim Start, damit man nach dem Doppelklick sofort sieht, dass es losgeht (name: Playlist, null = unbekannt).
+export const nowStartNotice = (lang, name) => ({
+  title: t(lang, 'notify.nowDoneTitle'), text: name ? t(lang, 'notify.nowStartText', { name }) : t(lang, 'notify.nowStartTextNoName'),
+});
 
 // Erinnerung: Die Spotify-Anmeldung läuft in daysLeft Tagen ab (0 = heute).
 export function loginNotice(lang, daysLeft) {

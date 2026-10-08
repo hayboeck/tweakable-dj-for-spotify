@@ -11,6 +11,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 - **No Node.js installation needed**: on the first start, Tweakable DJ downloads its own Node.js (version 24 LTS; about 40 MB on Windows, 55 MB on Mac, 30 MB on Linux) from nodejs.org into the subfolder `node`, checks it against the published SHA-256 checksum and uses it from then on – without admin rights and without changing anything on your system. Only if the download fails (e.g. offline) does it use an installed Node.js 18 or newer. Started from the shortcut, a window (Windows) or a notification (Mac, Linux) shows the one-time download.
 - Automatic runs and the second shortcut use the same Node.js; a scheduler entry that still points to an installed Node.js is switched over at the next start. A later version can name a newer Node.js (`node-version.txt`); the next start then downloads it and removes the old one. *Update now* never touches the folder `node`, and deleting the Tweakable DJ folder removes it too.
+- **Second shortcut reports back right away**: double-clicking *Tweakable DJ – Rebuild playlist* now shows a notification at once (*Rebuilding playlist “Tweakable DJ” …*), not only at the end. If Node.js has to be downloaded first, that is shown too.
 
 ### Deutsch
 
@@ -18,6 +19,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 - **Keine Installation von Node.js mehr nötig**: Beim ersten Start lädt Tweakable DJ ein eigenes Node.js (Version 24 LTS; unter Windows ca. 40 MB, Mac ca. 55 MB, Linux ca. 30 MB) von nodejs.org in den Unterordner `node`, prüft es mit der veröffentlichten SHA-256-Prüfsumme und nimmt ab dann dieses – ohne Adminrechte und ohne etwas am System zu ändern. Nur wenn der Download nicht klappt (z. B. offline), nimmt es ein installiertes Node.js ab Version 18. Beim Start über die Verknüpfung zeigt ein Fenster (Windows) bzw. eine Benachrichtigung (Mac, Linux) den einmaligen Download.
 - Automatik und zweite Verknüpfung nutzen dasselbe Node.js; ein Eintrag im Zeitplaner, der noch auf ein installiertes Node.js zeigt, wird beim nächsten Start umgestellt. Eine spätere Version kann ein neueres Node.js festlegen (`node-version.txt`); der nächste Start lädt es dann und räumt das alte weg. *Jetzt aktualisieren* fasst den Ordner `node` nie an, und wer den Ordner von Tweakable DJ löscht, entfernt es mit.
+- **Zweite Verknüpfung meldet sich sofort**: Ein Doppelklick auf *Tweakable DJ – Playlist neu erstellen* zeigt jetzt gleich eine Benachrichtigung (*Playlist „Tweakable DJ“ wird neu erstellt …*), nicht erst am Ende. Muss vorher Node.js geladen werden, wird auch das angezeigt.
 
 ## [0.3.3] – 2026-10-08
 

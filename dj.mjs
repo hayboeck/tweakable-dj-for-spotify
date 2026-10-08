@@ -16,8 +16,9 @@
 //                       fehl, meldet er sich mit einer Systembenachrichtigung (notifyOnFailure, notify.mjs); läuft die
 //                       Spotify-Anmeldung bald ab, erinnert er daran (remindLogin)
 //   node dj.mjs --now   „Playlist jetzt neu erstellen“ (zweite Verknüpfung auf dem Desktop): ein normaler Lauf ohne Oberfläche,
-//                       am Ende eine Systembenachrichtigung mit dem Ergebnis. Läuft schon ein Lauf (Oberfläche, Automatik oder
-//                       ein anderes --now), startet er nicht, sondern meldet das. Ausgabe in jetzt.log, Ergebnis in jetzt.json –
+//                       gleich beim Start eine Systembenachrichtigung („Playlist … wird neu erstellt …“), am Ende eine mit
+//                       dem Ergebnis. Läuft schon ein Lauf (Oberfläche, Automatik oder ein anderes --now), startet er nicht,
+//                       sondern meldet das. Ausgabe in jetzt.log, Ergebnis in jetzt.json –
 //                       getrennt von automatik.json, damit er nicht als „letzter automatischer Lauf“ zählt und die Anzeige der
 //                       Automatik (und deren Fehlermeldungen) nicht verfälscht.
 // Nach jedem Schreiben der Playlist (Lauf, --apply, import) kommt die Liste als Textdatei in den Ordner archiv/ (archive.mjs).
@@ -26,11 +27,11 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { HERE, configLanguage, loadConfig, notifyOnFailure, remindLoginOn } from './config.mjs';
+import { CONFIG, HERE, configLanguage, loadConfig, notifyOnFailure, readConfig, remindLoginOn } from './config.mjs';
 import { formatDuration, formatStats, resolveLang, t, tError } from './i18n.mjs';
 import { createLastfm } from './lastfm.mjs';
 import http from 'node:http';
-import { autoRunNotice, notify, notifyProblem, nowBusyNotice, nowNotice, remindLogin } from './notify.mjs';
+import { autoRunNotice, notify, notifyProblem, nowBusyNotice, nowNotice, nowStartNotice, remindLogin } from './notify.mjs';
 import { AUTO_RESULT, NOW_LOG, NOW_RESULT, recordAutoRun } from './schedule.mjs';
 import { autoRunSince } from './install-update.mjs';
 import { createSpotify, FOLLOW_SCOPE, isScopeError, login, REDIRECT_URI } from './spotify.mjs';
@@ -83,6 +84,17 @@ if (isNow && (autoRunSince(HERE, Date.now(), AUTO_RESULT) || autoRunSince(HERE, 
   process.exit(0);
 }
 const auto = isAuto ? recordAutoRun(HERE, lang) : isNow ? recordAutoRun(HERE, lang, { result: NOW_RESULT, log: NOW_LOG }) : null;
+
+// --now: gleich beim Start melden, dass es losgeht – mit dem Namen der Playlist aus config.jsonc (ohne sie anzulegen; fehlt sie
+// oder ist sie kaputt, ohne Namen). Läuft neben dem Lauf her; notifyNowRun wartet darauf, damit das Ergebnis danach kommt.
+function nowPlaylistName() {
+  try {
+    return fs.existsSync(CONFIG) ? readConfig(lang).playlistName || null : null;
+  } catch {
+    return null;
+  }
+}
+const nowStarted = isNow ? notify(nowStartNotice(lang, nowPlaylistName())) : null;
 
 const TOKENS = path.join(HERE, 'tokens.json');
 const STATE = path.join(HERE, 'state.json');
@@ -138,6 +150,8 @@ function report(values) {
 // --now: Ergebnis immer als Systembenachrichtigung (nowNotice); klappt sie nicht, steht ein Hinweis in jetzt.log.
 async function notifyNowRun(out) {
   try {
+    const started = await nowStarted;
+    if (started && !started.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, started) }));
     const sent = await notify(nowNotice(lang, out));
     if (!sent.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, sent) }));
   } catch {

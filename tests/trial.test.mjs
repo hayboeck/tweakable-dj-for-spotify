@@ -343,7 +343,7 @@ const notices = dir => fs.readFileSync(path.join(dir, 'mock-log.jsonl'), 'utf8')
     return { title, text };
   });
 
-test('--now: normaler Lauf mit Archiv, Ergebnis in jetzt.json (nicht automatik.json), Benachrichtigung; läuft schon einer → nur Hinweis', () => {
+test('--now: normaler Lauf mit Archiv, Ergebnis in jetzt.json (nicht automatik.json), Benachrichtigung beim Start und am Ende; läuft schon einer → nur Hinweis', () => {
   const dir = setup();
   try {
     // Port 1: keine Oberfläche zu fragen (nie die echte auf 8899)
@@ -358,13 +358,18 @@ test('--now: normaler Lauf mit Archiv, Ergebnis in jetzt.json (nicht automatik.j
     assert.deepEqual([result.ok, result.songs, typeof result.finishedAt], [true, 20, 'string']);
     assert.ok(fs.existsSync(path.join(dir, 'jetzt.log')));
     assert.ok(!fs.existsSync(path.join(dir, 'automatik.json')), 'kein automatischer Lauf');
-    assert.deepEqual(notices(dir), [{ title: 'Tweakable DJ', text: 'Playlist „Test-DJ“ neu erstellt ✓ – 20 Songs' }]);
+    // Gleich beim Start „wird neu erstellt …“, am Ende das Ergebnis – in dieser Reihenfolge
+    assert.deepEqual(notices(dir), [
+      { title: 'Tweakable DJ', text: 'Playlist „Test-DJ“ wird neu erstellt …' },
+      { title: 'Tweakable DJ', text: 'Playlist „Test-DJ“ neu erstellt ✓ – 20 Songs' },
+    ]);
 
     // Fehler: Grund mit Rat für --now (jetzt.log), auch ohne notifyOnFailure
     writeConfig(dir, { ...CONFIG, notifyOnFailure: false, lastfm: { apiKey: 'falscher-key', user: 'testhoerer' } });
     const failed = dj(dir, ['--now'], { ...noUi, TWEAKABLE_DJ_LANG: 'en' });
     assert.equal(failed.code, 1, failed.all);
-    assert.equal(notices(dir)[0].title, 'Tweakable DJ: playlist not rebuilt');
+    assert.deepEqual(notices(dir).map(n => n.title), ['Tweakable DJ', 'Tweakable DJ: playlist not rebuilt']);
+    assert.equal(notices(dir)[0].text, 'Rebuilding playlist “Test-DJ” …');
     writeConfig(dir, CONFIG);
 
     // Automatischer Lauf läuft gerade (automatik.json ohne finishedAt): kein zweiter Lauf, nur „läuft gerade“
@@ -378,6 +383,20 @@ test('--now: normaler Lauf mit Archiv, Ergebnis in jetzt.json (nicht automatik.j
     assert.equal(busy.status, 0, busy.stderr);
     assert.deepEqual(notices(dir), [{ title: 'Tweakable DJ: läuft gerade', text: 'Gerade läuft schon ein Lauf (Oberfläche oder Automatik). Versuch es gleich noch einmal.' }]);
     assert.equal(fs.readFileSync(path.join(dir, 'jetzt.json'), 'utf8'), before, 'jetzt.json unverändert');
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('--now ohne config.jsonc: Start-Benachrichtigung ohne Namen (legt dafür nichts an), danach der Fehler', () => {
+  const dir = setup();
+  try {
+    fs.rmSync(path.join(dir, 'config.jsonc'));
+    const r = dj(dir, ['--now'], { TWEAKABLE_DJ_PORT: '1' });
+    assert.equal(r.result.errorCode, 'setup_incomplete', r.all);
+    const sent = notices(dir);
+    assert.deepEqual(sent[0], { title: 'Tweakable DJ', text: 'Die Playlist wird neu erstellt …' });
+    assert.equal(sent[1].title, 'Tweakable DJ: Playlist nicht neu erstellt');
   } finally {
     cleanup(dir);
   }

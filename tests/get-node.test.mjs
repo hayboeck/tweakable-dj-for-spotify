@@ -309,3 +309,43 @@ test('start.sh --hidden: Download nötig → Systembenachrichtigung (hier: ui.lo
     await srv.close();
   }
 });
+
+// --- Zweite Verknüpfung (--now): Download wird gemeldet, dann dj.mjs --now mit dem eigenen Node.js ---
+
+const FAKE_DJ = `import fs from 'node:fs';
+fs.writeFileSync('dj-lief-mit.json', JSON.stringify({ execPath: process.execPath, own: process.env.TDJ_OWN_NODE === '1', args: process.argv.slice(2) }));
+`;
+const djRanWith = dir => JSON.parse(fs.readFileSync(path.join(dir, 'dj-lief-mit.json'), 'utf8'));
+
+test('start.sh --now: nötiger Download → Benachrichtigung „Node.js wird einmalig heruntergeladen …“, dann dj.mjs --now mit dem eigenen', { skip: WIN && 'nur macOS/Linux', timeout: 300_000 }, async () => {
+  const dir = program();
+  fs.writeFileSync(path.join(dir, 'dj.mjs'), FAKE_DJ);
+  const file = await archiveName(dir);
+  const srv = await mirror(file, buildArchive(file));
+  try {
+    const r = await startFile(dir, ['--now'], { ...withNode, TWEAKABLE_DJ_NODE_MIRROR: srv.url, DBUS_SESSION_BUS_ADDRESS: 'unix:path=/nicht/da' });
+    assert.equal(r.code, 0, r.out);
+    assert.match(fs.readFileSync(path.join(dir, 'ui.log'), 'utf8'), /Node\.js wird einmalig heruntergeladen/);
+    assert.deepEqual([djRanWith(dir).own, djRanWith(dir).args], [true, ['--now']]);
+  } finally {
+    await srv.close();
+  }
+});
+
+test('Tweakable DJ.cmd --now: eigenes Node.js vorhanden → ohne Fenster dj.mjs --now damit', { skip: !WIN && 'nur Windows', timeout: 300_000 }, async () => {
+  const dir = program();
+  fs.writeFileSync(path.join(dir, 'dj.mjs'), FAKE_DJ);
+  const file = await archiveName(dir);
+  const srv = await mirror(file, buildArchive(file));
+  try {
+    assert.equal((await getNode(dir, [], { TWEAKABLE_DJ_NODE_MIRROR: srv.url })).code, 0);
+    const r = await startFile(dir, ['--now'], { ...withNode, TWEAKABLE_DJ_NODE_MIRROR: srv.url });
+    assert.equal(r.code, 0, r.out);
+    assert.doesNotMatch(r.out, /heruntergeladen/);
+    assert.equal(djRanWith(dir).execPath.toLowerCase(), ownNode(dir).toLowerCase());
+    assert.deepEqual(djRanWith(dir).args, ['--now']);
+    assert.equal(srv.requests.length, 2, 'nur der eine Download vorher');
+  } finally {
+    await srv.close();
+  }
+});
