@@ -960,6 +960,7 @@ const TEXT = {
       setup_incomplete: 'Einrichtung nicht abgeschlossen',
       node_version: 'Node.js ist zu alt',
       trial_expired: 'Liste nicht mehr verwendbar',
+      network: 'Spotify bzw. Last.fm nicht erreichbar',
     },
     run: {
       running: kind => (kind === 'dry' ? 'Playlist wird erstellt … (ca. 1 Minute)' : kind === 'new' ? 'Neue Playlist wird in Spotify angelegt …' : 'Playlist wird überschrieben …'),
@@ -1403,6 +1404,7 @@ const TEXT = {
       setup_incomplete: 'Setup not finished',
       node_version: 'Node.js is too old',
       trial_expired: 'List can no longer be used',
+      network: 'Spotify or Last.fm can’t be reached',
     },
     run: {
       running: kind => (kind === 'dry' ? 'Creating the playlist … (about 1 minute)' : kind === 'new' ? 'Creating a new playlist in Spotify …' : 'Overwriting the playlist …'),
@@ -1837,6 +1839,7 @@ const TEXT = {
       setup_incomplete: 'La configuración no está terminada',
       node_version: 'Node.js es demasiado antiguo',
       trial_expired: 'La lista ya no se puede usar',
+      network: 'No se puede acceder a Spotify o Last.fm',
     },
     run: {
       running: kind => (kind === 'dry' ? 'Creando la playlist … (aprox. 1 minuto)' : kind === 'new' ? 'Creando una playlist nueva en Spotify …' : 'Sobrescribiendo la playlist …'),
@@ -2272,6 +2275,7 @@ const TEXT = {
       setup_incomplete: 'Configuration inachevée',
       node_version: 'Node.js est trop ancien',
       trial_expired: 'La liste ne peut plus être utilisée',
+      network: 'Spotify ou Last.fm est injoignable',
     },
     run: {
       running: kind => (kind === 'dry' ? 'Création de la playlist … (environ 1 minute)' : kind === 'new' ? 'Création d’une nouvelle playlist dans Spotify …' : 'Remplacement de la playlist …'),
@@ -2627,9 +2631,9 @@ const GROUPS = [
     { key: 'accent', type: 'swatches', options: ACCENT_NAMES },
   ]},
 ];
-// Einstellungen, die die Auswahl eines Probelaufs nicht ändern (wie NOT_RELEVANT in trial.mjs): Ändert man sie, bleibt
-// das Übernehmen der erstellten Liste möglich.
-const NOT_FOR_TRIAL = [...SCHEDULE_KEYS, 'notifyOnFailure', 'remindLogin', 'runShortcut', 'archiveCount', 'theme', 'accent'];
+// Einstellungen, die die Auswahl eines Probelaufs nicht ändern (TRIAL_IGNORED in trial.mjs, kommt mit GET /api/config): Ändert
+// man sie, lässt sich die erstellte Liste weiter überschreiben bzw. als neue Playlist anlegen.
+let notForTrial = [...SCHEDULE_KEYS, 'notifyOnFailure', 'remindLogin', 'runShortcut', 'archiveCount', 'theme', 'accent', 'mode', 'language'];
 const TABS = ['playlist', 'settings'];
 const tabOf = group => group.tab ?? 'playlist';
 // Texte eines Reglers in der aktuellen Sprache; Auswahllisten zeigen ohne eigenes fmt den Namen der Option.
@@ -3323,6 +3327,7 @@ async function load(keepEdits = false) {
   variety = data.variety ?? variety;
   varietyOverwritten = false;
   startActivity = data.activity ?? null;
+  if (Array.isArray(data.trialIgnored)) notForTrial = data.trialIgnored;
   loaded = true;
   rememberLook();
   adoptLang(data);
@@ -3353,7 +3358,11 @@ async function save() {
     setMsg($('auto-msg'), 'ok', saved.schedule === 'off' ? T.auto.savedOff : T.auto.savedOn(T.auto.place[scheduleInfo.platform]));
   }
   refresh();
-  if ('playlistName' in changes) loadPlaylists();
+  if ('playlistName' in changes) {
+    loadPlaylists();
+    // Die Vorschau eines Imports nennt noch den alten Namen: verwerfen (der Server schriebe in die Playlist mit dem neuen).
+    if (importState?.phase === 'preview') setImport(null);
+  }
   if (trial) refreshTrial();
 }
 
@@ -3535,7 +3544,7 @@ function renderLog(text) {
   $('log').replaceChildren(...lines.filter((line, i) => !line.startsWith('@@') && !(i === last && line.startsWith('@'))).flatMap(line => {
     const span = el('span', { textContent: line });
     const start = line.trimStart();
-    if (/^(Fehler|Error):/.test(start)) span.className = 'err';
+    if (/^(Fehler|Error|Erreur)[\s\u00a0\u202f]*:/.test(start)) span.className = 'err'; // run.error in i18n.mjs, alle Sprachen
     else if (start.startsWith('⚠')) span.className = 'warn';
     else if (CURRENT_MARK.test(line)) span.className = 'now';
     // Song Nummer n der Liste – nur, wenn Künstler und Titel zur Zeile passen
@@ -3728,7 +3737,7 @@ async function watchActivity(kind) {
 // --- Probelauf übernehmen ---
 
 // Einstellungen, die die Auswahl bestimmen (alle außer NOT_FOR_TRIAL): Weichen sie vom Probelauf ab, passt seine Liste nicht mehr.
-const trialChanged = () => ITEMS.some(i => !NOT_FOR_TRIAL.includes(i.key) && !same(current[i.key], trial.settings[i.key]));
+const trialChanged = () => ITEMS.some(i => !notForTrial.includes(i.key) && !same(current[i.key], trial.settings[i.key]));
 
 // Warum sich der Probelauf nicht mehr übernehmen lässt: 'blocked' (Song daraus gesperrt), 'dirty' (Einstellungen geändert), 'old' (älter als 24 Stunden),
 // sonst ein Grund vom Server (dann steht der Text in trial.message); null = geht.
@@ -3994,7 +4003,7 @@ async function importWrite() {
   setMsg($('files-msg'), '', T.files.writing(s.result.playlistName));
   $('import-preview').hidden = true;
   try {
-    const written = await apiJson('/api/import', { method: 'POST', body: JSON.stringify({ uris: s.result.uris }) });
+    const written = await apiJson('/api/import', { method: 'POST', body: JSON.stringify({ uris: s.result.uris, playlistName: s.result.playlistName }) });
     setImport({ phase: 'done', written });
     // Wiederhergestellt: Knopf weg. Nach jedem anderen Import: vorigen Stand anbieten.
     if (s.undo) setUndo(null);

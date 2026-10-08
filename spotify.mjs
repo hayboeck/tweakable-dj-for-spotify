@@ -31,6 +31,23 @@ export const isScopeError = e => [401, 403].includes(e?.status) || /insufficient
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Zeitlimit je Anfrage an Spotify (TWEAKABLE_DJ_FETCH_TIMEOUT_MS nur für Tests): Hängt eine Verbindung, steht sonst minutenlang
+// „Läuft …“ da.
+export const FETCH_TIMEOUT = Number(process.env.TWEAKABLE_DJ_FETCH_TIMEOUT_MS) > 0 ? Number(process.env.TWEAKABLE_DJ_FETCH_TIMEOUT_MS) : 30_000;
+
+// Kurzer, sprachneutraler Grund eines Netzfehlers von fetch: 'Timeout', Fehlercode wie ENOTFOUND oder die Meldung.
+export const netDetail = e => (e?.name === 'TimeoutError' || e?.name === 'AbortError' ? 'Timeout' : e?.cause?.code ?? e?.code ?? e?.message ?? String(e));
+
+// fetch mit Zeitlimit. Netzfehler (offline, Name unbekannt, Zeitlimit) → übersetzte Meldung „Spotify ist nicht erreichbar“ mit
+// errorCode 'network' statt „fetch failed“.
+async function request(url, init, lang) {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT) });
+  } catch (e) {
+    throw tError(lang, 'spotify.offline', { detail: netDetail(e) }, { errorCode: 'network' });
+  }
+}
+
 // authorized_at = Zeitpunkt der Anmeldung. Spotify verlangt nach 180 Tagen eine neue,
 // das Erneuern des Access-Tokens verlängert das nicht – deshalb beim Erneuern übernehmen.
 // scope = erteilte Berechtigungen (mit Leerzeichen getrennt); fehlt sie in der Antwort, gilt die bisherige.
@@ -135,7 +152,7 @@ export async function login(clientId, tokenFile, { signal, timeoutMs = 5 * 60_00
     });
   });
 
-  const res = await fetch(TOKEN_URL, {
+  const res = await request(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -145,7 +162,7 @@ export async function login(clientId, tokenFile, { signal, timeoutMs = 5 * 60_00
       client_id: clientId,
       code_verifier: verifier,
     }),
-  });
+  }, lang);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw tError(lang, 'login.tokenFailed', { detail: data.error_description ?? data.error });
   storeTokens(tokenFile, data, {}, Date.now());
@@ -177,11 +194,11 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
       tokens = disk;
       if (usable(disk)) return disk.access_token;
     }
-    const res = await fetch(TOKEN_URL, {
+    const res = await request(TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: clientId }),
-    });
+    }, lang);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       throw tError(lang, 'spotify.expired', { detail: data.error_description ?? data.error, again: again() }, { errorCode: 'login_expired' });
@@ -191,8 +208,8 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
     return tokens.access_token;
   }
 
-  // Vorübergehende Störung bei Spotify (500, 502, 503, 504): Lesen, Ersetzen und Löschen lassen sich gefahrlos wiederholen
-  // (nach 2, 5 und 10 Sekunden). POST nicht – ein zweites Anhängen bzw. Anlegen könnte doppelt wirken; createPlaylist prüft
+  // Vorübergehende Störung bei Spotify (500, 502, 503, 504, Netzfehler): Lesen, Ersetzen und Löschen lassen sich gefahrlos
+  // wiederholen (nach 2, 5 und 10 Sekunden). POST nicht – ein zweites Anhängen bzw. Anlegen könnte doppelt wirken; createPlaylist prüft
   // stattdessen selbst nach (siehe dort).
   const TRANSIENT = new Set([500, 502, 503, 504]);
   // Nur für Tests kürzer (TWEAKABLE_DJ_FAST_RETRY=1).
@@ -202,14 +219,28 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
     let failures = 0;
     for (let attempt = 0; attempt < 5 + RETRY_WAIT.length; attempt++) {
       const token = await accessToken();
-      const res = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          ...(body && { 'Content-Type': 'application/json' }),
-        },
-        body: body && JSON.stringify(body),
-      });
+      let res;
+      let text;
+      try {
+        res = await request(url, {
+          method,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            ...(body && { 'Content-Type': 'application/json' }),
+          },
+          body: body && JSON.stringify(body),
+        }, lang);
+        // Auch das Lesen der Antwort kann am Zeitlimit scheitern.
+        text = await res.text().catch(e => {
+          throw tError(lang, 'spotify.offline', { detail: netDetail(e) }, { errorCode: 'network' });
+        });
+      } catch (e) {
+        if (e.errorCode === 'network' && method !== 'POST' && failures < RETRY_WAIT.length) {
+          await sleep(RETRY_WAIT[failures++]);
+          continue;
+        }
+        throw e;
+      }
       if (res.status === 429) {
         const wait = Number(res.headers.get('retry-after') || 2);
         if (wait > 120) throw tError(lang, 'spotify.rateLimit', { minutes: Math.ceil(wait / 60) }, { rateLimit: true });
@@ -220,7 +251,6 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
         rejected = token; // abgelehnt (z. B. vorzeitig ungültig): einmal erneuern und noch einmal versuchen
         continue;
       }
-      const text = await res.text();
       if (TRANSIENT.has(res.status) && method !== 'POST' && failures < RETRY_WAIT.length) {
         await sleep(RETRY_WAIT[failures++]);
         continue;
@@ -359,7 +389,8 @@ export function createSpotify(clientId, tokenFile, { lang = resolveLang() } = {}
         try {
           return (await api('POST', '/me/playlists', { name, description, public: false })).id;
         } catch (e) {
-          if (!TRANSIENT.has(e.status) || attempt >= 2) throw e;
+          // Auch bei einem Netzfehler (Antwort nicht angekommen) kann sie angelegt sein.
+          if (!(TRANSIENT.has(e.status) || e.errorCode === 'network') || attempt >= 2) throw e;
           await sleep(RETRY_WAIT[attempt]);
           const found = userId ? await this.findPlaylist(name, userId) : null;
           if (found) return found;

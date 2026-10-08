@@ -35,7 +35,7 @@ import {
   exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, parseImport, readPlaylist, resolveImport, validUris,
   writePlaylist,
 } from './playlist.mjs';
-import { readTrial, trialInfo, trialProblem } from './trial.mjs';
+import { readTrial, TRIAL_IGNORED, trialInfo, trialProblem } from './trial.mjs';
 import { archiveFileCount, archivePlaylist, listArchive, readArchive, undoTarget } from './archive.mjs';
 import { checkForUpdate, currentVersion } from './update.mjs';
 import { markSeen, whatsNew } from './whatsnew.mjs';
@@ -557,7 +557,7 @@ const server = http.createServer(async (req, res) => {
       const values = Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, cfg[k]]));
       return send(200, {
         values, defaults: DEFAULTS, limits: LIMITS, variety: { keys: VARIETY_KEYS, levels: VARIETY_LEVELS }, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running), importing,
-        activity: activity(),
+        activity: activity(), trialIgnored: TRIAL_IGNORED,
         setup: setupStatus(cfg), archiveFiles: archiveFileCount(HERE),
       });
     }
@@ -666,6 +666,7 @@ const server = http.createServer(async (req, res) => {
     if (route === 'POST /api/login') {
       if (installing) return send(409, { error: t(lang, 'update.inProgress') });
       if (importing) return send(409, { error: t(lang, 'ui.importBusy') });
+      if (running) return send(409, { error: t(lang, 'ui.busy') }); // Lauf und Anmeldung schreiben beide tokens.json
       // Läuft schon eine Anmeldung, nur deren Stand melden – kein zweiter Server auf Port 8888.
       if (loginJob?.status === 'pending') return send(200, loginView());
       const cfg = currentConfig(lang);
@@ -846,10 +847,14 @@ const server = http.createServer(async (req, res) => {
       if (busy) return send(409, { error: busy, activity: activity() });
       importing = true;
       try {
-        const { uris } = await readJson(req, lang);
+        const { uris, playlistName } = await readJson(req, lang);
         if (!validUris(uris)) return send(400, { error: t(lang, 'import.badList') });
         const cfg = currentConfig(lang);
         if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
+        // Seit der Vorschau umbenannt (anderer Tab): Die Vorschau nannte die alte Playlist – lieber nicht in die neue schreiben.
+        if (typeof playlistName === 'string' && playlistName !== cfg.playlistName) {
+          return send(409, { error: t(lang, 'import.nameChanged', { name: cfg.playlistName }), reason: 'name' });
+        }
         const spotify = createSpotify(cfg.spotify.clientId, TOKENS, { lang });
         // ID der Playlist vom letzten Schreiben (state.json): writePlaylist nimmt sie direkt, statt zu suchen.
         const { id, url: playlistUrl, created } = await writePlaylist(spotify, {

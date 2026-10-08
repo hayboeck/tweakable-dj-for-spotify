@@ -1381,3 +1381,40 @@ test('Neu geladene Seite bzw. zweiter Tab: GET /api/run zeigt den laufenden Lauf
   assert.equal((await api(`/api/run?id=${id + 99}&from=10`)).data.from, 0);
   assert.equal((await api('/api/config')).data.activity, null);
 });
+
+test('Import nach Umbenennen der Playlist (anderer Tab) → 409 statt in die neue zu schreiben; keine Anmeldung während eines Laufs; trialIgnored', async () => {
+  const p = await preview('Nordlicht – Polarnacht');
+  const r = resultLine(p.text);
+  assert.equal(r.playlistName, 'Test-DJ');
+  assert.equal((await api('/api/config', { method: 'POST', body: { playlistName: 'Anderer Name' } })).status, 200);
+  try {
+    const w = await api('/api/import', { lang: 'de', method: 'POST', body: { uris: r.uris, playlistName: r.playlistName } });
+    assert.deepEqual([w.status, w.data.reason], [409, 'name']);
+    assert.equal(w.data.error, 'Der Name der Playlist hat sich seit der Vorschau geändert (jetzt „Anderer Name“). Importiere die Datei noch einmal.');
+    assert.ok(!store().playlists.some(x => x.name === 'Anderer Name'), 'nichts angelegt');
+  } finally {
+    assert.equal((await api('/api/config', { method: 'POST', body: { playlistName: 'Test-DJ' } })).status, 200);
+  }
+  // Anmeldung während eines Laufs: 409 (beide schreiben tokens.json)
+  const run = await fetch(`${base}/api/run?dry=1`, { method: 'POST', headers: { 'X-Tweakable-DJ': '1', 'X-Lang': 'de' } });
+  const reader = run.body.getReader();
+  await reader.read();
+  try {
+    assert.deepEqual(await api('/api/login', { lang: 'de', method: 'POST' }).then(x => [x.status, x.data.error]), [409, 'Es läuft bereits ein Lauf.']);
+  } finally {
+    while (!(await reader.read()).done) {
+      // Lauf zu Ende lesen
+    }
+  }
+  const { TRIAL_IGNORED } = await import('../trial.mjs');
+  assert.deepEqual((await api('/api/config')).data.trialIgnored, TRIAL_IGNORED);
+});
+
+test('ui.html: Fehlerzeilen der Ausgabe in allen Sprachen erkannt (run.error, auch „Erreur : …“)', async () => {
+  const { t } = await import('../i18n.mjs');
+  const html = fs.readFileSync(path.join(ROOT, 'ui.html'), 'utf8');
+  const m = /if \((\/\^\(Fehler[^\n]*?\/)\.test\(start\)\) span\.className = 'err'/.exec(html);
+  assert.ok(m, 'Muster in renderLog');
+  const re = new Function(`return ${m[1]}`)();
+  for (const lang of ['de', 'en', 'es', 'fr']) assert.match(t(lang, 'run.error', { message: 'x' }), re, lang);
+});

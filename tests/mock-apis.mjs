@@ -16,6 +16,9 @@
 //   MOCK_NO_LIBRARY_SCOPE=1  ebenso ohne user-library-modify: PUT/DELETE /me/library liefern 403. Die Lieblingssongs (♥) stehen
 //                       mit MOCK_SPOTIFY_STORE in store.library (anfangs die Lieblingssongs von /me/tracks)
 //   MOCK_NODE_VERSION   täuscht eine andere Node-Version vor
+//   MOCK_SPOTIFY_OFFLINE=1  Spotify (API und Anmeldung) nicht erreichbar: fetch scheitert wie ohne Internet (ENOTFOUND)
+//   MOCK_SPOTIFY_HANG=1     Spotify antwortet nie; die Anfrage endet erst mit ihrem Zeitlimit (signal)
+//   MOCK_LASTFM_OFFLINE=1   Last.fm nicht erreichbar (ENOTFOUND)
 //   MOCK_SEARCH_DELAY_MS  jede Suche auf Spotify (/v1/search) antwortet erst nach so vielen Millisekunden (Lauf dauert länger)
 //   MOCK_GITHUB         JSON-Datei mit der Antwort von GitHub auf die Frage nach dem neuesten Release (update.mjs):
 //                       { "status": 200, "body": { "tag_name": "v0.2.0", "assets": […], … } } oder { "offline": true }
@@ -412,8 +415,26 @@ function githubAsset(url) {
   return new Response(fs.readFileSync(file), { status: 200, headers: { 'content-type': 'application/octet-stream' } });
 }
 
+const offline = () => new TypeError('fetch failed', { cause: Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ENOTFOUND' }) });
+
 globalThis.fetch = async (input, init) => {
   const url = new URL(String(input instanceof Request ? input.url : input));
+  const spotify = ['api.spotify.com', 'accounts.spotify.com'].includes(url.hostname);
+  if ((spotify && process.env.MOCK_SPOTIFY_OFFLINE === '1') || (url.hostname === 'ws.audioscrobbler.com' && process.env.MOCK_LASTFM_OFFLINE === '1')) {
+    log({ host: url.host, path: url.pathname, offline: true });
+    throw offline();
+  }
+  if (spotify && process.env.MOCK_SPOTIFY_HANG === '1') {
+    log({ host: url.host, path: url.pathname, hang: true });
+    return new Promise((resolve, reject) => {
+      if (!init?.signal) return; // ohne Zeitlimit hinge es wirklich
+      // Wie eine offene Verbindung: hält den Prozess am Leben (das Zeitlimit von AbortSignal.timeout tut das nicht)
+      const keep = setInterval(() => {}, 1000);
+      const stop = () => { clearInterval(keep); reject(init.signal.reason); };
+      if (init.signal.aborted) stop();
+      else init.signal.addEventListener('abort', stop);
+    });
+  }
   const headers = new Headers(init?.headers);
   let res;
   if (url.origin === 'https://accounts.spotify.com' && url.pathname === '/api/token') res = spotifyToken(init);

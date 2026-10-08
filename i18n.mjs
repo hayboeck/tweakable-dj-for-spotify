@@ -126,6 +126,7 @@ export const MESSAGES = {
     'spotify.loginAgain': 'In der Oberfläche neu bei Spotify anmelden oder "node dj.mjs login" ausführen.',
     'spotify.notLoggedIn': 'Noch nicht bei Spotify angemeldet. {again}',
     'spotify.expired': 'Spotify-Anmeldung abgelaufen ({detail}). {again}',
+    'spotify.offline': 'Spotify ist nicht erreichbar ({detail}). Prüfe die Internetverbindung und versuche es später noch einmal.',
     'spotify.rateLimit': 'Spotify-Rate-Limit: bitte in {minutes} Minuten erneut versuchen.',
     'spotify.tooManyAttempts': 'Spotify {method} {path}: zu viele Versuche',
     'login.tokenFailed': 'Token-Tausch fehlgeschlagen: {detail}',
@@ -146,6 +147,7 @@ export const MESSAGES = {
     // --- lastfm.mjs ---
     'lastfm.suspendedKey': 'Last.fm hat deinen API-Key gesperrt. Lege einen neuen an (https://www.last.fm/api/account/create) und trage ihn in der Oberfläche unter „Zugangsdaten ändern“ bzw. als lastfm.apiKey in config.jsonc ein.',
     'lastfm.badKey': 'Der Last.fm-API-Key ist ungültig. Prüfe lastfm.apiKey in config.jsonc (neuen Key anlegen: https://www.last.fm/api/account/create).',
+    'lastfm.offline': 'Last.fm ist nicht erreichbar ({detail}). Prüfe die Internetverbindung; ohne Last.fm findet der DJ keine neuen Songs.',
 
     // --- dj.mjs ---
     'run.loggedIn': 'Angemeldet ✓  Jetzt "node dj.mjs" ausführen.',
@@ -229,6 +231,7 @@ export const MESSAGES = {
     'import.badList': 'Ungültige Liste: erwartet sind 1 bis 500 Spotify-Songs (spotify:track:…).',
     'import.description': 'Tweakable DJ · aus einer Textdatei, {date}, {time} Uhr · {count|# Song|# Songs}',
     'import.done': '„{name}“ enthält jetzt {count|# Song|# Songs} aus der Datei ✓  {url}',
+    'import.nameChanged': 'Der Name der Playlist hat sich seit der Vorschau geändert (jetzt „{name}“). Importiere die Datei noch einmal.',
     // Playlist-Archiv (archive.mjs)
     'archive.saved': 'Im Archiv abgelegt: {file}',
     'archive.removed': '{count|Die älteste Playlist|Die # ältesten Playlists} aus dem Archiv entfernt (Archivierte Playlists).',
@@ -431,6 +434,7 @@ export const MESSAGES = {
     'spotify.loginAgain': 'Log in to Spotify again in the interface, or run "node dj.mjs login".',
     'spotify.notLoggedIn': 'Not logged in to Spotify yet. {again}',
     'spotify.expired': 'Spotify login expired ({detail}). {again}',
+    'spotify.offline': 'Spotify can’t be reached ({detail}). Check your internet connection and try again later.',
     'spotify.rateLimit': 'Spotify rate limit: please try again in {minutes} minutes.',
     'spotify.tooManyAttempts': 'Spotify {method} {path}: too many attempts',
     'login.tokenFailed': 'Token exchange failed: {detail}',
@@ -451,6 +455,7 @@ export const MESSAGES = {
     // --- lastfm.mjs ---
     'lastfm.suspendedKey': 'Last.fm has suspended your API key. Create a new one (https://www.last.fm/api/account/create) and enter it in the interface under “Change credentials” or as lastfm.apiKey in config.jsonc.',
     'lastfm.badKey': 'The Last.fm API key is invalid. Check lastfm.apiKey in config.jsonc (create a new key: https://www.last.fm/api/account/create).',
+    'lastfm.offline': 'Last.fm can’t be reached ({detail}). Check your internet connection; without Last.fm, the DJ finds no new songs.',
 
     // --- dj.mjs ---
     'run.loggedIn': 'Logged in ✓  Now run "node dj.mjs".',
@@ -534,6 +539,7 @@ export const MESSAGES = {
     'import.badList': 'Invalid list: expected 1 to 500 Spotify songs (spotify:track:…).',
     'import.description': 'Tweakable DJ · from a text file, {date}, {time} · {count|# song|# songs}',
     'import.done': '“{name}” now contains {count|# song|# songs} from the file ✓  {url}',
+    'import.nameChanged': 'The playlist name has changed since the preview (now “{name}”). Import the file again.',
     // Playlist-Archiv (archive.mjs)
     'archive.saved': 'Saved to the archive: {file}',
     'archive.removed': '{count|Removed the oldest playlist|Removed the # oldest playlists} from the archive (Archived playlists).',
@@ -737,6 +743,7 @@ export const MESSAGES = {
     'spotify.loginAgain': 'Vuelve a iniciar sesión en Spotify desde la interfaz o ejecuta "node dj.mjs login".',
     'spotify.notLoggedIn': 'Todavía no has iniciado sesión en Spotify. {again}',
     'spotify.expired': 'La sesión de Spotify ha caducado ({detail}). {again}',
+    'spotify.offline': 'No se puede acceder a Spotify ({detail}). Revisa la conexión a internet y vuelve a intentarlo más tarde.',
     'spotify.rateLimit': 'Límite de solicitudes de Spotify: vuelve a intentarlo dentro de {minutes} minutos.',
     'spotify.tooManyAttempts': 'Spotify {method} {path}: demasiados intentos',
     'login.tokenFailed': 'Falló el intercambio del token: {detail}',
@@ -757,6 +764,7 @@ export const MESSAGES = {
     // --- lastfm.mjs ---
     'lastfm.suspendedKey': 'Last.fm ha bloqueado tu clave API. Crea una nueva (https://www.last.fm/api/account/create) e introdúcela en la interfaz, en «Cambiar credenciales», o como lastfm.apiKey en config.jsonc.',
     'lastfm.badKey': 'La clave API de Last.fm no es válida. Revisa lastfm.apiKey en config.jsonc (crear una clave nueva: https://www.last.fm/api/account/create).',
+    'lastfm.offline': 'No se puede acceder a Last.fm ({detail}). Revisa la conexión a internet; sin Last.fm, el DJ no encuentra canciones nuevas.',
 
     // --- dj.mjs ---
     'run.loggedIn': 'Sesión iniciada ✓  Ahora ejecuta "node dj.mjs".',
@@ -840,6 +848,7 @@ export const MESSAGES = {
     'import.badList': 'Lista no válida: se esperaban de 1 a 500 canciones de Spotify (spotify:track:…).',
     'import.description': 'Tweakable DJ · desde un archivo de texto, {date}, {time} · {count|# canción|# canciones}',
     'import.done': '«{name}» contiene ahora {count|# canción|# canciones} del archivo ✓  {url}',
+    'import.nameChanged': 'El nombre de la playlist ha cambiado desde la vista previa (ahora «{name}»). Vuelve a importar el archivo.',
     // Playlist-Archiv (archive.mjs)
     'archive.saved': 'Guardada en el archivo de playlists: {file}',
     'archive.removed': '{count|Se borró la playlist más antigua|Se borraron las # playlists más antiguas} del archivo de playlists (Playlists archivadas).',
@@ -1044,6 +1053,7 @@ export const MESSAGES = {
     'spotify.loginAgain': 'Reconnecte-toi à Spotify dans l’interface ou lance "node dj.mjs login".',
     'spotify.notLoggedIn': 'Pas encore de connexion à Spotify. {again}',
     'spotify.expired': 'Connexion Spotify expirée ({detail}). {again}',
+    'spotify.offline': 'Spotify est injoignable ({detail}). Vérifie la connexion Internet et réessaie plus tard.',
     'spotify.rateLimit': 'Limite de requêtes Spotify : réessaie dans {minutes} minutes.',
     'spotify.tooManyAttempts': 'Spotify {method} {path} : trop de tentatives',
     'login.tokenFailed': 'Échec de l’échange du jeton : {detail}',
@@ -1064,6 +1074,7 @@ export const MESSAGES = {
     // --- lastfm.mjs ---
     'lastfm.suspendedKey': 'Last.fm a suspendu ta clé API. Crée-en une nouvelle (https://www.last.fm/api/account/create) et saisis-la dans l’interface sous « Modifier les identifiants » ou comme lastfm.apiKey dans config.jsonc.',
     'lastfm.badKey': 'La clé API Last.fm n’est pas valide. Vérifie lastfm.apiKey dans config.jsonc (créer une nouvelle clé : https://www.last.fm/api/account/create).',
+    'lastfm.offline': 'Last.fm est injoignable ({detail}). Vérifie la connexion Internet ; sans Last.fm, le DJ ne trouve aucun nouveau titre.',
 
     // --- dj.mjs ---
     'run.loggedIn': 'Connexion réussie ✓  Lance maintenant "node dj.mjs".',
@@ -1147,6 +1158,7 @@ export const MESSAGES = {
     'import.badList': 'Liste non valide : de 1 à 500 titres Spotify attendus (spotify:track:…).',
     'import.description': 'Tweakable DJ · depuis un fichier texte, {date}, {time} · {count|# titre|# titres}',
     'import.done': '« {name} » contient maintenant {count|# titre|# titres} du fichier ✓  {url}',
+    'import.nameChanged': 'Le nom de la playlist a changé depuis l’aperçu (maintenant « {name} »). Importe de nouveau le fichier.',
     // Playlist-Archiv (archive.mjs)
     'archive.saved': 'Enregistrée dans les archives : {file}',
     'archive.removed': '{count|La playlist la plus ancienne a été supprimée|Les # playlists les plus anciennes ont été supprimées} des archives (Playlists archivées).',

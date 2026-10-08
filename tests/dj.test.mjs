@@ -869,3 +869,27 @@ test('Spieldauer: Einträge im Such-Cache ohne Dauer (bis 0.1.4) → ≈ geschä
     cleanup(dir);
   }
 });
+
+test('Netz: Spotify nicht erreichbar bzw. hängt → verständliche Meldung (errorCode network) statt „fetch failed“; Last.fm offline → eine Warnung', () => {
+  const dir = setup();
+  try {
+    const offline = run(dir, { MOCK_SPOTIFY_OFFLINE: '1', TWEAKABLE_DJ_FAST_RETRY: '1' });
+    assert.equal(offline.code, 1);
+    assert.match(offline.err, /^Fehler: Spotify ist nicht erreichbar \(ENOTFOUND\)\. Prüfe die Internetverbindung/m);
+    assert.deepEqual([offline.result.ok, offline.result.errorCode], [false, 'network']);
+    assert.doesNotMatch(offline.all, /fetch failed/);
+    // Antwortet Spotify nie, greift das Zeitlimit (hier 300 ms statt 30 s)
+    const started = Date.now();
+    const hang = run(dir, { MOCK_SPOTIFY_HANG: '1', TWEAKABLE_DJ_FETCH_TIMEOUT_MS: '300', TWEAKABLE_DJ_FAST_RETRY: '1', TWEAKABLE_DJ_LANG: 'en' });
+    assert.ok(Date.now() - started < 20_000, 'endet bald');
+    assert.match(hang.err, /^Error: Spotify can’t be reached \(Timeout\)\. Check your internet connection/m);
+    assert.equal(hang.result.errorCode, 'network');
+    // Last.fm offline: Der Lauf geht mit den Favoriten weiter, die Warnung kommt nur einmal
+    const lastfm = run(dir, { MOCK_LASTFM_OFFLINE: '1' });
+    assert.equal(lastfm.code, 0, lastfm.all);
+    assert.equal(lastfm.all.split('\n').filter(l => l.includes('Last.fm ist nicht erreichbar (ENOTFOUND)')).length, 1, lastfm.all);
+    assert.ok(lastfm.result.songs > 0);
+  } finally {
+    cleanup(dir);
+  }
+});

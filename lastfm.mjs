@@ -5,6 +5,9 @@ const API = 'https://ws.audioscrobbler.com/2.0/';
 const CACHE_MAX_AGE = 7 * 86400_000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const list = x => (x == null ? [] : Array.isArray(x) ? x : [x]);
+// Zeitlimit je Anfrage (TWEAKABLE_DJ_FETCH_TIMEOUT_MS nur für Tests)
+const TIMEOUT = Number(process.env.TWEAKABLE_DJ_FETCH_TIMEOUT_MS) > 0 ? Number(process.env.TWEAKABLE_DJ_FETCH_TIMEOUT_MS) : 20_000;
+const netDetail = e => (e?.name === 'TimeoutError' || e?.name === 'AbortError' ? 'Timeout' : e?.cause?.code ?? e?.code ?? e?.message ?? String(e));
 
 // Fehlende oder kaputte Datei = leerer Cache.
 function readCache(file) {
@@ -23,12 +26,23 @@ export function createLastfm(apiKey, cacheFile, { lang } = {}) {
   const cache = readCache(cacheFile);
   const stats = { hits: 0, total: 0 };
   let changed = false;
+  // Nicht erreichbar (offline, Zeitlimit): Dann scheitern alle weiteren Abfragen dieses Laufs gleich mit derselben Meldung, statt
+  // jede noch einmal auf das Zeitlimit warten zu lassen.
+  let offline = null;
 
   async function call(method, params) {
     const url = `${API}?${new URLSearchParams({ method, api_key: apiKey, format: 'json', ...params })}`;
     for (let attempt = 0; ; attempt++) {
-      const res = await fetch(url);
-      const data = await res.json().catch(() => ({}));
+      if (offline) throw offline;
+      let res;
+      let data;
+      try {
+        res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT) });
+        data = await res.json().catch(e => (e?.name === 'TimeoutError' ? Promise.reject(e) : {}));
+      } catch (e) {
+        offline = tError(lang, 'lastfm.offline', { detail: netDetail(e) }, { errorCode: 'network' });
+        throw offline;
+      }
       // 29 = Rate-Limit, 8/16 = temporärer Serverfehler
       if ([29, 8, 16].includes(data.error) && attempt < 3) {
         await sleep(2000 * (attempt + 1));

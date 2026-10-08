@@ -191,9 +191,17 @@ async function main() {
   // Neue Einträge im Such-Cache: nur diese kommen beim Speichern zum frisch gelesenen state.json dazu (updateState).
   const cacheUpdates = {};
   // Für .catch(): Fehler melden und mit `fallback` weitermachen – außer bei ungültigem Last.fm-API-Key.
+  // Last.fm nicht erreichbar (errorCode 'network'): nur einmal warnen, nicht bei jeder Abfrage. prefix: z. B. der Ausgangspunkt.
+  let offlineWarned = false;
+  const warnError = (e, prefix = '') => {
+    if (e.errorCode !== 'network') return warn(`${prefix}${e.message}`);
+    if (!offlineWarned) warn(e.message);
+    offlineWarned = true;
+    return undefined;
+  };
   const warnOr = fallback => e => {
     if (e.fatal) throw e;
-    warn(e.message);
+    warnError(e);
     return fallback;
   };
   // Sperrliste: gesperrte Künstler und gesperrte Songs (blockedTracks, auch andere Versionen über trackKey) weder als
@@ -329,7 +337,7 @@ async function main() {
       }
     } catch (e) {
       if (e.fatal) throw e;
-      warn(`${seed.artist} – ${seed.name}: ${e.message}`);
+      warnError(e, `${seed.artist} – ${seed.name}: `);
     }
   });
   // Last.fm wird ab hier nicht mehr gefragt: Cache jetzt speichern, dann bleibt er auch bei Spotify-Fehlern erhalten.
