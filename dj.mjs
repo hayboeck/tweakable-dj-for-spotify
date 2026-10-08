@@ -40,6 +40,7 @@ import {
 } from './playlist.mjs';
 import { readTrial, removeTrial, saveTrial, trialProblem } from './trial.mjs';
 import { archivedTracks, archivePlaylist, saveArchive } from './archive.mjs';
+import { readJson, writeAtomic } from './files.mjs';
 import {
   arrange, artistBlocker, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, lineupDuration, lineupStats, newerFactor,
   norm, playableDurationMs, playableUri, rememberPlayed, searchAgain, shuffle, trackBlocker, trackKey, weightedOrder, windowViolations,
@@ -87,7 +88,24 @@ const TOKENS = path.join(HERE, 'tokens.json');
 const STATE = path.join(HERE, 'state.json');
 const LASTFM_CACHE = path.join(HERE, 'lastfm-cache.json');
 
-const readJson = (file, fallback) => (fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : fallback);
+// Inhalt von state.json (Verlauf history, Such-Cache cache, played, playlistIds, loginReminderAt); fehlt die Datei, leer.
+// Kaputter Inhalt wirft (dann lieber abbrechen, als Verlauf und Such-Cache zu überschreiben).
+function readState() {
+  const state = readJson(STATE, null) ?? {};
+  if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error(`state.json: ${typeof state}`);
+  state.history = Array.isArray(state.history) ? state.history : [];
+  state.cache = state.cache && typeof state.cache === 'object' && !Array.isArray(state.cache) ? state.cache : {};
+  return state;
+}
+
+// state.json ändern: frisch lesen, nur die Änderungen dieses Laufs einmischen (change), dann atomar schreiben (files.mjs).
+// So bleiben Verlauf, gemerkte Playlist-ID und Erinnerungszeit (loginReminderAt) eines anderen Laufs erhalten, der seit dem
+// Start dieses Laufs fertig geworden ist (z. B. ein automatischer Lauf neben einem aus der Oberfläche).
+function updateState(change) {
+  const state = readState();
+  change(state);
+  writeAtomic(STATE, JSON.stringify(state, null, 2));
+}
 
 // Ergebnis des Laufs: wird in main() nach und nach gefüllt.
 // missingScope: Berechtigung, die der Spotify-Anmeldung fehlte (z. B. 'user-follow-read'), sonst null.
@@ -169,7 +187,9 @@ async function main() {
   if (command === 'import') return importFile(cfg, spotify);
   if (apply) return applyTrial(cfg, spotify);
   const lastfm = createLastfm(cfg.lastfm.apiKey, LASTFM_CACHE, { lang });
-  const state = readJson(STATE, { history: [], cache: {} });
+  const state = readState();
+  // Neue Einträge im Such-Cache: nur diese kommen beim Speichern zum frisch gelesenen state.json dazu (updateState).
+  const cacheUpdates = {};
   // Für .catch(): Fehler melden und mit `fallback` weitermachen – außer bei ungültigem Last.fm-API-Key.
   const warnOr = fallback => e => {
     if (e.fatal) throw e;
@@ -372,7 +392,7 @@ async function main() {
       searched = true;
       try {
         const hit = await spotify.findTrack(c.artist, c.name);
-        state.cache[c.key] = cacheValue(hit);
+        state.cache[c.key] = cacheUpdates[c.key] = cacheValue(hit);
         entry = cacheEntry(state.cache[c.key]);
         for (const h of [hit, hit?.clean]) if (h) spotifyArtists.set(h.uri, h.artists);
       } catch (e) {
@@ -429,8 +449,9 @@ async function main() {
   lineup.forEach((track, i) => console.log(lineupLine(track, i)));
   const description = t(lang, 'run.description', { ...dateTime(lang, new Date()), fresh: fresh.length, familiar: familiar.length });
 
+  const saveCache = s => Object.assign(s.cache, cacheUpdates);
   if (dry) {
-    fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
+    updateState(saveCache);
     console.log(`\n${t(lang, 'run.dry')}`);
     // Für „Diese Liste übernehmen“ bzw. --apply merken; klappt das nicht, ist der Probelauf trotzdem gültig.
     let trial = null;
@@ -444,7 +465,7 @@ async function main() {
   }
 
   // Such-Cache jetzt speichern, dann bleibt er auch bei Fehlern beim Schreiben erhalten.
-  fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
+  updateState(saveCache);
   const playlistUrl = await toSpotify(cfg, spotify, lineup, description);
   return { ...counts, ...stats, summary, playlistUrl };
 }
@@ -466,12 +487,12 @@ async function toSpotify(cfg, spotify, lineup, description) {
   const { id, url, created } = await writePlaylist(spotify, { name, uris: lineup.map(track => track.uri), description, lang, warn, create: asNew, knownId });
   if (created) console.log(`\n${t(lang, 'run.created', { name })}`);
   await toArchive(() => saveArchive(HERE, { name, url, tracks: lineup, lang, keep: cfg.archiveCount }));
-  const state = readJson(STATE, { history: [], cache: {} });
-  if (!asNew) state.playlistIds = { [name]: id }; // für das nächste Schreiben (writePlaylist, knownId)
   const keys = lineup.map(track => trackKey(track.artist, track.name));
-  state.played = rememberPlayed([...playedSet(state)], keys);
-  state.history = lastRuns(cfg, [...state.history, keys]);
-  fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
+  updateState(state => {
+    if (!asNew) state.playlistIds = { [name]: id }; // für das nächste Schreiben (writePlaylist, knownId)
+    state.played = rememberPlayed([...playedSet(state)], keys);
+    state.history = lastRuns(cfg, [...state.history, keys]);
+  });
   try {
     removeTrial(HERE);
   } catch (e) {
@@ -506,7 +527,7 @@ async function applyTrial(cfg, spotify) {
   console.log(t(lang, 'apply.start', { ...dateTime(lang, new Date(trial.createdAt)), count: trial.tracks.length }));
   // Künstler und „zum ersten Mal“ jetzt (der Verlauf kann sich seit dem Probelauf geändert haben); die Erscheinungsjahre
   // kennt nur der Probelauf (fehlen bei Probeläufen älterer Versionen).
-  const now = lineupStats(trial.tracks, playedSet(readJson(STATE, { history: [], cache: {} })));
+  const now = lineupStats(trial.tracks, playedSet(readState()));
   const stats = { ...now, yearFrom: trial.yearFrom ?? null, yearTo: trial.yearTo ?? null };
   console.log(`\n${trial.summary}\n${formatStats(lang, stats)}\n`);
   trial.tracks.forEach((track, i) => console.log(lineupLine(track, i)));

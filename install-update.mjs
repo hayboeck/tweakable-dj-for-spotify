@@ -253,9 +253,10 @@ export function autoRunSince(dir = HERE, now = Date.now(), file = AUTO_RESULT) {
 }
 
 // Meldung, falls gerade ein automatischer Lauf bzw. „Playlist jetzt neu erstellen“ läuft (in der Sprache lang), sonst null.
-export function autoRunMessage(dir = HERE, lang = resolveLang(), now = Date.now()) {
+// key: Meldung zum automatischen Lauf ('update.autoBusy' fürs Update, 'ui.autoBusy' für Lauf und Import in der Oberfläche).
+export function autoRunMessage(dir = HERE, lang = resolveLang(), now = Date.now(), key = 'update.autoBusy') {
   const since = autoRunSince(dir, now);
-  if (since) return t(lang, 'update.autoBusy', { time: new Date(since).toLocaleTimeString(locale(lang), { hour: '2-digit', minute: '2-digit' }) });
+  if (since) return t(lang, key, { time: new Date(since).toLocaleTimeString(locale(lang), { hour: '2-digit', minute: '2-digit' }) });
   return autoRunSince(dir, now, NOW_RESULT) ? t(lang, 'ui.nowBusy') : null;
 }
 

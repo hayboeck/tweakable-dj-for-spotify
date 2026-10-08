@@ -1323,3 +1323,33 @@ test('Sperre: zwei Anfragen fast gleichzeitig (Inhalt der ersten kommt verzöger
   for (const p of before) assert.deepEqual(after.find(x => x.id === p.id).uris, p.uris, 'die bisherigen Playlists bleiben, wie sie sind');
   assert.equal((await api('/api/version')).data.busy, false, 'danach wieder frei');
 });
+
+test('Sperre: kein Lauf, Übernehmen oder Import während eines automatischen Laufs bzw. „Playlist jetzt neu erstellen“', async () => {
+  const before = spotifyRequests().length;
+  const running = { startedAt: new Date(Date.now() - 2 * 60_000).toISOString(), finishedAt: null, ok: null };
+  for (const [file, de, en] of [
+    ['automatik.json', /^Gerade läuft ein automatischer Lauf \(seit \d\d:\d\d Uhr\)\. Warte, bis er fertig ist\.$/, /^An automatic run is in progress \(since .+\)\. Wait until it’s finished\.$/],
+    ['jetzt.json', /^Gerade erstellt die Verknüpfung „Tweakable DJ – .+“ die Playlist neu\./, /^The shortcut “Tweakable DJ – .+” is rebuilding the playlist right now\./],
+  ]) {
+    fs.writeFileSync(path.join(dir, file), JSON.stringify(running));
+    try {
+      const run = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
+      assert.equal(run.status, 409, file);
+      assert.match(run.data.error, de);
+      assert.match((await api('/api/run', { lang: 'en', method: 'POST' })).data.error, en);
+      assert.equal((await api('/api/apply', { lang: 'de', method: 'POST', body: { id: '0123456789ab' } })).status, 409);
+      assert.equal((await preview('Nordlicht – Polarnacht')).status, 409);
+      assert.equal((await api('/api/import', { lang: 'de', method: 'POST', body: { uris: ['spotify:track:aaaaaaaaaaaaaaaaaaaaaa'] } })).status, 409);
+    } finally {
+      fs.rmSync(path.join(dir, file), { force: true });
+    }
+  }
+  assert.equal(spotifyRequests().length, before, 'nichts an Spotify geschickt');
+  // Abgestürzter Lauf (älter als 30 Minuten) hält nichts auf
+  fs.writeFileSync(path.join(dir, 'automatik.json'), JSON.stringify({ ...running, startedAt: new Date(Date.now() - 31 * 60_000).toISOString() }));
+  try {
+    assert.equal((await preview('Nordlicht – Polarnacht')).status, 200);
+  } finally {
+    fs.rmSync(path.join(dir, 'automatik.json'), { force: true });
+  }
+});

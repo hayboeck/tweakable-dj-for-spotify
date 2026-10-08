@@ -11,6 +11,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULTS, LIMITS } from './config.mjs';
+import { readText, writeAtomic } from './files.mjs';
 
 export const TRIAL_FILE = 'probelauf.json';
 export const TRIAL_MAX_AGE = 24 * 3600_000;
@@ -51,7 +52,7 @@ const INVALID = Object.freeze({ invalid: true });
 export function readTrial(dir) {
   let raw;
   try {
-    raw = fs.readFileSync(path.join(dir, TRIAL_FILE), 'utf8');
+    raw = readText(path.join(dir, TRIAL_FILE));
   } catch (e) {
     if (e.code === 'ENOENT') return null;
     throw e;
@@ -88,7 +89,7 @@ export function saveTrial(dir, { cfg, lang, tracks, counts, summary, description
       uri: s.uri, artist: s.artist, artists: (s.artists?.length ? s.artists : [s.artist]).filter(text), name: s.name, kind: s.kind,
     })),
   };
-  fs.writeFileSync(path.join(dir, TRIAL_FILE), `${JSON.stringify(trial, null, 2)}\n`);
+  writeAtomic(path.join(dir, TRIAL_FILE), `${JSON.stringify(trial, null, 2)}\n`);
   return trial;
 }
 

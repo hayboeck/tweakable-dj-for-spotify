@@ -37,7 +37,7 @@ const SCHEDULE = { schedule: 'weekly', scheduleTime: '06:30', scheduleDay: 'FRI'
 async function withConfig(text, fn) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj ü-'));
   try {
-    for (const f of ['config.mjs', 'i18n.mjs', 'lineup.mjs', ...Object.values(TEMPLATES)]) fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
+    for (const f of ['config.mjs', 'files.mjs', 'i18n.mjs', 'lineup.mjs', ...Object.values(TEMPLATES)]) fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
     if (text !== null) fs.writeFileSync(path.join(dir, 'config.jsonc'), text);
     const config = await import(pathToFileURL(path.join(dir, 'config.mjs')).href);
     await fn(config, () => fs.readFileSync(path.join(dir, 'config.jsonc'), 'utf8'), dir);

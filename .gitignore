@@ -24,6 +24,8 @@ seen-version.json
 .update/
 # Playlist-Archiv: jede geschriebene Playlist als Textdatei (archive.mjs)
 archiv/
+# Zwischendatei beim Speichern einer persönlichen Datei (files.mjs); bleibt nur liegen, wenn das Programm genau dabei abbricht
+.*.tmp
 
 # System- und Editor-Dateien
 .DS_Store

@@ -16,6 +16,7 @@
 //   MOCK_NO_LIBRARY_SCOPE=1  ebenso ohne user-library-modify: PUT/DELETE /me/library liefern 403. Die Lieblingssongs (♥) stehen
 //                       mit MOCK_SPOTIFY_STORE in store.library (anfangs die Lieblingssongs von /me/tracks)
 //   MOCK_NODE_VERSION   täuscht eine andere Node-Version vor
+//   MOCK_SEARCH_DELAY_MS  jede Suche auf Spotify (/v1/search) antwortet erst nach so vielen Millisekunden (Lauf dauert länger)
 //   MOCK_GITHUB         JSON-Datei mit der Antwort von GitHub auf die Frage nach dem neuesten Release (update.mjs):
 //                       { "status": 200, "body": { "tag_name": "v0.2.0", "assets": […], … } } oder { "offline": true }
 //                       (= Netzfehler). Dazu für „Jetzt aktualisieren“ (install-update.mjs) die Dateien des Releases:
@@ -416,7 +417,10 @@ globalThis.fetch = async (input, init) => {
   const headers = new Headers(init?.headers);
   let res;
   if (url.origin === 'https://accounts.spotify.com' && url.pathname === '/api/token') res = spotifyToken(init);
-  else if (url.origin === 'https://api.spotify.com') res = await spotifyApi(url, init, headers);
+  else if (url.origin === 'https://api.spotify.com') {
+    if (url.pathname === '/v1/search' && Number(process.env.MOCK_SEARCH_DELAY_MS) > 0) await new Promise(r => setTimeout(r, Number(process.env.MOCK_SEARCH_DELAY_MS)));
+    res = await spotifyApi(url, init, headers);
+  }
   else if (url.origin === 'https://ws.audioscrobbler.com' && url.pathname === '/2.0/') res = lastfmApi(url);
   else if (url.origin === 'https://api.github.com' && /^\/repos\/[^/]+\/[^/]+\/releases\/latest$/.test(url.pathname)) res = githubRelease(url);
   else if (url.origin === 'https://github.com' && /^\/[^/]+\/[^/]+\/releases\/download\/[^/]+\/[^/]+$/.test(url.pathname)) res = githubDownload(url);

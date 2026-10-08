@@ -341,13 +341,15 @@ function updateStatus(force = false) {
 // Einen automatischen Lauf prüft installUpdate() selbst (automatik.json), auch noch einmal kurz vor dem Ersetzen.
 const sessionBusy = lang => (running ? t(lang, 'update.runBusy') : importing ? t(lang, 'update.importBusy')
   : loginJob?.status === 'pending' ? t(lang, 'update.loginBusy') : null);
-// Warum gerade kein Lauf geht bzw. kein Import, sonst null. Ein Import wartet zusätzlich auf eine laufende Anmeldung
-// (beide schreiben tokens.json), umgekehrt startet keine Anmeldung während eines Imports.
-// „Playlist jetzt neu erstellen“ (dj.mjs --now, zweite Verknüpfung) läuft außerhalb der Oberfläche: erkennbar an jetzt.json.
+// Warum gerade kein Lauf geht bzw. kein Import, sonst null: ein Lauf, Import oder Update der Oberfläche, ein automatischer Lauf
+// (automatik.json) oder „Playlist jetzt neu erstellen“ (dj.mjs --now, zweite Verknüpfung, erkennbar an jetzt.json) – die
+// laufen außerhalb der Oberfläche. Dazu eine laufende Anmeldung (Lauf, Import und Anmeldung schreiben tokens.json); umgekehrt
+// startet keine Anmeldung während eines Laufs oder Imports.
 const nowRunning = () => Boolean(autoRunSince(HERE, Date.now(), NOW_RESULT));
 const ownBusy = lang => (running ? t(lang, 'ui.busy') : importing ? t(lang, 'ui.importBusy') : installing ? t(lang, 'update.inProgress') : null);
-const runBusy = lang => ownBusy(lang) ?? (nowRunning() ? t(lang, 'ui.nowBusy') : null);
-const importBusy = lang => runBusy(lang) ?? (loginJob?.status === 'pending' ? t(lang, 'ui.loginBusy') : null);
+const runBusy = lang => ownBusy(lang) ?? autoRunMessage(HERE, lang, Date.now(), 'ui.autoBusy')
+  ?? (loginJob?.status === 'pending' ? t(lang, 'ui.loginBusy') : null);
+const importBusy = runBusy;
 // Ohne Client ID oder Anmeldung geht nichts, was Spotify fragt.
 const loginMissing = cfg => missingCredentials(cfg).includes('spotify.clientId') || !readTokens();
 // Warum Tweakable DJ gerade nicht beendet werden kann (Lauf, Import, Update, Anmeldung), sonst null.

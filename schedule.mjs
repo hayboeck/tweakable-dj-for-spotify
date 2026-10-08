@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { DEFAULTS, HERE, WEEKDAYS, checkValue } from './config.mjs';
+import { readText, writeAtomic } from './files.mjs';
 import { resolveLang, t, tError } from './i18n.mjs';
 
 export const AUTO_LOG = 'automatik.log';
@@ -372,7 +373,7 @@ const legacyOptions = (o, ids) => ({ ...o, ...ids });
 // Lauf von „Playlist jetzt neu erstellen“.
 export function lastRun(dir = HERE, file = AUTO_RESULT) {
   try {
-    return JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+    return JSON.parse(readText(path.join(dir, file)));
   } catch {
     return null;
   }
@@ -451,7 +452,7 @@ export function recordAutoRun(dir = HERE, lang = resolveLang(), files = { result
   };
   const save = () => {
     try {
-      fs.writeFileSync(path.join(dir, files.result), `${JSON.stringify(result, null, 2)}\n`);
+      writeAtomic(path.join(dir, files.result), `${JSON.stringify(result, null, 2)}\n`);
     } catch {
       // Nicht speicherbar (z. B. Ordner schreibgeschützt): der Lauf selbst geht trotzdem weiter.
     }

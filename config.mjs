@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeAtomic } from './files.mjs';
 import { LANGS, resolveLang, t, tError } from './i18n.mjs';
 import { trackKey } from './lineup.mjs';
 
@@ -380,7 +381,8 @@ function writeValues(entries, lang) {
     after = undefined;
   }
   if (canon(after) !== canon(expected)) throw tError(lang, 'config.unsafe');
-  if (text !== original) fs.writeFileSync(CONFIG, text);
+  // Atomar (files.mjs): Ein Lauf, der die Einstellungen gerade liest, sieht nie eine halb geschriebene Datei.
+  if (text !== original) writeAtomic(CONFIG, text);
 }
 
 // Zerlegt gültiges JSONC und merkt sich, wo jeder Wert steht: Pfad ("lastfm.user") → { start, end, members }.

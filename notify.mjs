@@ -13,6 +13,7 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readText, writeAtomic } from './files.mjs';
 import { t } from './i18n.mjs';
 
 export const NOTIFY_TIMEOUT = 10_000;
@@ -224,7 +225,7 @@ export function loginReminderDays({ authorizedAt, lastAt = null, now = new Date(
 
 const readJsonFile = file => {
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
+    return JSON.parse(readText(file));
   } catch {
     return undefined;
   }
@@ -247,9 +248,10 @@ export async function remindLogin({ dir, lang, enabled = true, now = new Date(),
     if (days === null) return null;
     const sent = await send(loginNotice(lang, days));
     if (sent.ok) {
-      // Frisch lesen: Ein Lauf kann state.json inzwischen geschrieben haben. Ohne Datei so, wie dj.mjs sie anlegt.
+      // Frisch lesen: Ein Lauf kann state.json inzwischen geschrieben haben. Ohne Datei so, wie dj.mjs sie anlegt. Atomar
+      // schreiben (files.mjs), damit ein Lauf daneben nie eine halbe Datei liest.
       const fresh = fs.existsSync(stateFile) ? readJsonFile(stateFile) : { history: [], cache: {} };
-      if (isObject(fresh)) fs.writeFileSync(stateFile, JSON.stringify({ ...fresh, loginReminderAt: now.toISOString() }, null, 2));
+      if (isObject(fresh)) writeAtomic(stateFile, JSON.stringify({ ...fresh, loginReminderAt: now.toISOString() }, null, 2));
     }
     return sent;
   } catch (e) {

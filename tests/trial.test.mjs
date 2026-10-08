@@ -2,7 +2,7 @@
 // "node dj.mjs --dry" → "node dj.mjs --apply" mit simulierten APIs (tests/mock-apis.mjs, Playlists in MOCK_SPOTIFY_STORE).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -378,6 +378,46 @@ test('--now: normaler Lauf mit Archiv, Ergebnis in jetzt.json (nicht automatik.j
     assert.equal(busy.status, 0, busy.stderr);
     assert.deepEqual(notices(dir), [{ title: 'Tweakable DJ: läuft gerade', text: 'Gerade läuft schon ein Lauf (Oberfläche oder Automatik). Versuch es gleich noch einmal.' }]);
     assert.equal(fs.readFileSync(path.join(dir, 'jetzt.json'), 'utf8'), before, 'jetzt.json unverändert');
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('Läufe überlappen: Verlauf, Such-Cache und Erinnerung eines anderen Laufs bleiben erhalten (state.json frisch gelesen)', async () => {
+  const dir = setup();
+  try {
+    assert.equal(dj(dir, ['--dry']).code, 0);
+    // Lauf A sucht langsam auf Spotify; währenddessen wird ein anderer Lauf fertig und schreibt state.json.
+    const child = spawn(process.execPath, ['--import', MOCK, 'dj.mjs'], {
+      cwd: dir, env: { ...process.env, MOCK_SPOTIFY_STORE: path.join(dir, 'store.json'), TWEAKABLE_DJ_LANG: 'de', MOCK_SEARCH_DELAY_MS: '150' },
+    });
+    let out = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    const exited = new Promise(resolve => child.on('exit', resolve));
+    child.stderr.on('data', chunk => (out += chunk));
+    await new Promise((resolve, reject) => {
+      child.stdout.on('data', chunk => {
+        out += chunk;
+        if (out.includes('Suche die Songs auf Spotify')) resolve();
+      });
+      exited.then(() => reject(new Error(`Lauf schon zu Ende: ${out}`)));
+    });
+    const other = state(dir);
+    other.history = [...other.history, ['anderer lauf|song']];
+    other.cache['anderer lauf|song'] = null;
+    other.loginReminderAt = '2026-10-08T07:00:00.000Z';
+    fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(other, null, 2));
+    assert.equal(await exited, 0, out);
+    const after = state(dir);
+    assert.equal(after.loginReminderAt, '2026-10-08T07:00:00.000Z', 'Erinnerungszeit bleibt');
+    assert.ok(Object.hasOwn(after.cache, 'anderer lauf|song'), 'Such-Cache des anderen Laufs bleibt');
+    assert.ok(Object.keys(after.cache).length > Object.keys(other.cache).length, 'eigene Einträge im Such-Cache dazu');
+    assert.deepEqual(after.history.at(-2), ['anderer lauf|song'], 'Verlauf des anderen Laufs bleibt');
+    assert.equal(after.history.at(-1).length, 20, 'eigener Lauf dazu');
+    const [playlist] = store(dir).playlists;
+    assert.deepEqual(after.playlistIds, { 'Test-DJ': playlist.id });
+    assert.deepEqual(fs.readdirSync(dir).filter(n => n.endsWith('.tmp')), [], 'keine Zwischendateien übrig');
   } finally {
     cleanup(dir);
   }

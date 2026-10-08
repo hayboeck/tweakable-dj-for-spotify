@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import { readText, writeAtomic } from './files.mjs';
 import { tError } from './i18n.mjs';
 
 const API = 'https://ws.audioscrobbler.com/2.0/';
@@ -10,7 +10,7 @@ const list = x => (x == null ? [] : Array.isArray(x) ? x : [x]);
 function readCache(file) {
   if (!file) return new Map();
   try {
-    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const data = JSON.parse(readText(file));
     return new Map(Object.entries(data).filter(([, e]) => Number.isFinite(e?.at)));
   } catch {
     return new Map();
@@ -120,7 +120,7 @@ export function createLastfm(apiKey, cacheFile, { lang } = {}) {
           changed = true;
         }
       }
-      if (changed) fs.writeFileSync(cacheFile, JSON.stringify(Object.fromEntries(cache)));
+      if (changed) writeAtomic(cacheFile, JSON.stringify(Object.fromEntries(cache)));
       changed = false;
     },
   };
