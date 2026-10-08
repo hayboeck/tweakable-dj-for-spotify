@@ -46,7 +46,7 @@ export const DEFAULTS = {
   scheduleDay: 'MON',
   notifyOnFailure: true, // Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt (notify.mjs)
   remindLogin: true, // Systembenachrichtigung eine Woche bevor die Spotify-Anmeldung abläuft (remindLogin in notify.mjs)
-  runShortcut: false, // zweite Verknüpfung „Tweakable DJ – Playlist neu“ auf dem Desktop (shortcut.mjs, Art 'run'); wirkt beim Speichern
+  runShortcut: false, // zweite Verknüpfung „Tweakable DJ – Playlist neu erstellen“ auf dem Desktop (shortcut.mjs, Art 'run'); wirkt beim Speichern
   theme: 'system', // Aussehen der Oberfläche: 'system', 'light' oder 'dark' (THEMES)
   accent: 'green', // Akzentfarbe der Oberfläche (ACCENTS); beide ändern die Playlist nicht
   // Ansicht des Tabs „Playlist“ (MODES): 'simple' = nur Voreinstellungen und Anzahl Songs, 'pro' = alle Regler. Neue Nutzer

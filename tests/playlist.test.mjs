@@ -1,4 +1,4 @@
-// Textdatei: Format von „Als Textdatei speichern“ (formatExport), Import (parseImport, resolveImport) und End-to-End
+// Textdatei: Format von „Playlist speichern“ (formatExport), Import (parseImport, resolveImport) und End-to-End
 // "node dj.mjs export" bzw. "node dj.mjs import" mit simulierten APIs (tests/mock-apis.mjs, Playlists in MOCK_SPOTIFY_STORE).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,7 +23,7 @@ const TRACKS = [
 ];
 const NOW = new Date(2026, 9, 5, 14, 3);
 
-// --- Als Textdatei speichern ---
+// --- Playlist speichern (Textdatei) ---
 
 test('formatExport: Kopfzeilen mit #, eine Zeile pro Song mit allen Künstlern, Tabulator, Link', () => {
   const text = formatExport({ name: 'Tweakable DJ', url: 'https://open.spotify.com/playlist/xyz', tracks: TRACKS, lang: 'de', now: NOW });
@@ -256,9 +256,9 @@ test('export: Playlist aus Spotify als Textdatei; import derselben Datei ergibt 
     // Ohne Playlist: klare Meldung, keine Datei
     const none = dj(dir, ['export', 'liste.txt']);
     assert.equal(none.code, 1);
-    assert.match(none.err, /^Fehler: Die Playlist "Test-DJ" gibt es in deinem Spotify noch nicht\./m);
+    assert.match(none.err, /^Fehler: Die Playlist „Test-DJ“ gibt es in deinem Spotify noch nicht\./m);
     assert.equal(fs.existsSync(path.join(dir, 'liste.txt')), false);
-    assert.match(dj(dir, ['export'], { TWEAKABLE_DJ_LANG: 'en' }).err, /^Error: The playlist "Test-DJ" doesn’t exist in your Spotify yet\./m);
+    assert.match(dj(dir, ['export'], { TWEAKABLE_DJ_LANG: 'en' }).err, /^Error: The playlist “Test-DJ” doesn’t exist in your Spotify yet\./m);
 
     // Playlist anlegen (Probelauf übernehmen), dann speichern
     assert.equal(dj(dir, ['--dry']).code, 0);
@@ -293,7 +293,7 @@ test('export: Playlist aus Spotify als Textdatei; import derselben Datei ergibt 
     assert.equal(imported.code, 0, imported.all);
     assert.match(imported.out, /^Suche 20 Songs aus der Datei …$/m);
     assert.match(imported.out, /^20 von 20 Songs gefunden$/m);
-    assert.match(imported.out, new RegExp(`^"Test-DJ" enthält jetzt 20 Songs aus der Datei ✓ {2}https://open\\.spotify\\.com/playlist/${playlist.id}$`, 'm'));
+    assert.match(imported.out, new RegExp(`^„Test-DJ“ enthält jetzt 20 Songs aus der Datei ✓ {2}https://open\\.spotify\\.com/playlist/${playlist.id}$`, 'm'));
     assert.deepEqual(imported.requests.filter(r => r.path?.startsWith('/v1/search')), [], 'Links brauchen keine Suche');
     const after = store(dir).playlists[0];
     assert.deepEqual(after.uris, playlist.uris);
@@ -332,7 +332,7 @@ test('import: Suche nach "Künstler – Titel", nicht gefundene Zeilen, --dry, D
     assert.equal(en.code, 0, en.all);
     assert.match(en.out, /^3 of 6 songs found$/m);
     assert.match(en.out, /^ {2}Line 5: Hafenlicht – Nicht auf Spotify 7 \(not found on Spotify\)$/m);
-    assert.match(en.out, /^Created playlist "Test-DJ"\.$/m);
+    assert.match(en.out, /^Created playlist “Test-DJ”\.$/m);
     const [playlist] = store(dir).playlists;
     assert.equal(playlist.uris.length, 3);
     assert.equal(store(dir).tracks[playlist.uris[1]].artists.join(', '), 'Bergfunk, Gaststar', 'Duett mit Gast über die Suche nach dem Hauptkünstler');

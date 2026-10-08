@@ -407,8 +407,8 @@ test('POST /api/update/install: nicht während eines Laufs oder eines automatisc
   await reader.read();
   try {
     assert.deepEqual(await install('de'), {
-      status: 409, data: { error: 'Gerade läuft ein Durchgang. Warte, bis er fertig ist, und aktualisiere dann.' },
-      text: JSON.stringify({ error: 'Gerade läuft ein Durchgang. Warte, bis er fertig ist, und aktualisiere dann.' }),
+      status: 409, data: { error: 'Gerade läuft ein Lauf. Warte, bis er fertig ist, und aktualisiere dann.' },
+      text: JSON.stringify({ error: 'Gerade läuft ein Lauf. Warte, bis er fertig ist, und aktualisiere dann.' }),
     });
     assert.equal((await install('en')).data.error, 'A run is in progress. Wait until it’s finished, then update.');
   } finally {
@@ -477,7 +477,7 @@ test('GET /api/whatsnew: ohne Version kein Hinweis; POST merkt nichts', async ()
   assert.equal(fs.existsSync(path.join(dir, 'seen-version.json')), false);
 });
 
-test('„Diese Liste übernehmen“: Playlist = Liste des Probelaufs; abgelaufen nach Änderung der Einstellungen bzw. nach dem Übernehmen', async () => {
+test('„„<Name>“ überschreiben“: Playlist = erstellte Liste (Probelauf); abgelaufen nach Änderung der Einstellungen bzw. nach dem Übernehmen', async () => {
   const dry = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
   const { trialId } = resultLine(dry.text);
   assert.match(trialId, /^[0-9a-f]{12}$/);
@@ -516,7 +516,7 @@ test('„Diese Liste übernehmen“: Playlist = Liste des Probelaufs; abgelaufen
   // Übernehmen: Ausgabe wie ein Lauf, die Playlist enthält genau die Songs des Probelaufs
   const applied = await api('/api/apply', { lang: 'de', method: 'POST', body: { id: trialId } });
   assert.equal(applied.status, 200);
-  assert.match(applied.text, /^Übernehme die Liste vom .+ \(20 Songs\), ohne neu zu losen …$/m);
+  assert.match(applied.text, /^Schreibe die Liste vom .+ \(20 Songs\) nach Spotify, ohne neu zu losen …$/m);
   const r = resultLine(applied.text);
   assert.deepEqual([r.ok, r.dry, r.songs, r.errorCode], [true, false, 20, null]);
   const playlist = store().playlists.find(p => p.name === 'Test-DJ');
@@ -589,7 +589,7 @@ test('Sperre: kein Import während eines Laufs; kein Lauf, Übernehmen, Anmelden
   await runReader.read();
   try {
     const p = await preview('A – B');
-    assert.deepEqual([p.status, p.data.error], [409, 'Es läuft bereits ein Durchgang.']);
+    assert.deepEqual([p.status, p.data.error], [409, 'Es läuft bereits ein Lauf.']);
     const w = await api('/api/import', { lang: 'en', method: 'POST', body: { uris: ['spotify:track:aaaaaaaaaaaaaaaaaaaaaa'] } });
     assert.deepEqual([w.status, w.data.error], [409, 'A run is already in progress.']);
   } finally {
@@ -864,7 +864,7 @@ test('GET /api/update?force=1: fragt sofort, zweiter Klick innerhalb einer Minut
   fs.rmSync(path.join(dir, 'update-check.json'), { force: true });
 });
 
-// --- Probelauf: Liste für „sperren“, gesperrter Song macht „Diese Liste übernehmen“ ungültig; Import mit Hinweisen ---
+// --- Probelauf: Liste für „sperren“, gesperrter Song macht „überschreiben“ ungültig; Import mit Hinweisen ---
 
 test('GET /api/trial?tracks=1: Songs des Probelaufs; einen davon sperren → nicht mehr übernehmbar, nächster Probelauf ohne ihn', async () => {
   const dry = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
@@ -1004,7 +1004,7 @@ test('Vorige Playlist wiederherstellen: archiveFile nach Lauf und Import, undo =
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'state.json'), 'utf8')).history, history, 'Import zählt nicht als Lauf');
 });
 
-// „Neu in Spotify anlegen“: POST /api/apply mit target 'new' legt eine neue Playlist an; die aus den Einstellungen bleibt.
+// „Neue Playlist anlegen“: POST /api/apply mit target 'new' legt eine neue Playlist an; die aus den Einstellungen bleibt.
 // „Vorige Playlist wiederherstellen“ nach dem nächsten Überschreiben überspringt die neu angelegte.
 test('Erstellte Liste als neue Playlist: target new, Name mit Datum und Uhrzeit, Archiv; undo nur für dieselbe Playlist', async () => {
   // Diese config.jsonc stammt von „früher“ (ohne mode): Ansicht „Pro“; mode zählt nicht für die erstellte Liste
@@ -1317,7 +1317,7 @@ test('Sperre: zwei Anfragen fast gleichzeitig (Inhalt der ersten kommt verzöger
   }
   assert.equal(resultLine(text).ok, true, text);
   assert.equal(a.status, 409, a.text);
-  assert.equal(JSON.parse(a.text).error, 'Es läuft bereits ein Durchgang.');
+  assert.equal(JSON.parse(a.text).error, 'Es läuft bereits ein Lauf.');
   const after = store().playlists;
   assert.equal(after.length, before.length + 1, 'genau eine neue Playlist');
   for (const p of before) assert.deepEqual(after.find(x => x.id === p.id).uris, p.uris, 'die bisherigen Playlists bleiben, wie sie sind');

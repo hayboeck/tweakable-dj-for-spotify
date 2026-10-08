@@ -338,8 +338,8 @@ test('Download nur von GitHub per HTTPS, mit Größenlimit; fehlende Release-Dat
 });
 
 test('Nicht während eines Laufs, einer Anmeldung oder eines automatischen Laufs; nicht in einem git-Checkout', async () => {
-  await expectUnchanged(rel => publish(rel, { version: '0.2.0' }), /^Update fehlgeschlagen: Gerade läuft ein Durchgang\./,
-    { busy: () => 'Gerade läuft ein Durchgang.' });
+  await expectUnchanged(rel => publish(rel, { version: '0.2.0' }), /^Update fehlgeschlagen: Gerade läuft ein Lauf\./,
+    { busy: () => 'Gerade läuft ein Lauf.' });
   // Erst kurz vor dem Ersetzen beschäftigt (z. B. Anmeldung gestartet, während geladen wurde)
   let calls = 0;
   await expectUnchanged(rel => publish(rel, { version: '0.2.0' }), /Gerade läuft eine Anmeldung/,

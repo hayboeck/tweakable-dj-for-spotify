@@ -8,10 +8,12 @@
 
   // --- Playlist ---
   "playlistName": "Tweakable DJ",     // Name of the playlist to fill (created if it doesn't exist)
+
+  // --- Length ---
   "size": 50,                         // Number of songs per run (1–500)
-  "familiarShare": 0.15,              // Share of favorites (0–1; 0.15 = 15% ≈ 8 songs), the rest are new songs
 
   // --- Selection ---
+  "familiarShare": 0.15,              // Share of favorites (0–1; 0.15 = 15% ≈ 8 songs), the rest are new songs
   "adventure": 0.4,                   // 0–1: 0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant ones; also the chance of detours to related artists
   "seedsPerRun": 20,                  // Number of starting points drawn per run, for which Last.fm finds similar songs (1–200)
   "useLastfmTopTracks": true,         // Also use your Last.fm top songs of the last 3 months as starting points
@@ -36,7 +38,7 @@
   // --- Block list ---
   "excludeExplicit": false,           // true = no songs with explicit lyrics (as marked by Spotify), neither as favorites nor as new songs
   "blockedArtists": [],               // Artists that are never played, e.g. ["Artist A", "Artist B"]
-  "blockedTracks": [],                // Songs that are never played, also in other versions (at most 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; easiest with × in the created list (tab Playlist)
+  "blockedTracks": [],                // Songs that are never played, also in other versions (at most 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; easiest with × in the created list (tab “Playlist”)
 
   // --- Archive ---
   "archiveCount": 20,                 // After each write, the playlist is kept as a text file in the folder "archiv"; this many of the newest stay (0–200, 0 = off)
@@ -53,7 +55,7 @@
 
   // --- Shortcut ---
   // Set this in the interface (tab Settings → Shortcut): only saving there adds it to the desktop or removes it.
-  "runShortcut": false,               // true = second shortcut “Tweakable DJ – Playlist neu”: rebuilds the playlist with a double-click, without the interface
+  "runShortcut": false,               // true = second shortcut “Tweakable DJ – Rebuild playlist”: rebuilds the playlist with a double-click, without the interface
 
   // --- Appearance ---
   "theme": "system",                  // Mode of the interface: "system" = like your device, "light" or "dark"

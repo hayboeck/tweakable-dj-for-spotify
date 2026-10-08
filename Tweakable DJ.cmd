@@ -5,7 +5,7 @@ rem   Tweakable DJ laeuft.
 rem   Mit --hidden (so startet die Verknuepfung auf dem Desktop, ueber "conhost.exe --headless"): ohne Fenster, die
 rem   Ausgaben stehen in ui.log. Hier wartet nie ein "pause" (das bliebe unsichtbar haengen): Fehlt Node.js, ist es zu alt
 rem   oder endet node unerwartet mit einem Fehler, startet diese Datei sich mit Fenster neu, damit man die Meldung sieht.
-rem   Mit --now (zweite Verknuepfung "Tweakable DJ - Playlist neu"): ebenfalls ohne Fenster, aber statt der Oberflaeche
+rem   Mit --now (zweite Verknuepfung "Tweakable DJ - Playlist neu erstellen"): ebenfalls ohne Fenster, aber statt der Oberflaeche
 rem   "node dj.mjs --now" - erstellt die Playlist neu und meldet sich mit einer Systembenachrichtigung.
 rem
 rem Alles Weitere steht in EINEM Klammerblock, der mit exit /b endet: cmd.exe liest den ganzen Block ein, bevor es

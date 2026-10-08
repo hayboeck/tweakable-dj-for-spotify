@@ -390,11 +390,20 @@ function ownInstance() {
   });
 }
 
-// Eigene Verknüpfungen auf dem Desktop, die auf diesen Ordner zeigen, aber veraltet sind (z. B. noch mit Fenster): beim Start
-// still erneuern, damit niemand etwas tun muss. Nur, wenn eine Startdatei gestartet hat (also nicht in Tests); fremde Dateien
-// und Verknüpfungen auf andere Ordner bleiben, wie sie sind.
+// Eigene Verknüpfungen auf dem Desktop, die auf diesen Ordner zeigen, aber veraltet sind (z. B. noch mit Fenster oder unter
+// einem früheren Namen): beim Start still erneuern, damit niemand etwas tun muss. Nur, wenn eine Startdatei gestartet hat
+// (also nicht in Tests); fremde Dateien und Verknüpfungen auf andere Ordner bleiben, wie sie sind. Die zweite Verknüpfung
+// ('run') nur, wenn sie eingeschaltet ist (runShortcut) – sonst gibt es keine, und jede Prüfung kostet unter Windows einen
+// Aufruf von PowerShell.
 async function renewShortcuts(lang) {
+  let runOn = false;
+  try {
+    runOn = currentConfig(lang).runShortcut === true;
+  } catch {
+    // config.jsonc fehlt oder ist kaputt: nur die Verknüpfung der Oberfläche
+  }
   for (const kind of Object.keys(SHORTCUTS)) {
+    if (kind === 'run' && !runOn) continue;
     try {
       const status = await shortcutStatus({ lang, kind });
       if (status.state !== 'outdated') continue;
@@ -758,7 +767,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Erstellte Liste nach Spotify: Body { id, target } – id = Kennung des Probelaufs, den die Seite zeigt; target 'standard'
-    // („„<Name>“ überschreiben“, Standard) bzw. 'new' („Neu in Spotify anlegen“: neue Playlist mit Datum und Uhrzeit im Namen).
+    // („„<Name>“ überschreiben“, Standard) bzw. 'new' („Neue Playlist anlegen“: neue Playlist mit Datum und Uhrzeit im Namen).
     // Prüft wie dj.mjs --apply, ob er noch gilt (409 mit reason, sonst), und schreibt ihn dann mit dj.mjs --apply (bzw.
     // --apply --new) – Ausgabe und @@RESULT wie bei /api/run.
     if (route === 'POST /api/apply') {
@@ -773,7 +782,7 @@ const server = http.createServer(async (req, res) => {
       return streamRun(res, ['dj.mjs', '--apply', `--trial=${id}`, ...(target === 'new' ? ['--new'] : [])], lang, target === 'new' ? 'new' : 'apply');
     }
 
-    // „Als Textdatei speichern“: { text, filename, songs } für den Download im Browser. Ohne ?trial= die Playlist, wie sie
+    // „Playlist speichern“ (Textdatei): { text, filename, songs } für den Download im Browser. Ohne ?trial= die Playlist, wie sie
     // gerade in Spotify ist; mit ?trial=<Kennung> der Probelauf, der noch nicht übernommen ist (aus probelauf.json).
     if (route === 'GET /api/export') {
       const now = new Date();

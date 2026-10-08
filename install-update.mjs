@@ -13,7 +13,8 @@
 //
 // Persönliche Dateien bleiben immer unverändert: Geschrieben werden nur Dateien aus manifest.json (Erlaubnisliste),
 // gelöscht wird nichts. Nennt manifest.json eine persönliche Datei (config.jsonc, tokens.json, state.json,
-// lastfm-cache.json, probelauf.json, automatik.*, update-check.json, seen-version.json, *.log, alles im Archiv archiv/) oder einen Pfad
+// lastfm-cache.json, probelauf.json, automatik.*, jetzt.json, update-check.json, seen-version.json, *.log wie ui.log, ui.old.log und
+// jetzt.log, alles im Archiv archiv/) oder einen Pfad
 // außerhalb des Ordners, oder führt der Weg zu einer Datei durch einen symbolischen Link, bricht das ganze Update ab, bevor
 // etwas geschrieben ist.
 //

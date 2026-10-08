@@ -154,7 +154,7 @@ test('Übernehmen: genau die Liste des Probelaufs, in derselben Reihenfolge, ohn
 
     const applied = dj(dir, ['--apply']);
     assert.equal(applied.code, 0, applied.all);
-    assert.match(applied.out, /^Übernehme die Liste vom \d+\.\d+\.\d{4}, \d\d:\d\d Uhr \(20 Songs\), ohne neu zu losen …$/m);
+    assert.match(applied.out, /^Schreibe die Liste vom \d+\.\d+\.\d{4}, \d\d:\d\d Uhr \(20 Songs\) nach Spotify, ohne neu zu losen …$/m);
     assert.deepEqual(lineupLines(applied.out), shown, 'dieselbe Liste in derselben Reihenfolge');
     // Nichts neu gelost: weder Last.fm noch die Spotify-Suche gefragt
     assert.deepEqual(applied.requests.filter(r => r.host === 'ws.audioscrobbler.com' || r.path?.startsWith('/v1/search')), []);
@@ -164,7 +164,7 @@ test('Übernehmen: genau die Liste des Probelaufs, in derselben Reihenfolge, ohn
     const [playlist] = store(dir).playlists;
     assert.equal(r.playlistUrl, `https://open.spotify.com/playlist/${playlist.id}`);
     assert.deepEqual([playlist.name, playlist.uris, playlist.description], ['Test-DJ', trial.tracks.map(t => t.uri), trial.description]);
-    assert.match(applied.out, /^Playlist "Test-DJ" angelegt\.$/m);
+    assert.match(applied.out, /^Playlist „Test-DJ“ angelegt\.$/m);
     // Verlauf: ein Eintrag wie nach einem echten Lauf (für „Vorige Läufe sperren“)
     const history = state(dir).history;
     assert.deepEqual(history, [...historyBefore, trial.tracks.map(t => trackKey(t.artist, t.name))]);
@@ -174,9 +174,9 @@ test('Übernehmen: genau die Liste des Probelaufs, in derselben Reihenfolge, ohn
     const again = dj(dir, ['--apply']);
     assert.equal(again.code, 1);
     assert.deepEqual([again.result.ok, again.result.errorCode], [false, 'trial_expired']);
-    assert.match(again.err, /^Fehler: Es gibt keine erstellte Liste zum Übernehmen: Noch keine erstellt, oder die Playlist wurde seitdem neu geschrieben\./m);
+    assert.match(again.err, /^Fehler: Es gibt keine erstellte Liste, die sich nach Spotify bringen ließe: Noch keine erstellt, oder die Playlist wurde seitdem neu geschrieben\./m);
     assert.deepEqual(writes(again.requests), []);
-    assert.match(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }).err, /^Error: There’s no created list to apply: none has been created yet/m);
+    assert.match(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }).err, /^Error: There’s no created list to bring to Spotify: none has been created yet/m);
 
     // Nächster Probelauf sperrt die übernommenen Songs (noRepeatRuns 2), der Verlauf bleibt auf 2 Läufe begrenzt
     const next = dj(dir, ['--dry']);
@@ -230,7 +230,7 @@ test('Übernehmen geht nicht mehr: Einstellungen geändert, älter als 24 Stunde
     const run = dj(dir);
     assert.equal(run.code, 0, run.all);
     assert.equal(fs.existsSync(file), false);
-    expired(dj(dir, ['--apply']), /^Fehler: Es gibt keine erstellte Liste zum Übernehmen/m);
+    expired(dj(dir, ['--apply']), /^Fehler: Es gibt keine erstellte Liste, die sich nach Spotify bringen ließe/m);
   } finally {
     cleanup(dir);
   }
@@ -274,7 +274,7 @@ test('--apply --new: neue Playlist „<Name> · <Datum> <Uhrzeit>“, die bisher
     const two = n => String(n).padStart(2, '0');
     assert.match(created.name, new RegExp(`^Test-DJ · ${two(before.getDate())}\\.${two(before.getMonth() + 1)}\\.${before.getFullYear()} \\d\\d:\\d\\d$`));
     assert.deepEqual([created.uris, created.description], [trial.tracks.map(t => t.uri), trial.description]);
-    assert.ok(applied.out.split(/\r?\n/).includes(`Playlist "${created.name}" angelegt.`), applied.out);
+    assert.ok(applied.out.split(/\r?\n/).includes(`Playlist „${created.name}“ angelegt.`), applied.out);
     const r = applied.result;
     assert.deepEqual([r.ok, r.dry, r.playlistName, r.playlistUrl], [true, false, created.name, `https://open.spotify.com/playlist/${created.id}`]);
     // Archiv: Kopfzeile mit dem neuen Namen und dem Link zur neuen Playlist

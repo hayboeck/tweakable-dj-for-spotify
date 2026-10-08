@@ -1,4 +1,4 @@
-// Die Playlist des DJ in Spotify schreiben und lesen, dazu das Textformat für „Als Textdatei speichern“ und den Import.
+// Die Playlist des DJ in Spotify schreiben und lesen, dazu das Textformat für „Playlist speichern“ (Textdatei) und den Import.
 //
 // Textdatei (UTF-8, eine Zeile pro Song, Zeilen mit # am Anfang sind Kommentare):
 //   # Tweakable DJ – exportiert am 5.10.2026, 14:03 · https://open.spotify.com/playlist/…
@@ -45,7 +45,7 @@ export function dateTime(lang, d) {
 // --- Spotify ---
 
 // Schreibt uris (in dieser Reihenfolge) in die eigene Playlist name und setzt die Beschreibung; legt sie bei Bedarf an.
-// create: immer eine neue Playlist anlegen, auch wenn es schon eine mit diesem Namen gibt („Als neue Playlist anlegen“).
+// create: immer eine neue Playlist anlegen, auch wenn es schon eine mit diesem Namen gibt („Neue Playlist anlegen“).
 // knownId: ID der Playlist vom letzten Schreiben (state.json, playlistIds). Gehört sie noch dir und heißt noch so, nimmt
 // Tweakable DJ sie direkt – ohne die Liste deiner Playlists zu durchsuchen. Die kann Spotify bei einer Störung unvollständig
 // liefern; dann würde eine zweite Playlist gleichen Namens entstehen.
@@ -61,7 +61,7 @@ export async function writePlaylist(spotify, { name, uris, description, lang, wa
   return { id, url: playlistUrl(id), created };
 }
 
-// Name einer neuen Playlist („Als neue Playlist anlegen“ in der Oberfläche, dj.mjs --new): „<Name> · <Datum> <Uhrzeit>“
+// Name einer neuen Playlist („Neue Playlist anlegen“ in der Oberfläche, dj.mjs --new): „<Name> · <Datum> <Uhrzeit>“
 // im Format der Sprache, z. B. "Tweakable DJ · 07.10.2026 15:32" bzw. "Tweakable DJ · 10/07/2026 03:32 PM". Nur gewöhnliche
 // Leerzeichen (manche Sprachen setzen geschützte, z. B. vor „PM“) und keine Steuerzeichen.
 export function newPlaylistName(name, lang, now = new Date()) {
@@ -83,7 +83,7 @@ export async function readPlaylist(spotify, name, { knownId = null, id = null } 
   return { id, url: playlistUrl(id), tracks: await spotify.playlistTracks(id) };
 }
 
-// --- Als Textdatei speichern ---
+// --- Playlist speichern (Textdatei) ---
 
 // Steuerzeichen (auch Tabulator und Zeilenumbruch) aus Namen entfernen, damit jede Zeile genau ein Song bleibt.
 const clean = s => String(s ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').replace(/ {2,}/g, ' ').trim();
@@ -99,7 +99,8 @@ export function formatExport({ name, url = null, tracks, lang, now = new Date(),
   return `${lines.join('\n')}\n`;
 }
 
-// Dateiname mit dem Datum (Ortszeit): tweakable-dj-2026-10-05.txt, für einen Probelauf tweakable-dj-2026-10-05-probelauf.txt.
+// Dateiname mit dem Datum (Ortszeit): tweakable-dj-2026-10-05.txt, für eine erstellte Liste (Probelauf) mit dem Wort aus export.trialSuffix, z. B.
+// tweakable-dj-2026-10-05-neu.txt bzw. -new.txt.
 export function exportFileName(lang, now = new Date(), trial = false) {
   const two = n => String(n).padStart(2, '0');
   const day = `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;

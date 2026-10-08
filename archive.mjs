@@ -1,6 +1,6 @@
 // Playlist-Archiv: Nach jedem Schreiben der Playlist in Spotify (Lauf aus der Oberfläche oder dem Terminal, automatischer
 // Lauf, übernommener Probelauf, Import) legt Tweakable DJ die geschriebene Liste als Textdatei im Ordner archiv/ ab – im
-// selben Format wie „Als Textdatei speichern“ (formatExport in playlist.mjs). „Importieren … → Frühere Playlist …“ in der
+// selben Format wie „Playlist speichern“ (Textdatei) (formatExport in playlist.mjs). „Importieren … → Frühere Playlist …“ in der
 // Oberfläche holt sie zurück (Vorschau und Rückfrage wie beim Import einer Datei).
 //
 // Dateiname mit Datum und Uhrzeit (Ortszeit), alphabetisch = zeitlich sortiert: "2026-10-06 18-30-05 Tweakable DJ.txt";
@@ -157,7 +157,7 @@ export function listArchive(dir) {
 // (= Stand der Playlist vor diesem Lauf). Nur, solange after noch der neueste Eintrag ist – sonst hat inzwischen etwas
 // anderes die Playlist geschrieben (z. B. ein automatischer Lauf), und „zurück“ wäre nicht mehr eindeutig. entries wie
 // listArchive (neueste zuerst). Ergebnis: Eintrag { id, at, songs, url } oder null.
-// Nur ein Stand derselben Playlist (gleicher Link): Listen, die als neue Playlist angelegt wurden („Neu in Spotify anlegen“),
+// Nur ein Stand derselben Playlist (gleicher Link): Listen, die als neue Playlist angelegt wurden („Neue Playlist anlegen“),
 // liegen auch im Archiv, waren aber nie der Inhalt dieser Playlist. Ohne Link (unbekannt) zählt jeder Eintrag.
 export function undoTarget(entries, after) {
   if (typeof after !== 'string' || !Array.isArray(entries) || entries[0]?.id !== after) return null;

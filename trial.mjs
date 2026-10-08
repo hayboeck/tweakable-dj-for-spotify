@@ -1,4 +1,6 @@
-// Probelauf merken und später genau so übernehmen („Diese Liste übernehmen“ in der Oberfläche bzw. node dj.mjs --apply).
+// Probelauf merken und später genau so nach Spotify bringen. In der Oberfläche heißt er „erstellte Liste“ („Playlist
+// erstellen“), gebracht wird er mit „„<Name>“ überschreiben“ bzw. „Neue Playlist anlegen“, im Terminal mit node dj.mjs --apply
+// (--apply --new). Der Dateiname probelauf.json bleibt aus Rücksicht auf ältere Installationen.
 //
 // dj.mjs --dry speichert sein Ergebnis in probelauf.json: die Songs in ihrer Reihenfolge (URI, Künstler, Titel, Markierung),
 // Name und Beschreibung der Playlist, die Zahlen für die Zusammenfassung samt Spieldauer (durationMs, durationEstimated;

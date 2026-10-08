@@ -7,7 +7,7 @@
 //                       mit denselben Einstellungen; mit --dry nur prüfen und anzeigen). Die Oberfläche nennt den Probelauf
 //                       „erstellte Liste“: „Playlist erstellen“ = --dry, „„<Name>“ überschreiben“ = --apply.
 //   node dj.mjs --apply --new   dasselbe, aber in eine neue Playlist „<Name> · <Datum> <Uhrzeit>“ (newPlaylistName in
-//                       playlist.mjs); die Playlist aus den Einstellungen bleibt, wie sie ist („Neu in Spotify anlegen“).
+//                       playlist.mjs); die Playlist aus den Einstellungen bleibt, wie sie ist („Neue Playlist anlegen“).
 //                       --new gilt auch für einen normalen Lauf.
 //   node dj.mjs export [datei.txt]   Playlist als Textdatei speichern (ohne Angabe: tweakable-dj-<Datum>.txt hier im Ordner)
 //   node dj.mjs import <datei.txt>   Songs aus einer Textdatei in die Playlist schreiben (mit --dry nur anzeigen);
@@ -453,7 +453,7 @@ async function main() {
   if (dry) {
     updateState(saveCache);
     console.log(`\n${t(lang, 'run.dry')}`);
-    // Für „Diese Liste übernehmen“ bzw. --apply merken; klappt das nicht, ist der Probelauf trotzdem gültig.
+    // Für „„<Name>“ überschreiben“ bzw. „Neue Playlist anlegen“ (--apply) merken; klappt das nicht, ist der Probelauf trotzdem gültig.
     let trial = null;
     try {
       trial = saveTrial(HERE, { cfg, lang, tracks: lineup, counts: { ...counts, ...stats }, summary, description });

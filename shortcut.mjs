@@ -14,7 +14,7 @@
 //            Terminal, Symbol assets/logo.png; ausführbar und – wo es gio gibt – als vertrauenswürdig markiert.
 // Entfernt bzw. ersetzt wird nur die eigene Verknüpfung (Windows: Aufruf von "Tweakable DJ.cmd" mit dem Argument der Art,
 // macOS: Kennung in der Info.plist, Linux: Zeile X-Tweakable-DJ=…). Eine fremde Datei gleichen Namens bleibt immer unangetastet.
-// Arten (SHORTCUTS, Option kind): 'open' = die Oberfläche, 'run' = „Tweakable DJ – Playlist neu“ (Einstellung runShortcut):
+// Arten (SHORTCUTS, Option kind): 'open' = die Oberfläche, 'run' = „Tweakable DJ – Playlist neu erstellen“ (Einstellung runShortcut):
 // erstellt die Playlist ohne Oberfläche neu (Startdatei mit --now, siehe dj.mjs) und meldet sich mit einer Benachrichtigung.
 // Die Inhalte (plist, Skript, Desktop-Eintrag) sind reine Funktionen; Befehle, Pfade und Plattform lassen sich für Tests
 // übergeben (wie in schedule.mjs).
@@ -29,7 +29,8 @@ import { resolveLang, t, tError } from './i18n.mjs';
 // Arten von Verknüpfungen: name (auf dem Desktop; names: je Sprache der Oberfläche), arg (für Tweakable DJ.cmd bzw. start.sh),
 // bundleId (macOS), linux (Dateiname), marker (Zeile im Desktop-Eintrag), description (Schlüssel in i18n.mjs).
 // Erkannt wird die eigene Verknüpfung nie am Namen, sondern an Ziel/Argument, Kennung bzw. Marker; eine Verknüpfung unter
-// dem Namen einer anderen Sprache gilt als veraltet und wird beim nächsten Anlegen (Speichern, Start) umbenannt.
+// dem Namen einer anderen Sprache bzw. einem früheren Namen (oldNames) gilt als veraltet und wird beim nächsten Anlegen
+// (Speichern, Start) umbenannt.
 export const SHORTCUTS = {
   open: {
     name: 'Tweakable DJ', arg: '--hidden', bundleId: 'io.github.tweakable-dj.launcher', linux: 'tweakable-dj.desktop',
@@ -37,19 +38,24 @@ export const SHORTCUTS = {
   },
   // Namen: auf allen Plattformen gültige Dateinamen (ohne / \ : * ? " < > |).
   run: {
-    name: 'Tweakable DJ – Playlist neu', arg: '--now',
-    names: { de: 'Tweakable DJ – Playlist neu', en: 'Tweakable DJ – New playlist', es: 'Tweakable DJ – Nueva playlist', fr: 'Tweakable DJ – Nouvelle playlist' }, bundleId: 'io.github.tweakable-dj.run', linux: 'tweakable-dj-playlist.desktop',
+    name: 'Tweakable DJ – Playlist neu erstellen', arg: '--now',
+    names: {
+      de: 'Tweakable DJ – Playlist neu erstellen', en: 'Tweakable DJ – Rebuild playlist', es: 'Tweakable DJ – Recrear la playlist',
+      fr: 'Tweakable DJ – Recréer la playlist',
+    },
+    // Namen bis 0.3.2 („Playlist neu“ ließ sich mit „Neue Playlist anlegen“ verwechseln); werden beim Start umbenannt.
+    oldNames: { de: ['Tweakable DJ – Playlist neu'], en: ['Tweakable DJ – New playlist'], es: ['Tweakable DJ – Nueva playlist'], fr: ['Tweakable DJ – Nouvelle playlist'] },
+    bundleId: 'io.github.tweakable-dj.run', linux: 'tweakable-dj-playlist.desktop',
     marker: 'X-Tweakable-DJ=run', description: 'shortcut.runDescription',
   },
 };
 const kindOf = kind => SHORTCUTS[kind] ?? SHORTCUTS.open;
 // Name auf dem Desktop in der Sprache lang
 export const shortcutName = (kind, lang) => kindOf(kind).names?.[resolveLang(lang)] ?? kindOf(kind).name;
-// Dateiname der Verknüpfung je Plattform (lang: Sprache des Namens)
-export const fileNames = (kind, lang) => {
-  const name = shortcutName(kind, lang);
-  return { win32: `${name}.lnk`, darwin: `${name}.app`, linux: kindOf(kind).linux };
-};
+// Dateiname der Verknüpfung je Plattform (lang: Sprache des Namens; name: anderer Name, z. B. ein früherer)
+export const fileNames = (kind, lang, name = shortcutName(kind, lang)) => ({ win32: `${name}.lnk`, darwin: `${name}.app`, linux: kindOf(kind).linux });
+// Dateiname für die Optionen o (o.altName: ein anderer Name als der der Sprache, siehe otherNames)
+const fileNameOf = (o, platform) => fileNames(o.kind, o.nameLang, o.altName ?? shortcutName(o.kind, o.nameLang))[platform];
 export const SHORTCUT_NAME = SHORTCUTS.open.name;
 export const BUNDLE_ID = SHORTCUTS.open.bundleId;
 export const LINUX_MARKER = SHORTCUTS.open.marker;
@@ -223,14 +229,14 @@ export function windowsOwner(entry) {
 
 // Befehl für PowerShell: { file, args, env }. action: 'read' oder 'write'; desktop: fester Ordner oder '' (= Desktop des
 // Benutzers). Die Werte stehen nur in der Umgebung, nie in der Befehlszeile.
-export function windowsCommand(action, { dir, desktop = '', lang, kind, nameLang = lang, env = process.env } = {}) {
+export function windowsCommand(action, { dir, desktop = '', lang, kind, nameLang = lang, altName, env = process.env } = {}) {
   const root = env.SystemRoot || env.SYSTEMROOT || 'C:\\Windows';
   const s = windowsShortcut(dir, { lang, kind, env });
   return {
     file: `${root}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
     args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(PS_SCRIPT, 'utf16le').toString('base64')],
     env: {
-      ...env, [`${PS_PREFIX}ACTION`]: action, [`${PS_PREFIX}DESKTOP`]: desktop, [`${PS_PREFIX}FILE`]: fileNames(kind, nameLang).win32,
+      ...env, [`${PS_PREFIX}ACTION`]: action, [`${PS_PREFIX}DESKTOP`]: desktop, [`${PS_PREFIX}FILE`]: fileNameOf({ kind, nameLang: resolveLang(nameLang), altName }, 'win32'),
       [`${PS_PREFIX}TARGET`]: s.target, [`${PS_PREFIX}ARGUMENTS`]: s.arguments, [`${PS_PREFIX}WORKDIR`]: s.workdir, [`${PS_PREFIX}ICON`]: s.icon,
       [`${PS_PREFIX}DESCRIPTION`]: s.description,
     },
@@ -271,7 +277,7 @@ function options({ dir = HERE, platform = process.platform, env = process.env, d
   // Windows-Pfade mit path.win32 (unter Windows dasselbe wie path.resolve; so auch in den simulierten Tests auf Linux/macOS)
   return {
     dir: platform === 'win32' ? path.win32.resolve(dir) : path.resolve(dir), platform, env, desktop, home, run, lang: resolveLang(lang),
-    kind: Object.hasOwn(SHORTCUTS, kind) ? kind : 'open', nameLang: resolveLang(nameLang ?? lang),
+    kind: Object.hasOwn(SHORTCUTS, kind) ? kind : 'open', nameLang: resolveLang(nameLang ?? lang), altName: null,
   };
 }
 
@@ -314,7 +320,7 @@ export const PLATFORMS = {
       }
       if (!data.desktop) throw tError(o.lang, 'shortcut.noDesktop');
       // path.join: unter Windows dasselbe wie path.win32.join; so laufen auch die simulierten Tests auf macOS und Linux.
-      return { desktop: data.desktop, file: path.join(data.desktop, fileNames(o.kind, o.nameLang).win32), entry: data.exists ? data : null };
+      return { desktop: data.desktop, file: path.join(data.desktop, fileNameOf(o, 'win32')), entry: data.exists ? data : null };
     },
     read(o) {
       return this.call(o, 'read');
@@ -344,7 +350,7 @@ export const PLATFORMS = {
     read(o) {
       const desktop = o.desktop || path.join(o.home, 'Desktop');
       if (!isDir(desktop)) throw tError(o.lang, 'shortcut.noDesktop');
-      const file = path.join(desktop, fileNames(o.kind, o.nameLang).darwin);
+      const file = path.join(desktop, fileNameOf(o, 'darwin'));
       let st = null;
       try {
         st = fs.lstatSync(file);
@@ -445,15 +451,18 @@ export const PLATFORMS = {
 //          Ordner, z. B. nach dem Verschieben), 'outdated' (unsere, dieser Ordner, aber Einzelheiten anders, z. B. Symbol),
 //          'foreign' (Datei dieses Namens, aber nicht von Tweakable DJ – bleibt unangetastet), null (Stand unbekannt)
 //   installed: unsere Verknüpfung ist da; matches: state 'ok'; file: Pfad der Verknüpfung; folder: Ordner, auf den sie zeigt
-// Eigene Verknüpfungen dieser Art unter den Namen anderer Sprachen (nur Windows und macOS: Dort ist der Name der
-// Dateiname) → [{ o, current, check }].
-async function otherNames(platform, o) {
-  const names = kindOf(o.kind).names;
-  if (!names || o.platform === 'linux') return [];
-  const mine = fileNames(o.kind, o.nameLang)[o.platform];
-  const langs = Object.keys(names).filter(l => fileNames(o.kind, l)[o.platform] !== mine);
-  const found = await Promise.all(langs.map(async l => {
-    const other = { ...o, nameLang: l };
+// Eigene Verknüpfungen dieser Art unter den Namen anderer Sprachen bzw. früheren Namen (oldNames; nur Windows und macOS:
+// Dort ist der Name der Dateiname) → [{ o, current, check }]. desktop: Ordner der Verknüpfungen – nachgesehen (unter Windows
+// mit PowerShell) wird nur, wo es eine Datei dieses Namens gibt.
+async function otherNames(platform, o, desktop) {
+  const k = kindOf(o.kind);
+  if (!k.names || o.platform === 'linux') return [];
+  const mine = fileNameOf(o, o.platform);
+  const candidates = [...new Set([...Object.values(k.names), ...Object.values(k.oldNames ?? {}).flat()])]
+    .filter(name => fileNames(o.kind, o.nameLang, name)[o.platform] !== mine)
+    .filter(name => !desktop || fs.existsSync(path.join(desktop, fileNames(o.kind, o.nameLang, name)[o.platform])));
+  const found = await Promise.all(candidates.map(async name => {
+    const other = { ...o, altName: name };
     try {
       const current = await platform.read(other);
       const check = current.entry ? platform.check(current.entry, other) : null;
@@ -480,7 +489,7 @@ export async function shortcutStatus(opts = {}) {
   status.file = current.file;
   if (!current.entry) {
     // Unter dem Namen einer anderen Sprache? Dann ist sie veraltet (bzw. zeigt auf einen anderen Ordner).
-    const other = (await otherNames(platform, o))[0];
+    const other = (await otherNames(platform, o, current.desktop))[0];
     if (!other) return { ...status, state: 'missing' };
     const state = other.check.state === 'otherFolder' ? 'otherFolder' : 'outdated';
     return { ...status, file: other.current.file, state, installed: true, matches: false, folder: other.check.dir };
@@ -501,7 +510,7 @@ export async function createShortcut(opts = {}) {
   if (current.entry && !platform.check(current.entry, o).own) throw tError(o.lang, 'shortcut.foreign', { file: current.file });
   await platform.write(o, current);
   // Dieselbe Verknüpfung unter dem Namen einer anderen Sprache (für diesen Ordner) ist damit ersetzt: weg damit.
-  for (const other of await otherNames(platform, o)) {
+  for (const other of await otherNames(platform, o, current.desktop)) {
     if (other.check.state !== 'otherFolder') await platform.remove(other.o, other.current);
   }
   const status = await shortcutStatus(opts);
@@ -520,6 +529,6 @@ export async function removeShortcut(opts = {}) {
     if (!platform.check(current.entry, o).own) throw tError(o.lang, 'shortcut.foreign', { file: current.file });
     await platform.remove(o, current);
   }
-  for (const other of await otherNames(platform, o)) await platform.remove(other.o, other.current);
+  for (const other of await otherNames(platform, o, current.desktop)) await platform.remove(other.o, other.current);
   return shortcutStatus(opts);
 }

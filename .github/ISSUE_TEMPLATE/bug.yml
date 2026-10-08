@@ -30,7 +30,7 @@ body:
       description: What did you do, one step after another? / Was hast du nacheinander gemacht?
       placeholder: |
         1. Started Tweakable DJ for Spotify / Tweakable DJ for Spotify gestartet
-        2. Clicked “Test run” / Auf „Probelauf“ geklickt
+        2. Clicked “Create playlist” / Auf „Playlist erstellen“ geklickt
         3. The message “…” appears / Die Meldung „…“ erscheint
     validations:
       required: true
@@ -38,10 +38,10 @@ body:
   - type: textarea
     id: output
     attributes:
-      label: Output of the test run / Ausgabe des Probelaufs
+      label: Output of “Create playlist” / Ausgabe von „Playlist erstellen“
       description: |
-        Click **Test run** in the interface and copy the output here (in a terminal, `node dj.mjs --dry` works too). You may shorten the list of songs. Check first: no Client ID, no API key, nothing from `tokens.json`.
-        In der Oberfläche auf **Probelauf** klicken und die Ausgabe hierher kopieren (im Terminal geht auch `node dj.mjs --dry`). Die Songliste darfst du kürzen. Vorher prüfen: keine Client ID, kein API-Key, nichts aus `tokens.json`.
+        Click **Create playlist** in the interface and copy the output here (in a terminal, `node dj.mjs --dry` works too). You may shorten the list of songs. Check first: no Client ID, no API key, nothing from `tokens.json`.
+        In der Oberfläche auf **Playlist erstellen** klicken und die Ausgabe hierher kopieren (im Terminal geht auch `node dj.mjs --dry`). Die Songliste darfst du kürzen. Vorher prüfen: keine Client ID, kein API-Key, nichts aus `tokens.json`.
       render: text
 
   - type: dropdown
@@ -72,8 +72,8 @@ body:
     attributes:
       label: Version of Tweakable DJ for Spotify / Version von Tweakable DJ for Spotify
       description: |
-        Shown in the tab Settings under Version (up to 0.1.4: at the very bottom of the interface) and in the name of the ZIP file, e.g. v0.2.0. If you don’t know it, leave the field empty.
-        Steht im Tab Einstellungen unter Version (bis 0.1.4 ganz unten in der Oberfläche) und im Namen der ZIP-Datei, z. B. v0.2.0. Weißt du es nicht, lass das Feld leer.
+        Shown in the tab Settings under Program (up to 0.2.5: under Version; up to 0.1.4: at the very bottom of the interface) and in the name of the ZIP file, e.g. v0.2.0. If you don’t know it, leave the field empty.
+        Steht im Tab Einstellungen unter Programm (bis 0.2.5 unter Version, bis 0.1.4 ganz unten in der Oberfläche) und im Namen der ZIP-Datei, z. B. v0.2.0. Weißt du es nicht, lass das Feld leer.
 
   - type: checkboxes
     id: credentials

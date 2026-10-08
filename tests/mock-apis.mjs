@@ -1,4 +1,4 @@
-// Simulierte Spotify-, Last.fm- und GitHub-APIs für die Tests, die dj.mjs bzw. ui.mjs starten (probelauf, trial, playlist,
+// Simulierte Spotify-, Last.fm- und GitHub-APIs für die Tests, die dj.mjs bzw. ui.mjs starten (dj, trial, playlist,
 // ui, install-update). Laden mit: node --import <file-URL dieser Datei> dj.mjs --dry
 // Ersetzt globalThis.fetch; unbekannte Adressen werfen einen Fehler, echte Netzwerkzugriffe gibt es also nie. Schreibzugriffe
 // auf Spotify werfen ebenfalls, außer mit MOCK_SPOTIFY_STORE.
@@ -102,7 +102,7 @@ const POOL = ['Aurora Nord', 'Blaue Stunde', 'Chromwerk', 'Dünenfeuer', 'Elbsan
 const EXPLICIT_LIKED = new Set(['Wellenreiter|Brandung']);
 
 // IDs mit 22 Zeichen wie bei Spotify (dann erkennt sie auch der Import aus einer Textdatei). URI wie in mockUri() in
-// tests/probelauf.test.mjs.
+// tests/dj.test.mjs.
 const spotifyTrack = (artist, name, { explicit = EXPLICIT_LIKED.has(`${artist}|${name}`), variant = '' } = {}) => ({
   type: 'track',
   uri: `spotify:track:${`mock${hash(`${artist}|${name}${variant ? `|${variant}` : ''}`).toString(36)}`.padEnd(22, '0')}`,

@@ -396,7 +396,7 @@ test('Seed-Playlist per Link; Last.fm-Benutzer ohne Scrobbles', () => {
     assert.equal(code, 0, all);
     assert.ok(requests.some(r => r.path?.startsWith('/v1/playlists/TestListe42/items')));
     assert.match(out, /^ {2}11 Songs$/m);
-    assert.match(all, /keine Scrobbles von "stillerhoerer".*https:\/\/www\.last\.fm\/settings\/applications/);
+    assert.match(all, /keine Scrobbles von „stillerhoerer“.*https:\/\/www\.last\.fm\/settings\/applications/);
     assert.match(out, /^Test-DJ: 20 Songs · [^(]+ \(/m);
   } finally {
     cleanup(dir);
@@ -408,10 +408,10 @@ test('Unbekannter Last.fm-Benutzer: Warnung, Lauf geht ohne Hörverlauf weiter',
   try {
     const { code, all, requests } = run(dir);
     assert.equal(code, 0, all);
-    assert.match(all, /^ {2}⚠ Den Last\.fm-Benutzer "gibtsnicht" gibt es nicht/m);
+    assert.match(all, /^ {2}⚠ Den Last\.fm-Benutzer „gibtsnicht“ gibt es nicht/m);
     assert.equal(lastfmCalls(requests, 'user.getRecentTracks'), 0);
     const en = run(dir, { TWEAKABLE_DJ_LANG: 'en' });
-    assert.match(en.all, /^ {2}⚠ The Last\.fm user "gibtsnicht" doesn’t exist/m);
+    assert.match(en.all, /^ {2}⚠ The Last\.fm user “gibtsnicht” doesn’t exist/m);
   } finally {
     cleanup(dir);
   }
@@ -625,7 +625,7 @@ test('Gefolgte Künstler ohne Berechtigung (ältere Anmeldung): Warnung, Lauf ge
   try {
     const de = run(dir, { MOCK_NO_FOLLOW_SCOPE: '1' });
     assert.equal(de.code, 0, de.all);
-    assert.match(de.all, /^ {2}⚠ Für "Gefolgte Künstler" bitte einmal neu bei Spotify anmelden/m);
+    assert.match(de.all, /^ {2}⚠ Für „Gefolgte Künstler“ bitte einmal neu bei Spotify anmelden/m);
     assert.doesNotMatch(de.all, /Fehler:/);
     assert.equal(followingRequests(de.requests).length, 1);
     assert.deepEqual([de.result.ok, de.result.songs, de.result.missingScope], [true, 20, 'user-follow-read']);
@@ -636,7 +636,7 @@ test('Gefolgte Künstler ohne Berechtigung (ältere Anmeldung): Warnung, Lauf ge
 
     const en = run(dir, { MOCK_NO_FOLLOW_SCOPE: '1', TWEAKABLE_DJ_LANG: 'en' }, ['--auto']);
     assert.equal(en.code, 0, en.all);
-    assert.match(en.all, /^ {2}⚠ For "Followed artists", please log in to Spotify again once/m);
+    assert.match(en.all, /^ {2}⚠ For “Followed artists”, please log in to Spotify again once/m);
     assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'automatik.json'), 'utf8')).missingScope, 'user-follow-read');
 
     // Mit Berechtigung: kein Hinweis

@@ -8,10 +8,12 @@
 
   // --- Playlist ---
   "playlistName": "Tweakable DJ",     // Name der Playlist, die befüllt wird (gibt es sie nicht, wird sie angelegt)
+
+  // --- Länge ---
   "size": 50,                         // Anzahl Songs pro Lauf (1–500)
-  "familiarShare": 0.15,              // Anteil Favoriten (0–1; 0.15 = 15 % ≈ 8 Songs), der Rest sind neue Songs
 
   // --- Auswahl ---
+  "familiarShare": 0.15,              // Anteil Favoriten (0–1; 0.15 = 15 % ≈ 8 Songs), der Rest sind neue Songs
   "adventure": 0.4,                   // 0–1: 0 = ähnliche Songs bevorzugen, 0.5 = egal, 1 = entfernte bevorzugen; zugleich Chance auf Abstecher zu verwandten Künstlern
   "seedsPerRun": 20,                  // So viele Ausgangspunkte werden pro Lauf gezogen, zu denen Last.fm ähnliche Songs sucht (1–200)
   "useLastfmTopTracks": true,         // Deine Last.fm-Top-Songs der letzten 3 Monate zusätzlich als Ausgangspunkte verwenden
@@ -36,7 +38,7 @@
   // --- Sperrliste ---
   "excludeExplicit": false,           // true = keine Songs mit expliziten Texten (laut Spotify), weder als Favorit noch als neuer Song
   "blockedArtists": [],               // Künstler, die nie gespielt werden, z. B. ["Künstler A", "Künstler B"]
-  "blockedTracks": [],                // Songs, die nie gespielt werden, auch in anderen Versionen (höchstens 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; am einfachsten mit × in der erstellten Liste (Tab Playlist)
+  "blockedTracks": [],                // Songs, die nie gespielt werden, auch in anderen Versionen (höchstens 1000): [{ "uri": "spotify:track:…", "artist": "…", "name": "…" }]; am einfachsten mit × in der erstellten Liste (Tab „Playlist“)
 
   // --- Archiv ---
   "archiveCount": 20,                 // Nach jedem Schreiben bleibt die Playlist als Textdatei im Ordner "archiv"; so viele der neuesten bleiben (0–200, 0 = aus)
@@ -53,7 +55,7 @@
 
   // --- Verknüpfung ---
   // In der Oberfläche einstellen (Tab Einstellungen → Verknüpfung): Nur beim Speichern dort kommt sie auf den Desktop bzw. weg.
-  "runShortcut": false,               // true = zweite Verknüpfung „Tweakable DJ – Playlist neu“: erstellt die Playlist per Doppelklick neu, ohne Oberfläche
+  "runShortcut": false,               // true = zweite Verknüpfung „Tweakable DJ – Playlist neu erstellen“: erstellt die Playlist per Doppelklick neu, ohne Oberfläche
 
   // --- Aussehen ---
   "theme": "system",                  // Modus der Oberfläche: "system" = wie dein Gerät, "light" = hell oder "dark" = dunkel
