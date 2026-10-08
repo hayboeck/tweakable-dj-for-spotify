@@ -11,6 +11,10 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 - **Legend below the output**: a small line below the list explains the colors – the accent color (named as chosen, e.g. *Green* or *Blue*) = matches what you’re listening to now (*· current*), others = favorites and other new songs, struck through = blocked (×), ♥ = in your Liked Songs.
 
+**Changed**
+
+- **Fewer controls under *Selection***: *Starting points per run* and *Include Last.fm top songs* are now folded away under *Details for experts* (view *Pro*), like the details of *Variety among artists*.
+
 **Fixed**
 
 - Songs that match your current listening are now green in Spanish and French too (*· actual*, *· actuel*); until now only in German and English.
@@ -20,6 +24,10 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 **Neu**
 
 - **Legende unter der Ausgabe**: Eine kleine Zeile unter der Liste erklärt die Farben – die Akzentfarbe (mit ihrem Namen, z. B. *Grün* oder *Blau*) = passt zu dem, was du gerade hörst (*· aktuell*), sonst Favoriten und übrige neue Songs, durchgestrichen = gesperrt (×), ♥ = in deinen Lieblingssongs.
+
+**Geändert**
+
+- **Weniger Regler unter *Auswahl***: *Ausgangspunkte pro Lauf* und *Last.fm-Top-Songs einbeziehen* stehen jetzt eingeklappt unter *Details für Fortgeschrittene* (Ansicht *Pro*), wie bei *Abwechslung bei Künstlern*.
 
 **Behoben**
 
