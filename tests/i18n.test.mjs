@@ -8,7 +8,7 @@ import { formatDuration, formatStats, isOne, LANGS, MESSAGES, locale, resolveLan
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // Texte in Anführungszeichen, die wie Schlüssel aussehen, aber Dateinamen bzw. Stellen in der config.jsonc sind
-const NOT_KEYS = ['config.jsonc', 'ui.html', 'ui.mjs', 'ui.log', 'spotify.clientId', 'lastfm.apiKey', 'lastfm.user'];
+const NOT_KEYS = ['config.jsonc', 'ui.html', 'ui.mjs', 'ui.log', 'spotify.clientId', 'lastfm.apiKey', 'lastfm.user', 'node.exe'];
 // Namen der Platzhalter {name} und {name|eins|mehr} (Einzahl/Mehrzahl braucht nicht jede Sprache, z. B. „1 Künstler“)
 const placeholders = text => [...new Set([...text.matchAll(/\{(\w+)(?:\|[^|{}]*\|[^|{}]*)?\}/g)].map(m => m[1]))].sort();
 

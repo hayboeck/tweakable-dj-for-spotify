@@ -24,7 +24,7 @@ Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt 
 >
 > - **Spotify Premium**. Tweakable DJ braucht eine eigene Spotify-App, und die erlaubt Spotify nur mit Premium.
 > - Ein kostenloses **Last.fm-Konto**, das mit Spotify verbunden ist („Scrobbling“). Darüber kennt der DJ deinen Hörverlauf.
-> - **Node.js 18 oder neuer** (kostenlos, <https://nodejs.org>)
+> - **Sonst nichts zu installieren**: Beim ersten Start lädt Tweakable DJ das Programm, mit dem es läuft (Node.js, kostenlos, von <https://nodejs.org>), einmalig in seinen eigenen Ordner – ohne Adminrechte.
 > - Einen **PC oder Mac** mit Windows, macOS oder Linux. Tweakable DJ läuft dort, nicht im Internet.
 > - Etwa **10 Minuten** für die [Einrichtung](#7-einrichtung-einmalig)
 >
@@ -49,7 +49,7 @@ Tweakable DJ ist ein unabhängiges Projekt und kein offizielles Spotify-Produkt 
 
 ## 1. Schnellstart
 
-Zum ersten Mal hier? Dann Tweakable DJ herunterladen, Node.js installieren und starten, wie in der [Einrichtung](#7-einrichtung-einmalig) beschrieben. Beim ersten Start führt dich ein Assistent durch den Rest (ca. 10 Minuten). Danach geht es jedes Mal so:
+Zum ersten Mal hier? Dann Tweakable DJ herunterladen und starten, wie in der [Einrichtung](#7-einrichtung-einmalig) beschrieben – sonst ist nichts zu installieren. Beim ersten Start lädt Tweakable DJ einmalig Node.js (ca. 40 MB), und ein Assistent führt dich durch den Rest (ca. 10 Minuten). Danach geht es jedes Mal so:
 
 1. Tweakable DJ starten: Doppelklick auf die **Verknüpfung *Tweakable DJ* auf dem Desktop** (legt der Assistent an). Ohne Verknüpfung: Doppelklick auf **`Tweakable DJ.cmd`** (Windows) bzw. **`Tweakable DJ.command`** (Mac), unter Linux im Terminal `./start.sh`. Im Browser öffnet sich die Oberfläche mit Reglern.
 2. Eine **Voreinstellung** wählen (z. B. „Entdecken“) oder die *Anzahl Songs* einstellen, dann auf **Playlist erstellen** klicken (dauert etwa eine Minute). Der DJ zeigt, welche Songs er ausgewählt hat; nach Spotify geht noch nichts. (*Pro* oben zeigt alle Regler.)
@@ -111,6 +111,8 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `update.mjs` | Prüft höchstens einmal am Tag, ob es auf GitHub eine neue Version gibt (siehe [Prüfung auf neue Versionen](#prüfung-auf-neue-versionen)) |
 | `install-update.mjs` | Installiert eine neue Version, wenn du auf *Jetzt aktualisieren* klickst (siehe [Aktualisieren](#8-aktualisieren)) |
 | `whatsnew.mjs` | Zeigt nach einem Update einmal *Neu in v…* mit den wichtigsten Punkten aus `CHANGELOG.md` |
+| `get-node.cmd`, `get-node.sh` | Laden beim ersten Start das eigene Node.js von Tweakable DJ (Windows; Mac und Linux) und prüfen es, siehe [Einrichtung](#7-einrichtung-einmalig), Schritt 2. Die Startdateien rufen sie auf. |
+| `node-version.txt` | Die Version von Node.js, mit der Tweakable DJ läuft (z. B. `24.21.0`). Eine neue Version von Tweakable DJ kann eine neuere nennen; der nächste Start lädt sie dann einmalig. |
 | `manifest.json` | Liste aller Programmdateien dieser Version mit Prüfsummen, dazu überholte Dateien früherer Versionen. *Jetzt aktualisieren* ersetzt nur Dateien, die dort stehen, und löscht nur überholte, die noch genau so aussehen wie veröffentlicht. Nur in der ZIP-Datei, nicht im GitHub-Repository. |
 | `package.json` | Kurzbefehle für Entwickler: `npm start` (Oberfläche) und `npm test` (Tests). Tweakable DJ braucht keine zusätzlichen Pakete. |
 | `tests/` | Automatische Tests für die Regeln, die Einstellungen, die Übersetzungen, die Automatik, die Verknüpfung auf dem Desktop (nur in Testordnern), die Prüfung auf neue Versionen und *Jetzt aktualisieren*, die Oberfläche, die Textdatei und das Erstellen von Listen samt Überschreiben und Neu-Anlegen, bei denen Spotify, Last.fm und GitHub nur simuliert werden. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
@@ -120,7 +122,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `docs/` | Bildschirmfotos der Oberfläche für diese Anleitung (englische Oberfläche), hell und dunkel |
 | `assets/` | Das Logo: `logo.png` (Oberfläche und diese Anleitung), `logo-small.svg` (Browser-Tab), `logo.ico` und `logo.icns` (Symbol der Verknüpfung auf dem Desktop unter Windows und auf dem Mac) |
 | `LICENSE` | Die Lizenz (MIT), siehe Abschnitt 12 |
-| `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, die Dateien der Automatik, das Ergebnis der Prüfung auf neue Versionen, die zuletzt gesehene Version (`seen-version.json`), `.update/` und das Archiv `archiv/` nie mit hochgeladen werden |
+| `.gitignore` | Sorgt dafür, dass `config.jsonc`, `tokens.json`, `state.json`, `lastfm-cache.json`, `probelauf.json`, die Dateien der Automatik, das Ergebnis der Prüfung auf neue Versionen, die zuletzt gesehene Version (`seen-version.json`), `.update/`, das Archiv `archiv/` und das eigene Node.js `node/` nie mit hochgeladen werden |
 | `.gitattributes` | Einheitliche Zeilenenden für Windows, Mac und Linux; kennzeichnet Bilder als binär. Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 | `.github/` | Vorlagen für Fehlermeldungen und Ideen, automatische Abläufe auf GitHub (z. B. die ZIP-Datei für neue Versionen). Nur im GitHub-Repository, nicht in der ZIP-Datei. |
 
@@ -140,6 +142,7 @@ Die Nummern zeigen die Reihenfolge eines Laufs:
 | `seen-version.json` | Die Version, zu der du *Neu in v…* nach einem Update zuletzt gesehen hast. Löschen schadet nicht (der Hinweis wartet dann auf das nächste Update). |
 | `.update/` | Legt *Jetzt aktualisieren* an: die Sicherung der Programmdateien der vorigen Version (`backup-<Version>`). Löschen schadet nicht. |
 | `archiv/` | Das [Playlist-Archiv](#playlist-archiv): jede geschriebene Playlist als Textdatei, z. B. `2026-10-06 18-30-05 Tweakable DJ.txt`. Löschen schadet nicht, die früheren Playlists sind dann nur weg. |
+| `node/` | Das eigene Node.js von Tweakable DJ (in `node/current`), beim ersten Start geladen. Löschen schadet nicht: Der nächste Start lädt es wieder. |
 
 `config.jsonc` enthält deine Client ID und deinen Last.fm-Schlüssel. Beides ist nicht sehr heikel, sollte aber trotzdem nicht öffentlich geteilt werden.
 
@@ -282,7 +285,7 @@ Alle drei ändern nur die Oberfläche, nicht die Playlist; eine erstellte Liste 
 
 Doppelklick auf die Verknüpfung *Tweakable DJ* auf dem Desktop, auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac), unter Linux im Terminal `./start.sh`. Überall geht auch `node ui.mjs` im Terminal. Der Browser öffnet <http://127.0.0.1:8899>.
 
-- **Ohne Fenster**: Die Verknüpfung startet Tweakable DJ im Hintergrund, ohne Konsolen- bzw. Terminalfenster; was sonst dort stünde, kommt in die Datei `ui.log` im Ordner (höchstens etwa 1 MB, ältere Einträge in `ui.old.log`). Lässt es sich nicht starten (z. B. weil ein anderes Programm den Port 8899 belegt), meldet das eine Systembenachrichtigung. Fehlt Node.js oder ist es zu alt, öffnet sich doch ein Fenster mit der Meldung.
+- **Ohne Fenster**: Die Verknüpfung startet Tweakable DJ im Hintergrund, ohne Konsolen- bzw. Terminalfenster; was sonst dort stünde, kommt in die Datei `ui.log` im Ordner (höchstens etwa 1 MB, ältere Einträge in `ui.old.log`). Lässt es sich nicht starten (z. B. weil ein anderes Programm den Port 8899 belegt), meldet das eine Systembenachrichtigung. Muss Node.js erst geladen werden (beim ersten Start oder nach einem Update, das ein neueres Node.js braucht), zeigt unter Windows ein Fenster den Download; auf dem Mac und unter Linux meldet es eine Systembenachrichtigung. Lässt sich Node.js weder laden noch finden, sagt ein Fenster (Windows) bzw. eine Benachrichtigung (Mac, Linux), was zu tun ist.
 - **Nur einmal**: Läuft Tweakable DJ schon, öffnet ein weiterer Doppelklick nur die Oberfläche im Browser.
 - **Beenden**: im Tab *Einstellungen* unter *Programm* auf **Tweakable DJ beenden** (nicht während eines Laufs, Imports, Updates oder einer Anmeldung). Automatische Läufe finden trotzdem statt – die startet der Zeitplaner deines Systems. Ohne Fenster beendet sich Tweakable DJ außerdem von selbst, wenn 10 Minuten lang keine Seite offen war (der Ruhezustand des PCs zählt nicht mit). Eine noch offene Seite sagt dann *Tweakable DJ läuft nicht mehr – bitte über die Verknüpfung neu starten.*
 - **Fehlersuche mit Fenster**: Doppelklick auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac) oder `./start.sh` im Terminal (Linux) startet wie früher mit Fenster, in dem alle Meldungen stehen. Ohne Fenster stehen sie in `ui.log`.
@@ -376,6 +379,8 @@ node ui.mjs --no-browser   # dasselbe, ohne den Browser zu öffnen
 npm test             # automatische Tests; Spotify, Last.fm und GitHub werden dabei nur simuliert
 ```
 
+`node` steht für ein Node.js ab Version 18. Hast du Node.js nicht selbst installiert, nimm stattdessen das eigene von Tweakable DJ (gibt es nach dem ersten Start mit einer Startdatei): `node\current\node.exe dj.mjs --dry` unter Windows, `node/current/bin/node dj.mjs --dry` auf dem Mac und unter Linux. Für `npm test` und sonstige Entwicklung installierst du Node.js von <https://nodejs.org> (samt `npm`).
+
 Die Ausgabe kommt in der Sprache aus `config.jsonc` (`language`), sonst in der Sprache des Systems. Drei Umgebungsvariablen helfen in Sonderfällen:
 
 | Variable | Wirkung |
@@ -386,7 +391,7 @@ Die Ausgabe kommt in der Sprache aus `config.jsonc` (`language`), sonst in der S
 
 Beispiel unter macOS und Linux: `TWEAKABLE_DJ_LANG=en node dj.mjs --dry`. In der Windows-Eingabeaufforderung: zuerst `set TWEAKABLE_DJ_LANG=en`, dann `node dj.mjs --dry`.
 
-Die übrigen Variablen musst du nicht selbst setzen: Die Startdateien setzen `TWEAKABLE_DJ_LAUNCHER=1` (dann startet die Oberfläche nach *Jetzt aktualisieren* von selbst neu), und die Tests verwenden `TWEAKABLE_DJ_TASK_NAME` und `TWEAKABLE_DJ_TASK_ARGS`, damit sie den echten Eintrag im Zeitplaner nie anfassen.
+Die übrigen Variablen musst du nicht selbst setzen: Die Startdateien setzen `TWEAKABLE_DJ_LAUNCHER=1` (dann startet die Oberfläche nach *Jetzt aktualisieren* von selbst neu), und die Tests verwenden `TWEAKABLE_DJ_TASK_NAME` und `TWEAKABLE_DJ_TASK_ARGS`, damit sie den echten Eintrag im Zeitplaner nie anfassen, sowie `TWEAKABLE_DJ_NODE_MIRROR`, damit der Download von Node.js von einem lokalen Testserver statt von nodejs.org kommt.
 
 ### Textdatei: speichern und importieren
 
@@ -440,7 +445,7 @@ Abschalten lässt sich die Prüfung mit der Umgebungsvariablen `TWEAKABLE_DJ_NO_
 Diese Schritte machst du einmal, bevor du Tweakable DJ zum ersten Mal benutzt, und wieder, wenn du auf einen neuen Rechner umziehst. Das dauert etwa 10 Minuten.
 
 1. **Tweakable DJ herunterladen**: Auf der GitHub-Seite von Tweakable DJ rechts auf *Releases* klicken. Bei der neuesten Version unter *Assets* die Datei `tweakable-dj-v….zip` herunterladen und entpacken (Windows: Rechtsklick → *Alle extrahieren*, Mac: Doppelklick). Den Ordner `tweakable-dj` an einen festen Platz legen, z. B. in *Dokumente*. Nicht direkt aus der ZIP-Datei heraus starten, sonst gehen deine Einstellungen verloren. (Wer git benutzt, kann das Repository stattdessen auch klonen.)
-2. **Node.js** installieren (<https://nodejs.org>, Version 18 oder neuer). Weitere Pakete braucht der DJ nicht.
+2. **Node.js kommt von selbst.** Tweakable DJ läuft mit Node.js. Beim ersten Start lädt es dafür einmalig eine eigene Fassung von <https://nodejs.org> (Windows ca. 40 MB, Mac ca. 55 MB, Linux ca. 30 MB), prüft sie mit der dort veröffentlichten Prüfsumme (SHA-256) und legt sie in den Unterordner `node` des Ordners `tweakable-dj`. Dafür braucht es keine Adminrechte, es installiert nichts im System, ändert keine Einstellungen und lässt ein vorhandenes Node.js in Ruhe. Nur wenn der Download nicht klappt (z. B. offline), nimmt Tweakable DJ ein installiertes Node.js ab Version 18. Weitere Pakete braucht der DJ nicht.
 3. **Tweakable DJ starten**, wie im [Schnellstart](#1-schnellstart) beschrieben. Beim allerersten Mal fragt das System meist nach, weil die Datei aus dem Internet kommt:
    - **Windows**: Erscheint „Der Computer wurde durch Windows geschützt“, auf *Weitere Informationen* → *Trotzdem ausführen* klicken. Bei „Der Herausgeber konnte nicht verifiziert werden“ auf *Ausführen* klicken.
    - **Mac**: `Tweakable DJ.command` mit **Rechtsklick → Öffnen** starten und im Hinweis noch einmal *Öffnen* wählen. Bietet der Hinweis kein *Öffnen* an (neuere macOS-Versionen), ihn schließen und unter *Systemeinstellungen → Datenschutz & Sicherheit* weiter unten auf *Dennoch öffnen* klicken. Danach reicht ein Doppelklick.
@@ -483,6 +488,8 @@ Gibt es eine neue Version, erscheint oben in der Oberfläche ein Hinweis. Was si
 2. Auf **Aktualisieren** klicken. Tweakable DJ lädt die neue Version von GitHub, prüft jede Datei anhand ihrer Prüfsumme (SHA-256), sichert die Dateien, die es ersetzt, nach `.update/backup-<alte Version>` und kopiert dann die neuen hinein.
 3. Tweakable DJ startet von selbst neu, und die Seite lädt sich mit der neuen Version neu. Hast du es mit `node ui.mjs` im Terminal statt mit einer Startdatei gestartet, starte es selbst noch einmal; die Seite lädt sich dann von selbst neu.
 
+Das eigene Node.js von Tweakable DJ (Ordner `node`) fasst ein Update nie an. Braucht eine neue Version ein neueres Node.js (`node-version.txt`), lädt es der nächste Start einmalig und räumt das alte weg. Beim Update von Version 0.3.3 oder älter lädt der erste Start danach einmalig Node.js (unter Windows mit Fenster, auch über die Verknüpfung), und die Automatik stellt sich von selbst darauf um. Ein selbst installiertes Node.js braucht Tweakable DJ dann nicht mehr; du kannst es behalten oder deinstallieren.
+
 Das Update schreibt nur die Programmdateien, die im Release stehen (`manifest.json`). Löschen kann es außerhalb von `.update/` (dort behält es nur die Sicherung des letzten Updates) nur Programmdateien früherer Versionen, die es nicht mehr gibt (z. B. alte Screenshots) – und nur, wenn sie Byte für Byte so aussehen wie veröffentlicht; sie kommen vorher mit in die Sicherung. Geänderte und eigene Dateien, Ordner und persönliche Dateien bleiben. Passt eine Datei nicht zu ihrer Prüfsumme, ändert es gar nichts; geht beim Kopieren etwas schief, holt es automatisch die alte Version zurück. Es startet nicht, solange eine Liste erstellt oder nach Spotify geschrieben wird oder ein automatischer Lauf, ein Import aus einer Textdatei oder eine Spotify-Anmeldung läuft. Die Automatik läuft danach weiter, weil der Ordner derselbe bleibt.
 
 **Von Hand**
@@ -503,7 +510,7 @@ Deine persönlichen Dateien sind nicht in der ZIP-Datei und bleiben deshalb, wie
 
 1. **Zuerst die Automatik ausschalten:** In der Oberfläche im Tab *Einstellungen* *Automatisch neu erstellen* auf *Aus* stellen und *Speichern* klicken. Damit verschwindet der Eintrag aus dem Zeitplaner deines Systems.
 2. **Die Verknüpfung auf dem Desktop entfernen**, falls du eine hast: im Tab *Einstellungen* unter *Verknüpfung* auf *Entfernen* klicken (und die zweite Verknüpfung ausschalten und speichern). Oder sie von Hand vom Desktop löschen (Windows: `Tweakable DJ`, Mac: `Tweakable DJ.app`, Linux: `tweakable-dj.desktop`). Sonst bleibt sie auf dem Desktop liegen und führt ins Leere.
-3. Tweakable DJ beenden (Tab *Einstellungen*, *Programm*, **Tweakable DJ beenden**, bzw. das Fenster schließen) und den Ordner `tweakable-dj` löschen. Deine persönlichen Dateien (Einstellungen, Spotify-Anmeldung, Verlauf, Playlist-Archiv) sind damit auch weg. Willst du frühere Playlists behalten, kopiere vorher den Ordner `archiv`.
+3. Tweakable DJ beenden (Tab *Einstellungen*, *Programm*, **Tweakable DJ beenden**, bzw. das Fenster schließen) und den Ordner `tweakable-dj` löschen. Deine persönlichen Dateien (Einstellungen, Spotify-Anmeldung, Verlauf, Playlist-Archiv) sind damit auch weg, ebenso das eigene Node.js von Tweakable DJ (Ordner `node`) – sonst wurde nichts installiert. Willst du frühere Playlists behalten, kopiere vorher den Ordner `archiv`.
 4. Wenn du magst: die Playlist in Spotify löschen (standardmäßig „Tweakable DJ“) und deine Spotify-App im [Spotify-Dashboard](https://developer.spotify.com/dashboard).
 
 **Löschst du den Ordner, während die Automatik noch an ist**, bleibt der Eintrag im Zeitplaner. Er startet weiter zur eingestellten Zeit, aber jeder Lauf scheitert unbemerkt, weil der Ordner fehlt, und die Playlist wird nicht mehr neu erstellt. Den Eintrag kannst du von Hand entfernen:
@@ -546,8 +553,11 @@ Es gibt immer nur einen Eintrag: Er hat stets denselben Namen, egal aus welchem 
 | Oberfläche öffnet sich nicht / Seite nicht erreichbar | Tweakable DJ wurde beendet (oder sein Fenster geschlossen): über die Verknüpfung noch einmal starten |
 | Doppelklick auf die Verknüpfung, aber nichts passiert | In `ui.log` im Ordner von Tweakable DJ steht, was los ist. Oder zum Fehlersuchen mit Fenster starten: Doppelklick auf `Tweakable DJ.cmd` (Windows) bzw. `Tweakable DJ.command` (Mac), unter Linux `./start.sh` im Terminal. |
 | „Port 8899 ist von einem anderen Programm belegt“ | Ein anderes Programm nutzt die Adresse von Tweakable DJ. Beende es, oder starte Tweakable DJ im Terminal mit einem anderen Port, z. B. `TWEAKABLE_DJ_PORT=8898` (die Spotify-Anmeldung klappt mit jedem Port). |
-| „Node.js wurde nicht gefunden“, „Node.js ist nicht installiert“ oder „Der Befehl "node" ist entweder falsch geschrieben oder konnte nicht gefunden werden“ | Node.js installieren ([Einrichtung](#7-einrichtung-einmalig), Schritt 2) und Tweakable DJ neu starten. Klappt es dann immer noch nicht, einmal ab- und wieder anmelden. |
-| „Node.js ist zu alt“ oder „Tweakable DJ braucht Node.js 18 oder neuer“ | Die neueste Version von <https://nodejs.org> installieren |
+| „Node.js konnte nicht heruntergeladen werden“ oder „Node.js fehlt: Es ließ sich nicht herunterladen“ | Der erste Start braucht eine Internetverbindung, um Node.js von nodejs.org zu laden ([Einrichtung](#7-einrichtung-einmalig), Schritt 2). Verbindung prüfen (ggf. auch Firewall oder Proxy) und Tweakable DJ noch einmal starten. Oder Node.js ab Version 18 von <https://nodejs.org> installieren; Tweakable DJ nimmt dann dieses, bis der Download klappt. |
+| „Die Prüfsumme der heruntergeladenen Datei stimmt nicht“ | Der Download kam beschädigt oder verändert an und wurde verworfen. Tweakable DJ noch einmal starten; passiert es immer wieder, verändert etwas in deinem Netz Downloads (z. B. ein Proxy). |
+| „Das heruntergeladene Node.js läuft auf diesem PC nicht“ | Dein System kann die offizielle Fassung von Node.js nicht ausführen (z. B. ein sehr altes System oder Linux mit musl wie Alpine). Node.js ab Version 18 passend für dein System installieren; Tweakable DJ nimmt dann dieses. |
+| „Der Befehl "node" ist entweder falsch geschrieben oder konnte nicht gefunden werden“ (im Terminal) | Du hast selbst `node …` eingegeben, aber Node.js ist nicht installiert. Nimm stattdessen das eigene von Tweakable DJ, siehe [Im Terminal](#im-terminal). |
+| „Node.js ist zu alt“ oder „Tweakable DJ braucht Node.js 18 oder neuer“ | Kommt nur mit einem installierten Node.js vor (wenn der Download nicht geklappt hat): Tweakable DJ mit Internetverbindung noch einmal starten oder die neueste Version von <https://nodejs.org> installieren |
 | Mac: „… kann nicht geöffnet werden, da es von einem nicht verifizierten Entwickler stammt“ | Beim ersten Mal mit Rechtsklick → *Öffnen* starten ([Einrichtung](#7-einrichtung-einmalig), Schritt 3) |
 | Mac/Linux: „keine Berechtigung“, „Permission denied“ oder „Zugriffsrechte fehlen“ | Einmal `chmod +x "Tweakable DJ.command" start.sh` im Ordner `tweakable-dj` ausführen ([Einrichtung](#7-einrichtung-einmalig), Schritt 3) |
 | Warnung ⚠ „Regel … ließ sich nicht überall einhalten“ | Die Regeln sind zu streng für die gefundenen Songs, z. B. „1 aus 20“ bei 50 Songs. *Abwechslung bei Künstlern* eine Stufe niedriger stellen oder unter *Details für Fortgeschrittene* eine Regel lockern. |

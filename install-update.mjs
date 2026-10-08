@@ -16,7 +16,8 @@
 // nur Dateien aus deren Liste obsolete – und nur, wenn sie Byte für Byte einer früher veröffentlichten Fassung entsprechen
 // (SHA-256); geänderte oder eigene Dateien bleiben, Ordner auch. Nennt manifest.json eine persönliche Datei (config.jsonc,
 // tokens.json, state.json, lastfm-cache.json, probelauf.json, automatik.*, jetzt.json, update-check.json, seen-version.json,
-// *.log wie ui.log, ui.old.log und jetzt.log, alles im Archiv archiv/) oder einen Pfad außerhalb des Ordners, oder führt der
+// *.log wie ui.log, ui.old.log und jetzt.log, alles im Archiv archiv/ und im Ordner node/ mit dem eigenen Node.js) oder einen
+// Pfad außerhalb des Ordners, oder führt der
 // Weg zu einer Datei durch einen symbolischen Link, bricht das ganze Update ab, bevor etwas geschrieben ist.
 //
 // manifest.json entsteht beim Veröffentlichen (.github/release-manifest.mjs, aufgerufen von .github/workflows/release.yml):
@@ -52,9 +53,10 @@ const AUTO_RUN_MAX = 30 * 60_000;
 // Groß-/Kleinschreibung (Windows und macOS unterscheiden die nicht).
 export const PERSONAL_FILES = ['config.jsonc', 'tokens.json', 'state.json', 'lastfm-cache.json', 'probelauf.json', 'automatik.json',
   'automatik.log', 'update-check.json', 'seen-version.json', 'ui.log', 'ui.old.log', 'jetzt.json', 'jetzt.log'];
-// Persönliche Ordner: das Playlist-Archiv (archive.mjs). Kein Pfad aus manifest.json darf hindurchführen; das Update legt dort
-// nichts ab, und weil es nur Programmdateien sichert und zurückholt, löscht es dort auch beim Zurücksichern nichts.
-export const PERSONAL_DIRS = ['archiv'];
+// Persönliche Ordner: das Playlist-Archiv (archive.mjs) und node/ mit dem eigenen Node.js (get-node.cmd bzw. get-node.sh; das
+// tauschen nur die Startdateien aus). Kein Pfad aus manifest.json darf hindurchführen, auch nicht in obsolete; das Update legt
+// dort nichts ab, und weil es nur Programmdateien sichert und zurückholt, löscht es dort auch beim Zurücksichern nichts.
+export const PERSONAL_DIRS = ['archiv', 'node'];
 export function isPersonal(name) {
   const n = String(name).toLowerCase();
   return PERSONAL_FILES.includes(n) || PERSONAL_DIRS.includes(n) || n.startsWith('automatik.') || n.endsWith('.log');

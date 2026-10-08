@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { WEEKDAYS } from '../config.mjs';
 import {
   applySchedule, checkWindowsTask, cronLine, entryIds, lastRun, launchAgentPlist, LEGACY_NAMES, nextRun, PLATFORMS,
-  RUN_TIMEOUT, runFailure, scheduleStatus, TASK_NAME, updateCrontab, utf16, windowsTaskXml,
+  ownNode, RUN_TIMEOUT, runFailure, scheduleStatus, schedulerNode, TASK_NAME, updateCrontab, utf16, windowsTaskXml,
 } from '../schedule.mjs';
 
 // Zeitzone mit Sommerzeit, damit die Umstellung geprüft werden kann (wirkt auch unter Windows).
@@ -280,7 +280,27 @@ test('Linux: alte Zeilen von "Mein DJ" verschwinden beim Eintragen und Ausschalt
   assert.equal(updateCrontab(before, null, 'tweakable-dj-test-auto'), before);
 });
 
-// Simulierter Zeitplaner: Einträge in einer Map, Name → { dir, when }.
+// --- Eigenes Node.js im Programmordner ---
+
+test('Eigenes Node.js: fester Pfad je System; der Zeitplaner nimmt es, sobald es da ist; Node.js eines Eintrags erkennen', () => {
+  assert.equal(ownNode(WIN_DIR, 'win32'), `${WIN_DIR}\\node\\current\\node.exe`);
+  assert.equal(ownNode('/Users/zoë/Tweakable DJ', 'darwin'), '/Users/zoë/Tweakable DJ/node/current/bin/node');
+  assert.equal(schedulerNode(WIN_DIR, 'win32', () => true), `${WIN_DIR}\\node\\current\\node.exe`);
+  assert.notEqual(schedulerNode('/opt/dj', 'linux', () => false), '/opt/dj/node/current/bin/node');
+  // Node.js eines Eintrags (für nodeOutdated): Windows mit und ohne conhost, macOS, Linux (auch mit ' und % im Pfad)
+  const own = ownNode(WIN_DIR, 'win32');
+  assert.equal(PLATFORMS.win32.node(windowsTaskXml(daily(), own, WIN_DIR, { conhost: CONHOST })), own);
+  assert.equal(PLATFORMS.win32.node(windowsTaskXml(daily(), WIN_NODE, WIN_DIR, { conhost: null })), WIN_NODE);
+  assert.equal(PLATFORMS.win32.node(windowsTaskXml(daily(), 'C:\\nvm\\node.exe', WIN_DIR, { conhost: CONHOST })), 'C:\\nvm\\node.exe');
+  assert.equal(PLATFORMS.darwin.node({ plist: launchAgentPlist(daily(), '/Users/a & b/dj/node/current/bin/node', '/Users/a & b/dj') }),
+    '/Users/a & b/dj/node/current/bin/node');
+  const odd = "/home/o'brien/100% dj/node/current/bin/node";
+  assert.equal(PLATFORMS.linux.node(cronLine(daily(), odd, "/home/o'brien/100% dj")), odd);
+  assert.equal(PLATFORMS.linux.node(cronLine(daily(), '/usr/bin/node', '/opt/dj')), '/usr/bin/node');
+  assert.equal(PLATFORMS.linux.node('0 7 * * * etwas anderes'), null);
+});
+
+
 function simulated() {
   const entries = new Map();
   const when = s => `${s.schedule} ${s.scheduleTime} ${s.schedule === 'weekly' ? s.scheduleDay : ''}`;
@@ -341,6 +361,38 @@ test('Übernahme: alter Eintrag "Mein DJ" wird als leftover gemeldet und beim Ei
     calls.length = 0;
     await applySchedule({ schedule: 'off' }, opts);
     assert.deepEqual(calls, ['remove Mein DJ']);
+  } finally {
+    delete PLATFORMS.sim;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('nodeOutdated: Eintrag passt bis auf das Node.js (z. B. installiertes aus einer früheren Version) → erkannt; sonst nicht', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj ü-'));
+  const { entries, when } = simulated();
+  // Wie die echten Plattformen: Node.js gehört zum Eintrag und zählt beim Abgleich mit
+  PLATFORMS.sim.check = (entry, o, s) => (entry.dir !== o.dir ? 'folder' : entry.when !== when(s) || entry.node !== o.nodePath ? 'settings' : null);
+  PLATFORMS.sim.install = async (o, s) => entries.set(o.name, { dir: o.dir, when: when(s), node: o.nodePath });
+  PLATFORMS.sim.node = entry => entry.node;
+  try {
+    const own = ownNode(dir, 'linux');
+    const opts = { platform: 'sim', dir, lang: 'en', nodePath: own };
+    entries.set('Tweakable DJ', { dir, when: when(daily()), node: '/usr/bin/node' });
+    let status = await scheduleStatus(daily(), opts);
+    assert.deepEqual([status.problem, status.nodeOutdated], ['settings', true]);
+    // Andere Zeit: ebenfalls settings, aber nicht nur das Node.js → nicht still erneuern
+    assert.deepEqual([(await scheduleStatus(weekly('MON'), opts)).problem, (await scheduleStatus(weekly('MON'), opts)).nodeOutdated], ['settings', false]);
+    // Anderer Ordner: nie
+    entries.set('Tweakable DJ', { dir: '/anderswo', when: when(daily()), node: '/usr/bin/node' });
+    assert.deepEqual([(await scheduleStatus(daily(), opts)).problem, (await scheduleStatus(daily(), opts)).nodeOutdated], ['folder', false]);
+    // Erneuern (wie die Oberfläche beim Start): danach passt er
+    entries.set('Tweakable DJ', { dir, when: when(daily()), node: '/usr/bin/node' });
+    status = await applySchedule(daily(), opts);
+    assert.deepEqual([status.matches, status.nodeOutdated, entries.get('Tweakable DJ').node], [true, false, own]);
+    // Plattform ohne node(): nie nodeOutdated
+    delete PLATFORMS.sim.node;
+    entries.set('Tweakable DJ', { dir, when: when(daily()), node: '/usr/bin/node' });
+    assert.equal((await scheduleStatus(daily(), opts)).nodeOutdated, false);
   } finally {
     delete PLATFORMS.sim;
     fs.rmSync(dir, { recursive: true, force: true });

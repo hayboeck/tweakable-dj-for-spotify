@@ -65,7 +65,7 @@ test('macOS: Info.plist mit Kennung, Programm und Symbol', () => {
   assert.match(plist, /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<!DOCTYPE plist/);
 });
 
-test('macOS: Startskript startet start.sh --hidden im Hintergrund, ohne Node.js "Tweakable DJ.command" im Terminal; Pfad gequotet', { skip: !sh && 'kein sh' }, () => {
+test('macOS: Startskript startet start.sh --hidden im Hintergrund, ohne Node.js (eigenes oder installiertes) "Tweakable DJ.command" im Terminal; Pfad gequotet', { skip: !sh && 'kein sh' }, () => {
   for (const dir of TRICKY) {
     const script = macLauncher(dir);
     assert.match(script, /^#!\/bin\/sh\n/);
@@ -74,14 +74,24 @@ test('macOS: Startskript startet start.sh --hidden im Hintergrund, ohne Node.js 
     fs.writeFileSync(file, script);
     execFileSync(sh, ['-n', file]); // Syntax
     // Statt cd, nohup und open: Argumente ausgeben – so muss genau der Pfad ankommen. Node.js da bzw. nicht da: true/false.
-    const echo = script.replace(/^cd /m, "printf 'cd:%s|' ").replace(/^if command -v node .*; then$/m, 'if NODE; then')
+    const echo = script.replace(/^cd /m, "printf 'cd:%s|' ").replace(/^if \[ -x node\/current\/bin\/node \] \|\| \{ command -v node .*; \}; then$/m, 'if NODE; then')
       .replace('nohup /bin/sh ', "printf 'nohup:%s|' /bin/sh ").replace(' >/dev/null 2>&1 &', '')
       .replace('exec /usr/bin/open -a Terminal ', "printf '%s|' -a Terminal ");
     fs.writeFileSync(file, echo.replace('NODE', 'true'));
     assert.equal(execFileSync(sh, [file], { encoding: 'utf8' }), `cd:${dir}|nohup:/bin/sh|nohup:./start.sh|nohup:--hidden|`, dir);
     fs.writeFileSync(file, echo.replace('NODE', 'false'));
     assert.equal(execFileSync(sh, [file], { encoding: 'utf8' }), `cd:${dir}|-a|Terminal|${dir}/Tweakable DJ.command|`, dir);
+    assert.ok(echo.includes('if NODE; then'), 'Bedingung ersetzt');
   }
+  // Das eigene Node.js im Programmordner zählt (ohne installiertes): kein Terminal
+  const prog = tmp('prog');
+  fs.mkdirSync(path.join(prog, 'node', 'current', 'bin'), { recursive: true });
+  fs.writeFileSync(path.join(prog, 'node', 'current', 'bin', 'node'), '#!/bin/sh\n', { mode: 0o755 });
+  const own = macLauncher(prog).replace('nohup /bin/sh ', "printf 'nohup:%s|' /bin/sh ").replace(' >/dev/null 2>&1 &\n', '\n')
+    .replace('exec /usr/bin/open -a Terminal ', "printf '%s|' -a Terminal ").replace('PATH="$PATH:/usr/local/bin:/opt/homebrew/bin"', 'PATH=/nirgends');
+  const file = path.join(tmp('sh'), 'launcher');
+  fs.writeFileSync(file, own);
+  if (process.platform !== 'win32') assert.equal(execFileSync(sh, [file], { encoding: 'utf8' }), 'nohup:/bin/sh|nohup:./start.sh|nohup:--hidden|');
   // Startskript der früheren Fassung (nur Terminal): Ordner ebenfalls erkennbar
   assert.equal(macLauncherDir("#!/bin/sh\nexec /usr/bin/open -a Terminal '/a/b c/Tweakable DJ.command'\n"), '/a/b c');
   assert.equal(macLauncherDir('#!/bin/sh\necho fremd\n'), null);

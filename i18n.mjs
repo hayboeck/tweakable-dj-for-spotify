@@ -353,6 +353,8 @@ export const MESSAGES = {
     'ui.idleQuit': 'Seit {minutes} Minuten ist keine Seite von Tweakable DJ mehr offen – beendet.',
     'shortcut.renewed': 'Verknüpfung auf dem Desktop erneuert: {file}',
     'shortcut.renewFailed': 'Die Verknüpfung auf dem Desktop ließ sich nicht erneuern: {message}',
+    'schedule.renewed': 'Automatische Läufe nutzen jetzt das eigene Node.js im Ordner von Tweakable DJ.',
+    'schedule.renewFailed': 'Der Eintrag für automatische Läufe ließ sich nicht auf das eigene Node.js umstellen: {message}',
 
     // --- install-update.mjs („Jetzt aktualisieren“ in der Oberfläche) ---
     'update.stepCheck': 'Frage GitHub nach der neuesten Version …',
@@ -663,6 +665,8 @@ export const MESSAGES = {
     'ui.idleQuit': 'No Tweakable DJ page has been open for {minutes} minutes – quit.',
     'shortcut.renewed': 'Desktop shortcut renewed: {file}',
     'shortcut.renewFailed': 'The desktop shortcut couldn’t be renewed: {message}',
+    'schedule.renewed': 'Automatic runs now use the Node.js in the Tweakable DJ folder.',
+    'schedule.renewFailed': 'The entry for automatic runs couldn’t be switched to the Node.js in the Tweakable DJ folder: {message}',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Asking GitHub for the newest version …',
@@ -974,6 +978,8 @@ export const MESSAGES = {
     'ui.idleQuit': 'Ninguna página de Tweakable DJ lleva {minutes} minutos abierta: se ha cerrado.',
     'shortcut.renewed': 'Acceso directo del escritorio renovado: {file}',
     'shortcut.renewFailed': 'No se pudo renovar el acceso directo del escritorio: {message}',
+    'schedule.renewed': 'Las ejecuciones automáticas usan ahora el Node.js de la carpeta de Tweakable DJ.',
+    'schedule.renewFailed': 'No se pudo cambiar la entrada de las ejecuciones automáticas al Node.js de la carpeta de Tweakable DJ: {message}',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Consultando a GitHub la versión más reciente …',
@@ -1286,6 +1292,8 @@ export const MESSAGES = {
     'ui.idleQuit': 'Aucune page de Tweakable DJ n’est ouverte depuis {minutes} minutes – arrêté.',
     'shortcut.renewed': 'Raccourci du Bureau renouvelé : {file}',
     'shortcut.renewFailed': 'Le raccourci du Bureau n’a pas pu être renouvelé : {message}',
+    'schedule.renewed': 'Les exécutions automatiques utilisent désormais le Node.js du dossier de Tweakable DJ.',
+    'schedule.renewFailed': 'L’entrée des exécutions automatiques n’a pas pu passer au Node.js du dossier de Tweakable DJ : {message}',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Demande de la version la plus récente à GitHub …',

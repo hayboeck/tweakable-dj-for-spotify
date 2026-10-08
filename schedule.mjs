@@ -3,6 +3,9 @@
 // nextRun() und die Erzeugung der Einträge (Task-XML, plist, crontab-Zeile) sind reine Funktionen,
 // damit sie sich ohne Eingriffe ins System testen lassen.
 // Einträge unter dem früheren Namen "Mein DJ" werden beim Eintragen und Ausschalten mit entfernt.
+// Node.js für den Lauf: das eigene im Programmordner (node/current, siehe get-node.cmd bzw. get-node.sh), sobald es da ist.
+// Zeigt ein Eintrag nur auf ein anderes Node.js (z. B. ein installiertes aus der Zeit davor), meldet scheduleStatus das als
+// nodeOutdated; die Oberfläche erneuert ihn dann beim Start still.
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -231,7 +234,19 @@ export const runFailure = (lang, who, r) => (r.code === 'timeout'
     message: decode(r.stderr).trim() || decode(r.stdout).trim() || t(lang, 'schedule.exitCode', { code: r.code }),
   }));
 
-// Node.js für den Lauf: das gerade laufende. Unter macOS/Linux lieber der gleichwertige Link aus dem PATH
+// Eigenes Node.js im Programmordner dir (von get-node.cmd bzw. get-node.sh): Der Pfad bleibt derselbe, auch wenn eine neue
+// Version von Tweakable DJ eine neuere Node-Version festlegt (die Startdatei tauscht nur den Inhalt von node/current aus).
+export const ownNode = (dir, platform = process.platform) => (platform === 'win32'
+  ? path.win32.join(dir, 'node', 'current', 'node.exe')
+  : path.posix.join(dir, 'node', 'current', 'bin', 'node'));
+
+// Node.js für den Lauf: das eigene, wenn es da ist; sonst das gerade laufende (currentNode).
+export function schedulerNode(dir = HERE, platform = process.platform, exists = fs.existsSync) {
+  const own = ownNode(dir, platform);
+  return exists(own) ? own : currentNode();
+}
+
+// Sonst das gerade laufende Node.js. Unter macOS/Linux lieber der gleichwertige Link aus dem PATH
 // (z. B. /opt/homebrew/bin/node), weil der aufgelöste Pfad in einen Versionsordner bei Updates verschwindet.
 function currentNode() {
   const exe = process.execPath;
@@ -261,7 +276,7 @@ function testArgs() {
 // Optionen für Status und Einrichtung. Frühere Namen (legacy) gelten nur für den echten Namen,
 // damit ein Test-Eintrag nie den Eintrag einer älteren Version anfasst.
 function options({ name = process.env.TWEAKABLE_DJ_TASK_NAME || TASK_NAME, legacy = name === TASK_NAME ? LEGACY_NAMES : [], dir = HERE,
-  nodePath = currentNode(), platform = process.platform, nodeArgs = testArgs().nodeArgs ?? [], args = testArgs().args ?? [], lang } = {}) {
+  platform = process.platform, nodePath = schedulerNode(dir, platform), nodeArgs = testArgs().nodeArgs ?? [], args = testArgs().args ?? [], lang } = {}) {
   return { ...entryIds(name), dir, nodePath, platform, nodeArgs, args, lang: resolveLang(lang), legacy: legacy.map(entryIds) };
 }
 
@@ -281,6 +296,14 @@ export const PLATFORMS = {
       return r.code === 0 ? decode(r.stdout) : null;
     },
     check: (entry, o, s) => checkWindowsTask(entry, windowsTaskXml(s, o.nodePath, o.dir, { ...o, conhost: conhost() })),
+    // Node.js, das der Eintrag startet (direkt oder über conhost --headless), null = nicht erkennbar
+    node(entry) {
+      const pick = tag => unxml(entry.match(new RegExp(`<${tag}>([^<]*)</${tag}>`))?.[1] ?? '').trim();
+      const command = pick('Command').replace(/^"(.*)"$/, '$1');
+      if (path.win32.basename(command).toLowerCase() !== 'conhost.exe') return command || null;
+      const m = /^--headless\s+(?:"([^"]+)"|(\S+))/.exec(pick('Arguments'));
+      return m ? m[1] ?? m[2] : null;
+    },
     async install(o, s) {
       const file = path.join(os.tmpdir(), `tweakable-dj-task-${process.pid}-${Date.now()}.xml`);
       fs.writeFileSync(file, utf16(windowsTaskXml(s, o.nodePath, o.dir, { ...o, conhost: conhost() })));
@@ -317,6 +340,11 @@ export const PLATFORMS = {
       if (entry.plist !== expected) return 'settings';
       return entry.loaded ? null : 'disabled';
     },
+    // Node.js = erstes Element von ProgramArguments, null = nicht erkennbar
+    node: entry => {
+      const m = /<key>ProgramArguments<\/key>\s*<array>\s*<string>([^<]*)<\/string>/.exec(entry.plist);
+      return m ? unxml(m[1]) : null;
+    },
     async install(o, s) {
       const file = this.file(o);
       await run('/bin/launchctl', ['bootout', this.domain(), file]); // Fehler egal: war noch nicht geladen
@@ -352,6 +380,12 @@ export const PLATFORMS = {
       const suffix = text => text.slice(text.indexOf(`# ${o.marker} `));
       return suffix(line) === suffix(expected) ? 'settings' : 'folder';
     },
+    // Node.js der crontab-Zeile (in '…' mit '\'' für ' und \% für %), null = nicht erkennbar
+    node: line => {
+      const m = / && ('(?:[^']|'\\'')*'|[^\s']+) /.exec(line);
+      if (!m) return null;
+      return m[1].startsWith("'") ? m[1].slice(1, -1).replace(/'\\''/g, "'").replace(/\\%/g, '%') : m[1];
+    },
     // Schreibt die crontab neu; dabei verschwinden auch Zeilen früherer Namen.
     async write(o, line) {
       const r = await run('crontab', ['-'], updateCrontab(await this.crontab(o), line, o.marker, o.legacy.map(l => l.marker)));
@@ -383,11 +417,13 @@ export function lastRun(dir = HERE, file = AUTO_RESULT) {
 // problem sagt sonst, warum nicht: missing, leftover (Automatik aus und Eintrag noch da, oder ein Eintrag unter
 // einem früheren Namen), folder, settings, disabled, invalid. legacy = es gibt noch einen Eintrag unter einem
 // früheren Namen (legacyNames: welche); der verschwindet beim nächsten Eintragen oder Ausschalten.
+// nodeOutdated: Der Eintrag passt bis auf das Node.js, das er startet (problem 'settings') – z. B. ein installiertes aus einer
+// früheren Version, bevor es das eigene im Programmordner gab. Die Oberfläche erneuert ihn dann beim Start still.
 export async function scheduleStatus(cfg, opts = {}) {
   const o = options(opts);
   const status = {
     supported: false, platform: o.platform, name: o.name, installed: false, matches: false, problem: null,
-    legacy: false, legacyNames: [], nextRun: null, lastRun: lastRun(o.dir), message: '',
+    legacy: false, legacyNames: [], nodeOutdated: false, nextRun: null, lastRun: lastRun(o.dir), message: '',
   };
   const platform = PLATFORMS[o.platform];
   if (!platform) return { ...status, message: t(o.lang, 'schedule.platform') };
@@ -411,6 +447,10 @@ export async function scheduleStatus(cfg, opts = {}) {
   // Ein früherer Eintrag ist übrig, wenn sonst alles passt oder der eigene noch fehlt.
   status.problem = status.legacy && (problem === null || problem === 'missing') ? 'leftover' : problem;
   status.matches = status.problem === null;
+  if (problem === 'settings' && platform.node) {
+    const node = platform.node(entry);
+    status.nodeOutdated = Boolean(node) && node !== o.nodePath && platform.check(entry, { ...o, nodePath: node }, s) === null;
+  }
   if (status.matches && s.schedule !== 'off') status.nextRun = nextRun(s, new Date(), o.lang).toISOString();
   return status;
 }

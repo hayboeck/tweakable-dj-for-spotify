@@ -24,6 +24,8 @@ seen-version.json
 .update/
 # Playlist-Archiv: jede geschriebene Playlist als Textdatei (archive.mjs)
 archiv/
+# Eigenes Node.js, beim ersten Start geladen (get-node.cmd bzw. get-node.sh, Version laut node-version.txt)
+node/
 # Zwischendatei beim Speichern einer persönlichen Datei (files.mjs); bleibt nur liegen, wenn das Programm genau dabei abbricht
 .*.tmp
 

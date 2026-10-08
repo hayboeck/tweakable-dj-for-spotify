@@ -12,6 +12,7 @@
 *.svg     text eol=lf
 *.yml     text eol=lf
 *.cmd     text eol=crlf
+*.txt     text eol=lf
 
 # Bilder (Screenshots in docs/, Logo in assets/) nie umwandeln oder als Text vergleichen; das SVG-Logo ist Text (oben)
 *.png     binary

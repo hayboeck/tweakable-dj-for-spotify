@@ -5,9 +5,13 @@
 # Klappt ./start.sh nicht („Keine Berechtigung“), einmalig  chmod +x start.sh  eingeben
 # oder stattdessen  sh start.sh  verwenden.
 #
-# Mit --hidden (so startet die Verknüpfung auf dem Desktop): ohne Terminal. Die Ausgaben stehen in ui.log; fehlt Node.js,
-# ist es zu alt oder lässt sich die Oberfläche nicht starten, meldet das eine Systembenachrichtigung (notify-send bzw.
-# osascript), denn es gibt kein Fenster für die Meldung.
+# Node.js: Beim ersten Start lädt get-node.sh eine eigene, portable Fassung (Version laut node-version.txt) einmalig in den
+# Unterordner node/; danach nimmt diese Datei immer sie. Klappt der Download nicht (z. B. offline), tut es ein installiertes
+# Node.js ab Version 18.
+#
+# Mit --hidden (so startet die Verknüpfung auf dem Desktop): ohne Terminal. Die Ausgaben stehen in ui.log; muss Node.js erst
+# geladen werden, fehlt es danach immer noch, ist es zu alt oder lässt sich die Oberfläche nicht starten, meldet das eine
+# Systembenachrichtigung (notify-send bzw. osascript), denn es gibt kein Fenster für die Meldung.
 # Mit --now (zweite Verknüpfung „Tweakable DJ – Playlist neu erstellen“): ebenso ohne Terminal, aber statt der Oberfläche
 # node dj.mjs --now – erstellt die Playlist neu und meldet sich mit einer Systembenachrichtigung.
 #
@@ -37,10 +41,27 @@ melde() {
 # Oberfläche starten; ohne Fenster kommen Meldungen, die Node.js selbst ausgibt (z. B. eine kaputte Programmdatei), nach ui.log.
 oberflaeche() {
   if [ -n "$hidden" ]; then
-    node ui.mjs "$@" 2>>ui.log
+    "$node" ui.mjs "$@" 2>>ui.log
   else
-    node ui.mjs "$@"
+    "$node" ui.mjs "$@"
   fi
+}
+
+# Eigenes Node.js (get-node.sh): Ohne Terminal kündigt eine Systembenachrichtigung einen nötigen Download an, die Ausgaben
+# kommen nach ui.log. Danach steht in $node das eigene Node.js, sonst einfach node (ein installiertes, falls es eins gibt).
+eigenesNode() {
+  node=node
+  [ -f get-node.sh ] || return 0
+  if [ -n "$hidden" ]; then
+    sh ./get-node.sh --check >/dev/null 2>&1
+    if [ $? -eq 1 ]; then
+      melde "$(sh ./get-node.sh --message)"
+      sh ./get-node.sh >>ui.log 2>&1
+    fi
+  else
+    sh ./get-node.sh
+  fi
+  if [ -x node/current/bin/node ]; then node="$PWD/node/current/bin/node"; fi
 }
 
 main() {
@@ -54,36 +75,38 @@ main() {
   [ "$1" = "--hidden" ] && hidden=1
   [ "$1" = "--now" ] && hidden=1
 
-  if ! command -v node >/dev/null 2>&1; then
+  eigenesNode
+
+  if ! command -v "$node" >/dev/null 2>&1; then
     if [ -n "$hidden" ]; then
-      melde "Node.js fehlt. Bitte installieren (Version 18 oder neuer): https://nodejs.org / Node.js is missing. Please install it (version 18 or newer): https://nodejs.org"
+      melde "Node.js fehlt: Es ließ sich nicht herunterladen. Bitte die Internetverbindung prüfen und Tweakable DJ erneut starten – oder Node.js installieren (Version 18 oder neuer): https://nodejs.org / Node.js is missing: it couldn't be downloaded. Please check the internet connection and start Tweakable DJ again – or install Node.js (version 18 or newer): https://nodejs.org"
       exit 1
     fi
-    echo "Node.js ist nicht installiert (oder nicht auffindbar)."
-    echo "Bitte Node.js installieren, Version 18 oder neuer: https://nodejs.org"
-    echo "Danach Tweakable DJ noch einmal starten."
+    echo "Node.js fehlt: Es ließ sich nicht herunterladen, und es ist auch keins installiert."
+    echo "Bitte die Internetverbindung prüfen und Tweakable DJ noch einmal starten –"
+    echo "oder Node.js installieren, Version 18 oder neuer: https://nodejs.org"
     echo
-    echo "Node.js is not installed (or can't be found)."
-    echo "Please install Node.js, version 18 or newer: https://nodejs.org"
-    echo "Then start Tweakable DJ again."
+    echo "Node.js is missing: it couldn't be downloaded, and none is installed."
+    echo "Please check the internet connection and start Tweakable DJ again –"
+    echo "or install Node.js, version 18 or newer: https://nodejs.org"
     fertig 1
   fi
 
-  if ! node -e 'process.exit(parseInt(process.versions.node, 10) >= 18 ? 0 : 1)'; then
+  if ! "$node" -e 'process.exit(parseInt(process.versions.node, 10) >= 18 ? 0 : 1)'; then
     if [ -n "$hidden" ]; then
-      melde "Node.js ist zu alt ($(node --version)), Tweakable DJ braucht 18 oder neuer: https://nodejs.org / Node.js is too old ($(node --version)), Tweakable DJ needs 18 or newer: https://nodejs.org"
+      melde "Node.js ist zu alt ($("$node" --version)), Tweakable DJ braucht 18 oder neuer: https://nodejs.org / Node.js is too old ($("$node" --version)), Tweakable DJ needs 18 or newer: https://nodejs.org"
       exit 1
     fi
-    echo "Node.js ist zu alt: $(node --version). Tweakable DJ braucht Version 18 oder neuer."
+    echo "Node.js ist zu alt: $("$node" --version). Tweakable DJ braucht Version 18 oder neuer."
     echo "Neue Version: https://nodejs.org"
     echo
-    echo "Node.js is too old: $(node --version). Tweakable DJ needs version 18 or newer."
+    echo "Node.js is too old: $("$node" --version). Tweakable DJ needs version 18 or newer."
     echo "New version: https://nodejs.org"
     fertig 1
   fi
 
   if [ "$1" = "--now" ]; then
-    exec node dj.mjs --now
+    exec "$node" dj.mjs --now
   fi
 
   # Sagt ui.mjs, dass diese Datei nach einem Update neu startet (sonst: Hinweis, Tweakable DJ selbst neu zu starten),

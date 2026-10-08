@@ -131,6 +131,10 @@ test('pathProblem: persönliche Dateien, Pfade außerhalb, Backslash, Laufwerk, 
   assert.ok(isPersonal('AUTOMATIK.LOG') && isPersonal('x.log') && !isPersonal('ui.mjs'));
   // Playlist-Archiv: der ganze Ordner ist persönlich
   for (const p of ['archiv/2026-10-06 18-30-05 Tweakable DJ.txt', 'Archiv/x.txt', 'archiv']) assert.equal(pathProblem(p), 'update.reasonPersonal', p);
+  // Eigenes Node.js (get-node.cmd bzw. get-node.sh): das Update schreibt und löscht dort nie etwas, auch nicht über obsolete
+  for (const p of ['node/current/node.exe', 'node/current/bin/node', 'Node/new/x', 'node']) assert.equal(pathProblem(p), 'update.reasonPersonal', p);
+  assert.equal(pathProblem('node-version.txt'), null);
+  assert.equal(pathProblem('get-node.cmd'), null);
 });
 
 // probelauf.json (Ergebnis des letzten Probelaufs) und die anderen persönlichen Dateien: nie im Repository (.gitignore),

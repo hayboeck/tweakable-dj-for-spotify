@@ -416,6 +416,21 @@ async function renewShortcuts(lang) {
   }
 }
 
+// Eintrag im Zeitplaner, der bis auf das Node.js passt (nodeOutdated in schedule.mjs; z. B. noch ein installiertes Node.js aus
+// einer früheren Version, inzwischen gibt es das eigene im Programmordner): beim Start still auf das eigene umstellen. Wie
+// renewShortcuts nur, wenn eine Startdatei gestartet hat; Einträge für andere Ordner oder mit anderen Zeiten bleiben.
+async function renewSchedule(lang) {
+  try {
+    const cfg = currentConfig(lang);
+    if ((cfg.schedule ?? 'off') === 'off') return;
+    if (!(await scheduleStatus(cfg, { lang })).nodeOutdated) return;
+    await serial(() => applySchedule(cfg, { lang }));
+    console.log(t(lang, 'schedule.renewed'));
+  } catch (e) {
+    console.warn(t(lang, 'schedule.renewFailed', { message: e.message }));
+  }
+}
+
 // Nach einem Update: Server beenden, damit die neuen Dateien gelten. Mit Startdatei (Exit-Code 75) startet sie ihn
 // gleich wieder, ohne Browser (die Seite ist ja offen und lädt sich dann selbst neu); sonst bitte von Hand neu starten.
 let restarting = false;
@@ -954,7 +969,7 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(HIDDEN ? t(lang, 'ui.hiddenHint', { minutes: Math.round(IDLE_MS / 60_000) }) : t(lang, 'ui.stopHint'));
   if (!noBrowser) openPage();
   if (HIDDEN) watchIdle();
-  if (LAUNCHER) renewShortcuts(lang);
+  if (LAUNCHER) renewShortcuts(lang).then(() => renewSchedule(lang));
   // Überholte Programmdateien früherer Versionen (laut manifest.json), falls eine ältere Version das Update installiert hat
   const removed = cleanObsolete(HERE, lang);
   if (removed.length) console.log(t(lang, 'update.cleaned', { count: removed.length }));

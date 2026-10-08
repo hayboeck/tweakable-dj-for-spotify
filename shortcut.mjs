@@ -8,8 +8,9 @@
 //            Programmordner, Symbol assets\logo.ico. Frühere Fassungen zielten direkt auf "Tweakable DJ.cmd" (mit Fenster).
 //   macOS:   kleines Programm "Tweakable DJ.app" in ~/Desktop: Info.plist (Kennung io.github.tweakable-dj.launcher,
 //            LSUIElement = kein Symbol im Dock), Resources/logo.icns und Contents/MacOS/launcher (sh), das start.sh --hidden
-//            per nohup im Hintergrund startet. Fehlt Node.js (oder ist es zu alt), öffnet es stattdessen
-//            "Tweakable DJ.command" im Terminal, damit man die Meldung sieht.
+//            per nohup im Hintergrund startet. Gibt es weder das eigene Node.js im Ordner node/ (get-node.sh) noch ein
+//            installiertes ab Version 18, öffnet es stattdessen "Tweakable DJ.command" im Terminal: Dort sieht man den
+//            einmaligen Download von Node.js bzw. die Meldung.
 //   Linux:   "tweakable-dj.desktop" im Desktop-Ordner (xdg-user-dir DESKTOP, sonst ~/Desktop): startet start.sh --hidden ohne
 //            Terminal, Symbol assets/logo.png; ausführbar und – wo es gio gibt – als vertrauenswürdig markiert.
 // Entfernt bzw. ersetzt wird nur die eigene Verknüpfung (Windows: Aufruf von "Tweakable DJ.cmd" mit dem Argument der Art,
@@ -90,7 +91,7 @@ export function macInfoPlist(kind, lang) {
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleVersion</key>
-  <string>2</string>
+  <string>3</string>
   <key>LSUIElement</key>
   <true/>
 </dict>
@@ -99,16 +100,17 @@ export function macInfoPlist(kind, lang) {
 }
 
 // Startet start.sh mit dem Argument der Art per nohup im Hintergrund (ohne Terminal). Das Startskript endet gleich wieder,
-// so startet jeder Doppelklick neu (ein zweiter Start öffnet nur den Browser, siehe ui.mjs). Ohne passendes Node.js:
-// "Tweakable DJ.command" im Terminal öffnen (wie ein Doppelklick darauf im Finder), damit man die Meldung sieht.
+// so startet jeder Doppelklick neu (ein zweiter Start öffnet nur den Browser, siehe ui.mjs). Ohne eigenes (node/current) und
+// ohne passendes installiertes Node.js: "Tweakable DJ.command" im Terminal öffnen (wie ein Doppelklick darauf im Finder), damit
+// man den Download von Node.js bzw. die Meldung sieht.
 export function macLauncher(dir, kind) {
   return `#!/bin/sh
 # Angelegt von Tweakable DJ (Einstellungen → Verknüpfung): startet Tweakable DJ ohne Terminalfenster (Ausgaben in ui.log).
-# Fehlt Node.js oder ist es zu alt, öffnet es "Tweakable DJ.command" im Terminal, damit man die Meldung sieht.
+# Gibt es noch kein Node.js (beim ersten Start), öffnet es "Tweakable DJ.command" im Terminal: Dort sieht man den Download.
 PATH="$PATH:/usr/local/bin:/opt/homebrew/bin"
 export PATH
 cd ${shell(dir)} || exit 1
-if command -v node >/dev/null 2>&1 && node -e 'process.exit(parseInt(process.versions.node, 10) >= 18 ? 0 : 1)' >/dev/null 2>&1; then
+if [ -x node/current/bin/node ] || { command -v node >/dev/null 2>&1 && node -e 'process.exit(parseInt(process.versions.node, 10) >= 18 ? 0 : 1)' >/dev/null 2>&1; }; then
   nohup /bin/sh ./start.sh ${kindOf(kind).arg} >/dev/null 2>&1 &
   exit 0
 fi
