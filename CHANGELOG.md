@@ -15,7 +15,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 **Changed**
 
-- **Fewer controls under *Selection***: *Starting points per run* and *Include Last.fm top songs* are now folded away under *Details for experts* (view *Pro*), like the details of *Variety among artists*.
+- **Fewer controls under “Selection”**: *Starting points per run* and *Include Last.fm top songs* are now folded away under *Details for experts* (view *Pro*), like the details of *Variety among artists*.
 
 **Fixed**
 
@@ -29,7 +29,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 **Geändert**
 
-- **Weniger Regler unter *Auswahl***: *Ausgangspunkte pro Lauf* und *Last.fm-Top-Songs einbeziehen* stehen jetzt eingeklappt unter *Details für Fortgeschrittene* (Ansicht *Pro*), wie bei *Abwechslung bei Künstlern*.
+- **Weniger Regler unter „Auswahl“**: *Ausgangspunkte pro Lauf* und *Last.fm-Top-Songs einbeziehen* stehen jetzt eingeklappt unter *Details für Fortgeschrittene* (Ansicht *Pro*), wie bei *Abwechslung bei Künstlern*.
 
 **Behoben**
 
