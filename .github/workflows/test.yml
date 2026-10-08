@@ -1,4 +1,5 @@
 # Automatische Tests bei jedem Push und Pull Request (npm test, ohne Abhängigkeiten und ohne Netzwerkzugriffe)
+# Die Browser-Tests der Oberfläche (tests/browser.test.mjs) nehmen das vorinstallierte Chrome der Runner (headless).
 # Linux: 18 = Mindestversion (package.json "engines"), 20 und 22 = ältere LTS, 24 = aktuelle LTS, 26 = neueste Version.
 # Windows: lts/* = jeweils die neueste LTS, also das, was nodejs.org Windows-Nutzern gerade anbietet (Pfade mit
 # Leerzeichen und Umlaut, Zeilenenden, Aufgabenplanung). Ein Windows-Lauf genügt: Unterschiede zwischen den

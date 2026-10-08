@@ -3587,7 +3587,20 @@ function renderSummary() {
 // kind: 'dry' („Playlist erstellen“, Probelauf), 'apply' (erstellte Liste in die Playlist aus den Einstellungen schreiben,
 // „„<Name>“ überschreiben“) oder 'new' (als neue Playlist mit Datum und Uhrzeit im Namen, „Neue Playlist anlegen“).
 // Vor dem Erstellen werden ungespeicherte Änderungen gespeichert; danach gilt eine früher erstellte Liste nicht mehr.
+// Nur ein Lauf gleichzeitig aus dieser Seite: Ein zweiter Klick (Doppelklick, auch während vorher noch gespeichert wird)
+// tut nichts.
+let runPending = false;
 async function run(kind) {
+  if (runPending || isWorking()) return;
+  runPending = true;
+  try {
+    await startRun(kind);
+  } finally {
+    runPending = false;
+  }
+}
+
+async function startRun(kind) {
   const dry = kind === 'dry';
   const applying = kind === 'apply' || kind === 'new';
   showError('');
@@ -3804,9 +3817,17 @@ async function refreshTrial() {
 }
 
 // kind: 'apply' (überschreiben) oder 'new' (neue Playlist)
+// Doppelklick: Der zweite Klick kommt, während der erste noch beim Server nachfragt – dann nichts tun.
+let applyPending = false;
 async function applyTrial(kind) {
-  await refreshTrial();
-  if (!trialReason()) run(kind);
+  if (applyPending || isWorking()) return;
+  applyPending = true;
+  try {
+    await refreshTrial();
+    if (!trialReason()) await run(kind);
+  } finally {
+    applyPending = false;
+  }
 }
 
 // Datei im Browser herunterladen (UTF-8)
@@ -3889,13 +3910,19 @@ function renderArchive() {
 
 // Eintrag holen und wie eine Datei in die Vorschau geben; danach geht es weiter wie beim Import aus einer Datei.
 // undo: true = „Vorige Playlist wiederherstellen“ (danach kein neuer Knopf, sonst spränge es hin und her).
+let archivePending = false; // Eintrag wird gerade geholt (Doppelklick auf „Vorige Playlist wiederherstellen“: nur einmal)
 async function importArchive(id, { undo = false } = {}) {
+  if (archivePending || isWorking()) return;
+  archivePending = true;
   toggleImportMenu(false);
   try {
     const r = await apiJson(`/api/archive/entry?id=${encodeURIComponent(id)}`);
-    importPreview(new File([r.text], r.id, { type: 'text/plain' }), { undo });
+    archivePending = false;
+    await importPreview(new File([r.text], r.id, { type: 'text/plain' }), { undo });
   } catch (e) {
     setImport({ phase: 'error', text: e.message });
+  } finally {
+    archivePending = false;
   }
 }
 
