@@ -2533,10 +2533,11 @@ const GROUPS = [
   { id: 'selection', pro: true, items: [
     { key: 'familiarShare' },
     { key: 'adventure' },
-    { key: 'seedsPerRun' },
-    { key: 'useLastfmTopTracks', type: 'toggle' },
     { key: 'followedArtists' },
     { key: 'preferNewer' },
+    // Unter „Details für Fortgeschrittene“ (eingeklappt): woher die Ausgangspunkte kommen und wie viele es sind
+    { key: 'seedsPerRun', details: true },
+    { key: 'useLastfmTopTracks', type: 'toggle', details: true },
   ]},
   { id: 'current', pro: true, items: [
     { key: 'currentDays' },
@@ -2800,6 +2801,7 @@ function build() {
   for (const root of Object.values(roots)) root.replaceChildren();
   proSections.length = 0;
   const detailsOpen = varietyControl?.details.open ?? false; // bleibt beim Umschalten der Sprache, wie er war
+  const moreOpen = Object.fromEntries(Object.entries(moreDetails).map(([id, d]) => [id, d.open]));
   for (const group of GROUPS) {
     const section = group.root ? roots[group.root] : el('section', {}, [el('h2', { textContent: T.groups[group.id] })]);
     let details = null;
@@ -2808,6 +2810,10 @@ function build() {
       details = el('details', { className: 'more', open: detailsOpen }, [el('summary', { textContent: T.variety.details })]);
       varietyControl.details = details;
       section.append(varietyControl.row, details);
+    } else if (group.items.some(item => item.details)) {
+      // Andere Gruppen mit Zeilen für Fortgeschrittene: eingeklappter Bereich am Ende der Gruppe (unten angehängt)
+      details = el('details', { className: 'more', open: moreOpen[group.id] ?? false }, [el('summary', { textContent: T.variety.details })]);
+      moreDetails[group.id] = details;
     }
     for (const item of group.items) {
       // Zeilen mit details: true kommen in den Details-Bereich der Gruppe.
@@ -2894,6 +2900,7 @@ function build() {
       control.input = input;
       controls[item.key] = control;
     }
+    if (details && !group.variety) section.append(details);
     if (group.status) section.append(scheduleBox());
     if (group.pro) proSections.push(section);
     if (!group.root) roots[tabOf(group)].append(section);
@@ -3190,6 +3197,7 @@ async function setMode(mode) {
   }
 }
 
+const moreDetails = {};   // eingeklappte Bereiche „Details für Fortgeschrittene“ je Gruppe (außer Abwechslung)
 function refresh(skipInput) {
   // Legende unter der Ausgabe: Name der gewählten Akzentfarbe (in der die Songs zum aktuellen Hören markiert sind)
   $('legend-now').textContent = T.items.accent.options[current.accent] ?? T.items.accent.options.green;
