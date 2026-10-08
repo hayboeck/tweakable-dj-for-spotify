@@ -167,10 +167,15 @@ test('changesSince: Update über mehrere Versionen – Punkte aller Versionen da
   const version = (v, n) => `## [${v}] – 2026-10-0${n}\n\n### English\n\n${Array.from({ length: n }, (_, i) => `- **${v} item ${i + 1}**: text`).join('\n')}\n\n### Deutsch\n\n- **${v} Punkt**: Text\n`;
   const text = `# Changelog\n\n## [Unreleased]\n\n### English\n\n- **Not yet**: x\n\n${version('0.3.3', 6)}\n${version('0.3.2', 2)}\n${version('0.3.1', 4)}\n${version('0.3.0', 5)}\n${version('0.2.5', 3)}`;
   const r = changesSince(text, '0.2.5', '0.3.3', 'en');
-  assert.deepEqual(r.sections.map(x => [x.version, x.items.length]), [['0.3.3', MAX_ITEMS], ['0.3.2', 2], ['0.3.1', OLDER_ITEMS]],
-    'neueste zuerst, 0.2.5 (die vorige) nicht, zusammen höchstens TOTAL_ITEMS');
-  assert.equal(r.items.length, TOTAL_ITEMS);
-  assert.equal(r.more, 1 + 0 + 1 + 5, 'nicht gezeigte Punkte');
+  assert.deepEqual(r.sections.map(x => [x.version, x.items.length]), [['0.3.3', MAX_ITEMS], ['0.3.2', 2], ['0.3.1', OLDER_ITEMS], ['0.3.0', OLDER_ITEMS]],
+    'neueste zuerst, 0.2.5 (die vorige) nicht');
+  assert.equal(r.items.length, MAX_ITEMS + 2 + 2 * OLDER_ITEMS);
+  assert.ok(r.items.length <= TOTAL_ITEMS);
+  assert.equal(r.more, 1 + 0 + (4 - OLDER_ITEMS) + (5 - OLDER_ITEMS), 'nicht gezeigte Punkte');
+  // Zusammen höchstens TOTAL_ITEMS: viele Versionen mit vielen Punkten
+  const many = Array.from({ length: 9 }, (_, i) => version(`1.0.${i}`, 6)).reverse().join('\n');
+  const capped = changesSince(many, '0.9.0', '1.0.8', 'en');
+  assert.equal(capped.items.length, TOTAL_ITEMS);
   assert.deepEqual(r.items.slice(0, 2), ['0.3.3 item 1', '0.3.3 item 2']);
   assert.deepEqual(changesSince(text, '0.3.2', '0.3.3', 'de'), { sections: [{ version: '0.3.3', items: ['0.3.3 Punkt'] }], items: ['0.3.3 Punkt'], more: 0 });
   assert.equal(changesSince(text, '0.3.3', '0.3.3', 'en'), null, 'nichts Neues');
@@ -178,6 +183,6 @@ test('changesSince: Update über mehrere Versionen – Punkte aller Versionen da
   withDir(dir => {
     markSeen(dir, '0.2.5');
     const w = whatsNew({ dir, current: '0.3.3', lang: 'en', changelog: text, slug: 'owner/repo' });
-    assert.deepEqual([w.version, w.previous, w.sections.length, w.url], ['0.3.3', '0.2.5', 3, 'https://github.com/owner/repo/releases/tag/v0.3.3']);
+    assert.deepEqual([w.version, w.previous, w.sections.length, w.url], ['0.3.3', '0.2.5', 4, 'https://github.com/owner/repo/releases/tag/v0.3.3']);
   });
 });

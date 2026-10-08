@@ -19,8 +19,8 @@ import { compareVersions, parseVersion, repoSlug } from './update.mjs';
 export const SEEN_FILE = 'seen-version.json';
 export const MAX_ITEMS = 5;
 // Über mehrere Versionen: von jeder älteren Version höchstens OLDER_ITEMS Punkte, zusammen höchstens TOTAL_ITEMS.
-export const OLDER_ITEMS = 3;
-export const TOTAL_ITEMS = 10;
+export const OLDER_ITEMS = 2;
+export const TOTAL_ITEMS = 12;
 const MAX_LENGTH = 120;
 
 // Markdown einer Zeile zu schlichtem Text: **fett**, *kursiv*, `Code` und [Link](Ziel) ohne Zeichen.
