@@ -48,7 +48,12 @@ Tweakable DJ is an independent project and not an official Spotify product (more
 
 ## 1. Quick start
 
-First time here? Download Tweakable DJ and start it as described in the [setup](#7-setup-one-time) – there’s nothing else to install. On the first start, Tweakable DJ downloads Node.js once (about 40 MB), and a wizard guides you through the rest (about 10 minutes). After that, it works like this every time:
+First time here? Download Tweakable DJ and start it as described in the [setup](#7-setup-one-time) – there’s nothing else to install. On the first start, Tweakable DJ downloads Node.js once (about 40 MB), and a wizard guides you through the rest (about 10 minutes).
+
+<a id="smart-app-control"></a>
+> **Windows 11 – “Smart App Control has blocked part of this app”?** Smart App Control blocks unsigned start files downloaded from the internet, such as `Tweakable DJ.cmd`. For now, the only way around it is to turn it off: *Settings → Privacy & security → Windows Security → App & browser control → Smart App Control settings → Off*. Please note: Windows Security warns that it can’t be turned back on without reinstalling Windows; according to [Microsoft](https://support.microsoft.com/en-us/topic/what-is-smart-app-control-285ea03d-fa88-4d56-882e-6698afdb7003), recent Windows updates allow turning it back on without a clean installation.
+
+After that, it works like this every time:
 
 1. Start Tweakable DJ: double-click the **shortcut *Tweakable DJ* on your desktop** (the setup wizard creates it). Without the shortcut: double-click **`Tweakable DJ.cmd`** (Windows) or **`Tweakable DJ.command`** (Mac); on Linux, run `./start.sh` in a terminal. The interface with its controls opens in your browser.
 2. Pick a **preset** (e.g. “Discover”) or set the *Number of songs*, then click **Create playlist** (takes about a minute). The DJ shows which songs it picked; nothing goes to Spotify yet. (*Pro* at the top shows all controls.)
@@ -446,7 +451,7 @@ You do these steps once before using Tweakable DJ for the first time, and again 
 1. **Download Tweakable DJ**: on the GitHub page of Tweakable DJ, click *Releases* on the right. For the newest version, download the file `tweakable-dj-v….zip` under *Assets* and unzip it (Windows: right-click → *Extract All*, Mac: double-click). Put the `tweakable-dj` folder in a permanent place, e.g. in *Documents*. Don’t start it directly from inside the ZIP file, or your settings will be lost. (If you use git, you can clone the repository instead.)
 2. **Node.js comes by itself.** Tweakable DJ runs with Node.js. On the first start, it downloads its own copy once from <https://nodejs.org> (Windows about 40 MB, Mac about 55 MB, Linux about 30 MB), checks it against the checksum published there (SHA-256) and puts it into the subfolder `node` of the `tweakable-dj` folder. It needs no admin rights, installs nothing on your system, changes no settings and leaves a Node.js you may already have alone. Only if the download isn’t possible (e.g. offline) does Tweakable DJ use an installed Node.js 18 or newer. The DJ needs no other packages.
 3. **Start Tweakable DJ** as described in the [quick start](#1-quick-start). The very first time, your system usually asks for confirmation because the file comes from the internet:
-   - **Windows**: if “Windows protected your PC” appears, click *More info* → *Run anyway*. If “The publisher could not be verified” appears, click *Run*.
+   - **Windows**: if “Windows protected your PC” appears, click *More info* → *Run anyway*. If “The publisher could not be verified” appears, click *Run*. If Windows 11 says “Smart App Control has blocked part of this app”, see [Smart App Control](#smart-app-control).
    - **Mac**: start `Tweakable DJ.command` with **right-click → Open** and choose *Open* again in the dialog. If the dialog offers no *Open* (newer macOS versions), close it and click *Open Anyway* further down under *System Settings → Privacy & Security*. After that, a double-click is enough.
    - **Linux**: in a [terminal in the folder](#open-a-terminal-in-the-folder) `tweakable-dj`, enter `./start.sh`.
    - **Mac and Linux, if “permission denied” appears**: the start file has lost its execute permission (happens e.g. when the folder was copied via Windows). In a [terminal in the folder](#open-a-terminal-in-the-folder) `tweakable-dj`, enter `chmod +x "Tweakable DJ.command" start.sh` once. On Linux, `sh start.sh` also works without that.
@@ -557,6 +562,7 @@ There is only ever one entry: it always has the same name, whichever folder it c
 | “The downloaded Node.js does not run on this PC” | Your system can’t run the official Node.js build (e.g. a very old system, or Linux with musl such as Alpine). Install Node.js 18 or newer in a way that suits your system; Tweakable DJ then uses it. |
 | “'node' is not recognized as an internal or external command” (in the terminal) | You typed `node …` yourself, but Node.js isn’t installed. Use Tweakable DJ’s own one instead, see [In the terminal](#in-the-terminal). |
 | “Node.js is too old” or “Tweakable DJ needs Node.js 18 or newer” | Only happens with an installed Node.js (when the download didn’t work): start Tweakable DJ again with an internet connection, or install the newest version from <https://nodejs.org> |
+| Windows 11: “Smart App Control has blocked part of this app” (or similar), and nothing starts | Smart App Control blocks the start files. Turn it off, see [Smart App Control](#smart-app-control) (with the note on turning it back on). |
 | Mac: “… can’t be opened because it is from an unidentified developer” | The first time, start it with right-click → *Open* ([setup](#7-setup-one-time), step 3) |
 | Mac/Linux: “permission denied” | Run `chmod +x "Tweakable DJ.command" start.sh` once in the `tweakable-dj` folder ([setup](#7-setup-one-time), step 3) |
 | Warning ⚠ “The rule … couldn’t be kept everywhere” | The rules are too strict for the songs found, e.g. “1 in 20” with 50 songs. Set *Artist variety* one step lower, or relax one rule under *Details for experts*. |
