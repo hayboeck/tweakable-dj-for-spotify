@@ -5,7 +5,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MAX_ITEMS, SEEN_FILE, markSeen, parseChangelog, seenVersion, shortItem, updatedFrom, whatsNew } from '../whatsnew.mjs';
+import {
+  changesSince, MAX_ITEMS, OLDER_ITEMS, SEEN_FILE, TOTAL_ITEMS, markSeen, parseChangelog, seenVersion, shortItem, updatedFrom, whatsNew,
+} from '../whatsnew.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -118,6 +120,7 @@ test('whatsNew: allererster Start nichts; nach einem Update einmal, bis geschlos
   markSeen(dir, '0.2.4');
   assert.deepEqual(show(dir), {
     version: '0.3.0', previous: '0.2.4', items: ['Herz im Probelauf', 'Vorige Playlist wiederherstellen'], more: 0,
+    sections: [{ version: '0.3.0', items: ['Herz im Probelauf', 'Vorige Playlist wiederherstellen'] }],
     url: 'https://github.com/owner/repo/releases/tag/v0.3.0',
   });
   assert.equal(show(dir, '0.3.0', 'fr').items[0], 'Heart in the test run');
@@ -159,3 +162,22 @@ test('whatsNew: erstes Update auf eine Version mit Hinweis – vorige Version au
     assert.equal(show(other), null, 'wie ein allererster Start');
   });
 }));
+
+test('changesSince: Update über mehrere Versionen – Punkte aller Versionen dazwischen, neueste zuerst, begrenzt', () => {
+  const version = (v, n) => `## [${v}] – 2026-10-0${n}\n\n### English\n\n${Array.from({ length: n }, (_, i) => `- **${v} item ${i + 1}**: text`).join('\n')}\n\n### Deutsch\n\n- **${v} Punkt**: Text\n`;
+  const text = `# Changelog\n\n## [Unreleased]\n\n### English\n\n- **Not yet**: x\n\n${version('0.3.3', 6)}\n${version('0.3.2', 2)}\n${version('0.3.1', 4)}\n${version('0.3.0', 5)}\n${version('0.2.5', 3)}`;
+  const r = changesSince(text, '0.2.5', '0.3.3', 'en');
+  assert.deepEqual(r.sections.map(x => [x.version, x.items.length]), [['0.3.3', MAX_ITEMS], ['0.3.2', 2], ['0.3.1', OLDER_ITEMS]],
+    'neueste zuerst, 0.2.5 (die vorige) nicht, zusammen höchstens TOTAL_ITEMS');
+  assert.equal(r.items.length, TOTAL_ITEMS);
+  assert.equal(r.more, 1 + 0 + 1 + 5, 'nicht gezeigte Punkte');
+  assert.deepEqual(r.items.slice(0, 2), ['0.3.3 item 1', '0.3.3 item 2']);
+  assert.deepEqual(changesSince(text, '0.3.2', '0.3.3', 'de'), { sections: [{ version: '0.3.3', items: ['0.3.3 Punkt'] }], items: ['0.3.3 Punkt'], more: 0 });
+  assert.equal(changesSince(text, '0.3.3', '0.3.3', 'en'), null, 'nichts Neues');
+  // whatsNew: von 0.2.5 auf 0.3.3 → mehrere Abschnitte
+  withDir(dir => {
+    markSeen(dir, '0.2.5');
+    const w = whatsNew({ dir, current: '0.3.3', lang: 'en', changelog: text, slug: 'owner/repo' });
+    assert.deepEqual([w.version, w.previous, w.sections.length, w.url], ['0.3.3', '0.2.5', 3, 'https://github.com/owner/repo/releases/tag/v0.3.3']);
+  });
+});

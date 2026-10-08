@@ -469,7 +469,7 @@ for (const launcher of [true, false]) {
     });
     let personal;
     try {
-      assert.deepEqual(await (await call('/api/version')).json(), { version: '0.1.0', app: 'tweakable-dj', busy: false });
+      assert.deepEqual(await (await call('/api/version')).json(), { version: '0.1.0', app: 'tweakable-dj', busy: false, activity: null });
       const info = await (await call('/api/update')).json();
       assert.deepEqual([info.updateAvailable, info.latest, info.installable], [true, '0.2.0', true]);
       // Die Prüfung eben hat update-check.json neu geschrieben (ihr Tages-Cache); ab hier darf sich keine ändern.
@@ -495,7 +495,7 @@ for (const launcher of [true, false]) {
     // Neustart (wie die Startdatei): Der neue Server meldet die neue Version und liefert die neue Seite.
     const again = await startServer(dir, { MOCK_GITHUB: process.env.MOCK_GITHUB });
     try {
-      assert.deepEqual(await (await again.call('/api/version')).json(), { version: '0.2.0', app: 'tweakable-dj', busy: false });
+      assert.deepEqual(await (await again.call('/api/version')).json(), { version: '0.2.0', app: 'tweakable-dj', busy: false, activity: null });
       assert.match(await (await again.call('/')).text(), /<!-- neue Version 0\.2\.0 -->/);
       assert.equal((await (await again.call('/api/update')).json()).updateAvailable, false);
     } finally {

@@ -606,9 +606,9 @@ test('Sperre: kein Import während eines Laufs; kein Lauf, Übernehmen, Anmelden
   try {
     const busy = 'Gerade läuft ein Import aus einer Textdatei. Warte, bis er fertig ist.';
     assert.deepEqual([(await api('/api/run?dry=1', { lang: 'de', method: 'POST' })).status, (await api('/api/run', { lang: 'de', method: 'POST' })).data.error], [409, busy]);
-    assert.deepEqual((await api('/api/apply', { lang: 'de', method: 'POST', body: { id: '0123456789ab' } })).data, { error: busy });
+    assert.deepEqual((await api('/api/apply', { lang: 'de', method: 'POST', body: { id: '0123456789ab' } })).data, { error: busy, activity: 'import' });
     assert.deepEqual((await api('/api/login', { lang: 'en', method: 'POST' })).data, { error: 'An import from a text file is in progress. Wait until it’s finished.' });
-    assert.deepEqual((await preview('A – B')).data, { error: busy });
+    assert.deepEqual((await preview('A – B')).data, { error: busy, activity: 'import' });
     assert.equal((await api('/api/import', { lang: 'de', method: 'POST', body: { uris: ['spotify:track:aaaaaaaaaaaaaaaaaaaaaa'] } })).status, 409);
     assert.equal((await api('/api/config')).data.importing, true);
     updateCase('beispiel', RELEASE('v0.2.0'));
@@ -1352,4 +1352,32 @@ test('Sperre: kein Lauf, Übernehmen oder Import während eines automatischen La
   } finally {
     fs.rmSync(path.join(dir, 'automatik.json'), { force: true });
   }
+});
+
+test('Neu geladene Seite bzw. zweiter Tab: GET /api/run zeigt den laufenden Lauf samt Ausgabe und Ergebnis; activity', async () => {
+  const controller = new AbortController();
+  const res = await fetch(`${base}/api/run?dry=1`, { method: 'POST', headers: { 'X-Tweakable-DJ': '1', 'X-Lang': 'de' }, signal: controller.signal });
+  const id = Number(res.headers.get('x-tweakable-dj-run'));
+  assert.ok(id > 0, 'Nummer des Laufs in der Kopfzeile');
+  await res.body.getReader().read();
+  controller.abort(); // Seite neu geladen: Die Antwort an sie fällt weg, der Lauf geht weiter
+  const during = (await api('/api/config')).data;
+  assert.deepEqual([during.running, during.activity], [true, 'run']);
+  assert.equal((await api('/api/version')).data.activity, 'run');
+  assert.equal((await api('/api/run?dry=1', { lang: 'de', method: 'POST' })).data.activity, 'run', '409 nennt, was läuft');
+  let data;
+  for (let i = 0; i < 300; i++) {
+    data = (await api('/api/run')).data;
+    if (data.run?.done) break;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  assert.deepEqual([data.run.id, data.run.kind, data.run.dry, data.run.done, data.from, data.activity], [id, 'dry', true, true, 0, null]);
+  assert.match(data.run.text, /^Lade deine Favoriten …$/m);
+  assert.equal(resultLine(data.run.text).trialId, data.run.result.trialId);
+  assert.deepEqual([data.run.result.ok, data.run.length], [true, data.run.text.length]);
+  // Nur der Rest ab from, solange es derselbe Lauf ist; sonst alles
+  const part = (await api(`/api/run?id=${id}&from=10`)).data;
+  assert.deepEqual([part.from, part.run.text], [10, data.run.text.slice(10)]);
+  assert.equal((await api(`/api/run?id=${id + 99}&from=10`)).data.from, 0);
+  assert.equal((await api('/api/config')).data.activity, null);
 });

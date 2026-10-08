@@ -147,6 +147,7 @@
   .whatsnew-title { font-weight: 600; }
   .whatsnew ul { margin: 4px 0 6px; padding-left: 20px; font-size: 14px; }
   .whatsnew li.more { list-style: none; margin-left: -20px; color: var(--muted); }
+  .whatsnew li.ver { list-style: none; margin: 4px 0 0 -20px; font-weight: 600; color: var(--muted); }
   .whatsnew a { font-weight: 600; font-size: 14px; }
   .update-panel { grid-column: 1 / -1; padding-right: 8px; }
   .update-panel p { margin: 0 0 8px; }
@@ -600,6 +601,8 @@ try {
           <span id="summary" class="summary"></span>
           <a id="open" class="open" target="_blank" rel="noopener" data-t="open" hidden></a>
         </div>
+        <!-- Läuft etwas, das diese Seite nicht selbst gestartet hat (watchActivity): was, und dass die Knöpfe solange gesperrt sind -->
+        <p class="msg" id="wait-msg" role="status" hidden></p>
         <pre id="log"></pre>
         <!-- Was die Farben in der Liste bedeuten; nur, wenn die Ausgabe eine Songliste enthält (renderLog) -->
         <p class="help log-legend" id="log-legend" hidden><span class="now" id="legend-now"></span><span data-t="legendText"></span></p>
@@ -966,6 +969,14 @@ const TEXT = {
       failed: 'Fehlgeschlagen – siehe Ausgabe',
       failedShort: 'Fehlgeschlagen',
     },
+    // Was gerade läuft, das diese Seite nicht selbst gestartet hat (activity vom Server, watchActivity); die Knöpfe sind so lange gesperrt.
+    wait: {
+      run: 'Läuft schon (in einem anderen Fenster oder seit dem Neuladen der Seite) – die Ausgabe erscheint hier mit.',
+      import: 'Gerade läuft ein Import aus einer Textdatei (z. B. in einem anderen Fenster). Die Knöpfe sind gesperrt, bis er fertig ist.',
+      auto: 'Gerade läuft ein automatischer Lauf. Die Knöpfe sind gesperrt, bis er fertig ist.',
+      now: 'Gerade erstellt die Verknüpfung auf dem Desktop die Playlist neu. Die Knöpfe sind gesperrt, bis sie fertig ist.',
+      update: 'Gerade wird Tweakable DJ aktualisiert (in einem anderen Fenster). Danach lädt die Seite neu.',
+    },
     // Erstellte Liste (Probelauf) überschreiben bzw. neu anlegen; Gründe vom Server (z. B. Playlist inzwischen neu geschrieben) kommen als Text.
     trial: {
       // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
@@ -1115,6 +1126,8 @@ const TEXT = {
     // „Neu in v0.x.y“ einmal nach einem Update (Punkte vom Server aus CHANGELOG.md, Deutsch bzw. sonst Englisch)
     whatsnew: {
       title: v => `Neu in v${v}`,
+      // Update über mehrere Versionen (z. B. von 0.2.5): Punkte je Version darunter
+      since: v => `Neu seit v${v}`,
       more: n => `… und ${num(n)} weitere`,
       link: 'Alle Änderungen ↗',
       close: 'Hinweis schließen',
@@ -1399,6 +1412,13 @@ const TEXT = {
       failed: 'Failed – see output',
       failedShort: 'Failed',
     },
+    wait: {
+      run: 'Already running (in another window or since the page was reloaded) – the output appears here too.',
+      import: 'An import from a text file is in progress (e.g. in another window). The buttons are locked until it’s finished.',
+      auto: 'An automatic run is in progress. The buttons are locked until it’s finished.',
+      now: 'The desktop shortcut is rebuilding the playlist right now. The buttons are locked until it’s finished.',
+      update: 'Tweakable DJ is being updated (in another window). The page reloads afterwards.',
+    },
     trial: {
       // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
       help: (name, until, example) => `Possible until ${until} as long as the settings stay the same. As a new playlist, it’s named e.g. “${example}”; “${name}” then stays as it is.`,
@@ -1544,6 +1564,7 @@ const TEXT = {
     // „Neu in v0.x.y“ einmal nach einem Update (Punkte vom Server aus CHANGELOG.md, Deutsch bzw. sonst Englisch)
     whatsnew: {
       title: v => `New in v${v}`,
+      since: v => `New since v${v}`,
       more: n => `… and ${num(n)} more`,
       link: 'All changes ↗',
       close: 'Close notice',
@@ -1825,6 +1846,13 @@ const TEXT = {
       failed: 'Error (ver la salida)',
       failedShort: 'Error',
     },
+    wait: {
+      run: 'Ya está en curso (en otra ventana o desde que se recargó la página): la salida también aparece aquí.',
+      import: 'Hay una importación desde un archivo de texto en curso (p. ej. en otra ventana). Los botones están bloqueados hasta que termine.',
+      auto: 'Hay una ejecución automática en curso. Los botones están bloqueados hasta que termine.',
+      now: 'El acceso directo del escritorio está recreando la playlist ahora mismo. Los botones están bloqueados hasta que termine.',
+      update: 'Tweakable DJ se está actualizando (en otra ventana). Después, la página se recarga.',
+    },
     trial: {
       // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
       help: (name, until, example) => `Posible hasta el ${until}, mientras no cambies los ajustes. Como playlist nueva se llama p. ej. «${example}»; «${name}» se queda como está.`,
@@ -1970,6 +1998,7 @@ const TEXT = {
     // „Neu in v0.x.y“ einmal nach einem Update (Punkte vom Server aus CHANGELOG.md, Deutsch bzw. sonst Englisch)
     whatsnew: {
       title: v => `Novedades de la v${v}`,
+      since: v => `Novedades desde la v${v}`,
       more: n => `… y ${num(n)} más`,
       link: 'Todos los cambios ↗',
       close: 'Cerrar aviso',
@@ -2252,6 +2281,13 @@ const TEXT = {
       failed: 'Échec – voir la sortie',
       failedShort: 'Échec',
     },
+    wait: {
+      run: 'Déjà en cours (dans une autre fenêtre ou depuis le rechargement de la page) : la sortie s’affiche aussi ici.',
+      import: 'Une importation depuis un fichier texte est en cours (p. ex. dans une autre fenêtre). Les boutons sont bloqués jusqu’à la fin.',
+      auto: 'Une exécution automatique est en cours. Les boutons sont bloqués jusqu’à la fin.',
+      now: 'Le raccourci du bureau recrée la playlist en ce moment. Les boutons sont bloqués jusqu’à la fin.',
+      update: 'Tweakable DJ est en cours de mise à jour (dans une autre fenêtre). La page se recharge ensuite.',
+    },
     trial: {
       // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
       help: (name, until, example) => `Possible jusqu’au ${until}, tant que les réglages ne changent pas. En nouvelle playlist, elle s’appelle p. ex. « ${example} » ; « ${name} » reste alors telle quelle.`,
@@ -2397,6 +2433,7 @@ const TEXT = {
     // „Neu in v0.x.y“ einmal nach einem Update (Punkte vom Server aus CHANGELOG.md, Deutsch bzw. sonst Englisch)
     whatsnew: {
       title: v => `Nouveautés de la v${v}`,
+      since: v => `Nouveautés depuis la v${v}`,
       more: n => `… et ${plural(n, 'autre', 'autres')}`,
       link: 'Toutes les modifications ↗',
       close: 'Fermer l’avis',
@@ -3240,7 +3277,10 @@ function refresh(skipInput) {
   const isDirty = dirty();
   const working = isWorking(); // Lauf, Import oder Update: dann weder speichern noch etwas Neues starten
   $('status').textContent = view === 'setup' ? T.status.setup : busy ? T.status.running : updating() ? T.status.updating
-    : importRunning ? T.status.importing : isDirty ? T.status.dirty : T.status.saved;
+    : importRunning ? T.status.importing : waiting ? T.status[{ import: 'importing', update: 'updating' }[waiting.kind] ?? 'running']
+    : isDirty ? T.status.dirty : T.status.saved;
+  $('wait-msg').hidden = !waiting;
+  $('wait-msg').textContent = waiting ? T.wait[waiting.kind] ?? T.wait.run : '';
   $('status').classList.toggle('dirty', view !== 'setup' && isDirty && !working);
   // Punkt am anderen Tab, wenn dort ungespeicherte Änderungen sind (Speichern und Verwerfen gelten für beide Tabs)
   for (const t of TABS) {
@@ -3267,7 +3307,7 @@ function refresh(skipInput) {
   if (runState?.tracks && !same(logBlocked, current.blockedTracks)) renderLog(logText);
 }
 
-const isWorking = () => busy || updating() || importRunning;
+const isWorking = () => busy || updating() || importRunning || Boolean(waiting);
 
 // keepEdits: ungespeicherte Regler-Änderungen behalten (z. B. nach dem Assistenten oder der Anmeldung).
 async function load(keepEdits = false) {
@@ -3282,6 +3322,7 @@ async function load(keepEdits = false) {
   archiveFiles = data.archiveFiles ?? null;
   variety = data.variety ?? variety;
   varietyOverwritten = false;
+  startActivity = data.activity ?? null;
   loaded = true;
   rememberLook();
   adoptLang(data);
@@ -3302,7 +3343,9 @@ async function save() {
     if (scheduleChanged) setMsg($('auto-msg'), 'err', e.message);
     throw e;
   }
-  saved = { ...current };
+  // Nur das Gesendete gilt als gespeichert: Regler, die man während des Speicherns verstellt hat (mit Automatik dauert es
+  // Sekunden), bleiben ungespeichert.
+  saved = { ...saved, ...changes };
   rememberLook();
   for (const key of Object.keys(changes)) delete problems[key]; // jetzt gültig gespeichert
   if (res.schedule) {
@@ -3539,6 +3582,7 @@ async function run(kind) {
   const dry = kind === 'dry';
   const applying = kind === 'apply' || kind === 'new';
   showError('');
+  const before0 = trial;
   if (!applying) {
     try {
       if (dirty()) await save();
@@ -3547,7 +3591,8 @@ async function run(kind) {
     }
     trial = null;
   }
-  const settings = { ...current }; // Einstellungen dieses Probelaufs
+  const settings = { ...saved }; // Einstellungen dieses Probelaufs (gerade gespeichert)
+  const before = { runState, undoEntry, trial: applying ? trial : before0 };
   setUndo(null);
   busy = true;
   refresh();
@@ -3558,7 +3603,20 @@ async function run(kind) {
     const res = applying
       ? await api('/api/apply', { method: 'POST', body: JSON.stringify({ id: trial.id, target: kind === 'new' ? 'new' : 'standard' }) })
       : await api(`/api/run${dry ? '?dry=1' : ''}`, { method: 'POST' });
-    if (!res.ok) throw new Error((await res.json()).error);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      // Läuft schon etwas (anderes Fenster, automatischer Lauf …): Stand wie vorher und warten, statt nur „belegt“ zu melden.
+      if (res.status === 409 && data.activity) {
+        ({ runState } = before);
+        trial = before.trial;
+        setUndo(before.undoEntry);
+        busy = false;
+        watchActivity(data.activity);
+        return;
+      }
+      throw new Error(data.error);
+    }
+    ownRunId = Number(res.headers.get('X-Tweakable-DJ-Run')) || null;
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     for (;;) {
@@ -3570,23 +3628,7 @@ async function run(kind) {
     }
     text += decoder.decode();
     renderLog(text);
-    const result = runResult(text);
-    runState = { phase: 'done', kind, dry, result, trialId: dry && result?.ok ? result.trialId ?? null : null, tracks: null };
-    if (LOGIN_CODES.includes(result?.errorCode)) showNotice('expired');
-    if (dry && result?.ok && result.trialId) {
-      trial = { id: result.trialId, settings, expiresAt: new Date(Date.now() + 24 * 3600_000).toISOString(), serverReason: null, message: '' };
-      refreshTrial();
-      loadTrialTracks(result.trialId);
-    } else if (applying && result?.errorCode === 'trial_expired') {
-      Object.assign(trial, { serverReason: 'server', message: result.error });
-    } else if (applying && result?.ok) {
-      trial = null; // steht jetzt in Spotify
-    }
-    scopeFailed = result?.missingScope === FOLLOW_SCOPE;
-    // „Vorige Playlist wiederherstellen“ nur nach dem Überschreiben: Eine neu angelegte Playlist ändert die bisherige nicht.
-    if (result?.ok && !dry && kind !== 'new') checkUndo(result.archiveFile);
-    // Der Lauf hat das Token eventuell erneuert und dabei die erteilten Berechtigungen gespeichert (setup.missingScopes).
-    apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); setArchiveFiles(d.archiveFiles); }).catch(() => {});
+    finishRun(kind, text, settings);
   } catch (e) {
     runState = { phase: 'error', kind, dry, result: null };
     showError(e.message);
@@ -3595,6 +3637,92 @@ async function run(kind) {
     renderSummary();
     refresh();
   }
+}
+
+// Ende eines Laufs (eigener aus run() bzw. verfolgter aus watchActivity): Ergebnis aus der Ausgabe, danach erstellte Liste,
+// Hinweise und „Vorige Playlist wiederherstellen“. kind wie bei run() ('run' = normaler Lauf ohne Probelauf, nur über die API);
+// settings: Einstellungen, mit denen der Lauf gestartet wurde.
+function finishRun(kind, text, settings) {
+  const dry = kind === 'dry';
+  const applying = kind === 'apply' || kind === 'new';
+  const result = runResult(text);
+  runState = { phase: 'done', kind, dry, result, trialId: dry && result?.ok ? result.trialId ?? null : null, tracks: null };
+  if (LOGIN_CODES.includes(result?.errorCode)) showNotice('expired');
+  if (dry && result?.ok && result.trialId) {
+    trial = { id: result.trialId, settings, expiresAt: new Date(Date.now() + 24 * 3600_000).toISOString(), serverReason: null, message: '' };
+    refreshTrial();
+    loadTrialTracks(result.trialId);
+  } else if (applying && result?.errorCode === 'trial_expired') {
+    if (trial) Object.assign(trial, { serverReason: 'server', message: result.error });
+  } else if (applying && result?.ok) {
+    trial = null; // steht jetzt in Spotify
+  }
+  scopeFailed = result?.missingScope === FOLLOW_SCOPE;
+  // „Vorige Playlist wiederherstellen“ nur nach dem Überschreiben: Eine neu angelegte Playlist ändert die bisherige nicht.
+  if (result?.ok && !dry && kind !== 'new') checkUndo(result.archiveFile);
+  // Der Lauf hat das Token eventuell erneuert und dabei die erteilten Berechtigungen gespeichert (setup.missingScopes).
+  apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); setArchiveFiles(d.archiveFiles); }).catch(() => {});
+}
+
+// --- Läuft schon etwas? (nach dem Neuladen, in einem zweiten Tab, automatischer Lauf, „Playlist jetzt neu erstellen“) ---
+
+let waiting = null;        // { kind: activity vom Server ('run', 'import', 'update', 'auto', 'now') }, solange gewartet wird
+let ownRunId = null;       // Nummer des Laufs, den diese Seite selbst gestartet bzw. schon zu Ende verfolgt hat
+let startActivity = null;  // activity beim Laden (GET /api/config)
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Läuft etwas, das diese Seite nicht selbst gestartet hat: „Läuft …“ zeigen, Knöpfe sperren und nachfragen, bis es fertig ist.
+// Einen Lauf aus der Oberfläche zeigt die Seite dabei mit (GET /api/run: Ausgabe, danach Ergebnis, erstellte Liste bzw. „Vorige
+// Playlist wiederherstellen“). Danach holt sie den Stand neu (Automatik, Archiv, erstellte Liste).
+async function watchActivity(kind) {
+  if (!kind || waiting || busy || importRunning || updating()) return;
+  waiting = { kind };
+  refresh();
+  let jobId = null;
+  let text = '';
+  let errors = 0;
+  while (waiting) {
+    let next = null;
+    try {
+      if (waiting.kind === 'run') {
+        const data = await apiJson(`/api/run?id=${jobId ?? ''}&from=${text.length}`);
+        next = data.activity;
+        const run = data.run;
+        if (run && run.id !== ownRunId) {
+          if (run.id !== jobId) text = '';
+          jobId = run.id;
+          text = text.slice(0, data.from ?? 0) + run.text;
+          if (run.done) {
+            ownRunId = run.id;
+            renderLog(text);
+            finishRun(run.kind, text, { ...saved });
+          } else {
+            if (runState?.phase !== 'running') setUndo(null);
+            runState = { phase: 'running', kind: run.kind, dry: run.dry, result: null };
+            renderLog(text);
+            $('log').scrollTop = $('log').scrollHeight;
+          }
+          renderSummary();
+        }
+      } else {
+        next = (await apiJson('/api/version')).activity;
+      }
+      errors = 0;
+    } catch {
+      if (++errors >= 5) break; // Server weg (z. B. Update): das meldet heartbeat()
+      next = waiting.kind;
+    }
+    if (!next) break;
+    waiting.kind = next; // z. B. nach dem Lauf gleich ein Import
+    refresh();
+    await sleep(next === 'run' ? 1000 : 2000);
+  }
+  waiting = null;
+  refresh();
+  renderSummary();
+  loadSchedule();
+  apiJson('/api/config').then(d => setArchiveFiles(d.archiveFiles)).catch(() => {});
+  if (trial) refreshTrial();
 }
 
 // --- Probelauf übernehmen ---
@@ -3821,7 +3949,17 @@ async function importPreview(file, { undo = false } = {}) {
   setImport({ phase: 'busy', text: T.files.reading(file.name) });
   try {
     const res = await api('/api/import/preview', { method: 'POST', body: await file.text(), headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
-    if (!res.ok) throw new Error((await res.json()).error);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && data.activity) {
+        // Läuft schon etwas (z. B. in einem anderen Fenster): warten statt nur „belegt“; die Datei danach noch einmal wählen.
+        setImport(null);
+        importRunning = false;
+        watchActivity(data.activity);
+        return;
+      }
+      throw new Error(data.error);
+    }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let text = '';
@@ -3865,6 +4003,10 @@ async function importWrite() {
   } catch (e) {
     if (e.data?.login && setup?.loggedIn) showNotice('expired');
     setImport({ ...s, error: e.message });
+    if (e.data?.activity) {
+      importRunning = false;
+      watchActivity(e.data.activity); // Vorschau bleibt; nach dem Warten lässt sie sich noch einmal schreiben
+    }
   } finally {
     importRunning = false;
     refresh();
@@ -4272,8 +4414,10 @@ async function heartbeat() {
   const restarting = () => ['running', 'done', 'manual', 'slow'].includes(upd.phase);
   for (let i = 0; i < 2; i++) {
     try {
-      await api('/api/version');
+      const res = await api('/api/version');
       renderUpdate();
+      const v = await res.json().catch(() => null);
+      if (v?.activity && view === 'main' && !isWorking()) watchActivity(v.activity);
       if (stopped) {
         reloading = true;
         location.reload();
@@ -4309,8 +4453,13 @@ function renderWhatsNew() {
   const w = whatsNewInfo;
   $('whatsnew').hidden = !w;
   if (!w) return;
-  $('whatsnew-title').textContent = T.whatsnew.title(w.version);
-  $('whatsnew-list').replaceChildren(...w.items.map(text => el('li', { textContent: text })),
+  // Mehrere Versionen (Update über mehrere): „Neu seit v…“, darunter die Punkte je Version, neueste zuerst
+  const multi = Array.isArray(w.sections) && w.sections.length > 1;
+  $('whatsnew-title').textContent = multi ? T.whatsnew.since(w.previous) : T.whatsnew.title(w.version);
+  const items = multi
+    ? w.sections.flatMap(sec => [el('li', { className: 'ver', textContent: `v${sec.version}` }), ...sec.items.map(text => el('li', { textContent: text }))])
+    : w.items.map(text => el('li', { textContent: text }));
+  $('whatsnew-list').replaceChildren(...items,
     ...(w.more > 0 ? [el('li', { className: 'more', textContent: T.whatsnew.more(w.more) })] : []));
   const link = githubLink(w.url);
   $('whatsnew-link').hidden = !link;
@@ -4728,6 +4877,7 @@ load().then(async () => {
   else {
     tab = hashTab();
     showView('main');
+    watchActivity(startActivity); // z. B. nach dem Neuladen während eines Laufs
   }
   loadPlaylists();
   loadSchedule();

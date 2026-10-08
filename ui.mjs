@@ -443,22 +443,61 @@ const fallbackResult = (lang, dry, code) => ({
   artists: null, yearFrom: null, yearTo: null, firstTime: null,
 });
 
+// Letzter Lauf aus der Oberfläche (auch wenn die Seite, die ihn gestartet hat, inzwischen neu geladen oder zu ist):
+// { id, kind ('dry' = „Playlist erstellen“, 'run', 'apply' = überschreiben, 'new' = neue Playlist), dry, text (ganze Ausgabe
+// wie bei POST /api/run), done, result (aus "@@RESULT", erst wenn done) }. Eine neu geladene Seite bzw. ein zweiter Tab
+// verfolgt ihn über GET /api/run und zeigt danach sein Ergebnis (ui.html, watchActivity).
+let lastRun = null;
+let runCount = 0;
+const RUN_TEXT_MAX = 5_000_000; // mehr hebt der Server nicht auf (die Seite, die ihn gestartet hat, bekommt trotzdem alles)
+
 // Startet dj.mjs mit args und schickt seine Ausgabe als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".
-function streamRun(res, args, lang, dry) {
-  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+// Kopfzeile X-Tweakable-DJ-Run: Nummer des Laufs (lastRun.id), damit die Seite ihn später als ihren eigenen erkennt.
+function streamRun(res, args, lang, kind) {
+  const dry = kind === 'dry';
+  const job = { id: ++runCount, kind, dry, text: '', done: false, result: null };
+  lastRun = job;
+  res.writeHead(200, {
+    'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-Tweakable-DJ-Run': String(job.id),
+  });
   const child = spawn(process.execPath, args, { cwd: HERE, env: { ...process.env, TWEAKABLE_DJ_LANG: lang } });
   running = child;
-  let out = '';
-  child.stdout.on('data', chunk => (out += chunk));
-  child.stdout.pipe(res, { end: false });
-  child.stderr.pipe(res, { end: false });
+  // Seite neu geladen bzw. geschlossen: Der Lauf geht weiter, nur die Antwort an sie fällt weg.
+  const write = chunk => {
+    if (job.text.length < RUN_TEXT_MAX) job.text += chunk;
+    if (!res.destroyed && !res.writableEnded) res.write(chunk);
+  };
+  for (const stream of [child.stdout, child.stderr]) {
+    stream.setEncoding('utf8'); // Umlaute bleiben heil, auch wenn sie auf zwei Teile verteilt ankommen
+    stream.on('data', write);
+  }
   child.on('close', code => {
     if (running === child) running = null;
-    if (code === 0) return res.end('');
-    const result = /^@@RESULT /m.test(out) ? '' : `@@RESULT ${JSON.stringify(fallbackResult(lang, dry, code))}\n`;
-    res.end(`${result}\n${t(lang, 'ui.exited', { code })}`);
+    if (code !== 0) {
+      const result = /^@@RESULT /m.test(job.text) ? '' : `@@RESULT ${JSON.stringify(fallbackResult(lang, dry, code))}\n`;
+      write(`${result}\n${t(lang, 'ui.exited', { code })}`);
+    }
+    job.result = resultOf(job.text) ?? fallbackResult(lang, dry, code);
+    job.done = true;
+    if (!res.destroyed && !res.writableEnded) res.end();
   });
 }
+
+// Ergebnis aus der letzten Zeile "@@RESULT {…}" einer Ausgabe, sonst null.
+function resultOf(text) {
+  const line = text.split(/\r?\n/).reverse().find(l => l.startsWith('@@RESULT '));
+  try {
+    return line ? JSON.parse(line.slice('@@RESULT '.length)) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Was gerade läuft (für die Seite, damit sie nach dem Neuladen bzw. in einem zweiten Tab „Läuft …“ zeigt und wartet):
+// 'run' (Lauf aus der Oberfläche), 'import', 'update', 'auto' (automatischer Lauf), 'now' („Playlist jetzt neu erstellen“)
+// oder null.
+const activity = () => (running ? 'run' : importing ? 'import' : installing || restarting ? 'update'
+  : autoRunSince(HERE) ? 'auto' : nowRunning() ? 'now' : null);
 
 const server = http.createServer(async (req, res) => {
   // X-Frame-Options: Seite nicht in fremde Seiten einbetten lassen (sonst Klicks unterschiebbar).
@@ -509,6 +548,7 @@ const server = http.createServer(async (req, res) => {
       const values = Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, cfg[k]]));
       return send(200, {
         values, defaults: DEFAULTS, limits: LIMITS, variety: { keys: VARIETY_KEYS, levels: VARIETY_LEVELS }, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running), importing,
+        activity: activity(),
         setup: setupStatus(cfg), archiveFiles: archiveFileCount(HERE),
       });
     }
@@ -557,12 +597,13 @@ const server = http.createServer(async (req, res) => {
     // Version dieses Servers; die Seite wartet nach einem Update darauf, dass der neue Server antwortet. Die Seite fragt
     // außerdem alle 30 Sekunden (Lebenszeichen, siehe IDLE_MS); ein zweiter Start erkennt daran die eigene Instanz.
     // busy: Lauf, Import oder Update der Oberfläche – dann startet „Playlist jetzt neu erstellen“ (dj.mjs --now) nicht.
-    if (route === 'GET /api/version') return send(200, { version: VERSION, app: APP_ID, busy: Boolean(running || importing || installing) });
+    // activity: was gerade läuft (activity()), auch außerhalb der Oberfläche – die Seite wartet dann (ui.html, watchActivity).
+    if (route === 'GET /api/version') return send(200, { version: VERSION, app: APP_ID, busy: Boolean(running || importing || installing), activity: activity() });
 
     // „Tweakable DJ beenden“: nicht während eines Laufs, Imports, Updates oder einer Anmeldung (409 mit Grund).
     if (route === 'POST /api/quit') {
       const busy = quitBusy(lang);
-      if (busy) return send(409, { error: busy });
+      if (busy) return send(409, { error: busy, activity: activity() });
       send(200, { ok: true });
       return quit('ui.quit');
     }
@@ -686,9 +727,23 @@ const server = http.createServer(async (req, res) => {
     // Lauf starten: Ausgabe von dj.mjs als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".
     if (route === 'POST /api/run') {
       const busy = runBusy(lang);
-      if (busy) return send(409, { error: busy });
+      if (busy) return send(409, { error: busy, activity: activity() });
       const dry = url.searchParams.get('dry') === '1';
-      return streamRun(res, ['dj.mjs', ...(dry ? ['--dry'] : [])], lang, dry);
+      return streamRun(res, ['dj.mjs', ...(dry ? ['--dry'] : [])], lang, dry ? 'dry' : 'run');
+    }
+
+    // Letzter Lauf aus der Oberfläche (lastRun), z. B. für eine neu geladene Seite. ?id=<Nummer>&from=<Zeichen>: Ist es noch
+    // derselbe Lauf, nur die Ausgabe ab from (sonst alles, from 0). → { run: { id, kind, dry, done, length, text, result } oder
+    // null, from, activity }; result erst, wenn done.
+    if (route === 'GET /api/run') {
+      const job = lastRun;
+      const same = job && url.searchParams.get('id') === String(job.id);
+      const from = same ? Math.min(job.text.length, Math.max(0, Number.parseInt(url.searchParams.get('from') ?? '0', 10) || 0)) : 0;
+      return send(200, {
+        run: job && { id: job.id, kind: job.kind, dry: job.dry, done: job.done, length: job.text.length, text: job.text.slice(from), result: job.done ? job.result : null },
+        from,
+        activity: activity(),
+      });
     }
 
     // Stand des letzten Probelaufs (probelauf.json): Lässt er sich übernehmen? ?id= = Kennung aus @@RESULT (trialId).
@@ -711,11 +766,11 @@ const server = http.createServer(async (req, res) => {
       // hintereinander (Doppelklick, zweiter Tab) beide an der Prüfung vorbei, während die erste noch ihren Inhalt liest.
       const { id, target = 'standard' } = await readJson(req, lang);
       const busy = runBusy(lang);
-      if (busy) return send(409, { error: busy });
+      if (busy) return send(409, { error: busy, activity: activity() });
       if (typeof id !== 'string' || !/^[0-9a-f]{12}$/.test(id) || !['standard', 'new'].includes(target)) return send(400, { error: t(lang, 'ui.badRequest') });
       const reason = trialProblem(readTrial(HERE), { cfg: currentConfig(lang), id });
       if (reason) return send(409, { error: t(lang, `trial.${reason}`), reason });
-      return streamRun(res, ['dj.mjs', '--apply', `--trial=${id}`, ...(target === 'new' ? ['--new'] : [])], lang, false);
+      return streamRun(res, ['dj.mjs', '--apply', `--trial=${id}`, ...(target === 'new' ? ['--new'] : [])], lang, target === 'new' ? 'new' : 'apply');
     }
 
     // „Als Textdatei speichern“: { text, filename, songs } für den Download im Browser. Ohne ?trial= die Playlist, wie sie
@@ -744,7 +799,7 @@ const server = http.createServer(async (req, res) => {
     // { ok: false, error, errorCode }. Schreibt nichts.
     if (route === 'POST /api/import/preview') {
       const busy = importBusy(lang);
-      if (busy) return send(409, { error: busy });
+      if (busy) return send(409, { error: busy, activity: activity() });
       importing = true;
       try {
         const cfg = currentConfig(lang);
@@ -779,7 +834,7 @@ const server = http.createServer(async (req, res) => {
     // playlistName, playlistUrl, created, archiveRemoved, archiveFile (Name der neuen Archivdatei oder null), warning? }
     if (route === 'POST /api/import') {
       const busy = importBusy(lang);
-      if (busy) return send(409, { error: busy });
+      if (busy) return send(409, { error: busy, activity: activity() });
       importing = true;
       try {
         const { uris } = await readJson(req, lang);

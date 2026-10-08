@@ -1,6 +1,7 @@
 // „Neu in v0.x.y“: Nach einem Update zeigt die Oberfläche einmal oben einen schließbaren Hinweis mit den wichtigsten
-// Punkten aus CHANGELOG.md für die neue Version (deutscher Abschnitt für Deutsch, sonst der englische) und einem Link zum
-// Release auf GitHub. Eingebunden in ui.mjs (GET und POST /api/whatsnew).
+// Punkten aus CHANGELOG.md (deutscher Abschnitt für Deutsch, sonst der englische) und einem Link zum Release auf GitHub.
+// Hat das Update Versionen übersprungen (z. B. 0.2.5 → 0.3.3), kommen die Punkte aller Versionen dazwischen dazu („Neu seit
+// v0.2.5“), neueste zuerst und begrenzt (changesSince). Eingebunden in ui.mjs (GET und POST /api/whatsnew).
 //
 // Gemerkt wird die zuletzt gesehene Version in seen-version.json im Programmordner (persönlich wie state.json: nie im
 // Repository, nie in der ZIP-Datei, ein Update fasst sie nie an). Serverseitig statt im Browser, weil das auch mit einem
@@ -17,6 +18,9 @@ import { compareVersions, parseVersion, repoSlug } from './update.mjs';
 
 export const SEEN_FILE = 'seen-version.json';
 export const MAX_ITEMS = 5;
+// Über mehrere Versionen: von jeder älteren Version höchstens OLDER_ITEMS Punkte, zusammen höchstens TOTAL_ITEMS.
+export const OLDER_ITEMS = 3;
+export const TOTAL_ITEMS = 10;
 const MAX_LENGTH = 120;
 
 // Markdown einer Zeile zu schlichtem Text: **fett**, *kursiv*, `Code` und [Link](Ziel) ohne Zeichen.
@@ -58,27 +62,64 @@ function firstSentence(text) {
 // Punkte fehlen).
 export function parseChangelog(text, version, lang) {
   if (typeof text !== 'string' || !parseVersion(version)) return null;
-  const lines = text.replace(/\r/g, '').split('\n');
   const want = version.replace(/^v/i, '');
-  const start = lines.findIndex(l => {
-    const m = /^##\s+\[?v?([^\]\s]+)\]?/.exec(l);
-    return m && m[1] === want;
-  });
-  if (start < 0) return null;
-  let end = lines.findIndex((l, i) => i > start && /^##\s/.test(l));
-  if (end < 0) end = lines.length;
-  const section = lines.slice(start + 1, end);
+  const section = versionSections(text).find(v => v.version === want);
+  const items = section ? sectionItems(section.lines, lang) : [];
+  if (!items.length) return null;
+  return { items: items.slice(0, MAX_ITEMS), more: Math.max(0, items.length - MAX_ITEMS) };
+}
+
+// Abschnitte „## [x.y.z] …“ in der Reihenfolge der Datei: [{ version, lines }] (ohne „Unreleased“ und Ähnliches).
+function versionSections(text) {
+  const out = [];
+  let cur = null;
+  for (const l of text.replace(/\r/g, '').split('\n')) {
+    if (/^##\s/.test(l)) {
+      const v = /^##\s+\[?v?([^\]\s]+)\]?/.exec(l)?.[1];
+      cur = v && parseVersion(v) ? { version: v, lines: [] } : null;
+      if (cur) out.push(cur);
+    } else if (cur) {
+      cur.lines.push(l);
+    }
+  }
+  return out;
+}
+
+// Kurzfassungen aller Punkte eines Abschnitts in der Sprache lang (siehe parseChangelog); [] = keine.
+function sectionItems(section, lang) {
   const heading = lang === 'de' ? 'Deutsch' : 'English';
   const from = section.findIndex(l => new RegExp(`^###\\s+${heading}\\s*$`).test(l));
-  if (from < 0) return null;
+  if (from < 0) return [];
   let to = section.findIndex((l, i) => i > from && /^###\s/.test(l));
   if (to < 0) to = section.length;
   const points = section.slice(from + 1, to).filter(l => /^[-*]\s+\S/.test(l));
   // Gibt es Punkte mit fettem Stichwort, nur diese (die übrigen ergänzen sie meist nur); sonst alle mit dem ersten Satz.
   const bold = points.filter(l => /^[-*]\s+\*\*[^*]+\*\*/.test(l));
-  const items = (bold.length ? bold : points).map(shortItem).filter(Boolean);
-  if (!items.length) return null;
-  return { items: items.slice(0, MAX_ITEMS), more: Math.max(0, items.length - MAX_ITEMS) };
+  return (bold.length ? bold : points).map(shortItem).filter(Boolean);
+}
+
+// Punkte aller Versionen nach previous bis einschließlich current, neueste zuerst: { sections: [{ version, items }], items
+// (alle gezeigten der Reihe nach), more (nicht gezeigte) } oder null (keine Punkte bzw. kein Abschnitt zu current). Von current höchstens MAX_ITEMS, von jeder
+// älteren Version höchstens OLDER_ITEMS, zusammen höchstens TOTAL_ITEMS – die wichtigsten stehen in CHANGELOG.md zuerst.
+export function changesSince(text, previous, current, lang) {
+  if (typeof text !== 'string' || !parseVersion(current)) return null;
+  const versions = versionSections(text)
+    .filter(v => compareVersions(v.version, current) <= 0 && (!parseVersion(previous) || compareVersions(v.version, previous) > 0))
+    .sort((a, b) => compareVersions(b.version, a.version));
+  // Ohne Abschnitt zur laufenden Version nichts (sonst stünden alte Punkte unter „Neu in“ der neuen).
+  if (compareVersions(versions[0]?.version, current) !== 0) return null;
+  const sections = [];
+  let shown = 0;
+  let more = 0;
+  for (const [i, v] of versions.entries()) {
+    const all = sectionItems(v.lines, lang);
+    const take = Math.max(0, Math.min(all.length, i === 0 ? MAX_ITEMS : OLDER_ITEMS, TOTAL_ITEMS - shown));
+    if (take) sections.push({ version: v.version, items: all.slice(0, take) });
+    shown += take;
+    more += all.length - take;
+  }
+  if (!shown) return null;
+  return { sections, items: sections.flatMap(x => x.items), more };
 }
 
 const readJson = file => {
@@ -123,7 +164,8 @@ export function updatedFrom(dir, current) {
   return best;
 }
 
-// Was die Oberfläche zeigen soll: { version, previous, items, more, url } oder null (nichts zeigen).
+// Was die Oberfläche zeigen soll: { version, previous, items, more, sections, url } oder null (nichts zeigen); sections wie bei
+// changesSince (eine je Version; bei einem Update über mehrere Versionen mehrere).
 // current = laufende Version; changelog = Text von CHANGELOG.md (null = Datei fehlt).
 export function whatsNew({ dir, current, lang, changelog, slug = repoSlug() }) {
   if (!parseVersion(current)) return null;
@@ -134,7 +176,7 @@ export function whatsNew({ dir, current, lang, changelog, slug = repoSlug() }) {
     return null;
   }
   if (compareVersions(current, previous) <= 0) return null;
-  const notes = parseChangelog(changelog, current, lang);
+  const notes = changesSince(changelog, previous, current, lang);
   if (!notes) {
     markSeen(dir, current); // keine Punkte zu dieser Version: nichts zu zeigen
     return null;
