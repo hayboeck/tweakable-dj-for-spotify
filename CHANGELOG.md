@@ -5,6 +5,64 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.3.3] – 2026-10-08
+
+### English
+
+**Fixed**
+
+- **Nothing is written twice**: a double click on *Overwrite …* or *Create new playlist*, or a click in a second tab at the same moment, could start two runs – the playlist was written twice or two new playlists were created. Now only one runs; the other click is ignored or waits.
+- **The page knows when something is running**: after reloading the page during a run, or in a second tab, it used to show *Saved* with active buttons. Now it shows *Running …*, locks the buttons, shows the output as it comes and afterwards the result (with *Overwrite …* or *Restore previous playlist*). Creating, overwriting and importing also wait for a running automatic run.
+- **History is kept when runs overlap**: a run (e.g. an automatic one next to one from the interface) no longer writes back the `state.json` it read at its start. The history for *Block previous runs*, the remembered playlist ID and the login reminder of the other run stay. Personal files are now written in one step (temporary file, then rename).
+
+**Changed**
+
+- **“New in” after skipping versions**: after an update over several versions (e.g. from 0.2.5), the notice shows *New since v0.2.5* with the main points of every version in between, newest first.
+- **Second shortcut renamed**: it is now called *Tweakable DJ – Rebuild playlist* (German *Tweakable DJ – Playlist neu erstellen*), so it can’t be confused with *Create new playlist*. An existing one gets the new name at the next start.
+- **Update removes outdated files**: *Update now* deletes program files of earlier versions that no longer exist (e.g. old screenshots) – only if they are exactly as published, backed up first. Files you changed, your own files and personal files stay.
+
+**Also fixed**
+
+- **Clear message without internet**: if Spotify or Last.fm can’t be reached, the output says so (*Spotify can’t be reached … Check your internet connection*) instead of *fetch failed*, and a hanging connection ends after 30 seconds instead of showing *Running …* for minutes. Without Last.fm, a run warns once and continues with your favorites.
+- **Spotify login refreshed only once**: several requests at the same time (e.g. the searches of an import) no longer refresh the login each on their own; a refresh by another run is picked up.
+- **Save playlist and archive find the playlist by its ID**, like writing already did; after an import, the playlist ID is remembered too.
+- **config.jsonc saved as “UTF-8 with BOM”** (some editors, PowerShell 5.1) is no longer reported as invalid.
+- Sliders moved while saving (with a schedule, saving takes a few seconds) no longer count as saved.
+- An import preview is dropped when the playlist is renamed, and the import refuses to write into a playlist renamed in another tab.
+- No Spotify login starts during a run.
+- Error lines in the output are red in French too.
+- The second shortcut is only checked at start when it is switched on (fewer background processes on Windows).
+- Texts: no more *Saving as a new playlist* or *apply*; *Details for experts* named in full; Spanish *archivo de playlists* for the archive (*historial* is the listening history); French *paramètres* for settings; typographic quotes around names in all messages; the login lasts *180 days (about 6 months)* everywhere.
+- The page is served with a Content-Security-Policy and without a referrer; a release is only published when the tests pass; new browser tests for the main flows.
+
+### Deutsch
+
+**Behoben**
+
+- **Nichts wird doppelt geschrieben**: Ein Doppelklick auf *„…“ überschreiben* bzw. *Neue Playlist anlegen* oder ein Klick im zweiten Tab im selben Moment konnte zwei Läufe starten – die Playlist wurde doppelt geschrieben oder zwei neue angelegt. Jetzt läuft nur einer; der andere Klick wird übergangen bzw. wartet.
+- **Die Seite weiß, wenn etwas läuft**: Nach dem Neuladen während eines Laufs oder in einem zweiten Tab stand bisher *Gespeichert* bei aktiven Knöpfen. Jetzt zeigt sie *Läuft …*, sperrt die Knöpfe, zeigt die Ausgabe mit und danach das Ergebnis (mit *„…“ überschreiben* bzw. *Vorige Playlist wiederherstellen*). Erstellen, Überschreiben und Import warten auch auf einen laufenden automatischen Lauf.
+- **Der Verlauf bleibt, wenn sich Läufe überschneiden**: Ein Lauf (z. B. ein automatischer neben einem aus der Oberfläche) schreibt nicht mehr die `state.json` zurück, die er am Anfang gelesen hat. Verlauf für *Vorige Läufe sperren*, gemerkte Playlist-ID und Erinnerung des anderen Laufs bleiben. Persönliche Dateien werden jetzt in einem Schritt geschrieben (Zwischendatei, dann umbenennen).
+
+**Geändert**
+
+- **„Neu in“ nach übersprungenen Versionen**: Nach einem Update über mehrere Versionen (z. B. von 0.2.5) zeigt der Hinweis *Neu seit v0.2.5* mit den wichtigsten Punkten jeder Version dazwischen, die neueste zuerst.
+- **Zweite Verknüpfung umbenannt**: Sie heißt jetzt *Tweakable DJ – Playlist neu erstellen* (englisch *Tweakable DJ – Rebuild playlist*) und lässt sich nicht mehr mit *Neue Playlist anlegen* verwechseln. Eine vorhandene bekommt beim nächsten Start den neuen Namen.
+- **Update räumt überholte Dateien auf**: *Jetzt aktualisieren* löscht Programmdateien früherer Versionen, die es nicht mehr gibt (z. B. alte Screenshots) – nur, wenn sie genau so aussehen wie veröffentlicht, und vorher gesichert. Von dir geänderte, eigene und persönliche Dateien bleiben.
+
+**Außerdem behoben**
+
+- **Klare Meldung ohne Internet**: Ist Spotify oder Last.fm nicht erreichbar, steht das in der Ausgabe (*Spotify ist nicht erreichbar … Prüfe die Internetverbindung*) statt *fetch failed*, und eine hängende Verbindung endet nach 30 Sekunden, statt minutenlang *Läuft …* zu zeigen. Ohne Last.fm warnt ein Lauf einmal und macht mit deinen Favoriten weiter.
+- **Spotify-Anmeldung wird nur einmal erneuert**: Mehrere Anfragen gleichzeitig (z. B. die Suchen eines Imports) erneuern die Anmeldung nicht mehr jede für sich; erneuert ein anderer Lauf, wird das übernommen.
+- **Playlist speichern und das Archiv finden die Playlist über ihre ID**, wie es das Schreiben schon tat; nach einem Import wird die ID ebenfalls gemerkt.
+- **config.jsonc als „UTF-8 mit BOM“ gespeichert** (manche Editoren, PowerShell 5.1) gilt nicht mehr als fehlerhaft.
+- Regler, die man während des Speicherns verstellt (mit Automatik dauert es ein paar Sekunden), gelten nicht mehr als gespeichert.
+- Die Vorschau eines Imports wird beim Umbenennen der Playlist verworfen, und der Import schreibt nicht in eine Playlist, die in einem anderen Tab umbenannt wurde.
+- Während eines Laufs startet keine Spotify-Anmeldung.
+- Fehlerzeilen in der Ausgabe sind auch auf Französisch rot.
+- Die zweite Verknüpfung wird beim Start nur geprüft, wenn sie eingeschaltet ist (weniger Hintergrundprozesse unter Windows).
+- Texte: kein *Übernehmen* bzw. *Durchgang* mehr (jetzt *überschreiben*, *Lauf*); *Details für Fortgeschrittene* ausgeschrieben; Spanisch *archivo de playlists* für das Archiv (*historial* ist der Hörverlauf); Französisch *paramètres* für die Einstellungen; typografische Anführungszeichen um Namen in allen Meldungen; die Anmeldung gilt überall *180 Tage (rund 6 Monate)*.
+- Die Seite kommt mit einer Content-Security-Policy und ohne Referrer; ein Release wird nur veröffentlicht, wenn die Tests grün sind; neue Browser-Tests für die Hauptabläufe.
+
 ## [0.3.2] – 2026-10-08
 
 ### English
@@ -363,6 +421,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.3.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.3
 [0.3.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.2
 [0.3.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.1
 [0.3.0]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.0
