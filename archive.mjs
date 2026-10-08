@@ -89,10 +89,11 @@ export function saveArchive(dir, { name, url = null, tracks, lang, keep, now = n
 }
 
 // Nach einem Import: die Playlist so ablegen, wie Spotify sie jetzt hat – mit allen Namen, auch zu Zeilen der Datei, die nur
-// einen Link enthielten. Fragt Spotify nur, wenn das Archiv an ist (keep > 0). Ergebnis wie saveArchive.
-export async function archivePlaylist(dir, spotify, { name, lang, keep }) {
+// einen Link enthielten. id: die gerade geschriebene Playlist (writePlaylist), dann ohne Suche nach dem Namen. Fragt Spotify
+// nur, wenn das Archiv an ist (keep > 0). Ergebnis wie saveArchive.
+export async function archivePlaylist(dir, spotify, { name, lang, keep, id = null }) {
   if (!(Number.isInteger(keep) && keep > 0)) return null;
-  const list = await readPlaylist(spotify, name);
+  const list = await readPlaylist(spotify, name, { id });
   return list ? saveArchive(dir, { name, url: list.url, tracks: list.tracks, lang, keep }) : null;
 }
 

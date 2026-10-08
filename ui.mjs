@@ -23,7 +23,7 @@ import {
   CONFIG, DEFAULTS, HERE, LIMITS, VARIETY_KEYS, VARIETY_LEVELS, checkValues, configLanguage, isPlaceholder, missingCredentials, numberProblems, readConfig, remindLoginOn,
   saveCredentials, updateConfig,
 } from './config.mjs';
-import { readJson as readJsonFile, readText } from './files.mjs';
+import { readJson as readJsonFile, readText, writeAtomic } from './files.mjs';
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
 import { createShortcut, removeShortcut, SHORTCUTS, shortcutStatus } from './shortcut.mjs';
@@ -124,6 +124,7 @@ if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
 const HOST = `127.0.0.1:${PORT}`;
 const URL_BASE = `http://${HOST}`;
 const TOKENS = path.join(HERE, 'tokens.json');
+const STATE = path.join(HERE, 'state.json');
 const LOGIN_TIMEOUT = 5 * 60_000;
 const DAY = 86_400_000;
 const LOGIN_CODES = ['login_expired', 'not_logged_in'];
@@ -415,6 +416,24 @@ function restartAfterUpdate(version) {
   server.close();
   server.closeAllConnections?.();
   setTimeout(() => process.exit(LAUNCHER ? RESTART_CODE : 0), 200);
+}
+
+// Gemerkte ID der Playlist name aus state.json (playlistIds, vom letzten Schreiben), sonst null (auch bei kaputter Datei).
+function knownPlaylistId(name) {
+  try {
+    return readJsonFile(STATE, {})?.playlistIds?.[name] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Nach einem Import: ID der Playlist in state.json merken, falls sie neu ist (wie dj.mjs import). Frisch lesen, nur playlistIds
+// ändern, atomar schreiben; eine kaputte state.json bleibt, wie sie ist (dann wirft es).
+function rememberPlaylistId(name, id) {
+  const state = readJsonFile(STATE, {});
+  if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('state.json');
+  if (state.playlistIds?.[name] === id) return;
+  writeAtomic(STATE, JSON.stringify({ history: [], cache: {}, ...state, playlistIds: { [name]: id } }, null, 2));
 }
 
 // Ergebnis für die Oberfläche, falls dj.mjs ohne eigene "@@RESULT"-Zeile endet (z. B. abgestürzt).
@@ -713,7 +732,7 @@ const server = http.createServer(async (req, res) => {
       }
       const cfg = currentConfig(lang);
       if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
-      const list = await readPlaylist(createSpotify(cfg.spotify.clientId, TOKENS, { lang }), cfg.playlistName);
+      const list = await readPlaylist(createSpotify(cfg.spotify.clientId, TOKENS, { lang }), cfg.playlistName, { knownId: knownPlaylistId(cfg.playlistName) });
       if (!list) return send(409, { error: t(lang, 'export.noPlaylist', { name: cfg.playlistName }) });
       const text = formatExport({ name: cfg.playlistName, url: list.url, tracks: list.tracks, lang, now });
       return send(200, { text, filename: exportFileName(lang, now), songs: list.tracks.length, playlistUrl: list.url });
@@ -755,9 +774,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Textdatei importieren, Schritt 2 (nach der Rückfrage): Body { uris } aus der Vorschau. Ersetzt den Inhalt der Playlist
-    // und setzt die Beschreibung; zählt nicht als Lauf (state.json bleibt, wie es ist). Danach kommt die Playlist ins Archiv;
-    // klappt das nicht, steht der Grund in warning. → { ok, songs, playlistName, playlistUrl, created, archiveRemoved,
-    // archiveFile (Name der neuen Archivdatei oder null), warning? }
+    // und setzt die Beschreibung; zählt nicht als Lauf (der Verlauf in state.json bleibt; gemerkt wird nur die ID der
+    // Playlist). Danach kommt die Playlist ins Archiv; klappt das nicht, steht der Grund in warning. → { ok, songs,
+    // playlistName, playlistUrl, created, archiveRemoved, archiveFile (Name der neuen Archivdatei oder null), warning? }
     if (route === 'POST /api/import') {
       const busy = importBusy(lang);
       if (busy) return send(409, { error: busy });
@@ -768,22 +787,21 @@ const server = http.createServer(async (req, res) => {
         const cfg = currentConfig(lang);
         if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
         const spotify = createSpotify(cfg.spotify.clientId, TOKENS, { lang });
-        // ID der Playlist vom letzten Lauf (state.json, nur gelesen): writePlaylist nimmt sie direkt, statt zu suchen.
-        let knownId = null;
-        try {
-          knownId = JSON.parse(fs.readFileSync(path.join(HERE, 'state.json'), 'utf8')).playlistIds?.[cfg.playlistName] ?? null;
-        } catch {
-          // noch kein Lauf
-        }
-        const { url: playlistUrl, created } = await writePlaylist(spotify, {
-          name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang, knownId,
+        // ID der Playlist vom letzten Schreiben (state.json): writePlaylist nimmt sie direkt, statt zu suchen.
+        const { id, url: playlistUrl, created } = await writePlaylist(spotify, {
+          name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang, knownId: knownPlaylistId(cfg.playlistName),
         });
         let warning = null;
+        try {
+          rememberPlaylistId(cfg.playlistName, id);
+        } catch (e) {
+          warning = e.message; // Die Playlist ist geschrieben; nur die ID fürs nächste Mal fehlt.
+        }
         let archived = null;
         try {
-          archived = await archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount });
+          archived = await archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount, id });
         } catch (e) {
-          warning = t(lang, 'archive.failed', { message: e.message });
+          warning = [warning, t(lang, 'archive.failed', { message: e.message })].filter(Boolean).join(' ');
         }
         // archiveRemoved: so viele ältere Playlists hat das Aufräumen des Archivs gelöscht
         return send(200, {

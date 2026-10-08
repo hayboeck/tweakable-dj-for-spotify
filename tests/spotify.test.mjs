@@ -153,3 +153,22 @@ test('tokens.json kaputt bzw. mit BOM: nicht angemeldet bzw. lesbar', async () =
     assert.equal((await createSpotify('client', file, { lang: 'de' }).me()).id, 'ich');
   } finally { done(); }
 });
+
+test('readPlaylist: über die gemerkte ID, auch wenn die Liste der Playlists unvollständig ist; mit id ohne Suche', async () => {
+  const { readPlaylist } = await import('../playlist.mjs');
+  const { spotify, calls, done } = fakeSpotify({
+    'GET /me': [[200, { id: 'ich' }]],
+    'GET /playlists/alt1': [[200, { id: 'alt1', name: 'Tweakable DJ', owner: { id: 'ich' } }]],
+    'GET /me/playlists': [[200, { items: [], next: null }]],
+    'GET /playlists/alt1/items': [[200, { items: [{ item: { type: 'track', uri: 'spotify:track:0123456789abcdefABCDEF', name: 'T', artists: [{ name: 'A' }] } }], next: null }],
+      [200, { items: [], next: null }]],
+  });
+  try {
+    const list = await readPlaylist(spotify, 'Tweakable DJ', { knownId: 'alt1' });
+    assert.deepEqual([list.id, list.tracks.length], ['alt1', 1]);
+    assert.ok(!calls.includes('GET /me/playlists'), 'ohne Suche in der Liste');
+    calls.length = 0;
+    assert.equal((await readPlaylist(spotify, 'Tweakable DJ', { id: 'alt1' })).id, 'alt1');
+    assert.deepEqual(calls, ['GET /playlists/alt1/items'], 'gerade geschriebene Playlist: ohne Nachfrage');
+  } finally { done(); }
+});

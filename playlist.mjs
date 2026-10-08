@@ -71,9 +71,14 @@ export function newPlaylistName(name, lang, now = new Date()) {
 }
 
 // Inhalt der eigenen Playlist name: { id, url, tracks } bzw. null, wenn es sie (noch) nicht gibt.
-export async function readPlaylist(spotify, name) {
-  const me = await spotify.me();
-  const id = await spotify.findPlaylist(name, me.id);
+// knownId: gemerkte ID (state.json, playlistIds) – wie bei writePlaylist erst über sie, dann über den Namen suchen (die Liste
+// deiner Playlists kann Spotify bei einer Störung unvollständig liefern, und bei zwei gleichnamigen träfe es sonst vielleicht
+// die falsche). id: gerade geschriebene Playlist (writePlaylist) – die gilt ohne Nachfrage.
+export async function readPlaylist(spotify, name, { knownId = null, id = null } = {}) {
+  if (!id) {
+    const userId = (await spotify.me()).id;
+    id = knownId && await spotify.isOwnPlaylist(knownId, name, userId) ? knownId : await spotify.findPlaylist(name, userId);
+  }
   if (!id) return null;
   return { id, url: playlistUrl(id), tracks: await spotify.playlistTracks(id) };
 }

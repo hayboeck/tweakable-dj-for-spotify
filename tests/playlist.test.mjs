@@ -337,7 +337,8 @@ test('import: Suche nach "Künstler – Titel", nicht gefundene Zeilen, --dry, D
     assert.equal(playlist.uris.length, 3);
     assert.equal(store(dir).tracks[playlist.uris[1]].artists.join(', '), 'Bergfunk, Gaststar', 'Duett mit Gast über die Suche nach dem Hauptkünstler');
     assert.match(playlist.description, /^Tweakable DJ · from a text file, \d+\/\d+\/\d{4}, \d\d:\d\d\s(AM|PM) · 3 songs$/);
-    assert.equal(fs.existsSync(path.join(dir, 'state.json')), false, 'auch nach dem Schreiben kein Verlauf');
+    // Kein Verlauf, gemerkt wird nur die ID der neu angelegten Playlist (fürs nächste Schreiben, Speichern als Textdatei, Archiv)
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'state.json'), 'utf8')), { history: [], cache: {}, playlistIds: { 'Test-DJ': playlist.id } });
 
     const missing = dj(dir, ['import', 'gibtsnicht.txt']);
     assert.equal(missing.code, 1);

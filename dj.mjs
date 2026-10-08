@@ -470,6 +470,15 @@ async function main() {
   return { ...counts, ...stats, summary, playlistUrl };
 }
 
+// Gemerkte ID der Playlist name (state.json, playlistIds; vom letzten Schreiben), sonst null.
+const knownPlaylistId = name => readState().playlistIds?.[name] ?? null;
+
+// Nach einem Import: ID der Playlist merken, falls sie neu ist (z. B. gerade angelegt) – fürs nächste Schreiben, für „Playlist
+// speichern“ (Textdatei) und das Archiv. Sonst bleibt state.json unverändert (ein Import ist kein Lauf des DJ).
+function rememberPlaylistId(name, id) {
+  if (knownPlaylistId(name) !== id) updateState(state => (state.playlistIds = { [name]: id }));
+}
+
 // Songs, die der DJ schon in die Playlist geschrieben hat, als Set von trackKey (state.played, für „zum ersten Mal dabei“).
 // Fehlt state.played (Verlauf von 0.2.x oder älter), zählen die Läufe in state.history und die Playlists im Archiv.
 function playedSet(state) {
@@ -483,7 +492,7 @@ function playedSet(state) {
 async function toSpotify(cfg, spotify, lineup, description) {
   const name = asNew ? newPlaylistName(cfg.playlistName, lang) : cfg.playlistName;
   result.playlistName = name;
-  const knownId = asNew ? null : readJson(STATE, {}).playlistIds?.[name] ?? null;
+  const knownId = asNew ? null : knownPlaylistId(name);
   const { id, url, created } = await writePlaylist(spotify, { name, uris: lineup.map(track => track.uri), description, lang, warn, create: asNew, knownId });
   if (created) console.log(`\n${t(lang, 'run.created', { name })}`);
   await toArchive(() => saveArchive(HERE, { name, url, tracks: lineup, lang, keep: cfg.archiveCount }));
@@ -550,7 +559,7 @@ async function exportPlaylist(cfg, spotify) {
   const file = path.resolve(fileArg ?? exportFileName(lang, now));
   // Nur .txt: So überschreibt ein Tippfehler nie config.jsonc oder eine Programmdatei.
   if (!/\.txt$/i.test(file)) throw tError(lang, 'export.txtOnly', { file });
-  const list = await readPlaylist(spotify, cfg.playlistName);
+  const list = await readPlaylist(spotify, cfg.playlistName, { knownId: knownPlaylistId(cfg.playlistName) });
   if (!list) throw tError(lang, 'export.noPlaylist', { name: cfg.playlistName });
   fs.writeFileSync(file, formatExport({ name: cfg.playlistName, url: list.url, tracks: list.tracks, lang, now }));
   console.log(t(lang, 'export.saved', { file, count: list.tracks.length }));
@@ -558,7 +567,8 @@ async function exportPlaylist(cfg, spotify) {
 }
 
 // import <datei.txt>: Songs aus einer Textdatei suchen und in die Playlist schreiben (mit --dry nur anzeigen).
-// Kein Lauf des DJ: state.json (Verlauf und Such-Cache) bleibt unverändert, ein Probelauf gilt weiter.
+// Kein Lauf des DJ: Verlauf und Such-Cache in state.json bleiben unverändert (gemerkt wird nur die ID der Playlist), eine
+// erstellte Liste (probelauf.json) gilt weiter.
 async function importFile(cfg, spotify) {
   if (!fileArg) throw tError(lang, 'import.usage');
   let text;
@@ -590,12 +600,13 @@ async function importFile(cfg, spotify) {
     console.log(`\n${t(lang, 'run.dry')}`);
     return { songs: uris.length };
   }
-  const { url, created } = await writePlaylist(spotify, {
+  const { id, url, created } = await writePlaylist(spotify, {
     name: cfg.playlistName, uris, description: importDescription(lang, new Date(), uris.length), lang, warn,
-    knownId: readJson(STATE, {}).playlistIds?.[cfg.playlistName] ?? null,
+    knownId: knownPlaylistId(cfg.playlistName),
   });
   if (created) console.log(`\n${t(lang, 'run.created', { name: cfg.playlistName })}`);
-  await toArchive(() => archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount }));
+  rememberPlaylistId(cfg.playlistName, id);
+  await toArchive(() => archivePlaylist(HERE, spotify, { name: cfg.playlistName, lang, keep: cfg.archiveCount, id }));
   console.log(`\n${t(lang, 'import.done', { name: cfg.playlistName, count: uris.length, url })}`);
   return { songs: uris.length, playlistUrl: url };
 }
