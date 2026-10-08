@@ -5,6 +5,26 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+### English
+
+**New**
+
+- **Legend below the output**: a small line below the list explains the colors – green = matches what you’re listening to now (*· current*), others = favorites and other new songs, struck through = blocked (×), ♥ = in your Liked Songs.
+
+**Fixed**
+
+- Songs that match your current listening are now green in Spanish and French too (*· actual*, *· actuel*); until now only in German and English.
+
+### Deutsch
+
+**Neu**
+
+- **Legende unter der Ausgabe**: Eine kleine Zeile unter der Liste erklärt die Farben – grün = passt zu dem, was du gerade hörst (*· aktuell*), sonst Favoriten und übrige neue Songs, durchgestrichen = gesperrt (×), ♥ = in deinen Lieblingssongs.
+
+**Behoben**
+
+- Songs, die zu deinem aktuellen Hören passen, sind jetzt auch auf Spanisch und Französisch grün (*· actual*, *· actuel*); bisher nur auf Deutsch und Englisch.
+
 ## [0.3.1] – 2026-10-08
 
 ### English

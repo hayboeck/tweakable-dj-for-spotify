@@ -345,7 +345,9 @@
   .import-missing .why { color: var(--muted); }
   #import-hints-head { color: var(--warn); }
   pre { margin: 0 0 16px; padding: 12px; max-height: 480px; overflow: auto; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); font: 12.5px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
-  pre .now { color: var(--accent); }
+  pre .now, .log-legend .now { color: var(--accent); }
+  .log-legend { margin: -6px 0 12px; font-size: 12.5px; }
+  .log-legend .now { font-weight: 600; }
   pre .warn { color: var(--warn); }
   pre .err { color: var(--danger); font-weight: 600; }
 
@@ -599,6 +601,8 @@ try {
           <a id="open" class="open" target="_blank" rel="noopener" data-t="open" hidden></a>
         </div>
         <pre id="log"></pre>
+        <!-- Was die Farben in der Liste bedeuten; nur, wenn die Ausgabe eine Songliste enthält (renderLog) -->
+        <p class="help log-legend" id="log-legend" hidden><span class="now" data-t="legendNow"></span><span data-t="legendText"></span></p>
         <!-- Zeile 1 „Spotify“: erstellte Liste überschreiben bzw. als neue Playlist anlegen; nach dem Schreiben den vorigen
              Stand aus dem Archiv zurückholen (wie „Frühere Playlist …“, mit Vorschau und Rückfrage; nur, wenn es ihn gibt:
              GET /api/archive?after=…). Ohne erstellte Liste und ohne vorigen Stand ausgeblendet (syncSpotifyRow). -->
@@ -804,6 +808,8 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Einfach: nur Voreinstellungen und Anzahl Songs. Pro: alle Regler.',
       presetReset: 'Auf „Standard“ zurücksetzen',
+      legendNow: 'Grün',
+      legendText: ' = passt zu dem, was du gerade hörst („· aktuell“) · sonst: Favoriten und übrige neue Songs · durchgestrichen = gesperrt (×) · ♥ = in deinen Lieblingssongs',
       saveText: 'Playlist speichern',
       fileHead: 'Textdatei',
       importFile: 'Importieren …',
@@ -1237,6 +1243,8 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Simple: only presets and number of songs. Pro: all controls.',
       presetReset: 'Reset to “Default”',
+      legendNow: 'Green',
+      legendText: ' = matches what you’re listening to now (“· current”) · others: favorites and other new songs · struck through = blocked (×) · ♥ = in your Liked Songs',
       saveText: 'Save playlist',
       fileHead: 'Text file',
       importFile: 'Import …',
@@ -1662,6 +1670,8 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Sencillo: solo ajustes predefinidos y número de canciones. Pro: todos los controles.',
       presetReset: 'Volver a «Predeterminado»',
+      legendNow: 'Verde',
+      legendText: ' = encaja con lo que escuchas ahora («· actual») · el resto: favoritas y otras canciones nuevas · tachada = bloqueada (×) · ♥ = en tus Me gusta',
       saveText: 'Guardar playlist',
       fileHead: 'Archivo de texto',
       importFile: 'Importar …',
@@ -2088,6 +2098,8 @@ const TEXT = {
       modePro: 'Pro',
       modeHelp: 'Simple : seulement les préréglages et le nombre de titres. Pro : tous les réglages.',
       presetReset: 'Revenir à « Par défaut »',
+      legendNow: 'Vert',
+      legendText: ' = correspond à ce que tu écoutes en ce moment (« · actuel ») · les autres : favoris et autres nouveaux titres · barré = bloqué (×) · ♥ = dans tes titres likés',
       saveText: 'Enregistrer la playlist',
       fileHead: 'Fichier texte',
       importFile: 'Importer …',
@@ -3461,18 +3473,22 @@ function runResult(text) {
 // aus GET /api/trial?tracks=1) bekommt jeder Song der Liste ("  3. Künstler – Titel  (…)") einen Knopf zum Sperren und ein ♥.
 let logText = '';
 let logBlocked = null;   // Sperrliste der Songs beim letzten Zeichnen
+// Song, der mit dem aktuellen Hören zusammenhängt: „· aktuell“ usw. am Ende der Klammer (run.current in i18n.mjs, alle Sprachen –
+// die Ausgabe kommt in der Sprache des Laufs, die nicht die der Seite sein muss)
+const CURRENT_MARK = / · (aktuell|current|actual|actuel)\)/;
 function renderLog(text) {
   logText = text;
   logBlocked = current.blockedTracks;
   const tracks = runState?.tracks ?? null;
   const lines = text.replace(/\r/g, '').split('\n');
   const last = lines.length - 1; // noch unvollständige Zeile: auch ein angefangenes "@@" nicht zeigen
+  $('log-legend').hidden = !lines.some(line => /^\s*\d+\. \S/.test(line));
   $('log').replaceChildren(...lines.filter((line, i) => !line.startsWith('@@') && !(i === last && line.startsWith('@'))).flatMap(line => {
     const span = el('span', { textContent: line });
     const start = line.trimStart();
     if (/^(Fehler|Error):/.test(start)) span.className = 'err';
     else if (start.startsWith('⚠')) span.className = 'warn';
-    else if (line.includes(' · aktuell') || line.includes(' · current')) span.className = 'now';
+    else if (CURRENT_MARK.test(line)) span.className = 'now';
     // Song Nummer n der Liste – nur, wenn Künstler und Titel zur Zeile passen
     const n = Number(line.match(/^\s*(\d+)\. /)?.[1]);
     const track = tracks?.[n - 1];
