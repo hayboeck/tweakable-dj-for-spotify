@@ -7,9 +7,11 @@
 # (dort auch die Symbole für die Verknüpfung auf dem Desktop: logo.ico, logo.icns).
 # Persönliche Dateien (config.jsonc, tokens.json, state.json, lastfm-cache.json, probelauf.json, das Archiv archiv/) sind per
 # .gitignore nie dabei; der Ablauf prüft das zur Sicherheit noch einmal.
-# manifest.json (Version, jede Datei mit Pfad, Größe, SHA-256 und Ausführbar-Bit) liegt auch in der ZIP-Datei. Sie ist
-# die Erlaubnisliste für „Jetzt aktualisieren“ (install-update.mjs): Das Update lädt manifest.json und die ZIP-Datei,
-# prüft jede Datei und schreibt nur, was dort steht.
+# Vorher laufen die Tests (npm test); sind sie rot, wird nichts veröffentlicht.
+# manifest.json (Version, jede Datei mit Pfad, Größe, SHA-256 und Ausführbar-Bit, dazu überholte Dateien früherer Releases)
+# liegt auch in der ZIP-Datei. Sie ist die Erlaubnisliste für „Jetzt aktualisieren“ (install-update.mjs): Das Update lädt
+# manifest.json und die ZIP-Datei, prüft jede Datei, schreibt nur, was dort steht, und löscht nur überholte Dateien mit
+# passender Prüfsumme.
 # Tags mit Bindestrich (z. B. v1.1.0-beta.1) werden als Vorabversion markiert.
 
 name: Release
@@ -32,6 +34,18 @@ jobs:
     steps:
       - name: Code holen
         uses: actions/checkout@v5
+        with:
+          # Alle Tags: Dateien früherer Releases für die Liste überholter Dateien in manifest.json (obsolete)
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+
+      # Nur veröffentlichen, wenn die Tests grün sind (dieselben wie in test.yml; Browser-Tests mit dem Chrome des Runners).
+      # Sonst verteilte „Jetzt aktualisieren“ einen kaputten Stand.
+      - name: Tests
+        run: npm test
 
       # Der Hinweis auf neue Versionen (update.mjs) vergleicht den Tag des neuesten Releases (ohne v)
       # mit "version" aus package.json. Passen beide nicht zusammen, sähe man den Hinweis auch mit der
@@ -105,7 +119,15 @@ jobs:
           # manifest.json: Erlaubnisliste für „Jetzt aktualisieren“, mit SHA-256 genau der Bytes, die in die ZIP-Datei
           # kommen (also nach chmod und mit den Zeilenenden aus .gitattributes). Das Skript bricht ab, falls eine
           # persönliche Datei oder ein unzulässiger Pfad dabei wäre.
-          node .github/release-manifest.mjs "build/${ordner}" "${GITHUB_REF_NAME#v}"
+          # Frühere Releases (alle Tags v* außer diesem), so entpackt, wie ihre ZIP-Dateien entstanden sind: Ihre Dateien, die es
+          # jetzt nicht mehr gibt (z. B. alte Screenshots), kommen mit ihren Prüfsummen als obsolete in manifest.json.
+          mkdir frueher
+          for frueher_tag in $(git tag -l 'v*'); do
+            [ "$frueher_tag" = "$GITHUB_REF_NAME" ] && continue
+            mkdir "frueher/${frueher_tag}"
+            git archive --format=tar "$frueher_tag" | tar -x -C "frueher/${frueher_tag}"
+          done
+          node .github/release-manifest.mjs "build/${ordner}" "${GITHUB_REF_NAME#v}" frueher/*
           cp "build/${ordner}/manifest.json" manifest.json
           node -e '
             const m = require("./manifest.json");

@@ -123,8 +123,20 @@ test('Schutz: nur mit X-Tweakable-DJ, Meldung in der Sprache der Anfrage', async
 
 test('Schutz: Seite nicht einbettbar; kaputte Adresse beendet den Server nicht', async () => {
   const page = await fetch(`${base}/`);
-  await page.text();
+  const html = await page.text();
   assert.deepEqual([page.status, page.headers.get('x-frame-options')], [200, 'DENY']);
+  // Content-Security-Policy: genau die Skripte der Seite (SHA-256), sonst nur von hier; dazu nosniff und no-referrer
+  const csp = page.headers.get('content-security-policy');
+  const { createHash } = await import('node:crypto');
+  const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`);
+  assert.equal(hashes.length, 2);
+  assert.match(csp, /^default-src 'none'; /);
+  assert.ok(csp.includes(`script-src ${hashes.join(' ')};`), csp);
+  for (const rule of ["connect-src 'self'", "img-src 'self'", "frame-ancestors 'none'", "form-action 'none'", "base-uri 'none'"]) assert.ok(csp.includes(rule), rule);
+  assert.doesNotMatch(csp, /script-src[^;]*unsafe/);
+  assert.deepEqual([page.headers.get('x-content-type-options'), page.headers.get('referrer-policy')], ['nosniff', 'no-referrer']);
+  const json = await fetch(`${base}/api/version`, { headers: { 'X-Tweakable-DJ': '1' } });
+  assert.deepEqual([json.headers.get('x-content-type-options'), json.headers.get('referrer-policy')], ['nosniff', 'no-referrer']);
   // Anfrage mit ungültiger absoluter Adresse, wie sie nur ein Programm (kein Browser) schicken kann
   const port = Number(new URL(base).port);
   const firstLine = await new Promise((resolve, reject) => {

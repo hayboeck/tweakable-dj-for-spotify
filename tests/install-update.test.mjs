@@ -10,7 +10,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { checkManifest, installBlocker, installUpdate, isPersonal, PERSONAL_DIRS, PERSONAL_FILES, pathProblem, readZip } from '../install-update.mjs';
+import { checkManifest, cleanObsolete, installBlocker, installUpdate, isPersonal, PERSONAL_DIRS, PERSONAL_FILES, pathProblem, readZip } from '../install-update.mjs';
 import { buildManifest } from '../.github/release-manifest.mjs';
 import { currentVersion } from '../update.mjs';
 import { OWNER_REPO, buildZip, makeRelease, programFiles } from './mock-release.mjs';
@@ -206,7 +206,7 @@ test('Update: ersetzt die Programmdateien, Version danach neu; persönliche und 
 
   // Unveränderte Dateien wurden nicht angefasst (alter Zeitstempel), geänderte in der richtigen Reihenfolge ersetzt.
   assert.deepEqual(result, {
-    from: '0.1.0', to: '0.2.0', same: 3, backup: '.update/backup-0.1.0',
+    from: '0.1.0', to: '0.2.0', same: 3, backup: '.update/backup-0.1.0', removed: [],
     changed: ['README.md', 'dj.mjs', 'neu/hilfe.txt', 'start.sh', 'ui.mjs', 'package.json', 'manifest.json'],
   });
   for (const p of ['Tweakable DJ.cmd', 'Tweakable DJ.command', 'docs/bild.png']) {
@@ -578,4 +578,109 @@ test('Tweakable DJ.cmd: startet bei Exit-Code 75 neu, auch wenn die Datei währe
     assert.equal((r.stdout.match(/Tweakable DJ startet neu \.\.\. \/ Tweakable DJ is restarting \.\.\./g) ?? []).length, codes.length - 1);
     assert.ok(!/MUELL/.test(r.stdout + r.stderr) && !fs.existsSync(path.join(dir, 'muell.txt')), 'ersetzte Startdatei ausgeführt');
   }
+});
+
+// --- Überholte Dateien früherer Versionen (obsolete) ---
+
+test('buildManifest: obsolete = Dateien früherer Releases, die es nicht mehr gibt, mit allen Prüfsummen; nie aktuelle oder persönliche', () => {
+  const base = path.join(tmp, `obsolete-${++caseNo}`);
+  const write = (root, files) => {
+    for (const [p, data] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(root, p)), { recursive: true });
+      fs.writeFileSync(path.join(root, p), data);
+    }
+  };
+  const cur = path.join(base, 'neu');
+  write(cur, { ...programFiles('0.3.0'), 'docs/Screenshot.png': 'neu' });
+  write(path.join(base, 'v0.1.0'), { ...programFiles('0.1.0'), 'docs/screenshot-alt.png': 'alt 1', 'docs/screenshot.png': 'gleicher Name, andere Schreibweise', 'alt.mjs': 'x' });
+  write(path.join(base, 'v0.2.0'), { ...programFiles('0.2.0'), 'docs/screenshot-alt.png': 'alt 2', 'config.jsonc': '{}' });
+  const m = buildManifest(cur, '0.3.0', [path.join(base, 'v0.1.0'), path.join(base, 'v0.2.0'), path.join(base, 'gibt-es-nicht')]);
+  assert.deepEqual(m.obsolete, [
+    { path: 'alt.mjs', sha256: [sha('x')] },
+    { path: 'docs/screenshot-alt.png', sha256: [sha('alt 1'), sha('alt 2')].sort() },
+  ]);
+  assert.deepEqual(checkManifest(m, '0.3.0').obsolete, m.obsolete);
+  assert.deepEqual(buildManifest(cur, '0.3.0').obsolete, [], 'ohne frühere Releases');
+});
+
+test('checkManifest: obsolete nur mit erlaubten Pfaden, nie eine Datei dieser Version, SHA-256 als Liste', () => {
+  const m = makeRelease(path.join(tmp, `chk-${++caseNo}`), { version: '0.3.0' }).manifest;
+  const ok = { path: 'docs/alt.png', sha256: [sha('a')] };
+  assert.deepEqual(checkManifest({ ...m, obsolete: [ok] }, '0.3.0').obsolete, [ok]);
+  assert.deepEqual(checkManifest({ ...m, obsolete: undefined }, '0.3.0').obsolete, [], 'ältere manifest.json ohne obsolete');
+  for (const bad of [{ path: 'config.jsonc', sha256: [sha('a')] }, { path: '../x', sha256: [sha('a')] }, { path: 'archiv/x.txt', sha256: [sha('a')] },
+    { path: 'UI.mjs', sha256: [sha('a')] }, { path: 'docs/alt.png', sha256: [] }, { path: 'docs/alt.png', sha256: ['xyz'] }, { path: 'docs/alt.png', sha256: sha('a') }]) {
+    assert.throws(() => checkManifest({ ...m, obsolete: [bad] }, '0.3.0'), /manifest\.json|nicht erlaubt|not allowed|Update/i, JSON.stringify(bad));
+  }
+  assert.throws(() => checkManifest({ ...m, obsolete: [ok, ok] }, '0.3.0'), /twice|obsolete/);
+  assert.throws(() => checkManifest({ ...m, obsolete: 'x' }, '0.3.0'), /obsolete/);
+});
+
+test('Update löscht überholte Dateien früherer Versionen – nur mit passender Prüfsumme, gesichert; persönliche bleiben', async () => {
+  const old = { ...programFiles('0.1.0'), 'docs/screenshot-alt.png': 'altes Bild', 'docs/geaendert.png': 'von mir bearbeitet', 'alt/weg.mjs': 'alt' };
+  const { dir, release } = project(old);
+  publish(release, {
+    version: '0.2.0',
+    manifest: m => ({ ...m, obsolete: [
+      { path: 'docs/screenshot-alt.png', sha256: [sha('altes Bild'), sha('noch älter')] },
+      { path: 'docs/geaendert.png', sha256: [sha('Original')] },
+      { path: 'alt/weg.mjs', sha256: [sha('alt')] },
+      { path: 'gibt-es-nicht.txt', sha256: [sha('x')] },
+    ] }),
+  });
+  const { result, error, steps } = await run(dir, { expected: '0.2.0' });
+  assert.equal(error, undefined, error?.message);
+  assert.deepEqual(result.removed, ['docs/screenshot-alt.png', 'alt/weg.mjs']);
+  assert.equal(fs.existsSync(path.join(dir, 'docs/screenshot-alt.png')), false);
+  assert.equal(fs.existsSync(path.join(dir, 'alt/weg.mjs')), false);
+  assert.equal(fs.readFileSync(path.join(dir, 'docs/geaendert.png'), 'utf8'), 'von mir bearbeitet', 'geänderte Datei bleibt');
+  assert.ok(fs.existsSync(path.join(dir, 'docs/bild.png')) && fs.existsSync(path.join(dir, 'docs/mein-bild.png')), 'Ordner und andere Dateien bleiben');
+  personalUnchanged(dir);
+  const backup = path.join(dir, '.update', 'backup-0.1.0');
+  assert.equal(fs.readFileSync(path.join(backup, 'docs/screenshot-alt.png'), 'utf8'), 'altes Bild', 'gesichert');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(backup, 'backup.json'), 'utf8')).removed, ['docs/screenshot-alt.png', 'alt/weg.mjs']);
+  assert.ok(steps.includes('Entferne 2 überholte Programmdateien früherer Versionen …'), steps.join('\n'));
+});
+
+test('Fehler beim Löschen einer überholten Datei → alles zurückgesichert, auch schon gelöschte Dateien', async () => {
+  const old = { ...programFiles('0.1.0'), 'docs/a.png': 'A', 'docs/b.png': 'B' };
+  const { dir, release } = project(old);
+  publish(release, { version: '0.2.0', manifest: m => ({ ...m, obsolete: [{ path: 'docs/a.png', sha256: [sha('A')] }, { path: 'docs/b.png', sha256: [sha('B')] }] }) });
+  const before = snapshot(dir);
+  const { error } = await run(dir, { faults: { beforeRemove: p => { if (p === 'docs/b.png') throw new Error('simuliert'); } } });
+  assert.equal(error?.outcome, 'restored', error?.message);
+  assert.deepEqual(snapshot(dir), before, 'wie vorher');
+});
+
+test('cleanObsolete: beim Start nach einem Update durch eine ältere Version – nur passende Version, kein git-Checkout, gesichert', () => {
+  const { dir } = project({ ...programFiles('0.2.0'), 'docs/alt.png': 'alt', 'docs/eigen.png': 'eigen' });
+  const write = m => fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(m));
+  const manifest = version => ({
+    name: 'tweakable-dj', version, files: [{ path: 'package.json', size: 1, sha256: sha('p') }, { path: 'ui.mjs', size: 1, sha256: sha('u') }],
+    obsolete: [{ path: 'docs/alt.png', sha256: [sha('alt')] }, { path: 'docs/eigen.png', sha256: [sha('anders')] }, { path: 'config.jsonc', sha256: [sha('x')] }],
+  });
+  // Andere Version in manifest.json als in package.json: nichts
+  write(manifest('0.1.9'));
+  assert.deepEqual(cleanObsolete(dir, 'de'), []);
+  // Persönliche Datei in obsolete: ganze Liste ungültig, nichts
+  write(manifest('0.2.0'));
+  assert.deepEqual(cleanObsolete(dir, 'de'), []);
+  const m = manifest('0.2.0');
+  m.obsolete.pop();
+  write(m);
+  // git-Checkout: nichts
+  fs.mkdirSync(path.join(dir, '.git'));
+  assert.deepEqual(cleanObsolete(dir, 'de'), []);
+  fs.rmSync(path.join(dir, '.git'), { recursive: true });
+  // Sicherung des Updates auf 0.2.0 vorhanden: dorthin kopiert, in backup.json vermerkt
+  const backup = path.join(dir, '.update', 'backup-0.1.0');
+  fs.mkdirSync(backup, { recursive: true });
+  fs.writeFileSync(path.join(backup, 'backup.json'), JSON.stringify({ from: '0.1.0', to: '0.2.0', createdAt: '2026-10-08T10:00:00Z', replaced: [], added: [] }));
+  assert.deepEqual(cleanObsolete(dir, 'de'), ['docs/alt.png']);
+  assert.equal(fs.existsSync(path.join(dir, 'docs/alt.png')), false);
+  assert.equal(fs.readFileSync(path.join(dir, 'docs/eigen.png'), 'utf8'), 'eigen', 'geändert: bleibt');
+  assert.equal(fs.readFileSync(path.join(backup, 'docs/alt.png'), 'utf8'), 'alt');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(backup, 'backup.json'), 'utf8')).removed, ['docs/alt.png']);
+  personalUnchanged(dir);
+  assert.deepEqual(cleanObsolete(dir, 'de'), [], 'beim nächsten Start nichts mehr');
 });

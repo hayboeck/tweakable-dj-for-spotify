@@ -8,18 +8,22 @@
 //   3. Jede in manifest.json genannte Datei aus der ZIP-Datei holen, Größe und SHA-256 prüfen und nach .update/staging
 //      schreiben. Passt irgendetwas nicht, bricht das Update ab, bevor im Programmordner etwas geändert ist.
 //   4. Die Programmdateien, die sich ändern, nach .update/backup-<alte Version> sichern, dann ersetzen (package.json und
-//      manifest.json zuletzt). Unveränderte Dateien bleiben unangetastet. Geht beim Ersetzen etwas schief, kommen die
-//      gesicherten Dateien automatisch zurück.
+//      manifest.json zuletzt). Unveränderte Dateien bleiben unangetastet. Danach überholte Programmdateien früherer Versionen
+//      löschen (obsolete, siehe unten; ebenfalls vorher gesichert). Geht dabei etwas schief, kommen die gesicherten Dateien
+//      automatisch zurück.
 //
-// Persönliche Dateien bleiben immer unverändert: Geschrieben werden nur Dateien aus manifest.json (Erlaubnisliste),
-// gelöscht wird nichts. Nennt manifest.json eine persönliche Datei (config.jsonc, tokens.json, state.json,
-// lastfm-cache.json, probelauf.json, automatik.*, jetzt.json, update-check.json, seen-version.json, *.log wie ui.log, ui.old.log und
-// jetzt.log, alles im Archiv archiv/) oder einen Pfad
-// außerhalb des Ordners, oder führt der Weg zu einer Datei durch einen symbolischen Link, bricht das ganze Update ab, bevor
-// etwas geschrieben ist.
+// Persönliche Dateien bleiben immer unverändert: Geschrieben werden nur Dateien aus manifest.json (Erlaubnisliste), gelöscht
+// nur Dateien aus deren Liste obsolete – und nur, wenn sie Byte für Byte einer früher veröffentlichten Fassung entsprechen
+// (SHA-256); geänderte oder eigene Dateien bleiben, Ordner auch. Nennt manifest.json eine persönliche Datei (config.jsonc,
+// tokens.json, state.json, lastfm-cache.json, probelauf.json, automatik.*, jetzt.json, update-check.json, seen-version.json,
+// *.log wie ui.log, ui.old.log und jetzt.log, alles im Archiv archiv/) oder einen Pfad außerhalb des Ordners, oder führt der
+// Weg zu einer Datei durch einen symbolischen Link, bricht das ganze Update ab, bevor etwas geschrieben ist.
 //
 // manifest.json entsteht beim Veröffentlichen (.github/release-manifest.mjs, aufgerufen von .github/workflows/release.yml):
-//   { "name": "tweakable-dj", "version": "0.2.0", "files": [{ "path": "ui.mjs", "size": 15569, "sha256": "…", "executable": false }, …] }
+//   { "name": "tweakable-dj", "version": "0.2.0", "files": [{ "path": "ui.mjs", "size": 15569, "sha256": "…", "executable": false }, …],
+//     "obsolete": [{ "path": "docs/screenshot-main.png", "sha256": ["…", …] }, …] }
+// obsolete (ab 0.3.3): Dateien früherer Releases, die es nicht mehr gibt, mit den SHA-256 aller veröffentlichten Fassungen.
+// Ein Update mit einer älteren Version kennt die Liste nicht; dann löscht sie die neue Version beim Start (cleanObsolete).
 // Die ZIP-Datei enthält dieselben Dateien im Ordner tweakable-dj/ (dazu manifest.json selbst).
 
 import crypto from 'node:crypto';
@@ -30,6 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { locale, resolveLang, t, tError } from './i18n.mjs';
 import { AUTO_RESULT, lastRun, NOW_RESULT } from './schedule.mjs';
 import { compareVersions, currentVersion, isUpdate, parseVersion, repoSlug, switchedOff } from './update.mjs';
+import { readText } from './files.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const MANIFEST = 'manifest.json';
@@ -79,7 +84,7 @@ const sha256 = data => crypto.createHash('sha256').update(data).digest('hex');
 const fail = (lang, key, params) => tError(lang, key, params, { update: true });
 
 // Prüft manifest.json (schon als Objekt) gegen die erwartete Version; wirft mit übersetzter Meldung.
-// Ergebnis: { version, files: [{ path, size, sha256, executable }] }
+// Ergebnis: { version, files: [{ path, size, sha256, executable }], obsolete: [{ path, sha256: [...] }] }
 export function checkManifest(data, version, lang = resolveLang(), limits = LIMITS) {
   const bad = detail => fail(lang, 'update.badManifest', { detail });
   if (!data || typeof data !== 'object' || !Array.isArray(data.files)) throw bad('files');
@@ -103,7 +108,115 @@ export function checkManifest(data, version, lang = resolveLang(), limits = LIMI
   });
   if (total > limits.total) throw bad(`${total} bytes`);
   for (const required of ['package.json', 'ui.mjs']) if (!seen.has(required)) throw bad(`${required} missing`);
-  return { version, files };
+  // Überholte Dateien: gleiche Regeln für die Pfade; nie eine Datei, die es in dieser Version (in irgendeiner Schreibweise) gibt.
+  const list = data.obsolete === undefined ? [] : data.obsolete;
+  if (!Array.isArray(list) || list.length > limits.files) throw bad('obsolete');
+  const gone = new Set();
+  const obsolete = list.map(o => {
+    const reason = pathProblem(o?.path);
+    if (reason) throw fail(lang, 'update.forbiddenPath', { path: shown(o?.path), reason: t(lang, reason) });
+    const key = o.path.toLowerCase();
+    if (seen.has(key) || gone.has(key)) throw bad(`${shown(o.path)}: obsolete`);
+    gone.add(key);
+    if (!Array.isArray(o.sha256) || !o.sha256.length || o.sha256.length > 200 || !o.sha256.every(h => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h))) {
+      throw bad(`${shown(o.path)}: sha256`);
+    }
+    return { path: o.path, sha256: [...new Set(o.sha256)] };
+  });
+  return { version, files, obsolete };
+}
+
+// Überholte Dateien (obsolete aus manifest.json), die im Ordner dir genau so liegen wie in einer früheren Version:
+// [{ path, target, old, oldSha, oldMode, created: [] }]. Geändert, ein Ordner, ein Link oder ein Link auf dem Weg dorthin: bleibt.
+export function obsoleteFiles(dir, obsolete, lang = resolveLang()) {
+  const out = [];
+  for (const o of obsolete ?? []) {
+    if (pathProblem(o?.path)) continue;
+    let st;
+    try {
+      st = inspect(dir, o.path, lang);
+    } catch {
+      continue; // Link oder Ordner im Weg: nicht anfassen
+    }
+    if (!st) continue;
+    const target = inside(dir, o.path, lang);
+    const old = fs.readFileSync(target);
+    const oldSha = sha256(old);
+    if (o.sha256.includes(oldSha)) out.push({ path: o.path, target, old, oldSha, oldMode: st.mode, created: [], remove: true });
+  }
+  return out;
+}
+
+// Neueste Sicherung eines Updates auf version (.update/backup-*/backup.json mit to = version): { dir, file, data } oder null.
+function backupFor(dir, version) {
+  let names;
+  try {
+    names = fs.readdirSync(path.join(dir, UPDATE_DIR)).filter(n => n.startsWith('backup-'));
+  } catch {
+    return null;
+  }
+  let best = null;
+  for (const name of names) {
+    const file = path.join(dir, UPDATE_DIR, name, 'backup.json');
+    let data;
+    try {
+      data = JSON.parse(readText(file));
+    } catch {
+      continue;
+    }
+    if (compareVersions(data?.to, version) !== 0) continue;
+    if (!best || String(data.createdAt) > String(best.data.createdAt)) best = { dir: path.dirname(file), file, data };
+  }
+  return best;
+}
+
+// Beim Start: überholte Dateien laut der installierten manifest.json löschen – für Updates, die eine ältere Version installiert
+// hat (deren „Jetzt aktualisieren“ kennt obsolete noch nicht). Nur in einem Ordner aus der ZIP-Datei (kein git-Checkout), nur
+// wenn manifest.json zur Version in package.json passt, nur mit passender Prüfsumme (obsoleteFiles). Die gelöschten Dateien
+// kommen vorher in die Sicherung des Updates auf diese Version (.update/backup-<alt>), sofern es sie gibt.
+// Ergebnis: gelöschte Pfade. Wirft nie.
+export function cleanObsolete(dir = HERE, lang = resolveLang()) {
+  try {
+    if (fs.existsSync(path.join(dir, '.git'))) return [];
+    const version = currentVersion(path.join(dir, 'package.json'));
+    if (!parseVersion(version)) return [];
+    let data;
+    try {
+      data = JSON.parse(readText(path.join(dir, MANIFEST)));
+    } catch {
+      return [];
+    }
+    if (!Array.isArray(data?.obsolete) || !data.obsolete.length) return [];
+    const list = obsoleteFiles(dir, checkManifest(data, version, lang).obsolete, lang);
+    if (!list.length) return [];
+    const backup = backupFor(dir, version);
+    const removed = [];
+    for (const p of list) {
+      try {
+        if (backup) {
+          const b = inside(backup.dir, p.path, lang);
+          fs.mkdirSync(path.dirname(b), { recursive: true });
+          fs.writeFileSync(b, p.old);
+          if (sha256(fs.readFileSync(b)) !== p.oldSha) continue; // Sicherung kaputt: lieber stehen lassen
+        }
+        fs.rmSync(p.target);
+        removed.push(p.path);
+      } catch {
+        // bleibt eben liegen
+      }
+    }
+    if (backup && removed.length) {
+      try {
+        const before = Array.isArray(backup.data.removed) ? backup.data.removed : [];
+        fs.writeFileSync(backup.file, `${JSON.stringify({ ...backup.data, removed: [...new Set([...before, ...removed])] }, null, 2)}\n`);
+      } catch {
+        // nur die Liste in backup.json fehlt
+      }
+    }
+    return removed;
+  } catch {
+    return [];
+  }
 }
 
 // --- ZIP-Datei lesen (ohne Abhängigkeiten): Inhaltsverzeichnis am Ende, Daten gespeichert oder mit Deflate gepackt ---
@@ -358,7 +471,8 @@ function makeParents(dir, rel) {
 const LAST = ['package.json', MANIFEST];
 const order = p => LAST.indexOf(p.path);
 
-// Alle bisher ersetzten Dateien zurück auf den alten Stand; Ergebnis: Fehler beim Zurücksichern (leer = alles wie vorher).
+// Alle bisher ersetzten bzw. gelöschten Dateien zurück auf den alten Stand; Ergebnis: Fehler beim Zurücksichern (leer = alles
+// wie vorher).
 async function rollback(done, tmpDir) {
   const errors = [];
   for (const p of [...done].reverse()) {
@@ -388,8 +502,10 @@ async function rollback(done, tmpDir) {
 // outcome: 'unchanged' (nichts geändert), 'restored' (alte Version wiederhergestellt) oder 'restoreFailed'.
 //   lang: Sprache der Meldungen; expected: in der Oberfläche bestätigte Version (sonst Abbruch, falls inzwischen eine andere);
 //   onStep(text): Fortschritt; busy(): übersetzter Grund, warum gerade nicht (Lauf, Anmeldung), sonst null.
-//   dir, fetch, env, now, limits, faults (faults.beforeWrite(path, index) wirft = Fehler beim Ersetzen): für Tests.
-// Ergebnis: { from, to, changed: [ersetzte bzw. neue Pfade], same: Anzahl unveränderter Dateien, backup: '.update/backup-<from>' }
+//   dir, fetch, env, now, limits, faults (faults.beforeWrite(path, index) bzw. faults.beforeRemove(path) wirft = Fehler beim
+//   Ersetzen bzw. Löschen): für Tests.
+// Ergebnis: { from, to, changed: [ersetzte bzw. neue Pfade], removed: [gelöschte überholte Pfade], same: Anzahl unveränderter
+// Dateien, backup: '.update/backup-<from>' }
 export async function installUpdate({ dir = HERE, lang = resolveLang(), expected = null, onStep = () => {}, busy = () => null,
   fetch = globalThis.fetch, env = process.env, now = Date.now, limits = LIMITS, faults = {} } = {}) {
   const step = (key, params) => onStep(t(lang, key, params));
@@ -406,6 +522,7 @@ export async function installUpdate({ dir = HERE, lang = resolveLang(), expected
   };
 
   let plan;
+  let removals = [];
   let same = 0;
   let tmpDir;
   let from;
@@ -535,14 +652,15 @@ export async function installUpdate({ dir = HERE, lang = resolveLang(), expected
     });
     plan = all.filter(p => p.oldSha !== p.sha256).sort((a, b) => order(a) - order(b));
     same = all.length - plan.length;
+    removals = obsoleteFiles(dir, manifest.obsolete, lang);
     checkBusy(); // könnte inzwischen ein automatischer Lauf begonnen haben
 
     // --- 4a. Sicherung der Dateien, die ersetzt werden (nur Programmdateien aus manifest.json) ---
     backupName = `backup-${from}`;
     const replaced = plan.filter(p => p.old);
-    step('update.stepBackup', { count: replaced.length, dir: `${UPDATE_DIR}/${backupName}` });
+    step('update.stepBackup', { count: replaced.length + removals.length, dir: `${UPDATE_DIR}/${backupName}` });
     const backup = freshDir(path.join(tmpDir, backupName));
-    for (const p of replaced) {
+    for (const p of [...replaced, ...removals]) {
       const b = inside(backup, p.path, lang);
       fs.mkdirSync(path.dirname(b), { recursive: true });
       fs.writeFileSync(b, p.old);
@@ -550,7 +668,7 @@ export async function installUpdate({ dir = HERE, lang = resolveLang(), expected
     }
     fs.writeFileSync(path.join(backup, 'backup.json'), `${JSON.stringify({
       from, to, createdAt: new Date(now()).toISOString(),
-      replaced: replaced.map(p => p.path), added: plan.filter(p => !p.old).map(p => p.path),
+      replaced: replaced.map(p => p.path), added: plan.filter(p => !p.old).map(p => p.path), removed: removals.map(p => p.path),
     }, null, 2)}\n`);
   } catch (e) {
     throw outcome(e, 'unchanged');
@@ -567,6 +685,13 @@ export async function installUpdate({ dir = HERE, lang = resolveLang(), expected
       await place(tmpDir, p.target, p.data);
       if (process.platform !== 'win32') fs.chmodSync(p.target, p.executable ? 0o755 : (p.oldMode & 0o7777) || 0o644);
       if (sha256(fs.readFileSync(p.target)) !== p.sha256) throw fail(lang, 'update.badChecksum', { file: shown(p.path) });
+    }
+    // Überholte Dateien früherer Versionen (gesichert wie die ersetzten; beim Zurücksichern kommen sie wieder)
+    if (removals.length) step('update.stepRemove', { count: removals.length });
+    for (const p of removals) {
+      faults.beforeRemove?.(p.path);
+      done.push(p);
+      fs.rmSync(p.target);
     }
   } catch (e) {
     const errors = await rollback(done, tmpDir);
@@ -585,5 +710,5 @@ export async function installUpdate({ dir = HERE, lang = resolveLang(), expected
   } catch {
     // bleibt eben liegen
   }
-  return { from, to, changed: plan.map(p => p.path), same, backup: `${UPDATE_DIR}/${backupName}` };
+  return { from, to, changed: plan.map(p => p.path), removed: removals.map(p => p.path), same, backup: `${UPDATE_DIR}/${backupName}` };
 }

@@ -15,6 +15,7 @@
 // darum, Tweakable DJ neu zu starten.
 // Nur für Tests: TWEAKABLE_DJ_BROWSER=<Datei> hängt die Adresse an diese Datei an, statt den Browser zu öffnen.
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -28,7 +29,7 @@ import { locale, resolveLang, systemLang, t } from './i18n.mjs';
 import { applySchedule, scheduleStatus } from './schedule.mjs';
 import { createShortcut, removeShortcut, SHORTCUTS, shortcutStatus } from './shortcut.mjs';
 import { createSpotify, isScopeError, LIBRARY_SCOPE, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
-import { autoRunMessage, autoRunSince, installBlocker, installUpdate } from './install-update.mjs';
+import { autoRunMessage, autoRunSince, cleanObsolete, installBlocker, installUpdate } from './install-update.mjs';
 import { NOW_RESULT } from './schedule.mjs';
 import { notify, notifyProblem, remindLogin, testNotice } from './notify.mjs';
 import {
@@ -508,10 +509,26 @@ function resultOf(text) {
 const activity = () => (running ? 'run' : importing ? 'import' : installing || restarting ? 'update'
   : autoRunSince(HERE) ? 'auto' : nowRunning() ? 'now' : null);
 
+// Content-Security-Policy der Seite (Regeln, was sie laden und ausführen darf): Skripte nur die beiden in ui.html (erkannt an
+// ihrem SHA-256, so gilt jede geänderte Fassung von selbst), Anfragen, Bilder und Stile nur von hier. Stile auch inline: ui.html
+// hat sie im <style> und setzt einzelne per Skript (z. B. die Farbfelder). Keine Formulare, keine Einbettung in fremde Seiten.
+function pagePolicy(html) {
+  const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+    .map(m => `'sha256-${crypto.createHash('sha256').update(m[1], 'utf8').digest('base64')}'`);
+  return [
+    "default-src 'none'", `script-src ${hashes.join(' ')}`, "style-src 'self' 'unsafe-inline'", "img-src 'self'", "connect-src 'self'",
+    "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'",
+  ].join('; ');
+}
+
 const server = http.createServer(async (req, res) => {
-  // X-Frame-Options: Seite nicht in fremde Seiten einbetten lassen (sonst Klicks unterschiebbar).
-  const send = (status, body, type = 'application/json; charset=utf-8') => {
-    res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY' });
+  // X-Frame-Options: Seite nicht in fremde Seiten einbetten lassen (sonst Klicks unterschiebbar). nosniff: Antworten nur als
+  // das, was Content-Type sagt; no-referrer: Links nach außen verraten die Adresse der Oberfläche nicht.
+  const send = (status, body, type = 'application/json; charset=utf-8', headers = {}) => {
+    res.writeHead(status, {
+      'Content-Type': type, 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer', ...headers,
+    });
     res.end(typeof body === 'string' ? body : JSON.stringify(body));
   };
   const lang = resolveLang(req.headers['x-lang'], configLanguage());
@@ -531,7 +548,8 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (route === 'GET /') {
-      return send(200, fs.readFileSync(path.join(HERE, 'ui.html'), 'utf8'), 'text/html; charset=utf-8');
+      const html = fs.readFileSync(path.join(HERE, 'ui.html'), 'utf8');
+      return send(200, html, 'text/html; charset=utf-8', { 'Content-Security-Policy': pagePolicy(html) });
     }
 
     // Logo und Symbol (STATIC): eine Stunde im Browser zwischenspeichern; SVG ohne Skripte (Content-Security-Policy).
@@ -937,6 +955,9 @@ server.listen(PORT, '127.0.0.1', () => {
   if (!noBrowser) openPage();
   if (HIDDEN) watchIdle();
   if (LAUNCHER) renewShortcuts(lang);
+  // Überholte Programmdateien früherer Versionen (laut manifest.json), falls eine ältere Version das Update installiert hat
+  const removed = cleanObsolete(HERE, lang);
+  if (removed.length) console.log(t(lang, 'update.cleaned', { count: removed.length }));
   // Läuft die Spotify-Anmeldung bald ab: Systembenachrichtigung (Einstellung remindLogin, höchstens einmal am Tag).
   remindLogin({ dir: HERE, lang, enabled: remindLoginOn() }).then(sent => {
     if (sent && !sent.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, sent) }));

@@ -110,7 +110,7 @@ The numbers show the order of a run:
 | `update.mjs` | Checks at most once a day whether a new version is available on GitHub (see [Update check](#update-check)) |
 | `install-update.mjs` | Installs a new version when you click *Update now* (see [Updating](#8-updating)) |
 | `whatsnew.mjs` | Shows *New in v…* once after an update, with the main points from `CHANGELOG.md` |
-| `manifest.json` | List of all program files of this version with their checksums. *Update now* only replaces files listed there. Only in the ZIP file, not in the GitHub repository. |
+| `manifest.json` | List of all program files of this version with their checksums, plus outdated files of earlier versions. *Update now* only replaces files listed there and only deletes outdated ones that still look exactly as published. Only in the ZIP file, not in the GitHub repository. |
 | `package.json` | Shortcuts for developers: `npm start` (interface) and `npm test` (tests). Tweakable DJ needs no additional packages. |
 | `tests/` | Automated tests for the rules, the settings, the translations, automatic runs, the desktop shortcut (only in test folders), the update check and *Update now*, the interface, the text file and creating lists including overwriting and saving them as a new playlist, in which Spotify, Last.fm and GitHub are only simulated. Only in the GitHub repository, not in the ZIP file. |
 | `config.example.jsonc` | Empty settings template with English explanations. It becomes your `config.jsonc` when you set up in English, Spanish or French. |
@@ -482,7 +482,7 @@ When a new version is out, a notice appears at the top of the interface. What ch
 2. Click **Update**. Tweakable DJ downloads the new version from GitHub, checks every file against its checksum (SHA-256), backs up the files it replaces to `.update/backup-<old version>` and copies the new files in.
 3. Tweakable DJ restarts by itself, and the page reloads with the new version. If you started it with `node ui.mjs` in a terminal instead of a start file, start it again yourself; the page then reloads by itself.
 
-The update only writes the program files listed in the release (`manifest.json`) and deletes nothing outside `.update/` (there it only keeps the backup of the latest update). If a file doesn’t match its checksum, it changes nothing; if copying fails, it restores the old version automatically. It doesn’t start while a list is being created or written to Spotify, an automatic run, an import from a text file or a Spotify login is in progress. Automatic runs keep working, because the folder stays the same.
+The update only writes the program files listed in the release (`manifest.json`). Outside `.update/` (there it only keeps the backup of the latest update), the only files it may delete are program files of earlier versions that no longer exist (e.g. old screenshots) – and only if they are byte for byte as published; they go into the backup first. Changed and own files, folders and personal files stay. If a file doesn’t match its checksum, it changes nothing; if copying fails, it restores the old version automatically. It doesn’t start while a list is being created or written to Spotify, an automatic run, an import from a text file or a Spotify login is in progress. Automatic runs keep working, because the folder stays the same.
 
 **By hand**
 
