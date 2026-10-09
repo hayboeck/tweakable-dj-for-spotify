@@ -119,7 +119,9 @@ test('Playlist erstellen, „überschreiben“ per Doppelklick (nur einmal), Vor
   await page.waitFor("document.getElementById('summary').textContent.startsWith('Erstellt:')", 60_000);
   await page.waitFor("!document.getElementById('trial-apply').hidden && !document.getElementById('trial-apply').disabled");
   assert.match(await text(page, 'trial-apply'), /^„Test-DJ“ überschreiben$/);
-  assert.ok(await page.eval("document.querySelectorAll('#log button.block').length === 20"), '× hinter jedem Song');
+  // × hinter jedem Song: Die Knöpfe kommen erst mit der Liste aus GET /api/trial?tracks=1, die die Seite nach dem Lauf lädt
+  // (das kann kurz nach der Zusammenfassung sein) – deshalb warten statt sofort zählen.
+  await page.waitFor("document.querySelectorAll('#log button.block').length === 20", 10_000);
   const writes = replaces();
   await page.click('#trial-apply', 2);
   await page.waitFor("document.getElementById('summary').textContent.startsWith('Fertig:')", 60_000);
