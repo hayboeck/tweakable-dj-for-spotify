@@ -2,7 +2,10 @@
 // Oberfläche (POST /api/update/install in ui.mjs), nie von selbst.
 //
 // Ablauf (installUpdate):
-//   1. Neuestes Release abfragen. Nur eine fertige Version, die neuer ist als die eigene (kein Downgrade, keine Vorabversion).
+//   1. Neuestes Release abfragen. Nur eine reguläre Version, die neuer ist als die eigene (kein Downgrade). Nie eine
+//      Vorabversion: weder ein Release, das GitHub als Pre-release (oder Entwurf) führt, noch eine Versionsnummer mit
+//      Vorab-Kennung (z. B. 0.4.0-beta.1) – doppelt zur Prüfung in update.mjs. Wer selbst eine Vorabversion hat, bekommt
+//      die reguläre Version derselben Nummer (0.4.0-beta.1 → 0.4.0) und neuere.
 //   2. manifest.json und die ZIP-Datei des Releases laden: nur HTTPS, nur GitHub-Adressen (auch bei Weiterleitungen),
 //      jeweils mit Größenlimit.
 //   3. Jede in manifest.json genannte Datei aus der ZIP-Datei holen, Größe und SHA-256 prüfen und nach .update/staging
@@ -34,7 +37,7 @@ import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { locale, resolveLang, t, tError } from './i18n.mjs';
 import { AUTO_RESULT, lastRun, NOW_RESULT } from './schedule.mjs';
-import { compareVersions, currentVersion, isUpdate, parseVersion, repoSlug, switchedOff } from './update.mjs';
+import { compareVersions, currentVersion, isPrerelease, isUpdate, parseVersion, repoSlug, switchedOff } from './update.mjs';
 import { readText } from './files.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -549,8 +552,9 @@ export async function installUpdate({ dir = HERE, lang = resolveLang(), expected
       throw fail(lang, 'update.github', { file: 'GitHub', status: 'JSON' });
     }
     const tag = typeof release?.tag_name === 'string' ? release.tag_name.trim() : '';
-    if (!parseVersion(tag) || release.draft || release.prerelease) throw fail(lang, 'update.noRelease');
+    if (!parseVersion(tag) || release.draft) throw fail(lang, 'update.noRelease');
     to = tag.replace(/^v/i, '');
+    if (release.prerelease || isPrerelease(to)) throw fail(lang, 'update.preRelease', { version: shown(to) });
     if (!isUpdate(to, from)) throw fail(lang, 'update.notNewer', { latest: to, current: from });
     if (expected != null && compareVersions(String(expected), to) !== 0) {
       throw fail(lang, 'update.otherVersion', { latest: to, expected: shown(expected) });

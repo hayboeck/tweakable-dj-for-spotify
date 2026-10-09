@@ -3,6 +3,15 @@
 // Hat das Update Versionen übersprungen (z. B. 0.2.5 → 0.3.3), kommen die Punkte aller Versionen dazwischen dazu („Neu seit
 // v0.2.5“), neueste zuerst und begrenzt (changesSince). Eingebunden in ui.mjs (GET und POST /api/whatsnew).
 //
+// Vorabversionen (z. B. 0.4.0-beta.1, zum Ausprobieren von Hand installiert) haben in CHANGELOG.md einen eigenen Abschnitt
+// „## [0.4.0-beta.1] – Datum“ und zeigen ihn wie jede Version („Neu in v0.4.0-beta.1“). Die reguläre Version (0.4.0) bekommt
+// beim Veröffentlichen ihren eigenen, vollständigen Abschnitt mit allem seit der vorigen regulären Version; die Abschnitte
+// ihrer Vorabversionen zählen dann nicht mehr (sonst stünde alles doppelt da, und wer nur reguläre Versionen hat, sähe
+// Überschriften von Versionen, die er nie hatte). Abschnitte von Vorabversionen zählen also nur für eine laufende
+// Vorabversion derselben Nummer (0.4.0-beta.2 zeigt auch die Punkte von 0.4.0-beta.1). Ohne eigenen Abschnitt bleibt der
+// Hinweis weg, wie bei jeder Version – der Release-Ablauf (.github/release-check.mjs) verlangt den Abschnitt aber.
+// Die gemerkte Version darf eine Vorabversion sein; verglichen wird nach SemVer (0.3.3 < 0.4.0-beta.1 < 0.4.0).
+//
 // Gemerkt wird die zuletzt gesehene Version in seen-version.json im Programmordner (persönlich wie state.json: nie im
 // Repository, nie in der ZIP-Datei, ein Update fasst sie nie an). Serverseitig statt im Browser, weil das auch mit einem
 // anderen Browser, im privaten Fenster und nach dem Löschen der Browserdaten stimmt.
@@ -14,7 +23,7 @@
 // Fehler beim Lesen oder Schreiben sind egal: Dann gibt es eben keinen Hinweis.
 import fs from 'node:fs';
 import path from 'node:path';
-import { compareVersions, parseVersion, repoSlug } from './update.mjs';
+import { compareVersions, isPrerelease, parseVersion, repoSlug } from './update.mjs';
 
 export const SEEN_FILE = 'seen-version.json';
 export const MAX_ITEMS = 5;
@@ -98,12 +107,18 @@ function sectionItems(section, lang) {
   return (bold.length ? bold : points).map(shortItem).filter(Boolean);
 }
 
+// Zählt der Abschnitt der Version v, wenn current läuft? Reguläre Versionen immer, Vorabversionen nur für eine laufende
+// Vorabversion derselben Nummer (siehe oben).
+const sameCore = (a, b) => parseVersion(a).core.join('.') === parseVersion(b).core.join('.');
+const counts = (v, current) => !isPrerelease(v) || (isPrerelease(current) && sameCore(v, current));
+
 // Punkte aller Versionen nach previous bis einschließlich current, neueste zuerst: { sections: [{ version, items }], items
 // (alle gezeigten der Reihe nach), more (nicht gezeigte) } oder null (keine Punkte bzw. kein Abschnitt zu current). Von current höchstens MAX_ITEMS, von jeder
 // älteren Version höchstens OLDER_ITEMS, zusammen höchstens TOTAL_ITEMS – die wichtigsten stehen in CHANGELOG.md zuerst.
 export function changesSince(text, previous, current, lang) {
   if (typeof text !== 'string' || !parseVersion(current)) return null;
   const versions = versionSections(text)
+    .filter(v => counts(v.version, current))
     .filter(v => compareVersions(v.version, current) <= 0 && (!parseVersion(previous) || compareVersions(v.version, previous) > 0))
     .sort((a, b) => compareVersions(b.version, a.version));
   // Ohne Abschnitt zur laufenden Version nichts (sonst stünden alte Punkte unter „Neu in“ der neuen).

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkForUpdate, compareVersions, currentVersion, isUpdate, repoSlug } from '../update.mjs';
+import { checkForUpdate, compareVersions, currentVersion, isPrerelease, isUpdate, parseVersion, repoSlug } from '../update.mjs';
 
 const HOUR = 3600_000;
 const T0 = Date.parse('2026-10-01T08:00:00Z');
@@ -104,7 +104,7 @@ test('Neue Version: eine GET-Anfrage ohne persönliche Daten, v-Präfix entfernt
   const fetch = fakeFetch(release('v1.3.0'));
   const r = await checkForUpdate({ ...opts, fetch });
   assert.deepEqual(r, {
-    enabled: true, current: '1.2.0', latest: '1.3.0', updateAvailable: true,
+    enabled: true, current: '1.2.0', prerelease: false, latest: '1.3.0', updateAvailable: true,
     url: releaseUrl('v1.3.0'), checkedAt: '2026-10-01T08:00:00.000Z', okAt: '2026-10-01T08:00:00.000Z', error: null,
   });
   assert.equal(fetch.calls.length, 1);
@@ -118,11 +118,16 @@ test('Neue Version: eine GET-Anfrage ohne persönliche Daten, v-Präfix entfernt
 }));
 
 test('Gleiche, ältere oder Vorabversion: kein Update', () => withProject(PKG, async opts => {
-  for (const tag of ['v1.2.0', '1.1.9', 'v1.3.0-beta.1']) {
+  for (const tag of ['v1.2.0', '1.1.9']) {
     const r = await checkForUpdate({ ...opts, force: true, fetch: fakeFetch(release(tag)) });
     assert.equal(r.updateAvailable, false, tag);
     assert.equal(r.latest, tag.replace(/^v/, ''));
     assert.equal(r.error, null);
+  }
+  // Tag mit Vorab-Kennung, aber versehentlich nicht als Pre-release markiert: zählt gar nicht (wie kein Release)
+  for (const tag of ['v1.3.0-beta.1', 'v2.0.0-rc.1']) {
+    const r = await checkForUpdate({ ...opts, force: true, fetch: fakeFetch(release(tag, { prerelease: false })) });
+    assert.deepEqual([r.updateAvailable, r.latest, r.url, r.error], [false, null, null, null], tag);
   }
   // als Vorabversion markiertes Release (liefert /releases/latest eigentlich nie) wird ignoriert
   const r = await checkForUpdate({ ...opts, force: true, fetch: fakeFetch(release('v2.0.0', { prerelease: true })) });
@@ -189,7 +194,7 @@ test('404 (noch kein Release): kein Update, kein Fehler, ebenfalls einen Tag gem
   const fetch = fakeFetch(json({ message: 'Not Found' }, 404));
   const r = await checkForUpdate({ ...opts, fetch });
   assert.deepEqual(r, {
-    enabled: true, current: '1.2.0', latest: null, updateAvailable: false,
+    enabled: true, current: '1.2.0', prerelease: false, latest: null, updateAvailable: false,
     url: null, checkedAt: '2026-10-01T08:00:00.000Z', okAt: '2026-10-01T08:00:00.000Z', error: null,
   });
   await checkForUpdate({ ...opts, fetch, now: T0 + 23 * HOUR });
@@ -245,7 +250,7 @@ test('Fehler mit Cache: letzter erfolgreicher Stand bleibt, neuer Versuch frühe
 test('Abschalten mit TWEAKABLE_DJ_NO_UPDATE_CHECK=1: keine Abfrage, keine Datei', () => withProject(PKG, async (opts, dir) => {
   const fetch = fakeFetch(release('v1.3.0'));
   const off = {
-    enabled: false, current: '1.2.0', latest: null, updateAvailable: false, url: null, checkedAt: null, okAt: null, error: null,
+    enabled: false, current: '1.2.0', prerelease: false, latest: null, updateAvailable: false, url: null, checkedAt: null, okAt: null, error: null,
   };
   assert.deepEqual(await checkForUpdate({ ...opts, fetch, env: { TWEAKABLE_DJ_NO_UPDATE_CHECK: '1' } }), off);
   assert.deepEqual(await checkForUpdate({ ...opts, fetch, force: true, env: { TWEAKABLE_DJ_NO_UPDATE_CHECK: 'true' } }), off);
@@ -302,3 +307,80 @@ test('okAt: letzte erfolgreiche Prüfung – bleibt bei einem Fehler; ältere up
   fs.writeFileSync(opts.cacheFile, JSON.stringify({ ...old, error: 'GitHub: HTTP 500' }));
   assert.equal((await checkForUpdate({ ...opts, now: T0 + 30.5 * HOUR, fetch: fakeFetch(release('v1.2.0')) })).okAt, null);
 }));
+
+// --- Vorabversionen (z. B. 0.4.0-beta.1): erscheinen auf GitHub als Pre-release, werden nie als Update angeboten ---
+
+test('parseVersion, isPrerelease: Vorab-Kennung nach dem Bindestrich, Build-Angabe zählt nicht', () => {
+  assert.deepEqual(parseVersion('0.4.0-beta.1'), { core: [0, 4, 0], pre: ['beta', '1'] });
+  assert.deepEqual(parseVersion('v0.4.0-rc.1+build.5'), { core: [0, 4, 0], pre: ['rc', '1'] });
+  assert.deepEqual(parseVersion('0.3.3'), { core: [0, 3, 3], pre: [] });
+  for (const v of ['0.4.0-beta.1', 'v0.4.0-rc.1', '1.0.0-alpha', '1.0.0-0.3.7', '1.0.0-x-y.1']) assert.equal(isPrerelease(v), true, v);
+  for (const v of ['0.4.0', 'v0.3.3', '1.0.0+build-1', null, 'kaputt', '']) assert.equal(isPrerelease(v), false, String(v));
+});
+
+test('compareVersions: 0.3.3 < 0.4.0-beta.1 < 0.4.0-beta.2 < 0.4.0-rc.1 < 0.4.0 < 0.4.1-beta.1 < 0.4.1', () => {
+  const order = ['0.3.3', '0.4.0-beta.1', '0.4.0-beta.2', '0.4.0-beta.10', '0.4.0-rc.1', '0.4.0', '0.4.1-beta.1', '0.4.1'];
+  for (let i = 0; i < order.length; i++) {
+    for (let j = 0; j < order.length; j++) assert.equal(compareVersions(order[i], order[j]), Math.sign(i - j), `${order[i]} vs. ${order[j]}`);
+  }
+  assert.equal(compareVersions('v0.4.0-beta.1', '0.4.0-beta.1'), 0);
+});
+
+test('isUpdate mit eigener Vorabversion: reguläre derselben Nummer und neuere ja, ältere und Vorabversionen nie', () => {
+  assert.equal(isUpdate('0.4.0', '0.4.0-beta.1'), true);
+  assert.equal(isUpdate('0.4.0', '0.4.0-rc.1'), true);
+  assert.equal(isUpdate('0.5.0', '0.4.0-beta.1'), true);
+  assert.equal(isUpdate('0.3.3', '0.4.0-beta.1'), false, 'kein „Update“ auf eine ältere reguläre Version');
+  assert.equal(isUpdate('0.4.0-beta.2', '0.4.0-beta.1'), false, 'neuere Vorabversion: nie');
+  assert.equal(isUpdate('0.4.0-beta.1', '0.3.3'), false, 'reguläre Version: nie auf eine Vorabversion');
+  assert.equal(isUpdate('0.4.0', '0.4.0'), false);
+});
+
+// Simuliertes GitHub mit einem Pre-release als neuestem Release – einmal als (eigentlich unmögliche) Antwort auf
+// /releases/latest, einmal nur in der Liste aller Releases (/releases), wie es auf GitHub wirklich aussieht: Die Prüfung fragt
+// nur /releases/latest und bietet die Vorabversion in keinem Fall an.
+function github({ latest, list }) {
+  return fakeFetch(url => {
+    const p = new URL(url).pathname;
+    if (p === '/repos/beispiel/tweakable-dj/releases/latest') return new Response(JSON.stringify(latest), { status: latest ? 200 : 404 });
+    if (p === '/repos/beispiel/tweakable-dj/releases') return new Response(JSON.stringify(list), { status: 200 });
+    return new Error(`unerwartete Adresse ${url}`);
+  });
+}
+const pre = tag => ({ tag_name: tag, html_url: releaseUrl(tag), draft: false, prerelease: true });
+const regular = tag => ({ tag_name: tag, html_url: releaseUrl(tag), draft: false, prerelease: false });
+
+test('Update-Prüfung ignoriert Pre-releases: als Antwort auf /releases/latest und in der Liste aller Releases', () => withProject(PKG, async opts => {
+  // GitHub liefert (fälschlich) ein Pre-release als „latest“: kein Update, auch nicht bei regulär aussehender Nummer
+  for (const tag of ['v1.3.0-beta.1', 'v1.3.0']) {
+    const fetch = github({ latest: pre(tag), list: [pre(tag)] });
+    const r = await checkForUpdate({ ...opts, force: true, fetch });
+    assert.deepEqual([r.updateAvailable, r.latest, r.error], [false, null, null], tag);
+    assert.deepEqual(fetch.calls.map(c => c.url), [API], 'nur /releases/latest');
+  }
+  // Entwurf ebenso
+  const draft = await checkForUpdate({ ...opts, force: true, fetch: github({ latest: { ...regular('v1.3.0'), draft: true }, list: [] }) });
+  assert.deepEqual([draft.updateAvailable, draft.latest], [false, null]);
+  // Wie auf GitHub: Die Liste beginnt mit dem Pre-release, /releases/latest nennt die reguläre Version
+  const fetch = github({ latest: regular('v1.2.1'), list: [pre('v1.3.0-beta.1'), regular('v1.2.1'), regular('v1.2.0')] });
+  const r = await checkForUpdate({ ...opts, force: true, fetch });
+  assert.deepEqual([r.updateAvailable, r.latest, r.url], [true, '1.2.1', releaseUrl('v1.2.1')]);
+  assert.deepEqual(fetch.calls.map(c => c.url), [API]);
+  // Nur Pre-releases veröffentlicht (/releases/latest: 404): kein Update, kein Fehler
+  const none = await checkForUpdate({ ...opts, force: true, fetch: github({ latest: null, list: [pre('v1.3.0-beta.1')] }) });
+  assert.deepEqual([none.updateAvailable, none.latest, none.error], [false, null, null]);
+}));
+
+test('Eigene Vorabversion: prerelease true; reguläre Version derselben Nummer wird angeboten, ältere nicht', () =>
+  withProject({ ...PKG, version: '0.4.0-beta.1' }, async opts => {
+    const older = await checkForUpdate({ ...opts, force: true, fetch: fakeFetch(release('v0.3.3')) });
+    assert.deepEqual([older.current, older.prerelease, older.latest, older.updateAvailable], ['0.4.0-beta.1', true, '0.3.3', false]);
+    const final = await checkForUpdate({ ...opts, force: true, fetch: fakeFetch(release('v0.4.0')) });
+    assert.deepEqual([final.prerelease, final.latest, final.updateAvailable, final.url], [true, '0.4.0', true, releaseUrl('v0.4.0')]);
+    const next = await checkForUpdate({ ...opts, force: true, fetch: fakeFetch(release('v0.4.0-beta.2', { prerelease: true })) });
+    assert.deepEqual([next.latest, next.updateAvailable], [null, false], 'neuere Vorabversion: nie');
+    // Cache aus einer früheren Abfrage mit einer Vorabversion als latest (z. B. von Hand bearbeitet): trotzdem kein Update
+    fs.writeFileSync(opts.cacheFile, JSON.stringify({ repo: 'beispiel/tweakable-dj', latest: '0.4.0-rc.1', url: releaseUrl('v0.4.0-rc.1'),
+      checkedAt: new Date(T0).toISOString(), okAt: new Date(T0).toISOString(), error: null }));
+    assert.equal((await checkForUpdate({ ...opts, fetch: fakeFetch(() => new Error('nicht fragen')) })).updateAvailable, false);
+  }));

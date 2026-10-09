@@ -27,6 +27,8 @@
 //                       leitet https://github.com/<owner>/<repo>/releases/download/<tag>/<name> (302) zum Speicher
 //                       release-assets.githubusercontent.com weiter; "redirect": "<URL>" ersetzt dieses Ziel (z. B. ein
 //                       fremder Host, den das Update ablehnen muss). tests/mock-release.mjs baut solche Releases.
+//                       "list": […] ist die Liste aller Releases (/repos/<owner>/<repo>/releases, z. B. mit Pre-releases);
+//                       das Programm fragt sie nie ab – die Tests prüfen das anhand von MOCK_LOG.
 //                       Wird bei jeder Anfrage neu gelesen; ohne Datei ist GitHub ebenfalls nicht erreichbar.
 //   MOCK_NOTIFY=fail    Systembenachrichtigungen (notify.mjs) scheitern (Exit-Code 1). Echte Benachrichtigungen gibt es nie:
 //                       execFile für powershell.exe, osascript und notify-send wird nur als { notify: { file, args, toast } }
@@ -444,6 +446,7 @@ globalThis.fetch = async (input, init) => {
   }
   else if (url.origin === 'https://ws.audioscrobbler.com' && url.pathname === '/2.0/') res = lastfmApi(url);
   else if (url.origin === 'https://api.github.com' && /^\/repos\/[^/]+\/[^/]+\/releases\/latest$/.test(url.pathname)) res = githubRelease(url);
+  else if (url.origin === 'https://api.github.com' && /^\/repos\/[^/]+\/[^/]+\/releases$/.test(url.pathname)) res = json(githubReply(url).list ?? []);
   else if (url.origin === 'https://github.com' && /^\/[^/]+\/[^/]+\/releases\/download\/[^/]+\/[^/]+$/.test(url.pathname)) res = githubDownload(url);
   else if (['https://release-assets.githubusercontent.com', 'https://objects.githubusercontent.com'].includes(url.origin)) res = githubAsset(url);
   else {

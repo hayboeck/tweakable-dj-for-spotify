@@ -49,9 +49,16 @@ export function compareVersions(a, b) {
   return 0;
 }
 
-// Update nur, wenn latest eine fertige Version ist und neuer als current; Vorabversionen nie.
+// Vorabversion (Pre-release): Versionsnummer mit Vorab-Kennung nach dem Bindestrich, z. B. 0.4.0-beta.1 oder 0.4.0-rc.1.
+// Sie erscheint auf GitHub als „Pre-release“ zum Ausprobieren; installierte Programme aktualisieren nie darauf.
+export function isPrerelease(v) {
+  return Boolean(parseVersion(v)?.pre.length);
+}
+
+// Update nur, wenn latest eine reguläre Version ist und neuer als current; Vorabversionen nie. Wer selbst eine Vorabversion
+// hat (z. B. 0.4.0-beta.1), bekommt die reguläre Version derselben Nummer (0.4.0) und jede neuere angeboten, keine ältere.
 export function isUpdate(latest, current) {
-  return Boolean(parseVersion(latest)?.pre.length === 0 && compareVersions(latest, current) > 0);
+  return Boolean(parseVersion(latest) && !isPrerelease(latest) && compareVersions(latest, current) > 0);
 }
 
 // Fehlende oder kaputte package.json = leer.
@@ -104,7 +111,9 @@ function writeCache(file, data) {
   } catch {}
 }
 
-// Neuestes Release laut GitHub (ohne Entwürfe und Vorabversionen); latest null = noch keins veröffentlicht.
+// Neuestes reguläres Release laut GitHub; latest null = noch keins veröffentlicht. /releases/latest liefert laut GitHub nie
+// Entwürfe (draft) oder Vorabversionen (prerelease); zur Sicherheit zählt ein solches Release trotzdem nicht, ebenso eines,
+// dessen Tag eine Vorab-Kennung hat (z. B. v0.4.0-beta.1, auch wenn es versehentlich nicht als Pre-release markiert ist).
 // Fehlertexte sind technisch und sprachneutral (Fehlercode bzw. HTTP-Status): Die Oberfläche zeigt sie nicht an,
 // sie stehen nur in der Antwort von GET /api/update und in update-check.json.
 async function fetchLatest(repo, fetch, timeout) {
@@ -122,14 +131,15 @@ async function fetchLatest(repo, fetch, timeout) {
   if (!res.ok) throw new Error(`GitHub: HTTP ${res.status}`);
   const data = await res.json().catch(() => null);
   if (!parseVersion(data?.tag_name)) throw new Error('GitHub: invalid tag_name');
-  if (data.draft || data.prerelease) return { latest: null, url: null };
+  if (data.draft || data.prerelease || isPrerelease(data.tag_name)) return { latest: null, url: null };
   return {
     latest: data.tag_name.trim().replace(/^v/i, ''),
     url: githubUrl(data.html_url) ?? `https://github.com/${repo}/releases/latest`,
   };
 }
 
-// Wirft nie. Ergebnis: { enabled, current, latest, updateAvailable, url, checkedAt, okAt, error }
+// Wirft nie. Ergebnis: { enabled, current, prerelease, latest, updateAvailable, url, checkedAt, okAt, error }
+//   prerelease: Die eigene Version ist eine Vorabversion (die Oberfläche zeigt das bei „Programm“ an);
 //   checkedAt: Zeitpunkt der letzten echten Abfrage (ISO), okAt: der letzten erfolgreichen (ISO oder null; die Oberfläche
 //   zeigt ihn bei „Du hast die neueste Version“), error: Grund, falls sie fehlschlug;
 //   latest/url stammen dann aus der letzten erfolgreichen Abfrage (oder null).
@@ -139,7 +149,7 @@ export async function checkForUpdate({ now = Date.now(), fetch = globalThis.fetc
   pkgFile = PKG, env = process.env, timeout = TIMEOUT } = {}) {
   const current = currentVersion(pkgFile);
   const view = ({ latest = null, url = null, checkedAt = null, okAt = null, error = null } = {}, enabled = true) =>
-    ({ enabled, current, latest, updateAvailable: enabled && isUpdate(latest, current), url, checkedAt, okAt, error });
+    ({ enabled, current, prerelease: isPrerelease(current), latest, updateAvailable: enabled && isUpdate(latest, current), url, checkedAt, okAt, error });
 
   const repo = repoSlug(pkgFile);
   if (switchedOff(env) || !repo) return view({}, false);

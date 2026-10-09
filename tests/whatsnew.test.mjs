@@ -83,9 +83,11 @@ test('shortItem: Markdown weg, Stichwort bzw. erster Satz', () => {
   assert.equal(shortItem('- See [the README](README.md): it explains it.'), 'See the README');
 });
 
+// (auch Vorabversionen wie [0.4.0-beta.1])
 test('Die echte CHANGELOG.md: jede veröffentlichte Version hat Punkte auf Deutsch und Englisch', () => {
   const text = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
-  const versions = [...text.matchAll(/^## \[(\d+\.\d+\.\d+)\]/gm)].map(m => m[1]);
+  const versions = [...text.matchAll(/^## \[(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\]/gm)].map(m => m[1]);
+  assert.ok(versions.includes(JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version), 'Abschnitt zur Version in package.json');
   assert.ok(versions.length >= 5, versions.join());
   for (const v of versions) {
     for (const lang of ['de', 'en']) {
@@ -184,5 +186,45 @@ test('changesSince: Update über mehrere Versionen – Punkte aller Versionen da
     markSeen(dir, '0.2.5');
     const w = whatsNew({ dir, current: '0.3.3', lang: 'en', changelog: text, slug: 'owner/repo' });
     assert.deepEqual([w.version, w.previous, w.sections.length, w.url], ['0.3.3', '0.2.5', 4, 'https://github.com/owner/repo/releases/tag/v0.3.3']);
+  });
+});
+
+// Vorabversionen: eigener Abschnitt „## [0.4.0-beta.1] – Datum“; die reguläre Version (0.4.0) hat einen vollständigen eigenen
+// Abschnitt, die ihrer Vorabversionen zählen dann nicht mehr (whatsnew.mjs, oben).
+test('Vorabversion: „Neu in v0.4.0-beta.1“ aus ihrem Abschnitt; reguläre Version ohne die Vorab-Abschnitte; gemerkte Vorabversion', () => {
+  const version = (v, n = 2) => `## [${v}] – 2026-10-09\n\n### English\n\n${Array.from({ length: n }, (_, i) => `- **${v} item ${i + 1}**: text`).join('\n')}\n\n### Deutsch\n\n- **${v} Punkt**: Text\n`;
+  const text = `# Changelog\n\n## [Unreleased]\n\n${['0.5.0-beta.1', '0.4.0', '0.4.0-rc.1', '0.4.0-beta.2', '0.4.0-beta.1', '0.3.3'].map(v => version(v)).join('\n')}`;
+  const shown = (previous, current, lang = 'en') => withDir(dir => {
+    markSeen(dir, previous);
+    const w = whatsNew({ dir, current, lang, changelog: text, slug: 'owner/repo' });
+    return w && { version: w.version, previous: w.previous, sections: w.sections.map(x => x.version), url: w.url, first: w.items[0] };
+  });
+  assert.deepEqual(parseChangelog(text, '0.4.0-beta.1', 'de'), { items: ['0.4.0-beta.1 Punkt'], more: 0 });
+  // Von der regulären 0.3.3 auf die Vorabversion (von Hand, mit kopierter seen-version.json)
+  assert.deepEqual(shown('0.3.3', '0.4.0-beta.1'), {
+    version: '0.4.0-beta.1', previous: '0.3.3', sections: ['0.4.0-beta.1'], url: 'https://github.com/owner/repo/releases/tag/v0.4.0-beta.1',
+    first: '0.4.0-beta.1 item 1',
+  });
+  assert.deepEqual(shown('0.3.3', '0.4.0-beta.2').sections, ['0.4.0-beta.2', '0.4.0-beta.1'], 'frühere Vorabversion derselben Nummer dazu');
+  assert.deepEqual(shown('0.4.0-beta.1', '0.4.0-beta.2').sections, ['0.4.0-beta.2'], 'gesehene Vorabversion nicht noch einmal');
+  // Reguläre Version: nur ihr eigener Abschnitt, auch nach einer Vorabversion
+  assert.deepEqual(shown('0.3.3', '0.4.0').sections, ['0.4.0']);
+  assert.deepEqual(shown('0.4.0-rc.1', '0.4.0').sections, ['0.4.0']);
+  assert.deepEqual(shown('0.3.3', '0.5.0-beta.1').sections, ['0.5.0-beta.1', '0.4.0'], 'Vorab-Abschnitte anderer Nummern nie');
+  // Zurück von der Vorabversion auf eine ältere reguläre: nichts
+  assert.equal(shown('0.4.0-beta.1', '0.3.3'), null);
+  // Vorabversion ohne eigenen Abschnitt: nichts (auch nicht der der regulären oder [Unreleased]), gilt als gesehen
+  withDir(dir => {
+    markSeen(dir, '0.3.3');
+    assert.equal(whatsNew({ dir, current: '0.4.0-beta.3', lang: 'en', changelog: text, slug: 'owner/repo' }), null);
+    assert.equal(seenVersion(dir), '0.4.0-beta.3', 'gemerkte Version mit Vorab-Kennung');
+    assert.equal(whatsNew({ dir, current: '0.4.0-beta.2', lang: 'en', changelog: text }), null, '0.4.0-beta.2 < 0.4.0-beta.3');
+  });
+  // „Jetzt aktualisieren“ von der Vorabversion auf die reguläre: vorige Version aus .update/backup-0.4.0-beta.1
+  withDir(dir => {
+    backup(dir, '0.4.0-beta.1', '0.4.0');
+    assert.equal(updatedFrom(dir, '0.4.0'), '0.4.0-beta.1');
+    const w = whatsNew({ dir, current: '0.4.0', lang: 'de', changelog: text, slug: 'owner/repo' });
+    assert.deepEqual([w.version, w.previous, w.sections.map(x => x.version)], ['0.4.0', '0.4.0-beta.1', ['0.4.0']]);
   });
 });

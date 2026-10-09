@@ -1116,9 +1116,13 @@ const TEXT = {
       slow: 'Tweakable DJ antwortet noch nicht. Warte noch einen Moment; sonst starte Tweakable DJ über die Verknüpfung auf dem Desktop neu – die Seite lädt dann von selbst neu.',
       failed: 'Das Update hat nicht geklappt.',
       check: 'Nach Updates suchen',
+      // Eigene Version bei „Programm“ (pre = Vorabversion, siehe update.mjs)
+      version: (v, pre) => (pre ? `v${v} (Vorabversion)` : `v${v}`),
       checking: 'Suche …',
       // Stand der letzten erfolgreichen Prüfung (when = Zeitpunkt im Format von T.when); älter als 24 h: kein ✓ mehr
       latest: when => `Du hast die neueste Version ✓ (geprüft am ${when})`,
+      // Eigene Version ist eine Vorabversion (z. B. 0.4.0-beta.1): Angeboten wird nur eine neuere reguläre Version
+      latestPre: when => `Keine neuere reguläre Version ✓ (geprüft am ${when})`,
       stale: when => `Zuletzt geprüft am ${when} – „Nach Updates suchen“ prüft jetzt.`,
       never: 'Noch nicht geprüft – „Nach Updates suchen“ prüft jetzt.',
       found: v => `Version ${v} ist verfügbar – siehe Hinweis oben`,
@@ -1555,9 +1559,12 @@ const TEXT = {
       slow: 'Tweakable DJ isn’t responding yet. Wait a moment; if nothing happens, start Tweakable DJ again with the shortcut on the desktop – this page will then reload by itself.',
       failed: 'The update didn’t work.',
       check: 'Check for updates',
+      version: (v, pre) => (pre ? `v${v} (pre-release)` : `v${v}`),
       checking: 'Checking …',
       // Stand der letzten erfolgreichen Prüfung (when = Zeitpunkt im Format von T.when); älter als 24 h: kein ✓ mehr
       latest: when => `You’re up to date ✓ (checked ${when})`,
+      // Eigene Version ist eine Vorabversion (z. B. 0.4.0-beta.1): Angeboten wird nur eine neuere reguläre Version
+      latestPre: when => `No newer regular version ✓ (checked ${when})`,
       stale: when => `Last checked ${when} – “Check for updates” checks now.`,
       never: 'Not checked yet – “Check for updates” checks now.',
       found: v => `Version ${v} is available – see the notice at the top`,
@@ -1990,9 +1997,12 @@ const TEXT = {
       slow: 'Tweakable DJ todavía no responde. Espera un momento; si no pasa nada, vuelve a iniciar Tweakable DJ con el acceso directo del escritorio; la página se recargará sola.',
       failed: 'La actualización no ha funcionado.',
       check: 'Buscar actualizaciones',
+      version: (v, pre) => (pre ? `v${v} (versión preliminar)` : `v${v}`),
       checking: 'Buscando …',
       // Stand der letzten erfolgreichen Prüfung (when = Zeitpunkt im Format von T.when); älter als 24 h: kein ✓ mehr
       latest: when => `Tienes la versión más reciente ✓ (comprobado el ${when})`,
+      // Eigene Version ist eine Vorabversion (z. B. 0.4.0-beta.1): Angeboten wird nur eine neuere reguläre Version
+      latestPre: when => `No hay ninguna versión estable más reciente ✓ (comprobado el ${when})`,
       stale: when => `Última comprobación: ${when}. «Buscar actualizaciones» comprueba ahora.`,
       never: 'Aún sin comprobar. «Buscar actualizaciones» comprueba ahora.',
       found: v => `La versión ${v} está disponible: mira el aviso de arriba`,
@@ -2426,9 +2436,12 @@ const TEXT = {
       slow: 'Tweakable DJ ne répond pas encore. Attends un instant ; sinon, redémarre Tweakable DJ avec le raccourci du bureau – la page se rechargera ensuite toute seule.',
       failed: 'La mise à jour n’a pas fonctionné.',
       check: 'Rechercher des mises à jour',
+      version: (v, pre) => (pre ? `v${v} (préversion)` : `v${v}`),
       checking: 'Recherche …',
       // Stand der letzten erfolgreichen Prüfung (when = Zeitpunkt im Format von T.when); älter als 24 h: kein ✓ mehr
       latest: when => `Tu as la dernière version ✓ (vérifié le ${when})`,
+      // Eigene Version ist eine Vorabversion (z. B. 0.4.0-beta.1): Angeboten wird nur eine neuere reguläre Version
+      latestPre: when => `Aucune version stable plus récente ✓ (vérifié le ${when})`,
       stale: when => `Dernière vérification : ${when} – « Rechercher des mises à jour » vérifie maintenant.`,
       never: 'Pas encore vérifié – « Rechercher des mises à jour » vérifie maintenant.',
       found: v => `La version ${v} est disponible – voir l’avis en haut`,
@@ -4306,7 +4319,9 @@ function renderUpdate() {
   // Prüfung nicht abgeschaltet ist) und dessen Ergebnis.
   const version = typeof u?.current === 'string' ? bare(u.current) : '';
   $('version-row').hidden = !version;
-  $('version-text').textContent = version ? `v${version}` : '';
+  // Vorabversion (zum Ausprobieren von Hand installiert): „v0.4.0-beta.1 (Vorabversion)“
+  const pre = Boolean(u?.prerelease);
+  $('version-text').textContent = version ? T.update.version(version, pre) : '';
   $('update-check-box').hidden = !u?.enabled;
   $('update-check').textContent = T.update.check;
   $('update-check').disabled = updCheck.phase === 'checking';
@@ -4315,7 +4330,8 @@ function renderUpdate() {
   const okAt = Date.parse(u?.okAt);
   const recent = Number.isFinite(okAt) && Date.now() - okAt < 86_400_000;
   const known = Boolean(u?.enabled && !available && ['', 'latest'].includes(c));
-  const status = !known ? '' : recent ? T.update.latest(when(u.okAt)) : Number.isFinite(okAt) ? T.update.stale(when(u.okAt)) : T.update.never;
+  // Bei einer Vorabversion heißt „aktuell“: keine neuere reguläre Version (Vorabversionen bietet die Prüfung nie an).
+  const status = !known ? '' : recent ? (pre ? T.update.latestPre : T.update.latest)(when(u.okAt)) : Number.isFinite(okAt) ? T.update.stale(when(u.okAt)) : T.update.never;
   $('update-check-msg').className = (known && recent) || c === 'found' ? 'ok' : ['offline', 'failed'].includes(c) ? 'err' : '';
   $('update-check-msg').textContent = c === 'checking' ? T.update.checking : known ? status
     : c === 'found' ? T.update.found(bare(u?.latest)) : c === 'offline' ? T.update.offline : c === 'failed' ? updCheck.text : '';

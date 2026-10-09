@@ -314,9 +314,56 @@ test('Symbolischer Link im Programmordner oder in der ZIP-Datei → Abbruch, auc
 test('Gleiche, ältere oder Vorabversion, andere als bestätigte Version → abgelehnt', async () => {
   await expectUnchanged(rel => publish(rel, { version: '0.1.0' }), /Version 0\.1\.0 ist nicht neuer als deine \(0\.1\.0\)/);
   await expectUnchanged(rel => publish(rel, { version: '0.0.9' }), /Version 0\.0\.9 ist nicht neuer als deine \(0\.1\.0\)/);
-  await expectUnchanged(rel => publish(rel, { version: '0.3.0-beta.1', release: { prerelease: true } }),
-    /Auf GitHub gibt es keine veröffentlichte Version/);
+  await expectUnchanged(rel => publish(rel, { version: '0.2.0', release: { draft: true } }), /Auf GitHub gibt es keine veröffentlichte Version/);
   await expectUnchanged(rel => publish(rel, { version: '0.3.0' }), /Inzwischen gibt es Version 0\.3\.0 statt 0\.2\.0/, { expected: '0.2.0' });
+});
+
+// Vorabversionen (z. B. 0.4.0-beta.1) installiert „Jetzt aktualisieren“ nie – zusätzlich zur Prüfung in update.mjs, die sie
+// gar nicht erst anbietet: weder ein Release, das GitHub als Pre-release führt (liefert /releases/latest eigentlich nie),
+// noch eine Versionsnummer mit Vorab-Kennung (auch wenn das Release versehentlich nicht als Pre-release markiert ist), auch
+// nicht, wenn die Oberfläche genau diese Version bestätigt hat. Abbruch vor dem Download, nichts geändert.
+test('Vorabversion → abgelehnt, auch als bestätigte Version und ohne Pre-release-Markierung; nichts geladen', async () => {
+  const pre = /^Update fehlgeschlagen: Version 0\.3\.0-beta\.1 ist eine Vorabversion\. „Jetzt aktualisieren“ installiert nur reguläre Versionen;/;
+  for (const [release, opts] of [[{ prerelease: true }, {}], [{ prerelease: false }, {}], [{ prerelease: true }, { expected: '0.3.0-beta.1' }]]) {
+    const before = mockRequests().length;
+    await expectUnchanged(rel => publish(rel, { version: '0.3.0-beta.1', release }), pre, opts);
+    assert.deepEqual(mockRequests().slice(before).filter(e => /manifest\.json|\.zip/.test(e.path ?? '')), [], 'nichts heruntergeladen');
+  }
+  // Release als Pre-release markiert, Versionsnummer regulär: ebenfalls abgelehnt
+  await expectUnchanged(rel => publish(rel, { version: '0.3.0', release: { prerelease: true } }), /Version 0\.3\.0 ist eine Vorabversion/);
+  // Meldung auf Englisch
+  const { dir, release } = project();
+  publish(release, { version: '1.0.0-rc.1', release: { prerelease: true } });
+  const { error } = await run(dir, { lang: 'en' });
+  assert.equal(error?.outcome, 'unchanged');
+  assert.match(error.message, /^Update failed: Version 1\.0\.0-rc\.1 is a pre-release\. “Update now” only installs regular versions;/);
+});
+
+// Wer eine Vorabversion von Hand installiert hat, bekommt die reguläre Version derselben Nummer (0.4.0 > 0.4.0-beta.1) und
+// neuere, aber nie eine ältere reguläre (0.3.3) und keine andere Vorabversion.
+test('Eigene Vorabversion: reguläre Version derselben Nummer wird installiert, ältere reguläre nicht', async () => {
+  for (const [version, release, message] of [
+    ['0.3.3', {}, /Version 0\.3\.3 ist nicht neuer als deine \(0\.4\.0-beta\.1\)/],
+    ['0.4.0-beta.2', { prerelease: true }, /Version 0\.4\.0-beta\.2 ist eine Vorabversion/],
+  ]) {
+    const { dir, release: rel } = project(programFiles('0.4.0-beta.1'));
+    publish(rel, { version, release });
+    const before = snapshot(dir);
+    const { error } = await run(dir);
+    assert.equal(error?.outcome, 'unchanged', version);
+    assert.match(error.message, message);
+    assert.deepEqual(snapshot(dir), before);
+    assert.equal(fs.existsSync(path.join(dir, '.update')), false, 'nicht einmal .update angelegt');
+  }
+  const { dir, release } = project(programFiles('0.4.0-beta.1'));
+  publish(release, { version: '0.4.0' });
+  const { result, error } = await run(dir, { expected: '0.4.0' });
+  assert.equal(error, undefined, error?.message);
+  assert.deepEqual([result.from, result.to, result.backup], ['0.4.0-beta.1', '0.4.0', '.update/backup-0.4.0-beta.1']);
+  assert.equal(currentVersion(path.join(dir, 'package.json')), '0.4.0');
+  personalUnchanged(dir);
+  const backup = JSON.parse(fs.readFileSync(path.join(dir, '.update', 'backup-0.4.0-beta.1', 'backup.json'), 'utf8'));
+  assert.deepEqual([backup.from, backup.to], ['0.4.0-beta.1', '0.4.0']);
 });
 
 test('Download nur von GitHub per HTTPS, mit Größenlimit; fehlende Release-Dateien', async () => {

@@ -13,7 +13,11 @@
 # liegt auch in der ZIP-Datei. Sie ist die Erlaubnisliste für „Jetzt aktualisieren“ (install-update.mjs): Das Update lädt
 # manifest.json und die ZIP-Datei, prüft jede Datei, schreibt nur, was dort steht, und löscht nur überholte Dateien mit
 # passender Prüfsumme.
-# Tags mit Bindestrich (z. B. v1.1.0-beta.1) werden als Vorabversion markiert.
+# Vorabversionen: Ein Tag mit Vorab-Kennung nach SemVer (z. B. v0.4.0-beta.1 oder v0.4.0-rc.1; "version" in package.json
+# genauso) wird ein Release mit der Markierung „Pre-release“, nie „Latest“. Die Update-Prüfung der installierten Programme
+# fragt /releases/latest ab – das liefert nur reguläre Releases –, und update.mjs bzw. install-update.mjs lehnen
+# Vorabversionen zusätzlich selbst ab. Reguläre Tags (v1.2.3) werden wie bisher ein normales Release („Latest“).
+# Tag, package.json und CHANGELOG.md prüft .github/release-check.mjs (getestet in tests/release.test.mjs).
 
 name: Release
 
@@ -43,24 +47,22 @@ jobs:
         with:
           node-version: lts/*
 
+      # Zuerst (schnell): Der Hinweis auf neue Versionen (update.mjs) vergleicht den Tag des neuesten Releases (ohne v) mit
+      # "version" aus package.json. Passen beide nicht zusammen, sähe man den Hinweis auch mit der neuen ZIP-Datei immer
+      # wieder. Außerdem: Tag nach SemVer (v1.2.3 bzw. v1.2.3-beta.1) und Abschnitt der Version in CHANGELOG.md (für „Neu in
+      # v…“). Ergebnis (outputs): version, prerelease (true/false), title und previous (frühere Releases für obsolete).
+      - name: Tag, package.json und CHANGELOG.md prüfen
+        id: pruefung
+        run: node .github/release-check.mjs "$GITHUB_REF_NAME" $(git tag -l 'v*')
+
       # Nur veröffentlichen, wenn die Tests grün sind (dieselben wie in test.yml; Browser-Tests mit dem Chrome des Runners).
       # Sonst verteilte „Jetzt aktualisieren“ einen kaputten Stand.
       - name: Tests
         run: npm test
 
-      # Der Hinweis auf neue Versionen (update.mjs) vergleicht den Tag des neuesten Releases (ohne v)
-      # mit "version" aus package.json. Passen beide nicht zusammen, sähe man den Hinweis auch mit der
-      # neuen ZIP-Datei immer wieder.
-      - name: Tag und Version in package.json vergleichen
-        run: |
-          set -eu
-          version=$(node -p "require('./package.json').version")
-          if [ "$GITHUB_REF_NAME" != "v${version}" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} passt nicht zu \"version\": \"${version}\" in package.json (erwartet: v${version})."
-            exit 1
-          fi
-
       - name: ZIP-Datei bauen
+        env:
+          FRUEHER: ${{ steps.pruefung.outputs.previous }}
         run: |
           set -eu
           ordner="tweakable-dj"
@@ -120,11 +122,11 @@ jobs:
           # manifest.json: Erlaubnisliste für „Jetzt aktualisieren“, mit SHA-256 genau der Bytes, die in die ZIP-Datei
           # kommen (also nach chmod und mit den Zeilenenden aus .gitattributes). Das Skript bricht ab, falls eine
           # persönliche Datei oder ein unzulässiger Pfad dabei wäre.
-          # Frühere Releases (alle Tags v* außer diesem), so entpackt, wie ihre ZIP-Dateien entstanden sind: Ihre Dateien, die es
-          # jetzt nicht mehr gibt (z. B. alte Screenshots), kommen mit ihren Prüfsummen als obsolete in manifest.json.
+          # Frühere Releases (alle Tags mit kleinerer Versionsnummer, auch Vorabversionen; siehe release-check.mjs), so entpackt,
+          # wie ihre ZIP-Dateien entstanden sind: Ihre Dateien, die es jetzt nicht mehr gibt (z. B. alte Screenshots), kommen mit
+          # ihren Prüfsummen als obsolete in manifest.json. Ein Update löscht sie nur, wenn sie genau so im Ordner liegen.
           mkdir frueher
-          for frueher_tag in $(git tag -l 'v*'); do
-            [ "$frueher_tag" = "$GITHUB_REF_NAME" ] && continue
+          for frueher_tag in $FRUEHER; do
             mkdir "frueher/${frueher_tag}"
             git archive --format=tar "$frueher_tag" | tar -x -C "frueher/${frueher_tag}"
           done
@@ -141,22 +143,35 @@ jobs:
           unzip -Z "${zip_datei}"
           echo "ZIP_DATEI=${zip_datei}" >> "$GITHUB_ENV"
 
+      # Titel z. B. „Tweakable DJ for Spotify v0.4.0-beta.1 (Vorabversion / pre-release)“. Vorabversion: --prerelease und
+      # --latest=false (GitHub macht ein Pre-release ohnehin nie zu „Latest“; doppelt hält besser). Reguläre Version: normales
+      # Release wie bisher.
       - name: Release anlegen und ZIP-Datei anhängen
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          VORAB: ${{ steps.pruefung.outputs.prerelease }}
+          TITEL: ${{ steps.pruefung.outputs.title }}
         run: |
           set -eu
           tag="$GITHUB_REF_NAME"
           if gh release view "$tag" >/dev/null 2>&1; then
-            # Release gibt es schon (z. B. Ablauf erneut gestartet): nur ZIP-Datei und manifest.json ersetzen.
+            # Release gibt es schon (z. B. Ablauf erneut gestartet oder von Hand angelegt): nur ZIP-Datei und manifest.json
+            # ersetzen; eine Vorabversion sicherheitshalber (wieder) als Pre-release markieren.
             gh release upload "$tag" "$ZIP_DATEI" manifest.json --clobber
-          else
-            vorab=""
-            case "$tag" in *-*) vorab="--prerelease" ;; esac
+            if [ "$VORAB" = "true" ]; then
+              gh release edit "$tag" --prerelease --latest=false
+            fi
+          elif [ "$VORAB" = "true" ]; then
             gh release create "$tag" "$ZIP_DATEI" manifest.json \
-              --title "Tweakable DJ for Spotify $tag" \
+              --title "$TITEL" \
               --generate-notes \
               --verify-tag \
-              $vorab
+              --prerelease \
+              --latest=false
+          else
+            gh release create "$tag" "$ZIP_DATEI" manifest.json \
+              --title "$TITEL" \
+              --generate-notes \
+              --verify-tag
           fi

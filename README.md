@@ -433,7 +433,7 @@ After each write of a playlist to Spotify – *Overwrite “Tweakable DJ”*, *C
 
 ### Update check
 
-When you open the interface, Tweakable DJ checks **at most once a day** whether a new version has been released. For this, it sends a single request to the GitHub Releases API (`api.github.com`) that asks for the newest release of Tweakable DJ. **No personal data is sent**: no settings, credentials, songs or IDs. The answer is stored in `update-check.json`; if the check fails (e.g. offline), it tries again an hour later at the earliest. Only the interface checks, not runs in the terminal or automatic runs. It only shows a notice and never downloads or installs anything by itself; an update only happens when you click *Update now* (see [Updating](#8-updating)).
+When you open the interface, Tweakable DJ checks **at most once a day** whether a new version has been released. For this, it sends a single request to the GitHub Releases API (`api.github.com`) that asks for the newest release of Tweakable DJ. **No personal data is sent**: no settings, credentials, songs or IDs. The answer is stored in `update-check.json`; if the check fails (e.g. offline), it tries again an hour later at the earliest. Only the interface checks, not runs in the terminal or automatic runs. It only shows a notice and never downloads or installs anything by itself; an update only happens when you click *Update now* (see [Updating](#8-updating)). Only regular versions count, never [pre-releases](#pre-releases).
 
 **Check for updates** in the tab *Settings*, next to the version number, asks GitHub right away, regardless of the daily rhythm – at most once a minute; another click within that minute shows the last result again.
 
@@ -448,7 +448,7 @@ To turn the check off, set the environment variable `TWEAKABLE_DJ_NO_UPDATE_CHEC
 
 You do these steps once before using Tweakable DJ for the first time, and again when you move to a new computer. It takes about 10 minutes.
 
-1. **Download Tweakable DJ**: on the GitHub page of Tweakable DJ, click *Releases* on the right. For the newest version, download the file `tweakable-dj-v….zip` under *Assets* and unzip it (Windows: right-click → *Extract All*, Mac: double-click). Put the `tweakable-dj` folder in a permanent place, e.g. in *Documents*. Don’t start it directly from inside the ZIP file, or your settings will be lost. (If you use git, you can clone the repository instead.)
+1. **Download Tweakable DJ**: on the GitHub page of Tweakable DJ, click *Releases* on the right. For the newest regular version (marked *Latest*, not *Pre-release*), download the file `tweakable-dj-v….zip` under *Assets* and unzip it (Windows: right-click → *Extract All*, Mac: double-click). Put the `tweakable-dj` folder in a permanent place, e.g. in *Documents*. Don’t start it directly from inside the ZIP file, or your settings will be lost. (If you use git, you can clone the repository instead.)
 2. **Node.js comes by itself.** Tweakable DJ runs with Node.js. On the first start, it downloads its own copy once from <https://nodejs.org> (Windows about 40 MB, Mac about 55 MB, Linux about 30 MB), checks it against the checksum published there (SHA-256) and puts it into the subfolder `node` of the `tweakable-dj` folder. It needs no admin rights, installs nothing on your system, changes no settings and leaves a Node.js you may already have alone. Only if the download isn’t possible (e.g. offline) does Tweakable DJ use an installed Node.js 18 or newer. The DJ needs no other packages.
 3. **Start Tweakable DJ** as described in the [quick start](#1-quick-start). The very first time, your system usually asks for confirmation because the file comes from the internet:
    - **Windows**: if “Windows protected your PC” appears, click *More info* → *Run anyway*. If “The publisher could not be verified” appears, click *Run*. If Windows 11 says “Smart App Control has blocked part of this app”, see [Smart App Control](#smart-app-control).
@@ -507,6 +507,23 @@ The update only writes the program files listed in the release (`manifest.json`)
 Your personal files aren’t in the ZIP file, so they stay as they are, and automatic runs keep working because the folder stays the same. **Don’t unzip into a new folder** and use that one instead: it would have neither your settings nor your login, and automatic runs would still point to the old folder. If you do want to move to a new folder, copy `config.jsonc`, `tokens.json`, `state.json` and `lastfm-cache.json` (and the folder `archiv` if you want to keep your earlier playlists) from the old folder into the new one, start Tweakable DJ there and click *Save automatic runs* once. If you have the desktop shortcut, click *Create again* under *Shortcut* in the tab *Settings*, so that it starts the new folder.
 
 **With git**: if you cloned the repository, run `git pull` in the folder. Your personal files are in `.gitignore`, so git doesn’t touch them. In a git folder, the interface doesn’t offer *Update now*.
+
+### Pre-releases
+
+New versions can first appear as a **pre-release** to try out. On the *Releases* page on GitHub, they are marked **Pre-release** (regular versions are marked *Latest*), and their version number has an addition such as `0.4.0-beta.1` or `0.4.0-rc.1`.
+
+- **Tweakable DJ never updates to a pre-release by itself**: the update check, the notice at the top and *Update now* only ever offer regular versions. You only get a pre-release if you download it yourself.
+- A pre-release shows *(pre-release)* next to its version number in the tab *Settings*. As soon as the regular version of the same number (e.g. `0.4.0` after `0.4.0-beta.1`) or a newer one is out, it is offered as an update as usual.
+
+**Trying out a pre-release safely** (your regular installation stays as it is):
+
+1. Download `tweakable-dj-v….zip` of the pre-release under *Assets* and unzip it into a **separate folder**, e.g. *Documents/Tweakable DJ test* – not over your regular `tweakable-dj` folder.
+2. **Quit the regular Tweakable DJ first** (tab *Settings*, *Program*, *Quit Tweakable DJ*, or close its window). Only one interface can run at a time; otherwise starting the test version just opens the regular one again.
+3. To try it with your settings and login, copy `config.jsonc`, `tokens.json`, `state.json` and `lastfm-cache.json` from your regular folder into the test folder. Without them, the setup wizard starts; then untick *Create a shortcut on the desktop* at its end. Like any new folder, the test version downloads its own Node.js once on the first start (about 30–55 MB).
+4. Start it with the start file **in the test folder** (`Tweakable DJ.cmd`, `Tweakable DJ.command` or `start.sh`; Mac: the first time with right-click → *Open*) – not with the desktop shortcut, which keeps starting the regular version.
+5. **In the test folder, leave automatic runs and shortcuts alone**: don’t change *Rebuild automatically* or its time, don’t click *Save automatic runs*, don’t create or remove a shortcut, don’t switch the second shortcut on or off and don’t change the language while it is on. Otherwise the scheduler entry or the shortcut would point to the test folder. Everything else – creating playlists, changing the other settings – is fine. Automatic runs of your regular installation keep running as before.
+
+**Back to the regular version**: quit the test version and start your regular Tweakable DJ as usual (e.g. with the desktop shortcut). Delete the test folder if you like – automatic runs and shortcuts still point to your regular folder. If you changed them in the test folder after all, click *Save automatic runs* and, under *Shortcut*, *Create again* in the regular version. If the regular version asks you to log in with Spotify again (both folders used the same login, and Spotify may replace it when the test version renews it), just log in once more. Feedback on a pre-release is welcome as an [issue](https://github.com/hayboeck/tweakable-dj-for-spotify/issues).
 
 ---
 

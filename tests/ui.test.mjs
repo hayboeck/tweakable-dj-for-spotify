@@ -303,9 +303,9 @@ const RELEASE = tag => ({ status: 200, body: { tag_name: tag, html_url: `https:/
 
 // package.json der Kopie (owner = Besitzer im Repository-Link) und Antwort von GitHub (null = keine Datei, also
 // nicht erreichbar); der Tages-Cache der vorigen Fälle wird gelöscht.
-function updateCase(owner, reply) {
+function updateCase(owner, reply, version = '0.1.0') {
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({
-    name: 'tweakable-dj', version: '0.1.0',
+    name: 'tweakable-dj', version,
     repository: { type: 'git', url: `git+https://github.com/${owner}/tweakable-dj-for-spotify.git` },
   }));
   const file = path.join(dir, 'github-antwort.json');
@@ -338,7 +338,7 @@ test('GET /api/update: neuere Version → updateAvailable, Link aufs Release; zw
   assert.equal(status, 200);
   assert.equal(data.okAt, data.checkedAt, 'erfolgreich geprüft');
   assert.deepEqual({ ...data, checkedAt: typeof data.checkedAt, okAt: typeof data.okAt }, {
-    enabled: true, current: '0.1.0', latest: '0.2.0', updateAvailable: true,
+    enabled: true, current: '0.1.0', prerelease: false, latest: '0.2.0', updateAvailable: true,
     url: 'https://github.com/beispiel/tweakable-dj-for-spotify/releases/tag/v0.2.0', checkedAt: 'string', okAt: 'string', error: null, installable: true,
   });
   assert.deepEqual(githubRequests().slice(before).map(e => e.path), ['/repos/beispiel/tweakable-dj-for-spotify/releases/latest']);
@@ -358,6 +358,31 @@ test('GET /api/update: GitHub nicht erreichbar → trotzdem 200, mit error und o
     assert.deepEqual([data.enabled, data.current, data.latest, data.updateAvailable], [true, '0.1.0', null, false]);
     assert.equal(data.error, reply?.status ? 'GitHub: HTTP 500' : 'GitHub: ENOTFOUND');
   }
+  fs.rmSync(path.join(dir, 'update-check.json'), { force: true });
+});
+
+// Vorabversionen: Ein Pre-release wird nie angeboten – weder als (eigentlich unmögliche) Antwort auf /releases/latest noch,
+// wenn es nur in der Liste aller Releases steht (die fragt das Programm gar nicht ab). Eigene Vorabversion: prerelease true
+// (die Seite zeigt „v0.4.0-beta.1 (Vorabversion)“), die reguläre Version derselben Nummer wird angeboten, eine ältere nicht.
+test('GET /api/update: Pre-releases nie angeboten; eigene Vorabversion bekommt die reguläre Version, keine ältere', async () => {
+  const PRE = tag => ({ ...RELEASE(tag).body, draft: false, prerelease: true });
+  updateCase('beispiel', { status: 200, body: PRE('v0.2.0-beta.1'), list: [PRE('v0.2.0-beta.1'), RELEASE('v0.1.0').body] });
+  const before = githubRequests().length;
+  const pre = (await api('/api/update', { lang: 'de' })).data;
+  assert.deepEqual([pre.current, pre.prerelease, pre.latest, pre.updateAvailable, pre.error], ['0.1.0', false, null, false, null]);
+  updateCase('beispiel', { ...RELEASE('v0.1.0'), list: [PRE('v0.2.0-beta.1'), RELEASE('v0.1.0').body] });
+  const listed = (await api('/api/update', { lang: 'de' })).data; // ohne force: Das ist höchstens einmal pro Minute erlaubt
+  assert.deepEqual([listed.latest, listed.updateAvailable], ['0.1.0', false]);
+  assert.deepEqual(githubRequests().slice(before).map(e => e.path), Array(2).fill('/repos/beispiel/tweakable-dj-for-spotify/releases/latest'),
+    'nur /releases/latest, nie die Liste');
+
+  updateCase('beispiel', RELEASE('v0.3.3'), '0.4.0-beta.1');
+  const older = (await api('/api/update', { lang: 'de' })).data;
+  assert.deepEqual([older.current, older.prerelease, older.latest, older.updateAvailable], ['0.4.0-beta.1', true, '0.3.3', false]);
+  updateCase('beispiel', RELEASE('v0.4.0'), '0.4.0-beta.1');
+  const final = (await api('/api/update', { lang: 'de' })).data;
+  assert.deepEqual([final.prerelease, final.latest, final.updateAvailable, final.installable], [true, '0.4.0', true, true]);
+  updateCase('beispiel', RELEASE('v0.1.0'));
   fs.rmSync(path.join(dir, 'update-check.json'), { force: true });
 });
 
@@ -658,6 +683,19 @@ test('ui.html: TEXT.de, TEXT.en, TEXT.es und TEXT.fr haben dieselben Schlüssel'
   assert.deepEqual(Object.keys(TEXT), ['de', 'en', 'es', 'fr']);
   for (const lang of ['en', 'es', 'fr']) assert.deepEqual(shape(TEXT[lang]), shape(TEXT.de), lang);
   assert.equal(typeof TEXT.de.update.text('0.2.0', '0.1.0'), 'string');
+  // Eigene Version bei „Programm“: Vorabversion gekennzeichnet, reguläre wie bisher „v0.3.3“
+  const versions = Object.fromEntries(Object.entries(TEXT).map(([l, x]) => [l, [x.update.version('0.4.0-beta.1', true), x.update.version('0.3.3', false)]]));
+  assert.deepEqual(versions, {
+    de: ['v0.4.0-beta.1 (Vorabversion)', 'v0.3.3'],
+    en: ['v0.4.0-beta.1 (pre-release)', 'v0.3.3'],
+    es: ['v0.4.0-beta.1 (versión preliminar)', 'v0.3.3'],
+    fr: ['v0.4.0-beta.1 (préversion)', 'v0.3.3'],
+  });
+  assert.equal(TEXT.de.update.latestPre('09.10.2026, 12:00'), 'Keine neuere reguläre Version ✓ (geprüft am 09.10.2026, 12:00)');
+  assert.equal(TEXT.en.update.latestPre('10/9/2026, 12:00 PM'), 'No newer regular version ✓ (checked 10/9/2026, 12:00 PM)');
+  // renderUpdate nimmt dafür prerelease aus GET /api/update (update.mjs)
+  assert.ok(html.includes("const pre = Boolean(u?.prerelease);\n  $('version-text').textContent = version ? T.update.version(version, pre) : '';"), 'Versionsanzeige');
+  assert.ok(html.includes('recent ? (pre ? T.update.latestPre : T.update.latest)(when(u.okAt))'), '„Du hast die neueste Version“');
   // Die Sprachwahl bietet genau diese Sprachen an, jeweils mit ihrem eigenen Namen
   const options = [...html.matchAll(/<option value="(\w+)" lang="(\w+)">([^<]+)<\/option>/g)].map(m => [m[1], m[2], m[3]]);
   assert.deepEqual(options, [['de', 'de', 'Deutsch'], ['en', 'en', 'English'], ['es', 'es', 'Español'], ['fr', 'fr', 'Français']]);
@@ -704,6 +742,7 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungs
     'files.found': [[2, 3], [0, 1]],
     'archive.entry': [['Mo 06.10., 18:30', 50], ['Mo 06.10., 18:30', 1]],
     'update.text': [['0.2.0', '0.1.0'], ['0.2.0', null]],
+    'update.version': [['0.4.0-beta.1', true], ['0.3.3', false]],
     'update.confirm': [['0.1.0', '0.2.0']],
   };
   const texts = {};

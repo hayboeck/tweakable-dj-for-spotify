@@ -15,6 +15,6 @@
   },
   "scripts": {
     "start": "node ui.mjs",
-    "test": "node --test tests/spotify.test.mjs tests/i18n.test.mjs tests/lineup.test.mjs tests/lastfm.test.mjs tests/config.test.mjs tests/schedule.test.mjs tests/shortcut.test.mjs tests/notify.test.mjs tests/dj.test.mjs tests/trial.test.mjs tests/playlist.test.mjs tests/ui.test.mjs tests/update.test.mjs tests/install-update.test.mjs tests/whatsnew.test.mjs tests/get-node.test.mjs tests/browser.test.mjs"
+    "test": "node --test tests/spotify.test.mjs tests/i18n.test.mjs tests/lineup.test.mjs tests/lastfm.test.mjs tests/config.test.mjs tests/schedule.test.mjs tests/shortcut.test.mjs tests/notify.test.mjs tests/dj.test.mjs tests/trial.test.mjs tests/playlist.test.mjs tests/ui.test.mjs tests/update.test.mjs tests/install-update.test.mjs tests/whatsnew.test.mjs tests/get-node.test.mjs tests/release.test.mjs tests/browser.test.mjs"
   }
 }
