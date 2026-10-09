@@ -5,6 +5,12 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.4.0-beta.1] – 2026-10-09
+
+*Pre-release to try out: installed programs never update to it by themselves (see the README, section “Pre-releases”).*
+
+*Vorabversion zum Ausprobieren: Installierte Programme aktualisieren nie von selbst darauf (siehe README, Abschnitt „Vorabversionen“).*
+
 ### English
 
 **New**
@@ -13,6 +19,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 - Automatic runs and the second shortcut use the same Node.js; a scheduler entry that still points to an installed Node.js is switched over at the next start. A later version can name a newer Node.js (`node-version.txt`); the next start then downloads it and removes the old one. *Update now* never touches the folder `node`, and deleting the Tweakable DJ folder removes it too.
 - **Second shortcut reports back right away**: double-clicking *Tweakable DJ – Rebuild playlist* now shows a notification at once (*Rebuilding playlist “Tweakable DJ” …*), not only at the end. If Node.js has to be downloaded first, that is shown too.
 - **README: Smart App Control**: a note at the top for Windows 11, where Smart App Control can block the start files, with how to turn it off and what that means.
+- **Pre-releases**: new versions can first appear on GitHub as a *Pre-release* to try out (like this one). The update check and *Update now* only ever offer regular versions, never a pre-release. A pre-release shows *(pre-release)* next to its version number in the tab *Settings*, and the next regular version is offered as an update. How to try one safely: README, section “Pre-releases”.
 
 ### Deutsch
 
@@ -22,6 +29,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 - Automatik und zweite Verknüpfung nutzen dasselbe Node.js; ein Eintrag im Zeitplaner, der noch auf ein installiertes Node.js zeigt, wird beim nächsten Start umgestellt. Eine spätere Version kann ein neueres Node.js festlegen (`node-version.txt`); der nächste Start lädt es dann und räumt das alte weg. *Jetzt aktualisieren* fasst den Ordner `node` nie an, und wer den Ordner von Tweakable DJ löscht, entfernt es mit.
 - **Zweite Verknüpfung meldet sich sofort**: Ein Doppelklick auf *Tweakable DJ – Playlist neu erstellen* zeigt jetzt gleich eine Benachrichtigung (*Playlist „Tweakable DJ“ wird neu erstellt …*), nicht erst am Ende. Muss vorher Node.js geladen werden, wird auch das angezeigt.
 - **README: Smart App Control**: ein Hinweis ganz oben für Windows 11, wo Smart App Control die Startdateien blockieren kann – wie man sie abschaltet und was das bedeutet.
+- **Vorabversionen**: Neue Versionen können auf GitHub zuerst als *Pre-release* zum Ausprobieren erscheinen (wie diese). Die Prüfung auf neue Versionen und *Jetzt aktualisieren* bieten immer nur reguläre Versionen an, nie eine Vorabversion. Eine Vorabversion zeigt im Tab *Einstellungen* *(Vorabversion)* neben der Versionsnummer, und die nächste reguläre Version wird als Update angeboten. Wie man eine gefahrlos ausprobiert: README, Abschnitt „Vorabversionen“.
 
 ## [0.3.3] – 2026-10-08
 
@@ -439,6 +447,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.4.0-beta.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.1
 [0.3.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.3
 [0.3.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.2
 [0.3.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.1
