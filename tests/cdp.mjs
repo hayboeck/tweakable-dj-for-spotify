@@ -100,7 +100,16 @@ function connectWebSocket(port, wsPath, onMessage) {
   });
 }
 
+// Auf den GitHub-Runnern startet Chrome manchmal sehr langsam (einmal über 20 s): bis zu 60 s warten und einmal neu versuchen.
 export async function launch(file) {
+  try {
+    return await launchOnce(file);
+  } catch {
+    return launchOnce(file);
+  }
+}
+
+async function launchOnce(file) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable-dj-browser-'));
   const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-sync', '--disable-background-networking', '--disable-component-update', '--disable-default-apps',
@@ -112,7 +121,7 @@ export async function launch(file) {
   // Port und Pfad stehen in DevToolsActivePort im Profil, sobald der Browser bereit ist.
   let port;
   let wsPath;
-  for (let i = 0; i < 200 && !port; i++) {
+  for (let i = 0; i < 600 && !port; i++) {
     try {
       [port, wsPath] = fs.readFileSync(path.join(profile, 'DevToolsActivePort'), 'utf8').trim().split(/\r?\n/);
     } catch {
