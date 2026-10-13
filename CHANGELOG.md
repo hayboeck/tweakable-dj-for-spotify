@@ -5,6 +5,52 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.4.0-beta.2] – 2026-10-13
+
+*Pre-release to try out: installed programs never update to it by themselves (see the README, section “Pre-releases”).*
+
+*Vorabversion zum Ausprobieren: Installierte Programme aktualisieren nie von selbst darauf (siehe README, Abschnitt „Vorabversionen“).*
+
+### English
+
+**New**
+
+- **Back up and load settings**: in the tab *Settings*, section *Program*, *Back up settings* downloads a file with all your settings including the block list – without credentials. *Load settings …* shows first what would change and only applies it after you confirm; credentials stay as they are. Handy for moving to another computer.
+- **Last.fm loved songs**: songs you loved (♥) on Last.fm now also count as favorites – for the playlist and as starting points. Switch under *Selection* → *Details for experts* (view *Pro*), on by default; without loved songs nothing changes.
+- **Source of your favorites without loops**: playlists that Tweakable DJ fills itself (the one from the settings and those made with *Create new playlist*) are no longer offered as the source. If one is already selected, it stays, with a short note.
+- **Simple view shows all hidden settings**: *Custom Pro settings active* now also appears when *Followed artists*, *Newer / older songs* or *Include Last.fm loved songs* differ from their default, and names them; *Reset to “Default”* resets them too.
+- **Which Node.js?** The tab *Settings*, section *Program*, shows the Node.js Tweakable DJ runs with (own or installed).
+
+**Fixed**
+
+- **Downloading Node.js**: two starts at the same time (e.g. a second double-click) no longer both fail with a wrong “checksum does not match”; the second one waits for the first. On Windows, a failed curl download is retried with PowerShell.
+- **Start without a window stays without a window**: if a usable Node.js is already there, the shortcut tries a needed download at most once a day in a window and otherwise starts hidden right away; after the download, the window closes and Tweakable DJ continues hidden.
+- **Fallback to the previous Node.js**: if a new Node.js version doesn’t run on a PC, Tweakable DJ keeps using the previous one instead of reporting “Node.js is missing”; the README says how to try again.
+- **Folder names with % ^ ; &**: the own Node.js now also works in such folders on Windows.
+- **Narrow screens**: in the bottom bar, *Create playlist* gets its own full-width row below *Discard* and *Save*, in all languages.
+- Clearer texts: “Node.js too old” first suggests starting via the shortcut; download sizes and the space needed are correct in the README; the troubleshooting table quotes the messages as they appear on Windows.
+- Releases are built only after the tests on Windows, macOS and Linux have passed.
+
+### Deutsch
+
+**Neu**
+
+- **Einstellungen sichern und laden**: Im Tab *Einstellungen*, Abschnitt *Programm*, lädt *Einstellungen sichern* eine Datei mit allen Einstellungen samt Sperrliste herunter – ohne Zugangsdaten. *Einstellungen laden …* zeigt zuerst, was sich ändern würde, und übernimmt erst nach der Rückfrage; die Zugangsdaten bleiben, wie sie sind. Praktisch für den Umzug auf einen anderen Rechner.
+- **Last.fm-Lieblingssongs**: Songs, die du auf Last.fm mit ♥ markiert hast, zählen jetzt zusätzlich als Favoriten – für die Playlist und als Ausgangspunkte. Schalter unter *Auswahl* → *Details für Fortgeschrittene* (Ansicht *Pro*), standardmäßig an; ohne Lieblingssongs ändert sich nichts.
+- **Quelle der Favoriten ohne Kreislauf**: Playlists, die Tweakable DJ selbst füllt (die aus den Einstellungen und die mit *Neue Playlist anlegen* angelegten), stehen nicht mehr als Quelle zur Auswahl. Ist schon eine eingestellt, bleibt sie, mit einem kurzen Hinweis.
+- **Ansicht „Einfach“ zeigt alle ausgeblendeten Einstellungen an**: *Eigene Pro-Einstellungen aktiv* erscheint jetzt auch, wenn *Gefolgte Künstler*, *Neuere / ältere Songs* oder *Last.fm-Lieblingssongs einbeziehen* vom Standard abweichen, und nennt sie; *Auf „Standard“ zurücksetzen* setzt auch sie zurück.
+- **Welches Node.js?** Der Tab *Einstellungen*, Abschnitt *Programm*, zeigt, mit welchem Node.js Tweakable DJ läuft (eigenes oder installiertes).
+
+**Behoben**
+
+- **Download von Node.js**: Zwei Starts zugleich (z. B. ein zweiter Doppelklick) scheitern nicht mehr beide mit einer falschen Meldung „Prüfsumme stimmt nicht“; der zweite wartet auf den ersten. Unter Windows versucht ein gescheiterter Download mit curl es noch einmal mit PowerShell.
+- **Start ohne Fenster bleibt ohne Fenster**: Ist schon ein brauchbares Node.js da, versucht die Verknüpfung einen nötigen Download höchstens einmal am Tag mit Fenster und startet sonst gleich ohne; nach dem Download schließt sich das Fenster, und Tweakable DJ läuft ohne Fenster weiter.
+- **Rückfall auf das bisherige Node.js**: Läuft eine neue Version von Node.js auf einem PC nicht, nimmt Tweakable DJ weiter die bisherige, statt „Node.js fehlt“ zu melden; wie man es erneut versucht, steht im README.
+- **Ordnernamen mit % ^ ; &**: Das eigene Node.js klappt unter Windows jetzt auch in solchen Ordnern.
+- **Schmale Bildschirme**: In der Leiste unten bekommt *Playlist erstellen* eine eigene Zeile über die ganze Breite unter *Verwerfen* und *Speichern*, in allen Sprachen.
+- Klarere Texte: „Node.js zu alt“ nennt zuerst den Start über die Verknüpfung; Download-Größen und Platzbedarf stimmen im README; die Fehlertabelle zitiert die Meldungen so, wie Windows sie zeigt.
+- Releases entstehen erst, wenn die Tests unter Windows, macOS und Linux bestanden sind.
+
 ## [0.4.0-beta.1] – 2026-10-09
 
 *Pre-release to try out: installed programs never update to it by themselves (see the README, section “Pre-releases”).*
@@ -447,6 +493,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.4.0-beta.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.2
 [0.4.0-beta.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.1
 [0.3.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.3
 [0.3.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.2
