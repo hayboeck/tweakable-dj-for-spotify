@@ -187,6 +187,30 @@ test('Speichern, während man einen Regler verstellt: Nur das Gesendete gilt als
   await page.close();
 });
 
+test('Einfach: ausgeblendete Regler außerhalb der Voreinstellungen → Hinweis mit Namen; Zurücksetzen setzt auch sie; Leiste bei 375 px', { skip }, async () => {
+  await api('/api/config', { method: 'POST', body: JSON.stringify({ mode: 'simple', followedArtists: 0.5 }) });
+  const page = await open();
+  try {
+    assert.match(await text(page, 'preset-state'), /^Eigene Pro-Einstellungen aktiv \(Gefolgte Künstler\) – /);
+    assert.equal(await page.eval("document.getElementById('preset-reset').hidden"), false);
+    await page.click('#preset-reset');
+    assert.equal(await page.eval("document.getElementById('preset-reset').hidden"), true);
+    assert.match(await text(page, 'preset-state'), /^Passt gerade genau: Standard$/);
+    assert.equal(await text(page, 'status'), 'Ungespeicherte Änderungen');
+    // Untere Leiste bei 375 px: Verwerfen und Speichern nebeneinander, „Playlist erstellen“ darunter über die ganze Breite
+    await page.viewport(375, 800);
+    const bar = await page.eval(`(() => { const r = id => document.getElementById(id).getBoundingClientRect().toJSON();
+      return { d: r('discard'), s: r('save'), c: r('create'), w: document.documentElement.scrollWidth }; })()`);
+    assert.equal(Math.round(bar.d.top), Math.round(bar.s.top));
+    assert.ok(bar.c.top > bar.d.bottom && Math.round(bar.c.width) === Math.round(bar.s.right - bar.d.left), JSON.stringify(bar));
+    assert.ok(bar.w <= 375, 'kein seitliches Scrollen');
+    await page.click('#discard');
+  } finally {
+    await page.close();
+    await api('/api/config', { method: 'POST', body: JSON.stringify({ mode: 'pro', followedArtists: 0 }) });
+  }
+});
+
 test('Alle Sprachen in beiden Tabs vollständig; 375 px ohne seitliches Scrollen', { skip }, async () => {
   const page = await open(375);
   for (const lang of ['de', 'en', 'es', 'fr']) {

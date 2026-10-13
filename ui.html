@@ -958,7 +958,7 @@ const TEXT = {
     presetMatch: name => `Passt gerade genau: ${name}`,
     presetNone: 'Keine Voreinstellung passt genau – das ist deine eigene Mischung.',
     // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
-    presetPro: 'Eigene Pro-Einstellungen aktiv – sie wirken weiter, auch wenn ihre Regler hier ausgeblendet sind (siehe „Pro“ oben).',
+    presetPro: names => `Eigene Pro-Einstellungen aktiv${names.length ? ` (${names.join(', ')})` : ''} – sie wirken weiter, auch wenn ihre Regler hier ausgeblendet sind (siehe „Pro“ oben).`,
     emptyName: 'Der Name der Playlist darf nicht leer sein.',
     // Kurzgründe zu errorCode aus @@RESULT bzw. automatik.json ('other' → Text aus error)
     errors: {
@@ -1411,7 +1411,7 @@ const TEXT = {
     presetMatch: name => `Matches exactly: ${name}`,
     presetNone: 'No preset matches exactly – this is your own mix.',
     // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
-    presetPro: 'Custom Pro settings active – they still apply, even though their controls are hidden here (see “Pro” at the top).',
+    presetPro: names => `Custom Pro settings active${names.length ? ` (${names.join(', ')})` : ''} – they still apply, even though their controls are hidden here (see “Pro” at the top).`,
     emptyName: 'The playlist name can’t be empty.',
     errors: {
       login_expired: 'Spotify login expired',
@@ -1853,7 +1853,7 @@ const TEXT = {
     presetMatch: name => `Coincide exactamente: ${name}`,
     presetNone: 'Ningún ajuste predefinido coincide exactamente: es tu propia mezcla.',
     // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
-    presetPro: 'Ajustes Pro propios activos: siguen aplicándose aunque sus controles estén ocultos aquí (ver «Pro» arriba).',
+    presetPro: names => `Ajustes Pro propios activos${names.length ? ` (${names.join(', ')})` : ''}: siguen aplicándose aunque sus controles estén ocultos aquí (ver «Pro» arriba).`,
     emptyName: 'El nombre de la playlist no puede estar vacío.',
     errors: {
       login_expired: 'La sesión de Spotify ha caducado',
@@ -2296,7 +2296,7 @@ const TEXT = {
     presetMatch: name => `Correspond exactement : ${name}`,
     presetNone: 'Aucun préréglage ne correspond exactement – c’est ton propre mélange.',
     // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
-    presetPro: 'Paramètres Pro personnalisés actifs – ils s’appliquent toujours, même si leurs curseurs sont masqués ici (voir « Pro » en haut).',
+    presetPro: names => `Paramètres Pro personnalisés actifs${names.length ? ` (${names.join(', ')})` : ''} – ils s’appliquent toujours, même si leurs curseurs sont masqués ici (voir « Pro » en haut).`,
     emptyName: 'Le nom de la playlist ne peut pas être vide.',
     errors: {
       login_expired: 'Connexion Spotify expirée',
@@ -3252,6 +3252,11 @@ function setArchiveFiles(n) {
 }
 
 const presetValues = p => Object.fromEntries(PRESET_KEYS.map(k => [k, p.values[k] ?? defaults[k]]));
+// Regler, die nur in „Pro“ zu sehen sind, aber keine Voreinstellung setzt (gefolgte Künstler, neuere/ältere Songs, Last.fm-
+// Lieblingssongs): Weichen sie vom Standard ab, zeigt „Einfach“ das wie eine eigene Mischung an, und „Auf „Standard“
+// zurücksetzen“ setzt auch sie zurück.
+const proExtraKeys = () => GROUPS.filter(g => g.pro).flatMap(g => g.items.map(i => i.key)).filter(k => !PRESET_KEYS.includes(k));
+const changedExtras = () => proExtraKeys().filter(k => k in defaults && !same(current[k], defaults[k]));
 const matchingPreset = () => PRESETS.find(p => Object.entries(presetValues(p)).every(([k, v]) => current[k] === v));
 const usePreset = p => { Object.assign(current, presetValues(p)); refresh(); };
 
@@ -3310,9 +3315,10 @@ function refresh(skipInput) {
   const match = matchingPreset();
   for (const p of PRESETS) p.button.setAttribute('aria-pressed', String(p === match));
   // Ansicht „Einfach“ ohne passende Voreinstellung: Die ausgeblendeten Regler wirken weiter – darauf hinweisen, mit Knopf zurück.
-  const custom = simpleMode() && !match;
-  $('preset-state').textContent = match ? T.presetMatch(T.presets[match.id][0]) : custom ? T.presetPro : T.presetNone;
-  $('preset-state').className = match ? 'hint' : custom ? 'hint warn' : 'help';
+  const extras = simpleMode() ? changedExtras() : [];
+  const custom = simpleMode() && (!match || extras.length > 0);
+  $('preset-state').textContent = custom ? T.presetPro(extras.map(k => T.items[k].label)) : match ? T.presetMatch(T.presets[match.id][0]) : T.presetNone;
+  $('preset-state').className = custom ? 'hint warn' : match ? 'hint' : 'help';
   $('preset-reset').hidden = !custom;
   renderMode();
 
@@ -4906,7 +4912,10 @@ $('discard').onclick = () => { current = { ...saved }; refresh(); };
 $('create').onclick = () => run('dry');
 $('trial-apply').onclick = () => applyTrial('apply');
 $('trial-new').onclick = () => applyTrial('new');
-$('preset-reset').onclick = () => usePreset(PRESETS.find(p => p.id === 'standard'));
+$('preset-reset').onclick = () => {
+  for (const k of proExtraKeys()) if (k in defaults) current[k] = defaults[k];
+  usePreset(PRESETS.find(p => p.id === 'standard'));
+};
 for (const r of $('mode').querySelectorAll('input')) r.onchange = () => setMode(r.value);
 $('export').onclick = exportList;
 $('import').onclick = () => toggleImportMenu();
