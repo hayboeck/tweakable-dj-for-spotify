@@ -91,7 +91,7 @@ export function formatStats(lang, { artists, yearFrom = null, yearTo = null, fir
 export const MESSAGES = {
   de: {
     // --- Allgemein ---
-    'node.tooOld': 'Tweakable DJ braucht Node.js 18 oder neuer, installiert ist {version}. Bitte die aktuelle LTS-Version von https://nodejs.org installieren.',
+    'node.tooOld': 'Tweakable DJ braucht Node.js 18 oder neuer, hier läuft {version}. Am einfachsten: Tweakable DJ einmal über die Verknüpfung bzw. die Startdatei starten – sie lädt ein eigenes, aktuelles Node.js. Oder die aktuelle LTS-Version von https://nodejs.org installieren.',
 
     // --- config.mjs ---
     'config.invalid': 'config.jsonc ist fehlerhaft ({detail}). Häufige Ursache: fehlendes oder überzähliges Komma.',
@@ -281,14 +281,14 @@ export const MESSAGES = {
     'notify.action.forbidden': 'Häufige Ursachen stehen in automatik.log im Ordner von Tweakable DJ.',
     'notify.action.lastfm_key': 'Öffne Tweakable DJ und trage unter „Zugangsdaten ändern“ einen gültigen API-Key ein.',
     'notify.action.setup_incomplete': 'Öffne Tweakable DJ und schließe die Einrichtung ab.',
-    'notify.action.node_version': 'Installiere die aktuelle LTS-Version von https://nodejs.org.',
+    'notify.action.node_version': 'Starte Tweakable DJ einmal über die Verknüpfung – das lädt ein eigenes, aktuelles Node.js und stellt die automatischen Läufe darauf um. Oder installiere die aktuelle LTS-Version von https://nodejs.org.',
     'notify.action.network': 'Prüfe die Internetverbindung. Der nächste automatische Lauf versucht es wieder.',
     'notify.action.other': 'Öffne Tweakable DJ; Details stehen in automatik.log im Ordner von Tweakable DJ.',
     'notify.action.forbiddenNow': 'Häufige Ursachen stehen in jetzt.log im Ordner von Tweakable DJ.',
     'notify.action.networkNow': 'Prüfe die Internetverbindung und versuche es noch einmal.',
     'notify.action.otherNow': 'Öffne Tweakable DJ; Details stehen in jetzt.log im Ordner von Tweakable DJ.',
     'notify.nowFailedTitle': 'Tweakable DJ: Playlist nicht neu erstellt',
-    'notify.nowDoneTitle': 'Tweakable DJ',
+    'notify.nowTitle': 'Tweakable DJ',
     'notify.nowDoneText': 'Playlist „{name}“ neu erstellt ✓ – {songs|# Song|# Songs}',
     'notify.nowStartText': 'Playlist „{name}“ wird neu erstellt …',
     'notify.nowStartTextNoName': 'Die Playlist wird neu erstellt …',
@@ -356,7 +356,8 @@ export const MESSAGES = {
     'shortcut.renewed': 'Verknüpfung auf dem Desktop erneuert: {file}',
     'shortcut.renewFailed': 'Die Verknüpfung auf dem Desktop ließ sich nicht erneuern: {message}',
     'schedule.renewed': 'Automatische Läufe nutzen jetzt das eigene Node.js im Ordner von Tweakable DJ.',
-    'schedule.renewFailed': 'Der Eintrag für automatische Läufe ließ sich nicht auf das eigene Node.js umstellen: {message}',
+    'schedule.renewedInstalled': 'Automatische Läufe nutzen jetzt das installierte Node.js (das eigene im Ordner von Tweakable DJ fehlt; der nächste Start über die Verknüpfung lädt es wieder).',
+    'schedule.renewFailed': 'Der Eintrag für automatische Läufe ließ sich nicht auf das passende Node.js umstellen: {message}',
 
     // --- install-update.mjs („Jetzt aktualisieren“ in der Oberfläche) ---
     'update.stepCheck': 'Frage GitHub nach der neuesten Version …',
@@ -406,7 +407,7 @@ export const MESSAGES = {
 
   en: {
     // --- General ---
-    'node.tooOld': 'Tweakable DJ needs Node.js 18 or newer, but {version} is installed. Please install the current LTS version from https://nodejs.org.',
+    'node.tooOld': 'Tweakable DJ needs Node.js 18 or newer, but {version} is running here. Easiest fix: start Tweakable DJ once via the shortcut or the start file – it downloads its own, current Node.js. Or install the current LTS version from https://nodejs.org.',
 
     // --- config.mjs ---
     'config.invalid': 'config.jsonc is invalid ({detail}). Common cause: a missing or extra comma.',
@@ -596,14 +597,14 @@ export const MESSAGES = {
     'notify.action.forbidden': 'Common causes are listed in automatik.log in the Tweakable DJ folder.',
     'notify.action.lastfm_key': 'Open Tweakable DJ and enter a valid API key under “Change credentials”.',
     'notify.action.setup_incomplete': 'Open Tweakable DJ and finish the setup.',
-    'notify.action.node_version': 'Install the current LTS version from https://nodejs.org.',
+    'notify.action.node_version': 'Start Tweakable DJ once via the shortcut – it downloads its own, current Node.js and switches the automatic runs to it. Or install the current LTS version from https://nodejs.org.',
     'notify.action.network': 'Check your internet connection. The next automatic run will try again.',
     'notify.action.other': 'Open Tweakable DJ; details are in automatik.log in the Tweakable DJ folder.',
     'notify.action.forbiddenNow': 'Common causes are listed in jetzt.log in the Tweakable DJ folder.',
     'notify.action.networkNow': 'Check your internet connection and try again.',
     'notify.action.otherNow': 'Open Tweakable DJ; details are in jetzt.log in the Tweakable DJ folder.',
     'notify.nowFailedTitle': 'Tweakable DJ: playlist not rebuilt',
-    'notify.nowDoneTitle': 'Tweakable DJ',
+    'notify.nowTitle': 'Tweakable DJ',
     'notify.nowDoneText': 'Playlist “{name}” rebuilt ✓ – {songs|# song|# songs}',
     'notify.nowStartText': 'Rebuilding playlist “{name}” …',
     'notify.nowStartTextNoName': 'Rebuilding the playlist …',
@@ -671,7 +672,8 @@ export const MESSAGES = {
     'shortcut.renewed': 'Desktop shortcut renewed: {file}',
     'shortcut.renewFailed': 'The desktop shortcut couldn’t be renewed: {message}',
     'schedule.renewed': 'Automatic runs now use the Node.js in the Tweakable DJ folder.',
-    'schedule.renewFailed': 'The entry for automatic runs couldn’t be switched to the Node.js in the Tweakable DJ folder: {message}',
+    'schedule.renewedInstalled': 'Automatic runs now use the installed Node.js (the one in the Tweakable DJ folder is missing; the next start via the shortcut downloads it again).',
+    'schedule.renewFailed': 'The entry for automatic runs couldn’t be switched to the right Node.js: {message}',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Asking GitHub for the newest version …',
@@ -722,7 +724,7 @@ export const MESSAGES = {
   // Spanisch (maschinell übersetzt): „tú“, Begriffe wie in der Spotify-App (Tus me gusta, playlist, canción).
   es: {
     // --- General ---
-    'node.tooOld': 'Tweakable DJ necesita Node.js 18 o posterior, pero tienes instalada la versión {version}. Instala la versión LTS actual desde https://nodejs.org.',
+    'node.tooOld': 'Tweakable DJ necesita Node.js 18 o posterior, pero aquí se ejecuta la versión {version}. Lo más sencillo: inicia Tweakable DJ una vez desde el acceso directo o el archivo de inicio; descarga su propio Node.js actual. O instala la versión LTS actual desde https://nodejs.org.',
 
     // --- config.mjs ---
     'config.invalid': 'config.jsonc no es válido ({detail}). Causa frecuente: falta una coma o sobra una.',
@@ -912,17 +914,17 @@ export const MESSAGES = {
     'notify.action.forbidden': 'Las causas frecuentes están en automatik.log, en la carpeta de Tweakable DJ.',
     'notify.action.lastfm_key': 'Abre Tweakable DJ e introduce una clave API válida en «Cambiar credenciales».',
     'notify.action.setup_incomplete': 'Abre Tweakable DJ y termina la configuración.',
-    'notify.action.node_version': 'Instala la versión LTS actual desde https://nodejs.org.',
+    'notify.action.node_version': 'Inicia Tweakable DJ una vez desde el acceso directo: descarga su propio Node.js actual y cambia las ejecuciones automáticas a él. O instala la versión LTS actual desde https://nodejs.org.',
     'notify.action.network': 'Revisa tu conexión a internet. La próxima ejecución automática lo volverá a intentar.',
     'notify.action.other': 'Abre Tweakable DJ; los detalles están en automatik.log, en la carpeta de Tweakable DJ.',
     'notify.action.forbiddenNow': 'Las causas habituales están en jetzt.log, en la carpeta de Tweakable DJ.',
     'notify.action.networkNow': 'Comprueba la conexión a internet y vuelve a intentarlo.',
     'notify.action.otherNow': 'Abre Tweakable DJ; los detalles están en jetzt.log, en la carpeta de Tweakable DJ.',
     'notify.nowFailedTitle': 'Tweakable DJ: playlist no recreada',
-    'notify.nowDoneTitle': 'Tweakable DJ',
+    'notify.nowTitle': 'Tweakable DJ',
     'notify.nowDoneText': 'Playlist «{name}» recreada ✓ – {songs|# canción|# canciones}',
-    'notify.nowStartText': 'Recreando la playlist «{name}»…',
-    'notify.nowStartTextNoName': 'Recreando la playlist…',
+    'notify.nowStartText': 'Recreando la playlist «{name}» …',
+    'notify.nowStartTextNoName': 'Recreando la playlist …',
     'notify.nowBusyTitle': 'Tweakable DJ: ya está en marcha',
     'notify.nowBusyText': 'Ya hay una ejecución en curso (interfaz o ejecución automática). Vuelve a intentarlo en un momento.',
     'ui.nowBusy': 'El acceso directo «Tweakable DJ – Recrear la playlist» está recreando la playlist ahora mismo. Espera a que termine.',
@@ -987,7 +989,8 @@ export const MESSAGES = {
     'shortcut.renewed': 'Acceso directo del escritorio renovado: {file}',
     'shortcut.renewFailed': 'No se pudo renovar el acceso directo del escritorio: {message}',
     'schedule.renewed': 'Las ejecuciones automáticas usan ahora el Node.js de la carpeta de Tweakable DJ.',
-    'schedule.renewFailed': 'No se pudo cambiar la entrada de las ejecuciones automáticas al Node.js de la carpeta de Tweakable DJ: {message}',
+    'schedule.renewedInstalled': 'Las ejecuciones automáticas usan ahora el Node.js instalado (falta el de la carpeta de Tweakable DJ; el próximo inicio desde el acceso directo lo vuelve a descargar).',
+    'schedule.renewFailed': 'No se pudo cambiar la entrada de las ejecuciones automáticas al Node.js adecuado: {message}',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Consultando a GitHub la versión más reciente …',
@@ -1039,7 +1042,7 @@ export const MESSAGES = {
   // Vor Doppelpunkt, Semikolon, Ausrufe- und Fragezeichen sowie innerhalb der Guillemets steht ein schmales geschütztes Leerzeichen (U+202F).
   fr: {
     // --- Général ---
-    'node.tooOld': 'Tweakable DJ a besoin de Node.js 18 ou plus récent, mais la version {version} est installée. Installe la version LTS actuelle depuis https://nodejs.org.',
+    'node.tooOld': 'Tweakable DJ a besoin de Node.js 18 ou plus récent, mais c’est la version {version} qui tourne ici. Le plus simple : démarre Tweakable DJ une fois par le raccourci ou le fichier de démarrage – il télécharge son propre Node.js à jour. Ou installe la version LTS actuelle depuis https://nodejs.org.',
 
     // --- config.mjs ---
     'config.invalid': 'config.jsonc n’est pas valide ({detail}). Cause fréquente : une virgule manquante ou en trop.',
@@ -1229,17 +1232,17 @@ export const MESSAGES = {
     'notify.action.forbidden': 'Les causes fréquentes sont décrites dans automatik.log, dans le dossier de Tweakable DJ.',
     'notify.action.lastfm_key': 'Ouvre Tweakable DJ et saisis une clé API valide sous « Modifier les identifiants ».',
     'notify.action.setup_incomplete': 'Ouvre Tweakable DJ et termine la configuration.',
-    'notify.action.node_version': 'Installe la version LTS actuelle depuis https://nodejs.org.',
+    'notify.action.node_version': 'Démarre Tweakable DJ une fois par le raccourci – il télécharge son propre Node.js à jour et y fait passer les exécutions automatiques. Ou installe la version LTS actuelle depuis https://nodejs.org.',
     'notify.action.network': 'Vérifie ta connexion internet. La prochaine exécution automatique réessaiera.',
     'notify.action.other': 'Ouvre Tweakable DJ ; les détails sont dans automatik.log, dans le dossier de Tweakable DJ.',
     'notify.action.forbiddenNow': 'Les causes fréquentes sont dans jetzt.log, dans le dossier de Tweakable DJ.',
     'notify.action.networkNow': 'Vérifie la connexion internet et réessaie.',
     'notify.action.otherNow': 'Ouvre Tweakable DJ ; les détails sont dans jetzt.log, dans le dossier de Tweakable DJ.',
     'notify.nowFailedTitle': 'Tweakable DJ : playlist non recréée',
-    'notify.nowDoneTitle': 'Tweakable DJ',
+    'notify.nowTitle': 'Tweakable DJ',
     'notify.nowDoneText': 'Playlist « {name} » recréée ✓ – {songs|# titre|# titres}',
-    'notify.nowStartText': 'Recréation de la playlist « {name} »…',
-    'notify.nowStartTextNoName': 'Recréation de la playlist…',
+    'notify.nowStartText': 'Recréation de la playlist « {name} » …',
+    'notify.nowStartTextNoName': 'Recréation de la playlist …',
     'notify.nowBusyTitle': 'Tweakable DJ : déjà en cours',
     'notify.nowBusyText': 'Une exécution est déjà en cours (interface ou exécution automatique). Réessaie dans un instant.',
     'ui.nowBusy': 'Le raccourci « Tweakable DJ – Recréer la playlist » recrée la playlist en ce moment. Attends qu’il ait fini.',
@@ -1304,7 +1307,8 @@ export const MESSAGES = {
     'shortcut.renewed': 'Raccourci du Bureau renouvelé : {file}',
     'shortcut.renewFailed': 'Le raccourci du Bureau n’a pas pu être renouvelé : {message}',
     'schedule.renewed': 'Les exécutions automatiques utilisent désormais le Node.js du dossier de Tweakable DJ.',
-    'schedule.renewFailed': 'L’entrée des exécutions automatiques n’a pas pu passer au Node.js du dossier de Tweakable DJ : {message}',
+    'schedule.renewedInstalled': 'Les exécutions automatiques utilisent désormais le Node.js installé (celui du dossier de Tweakable DJ manque ; le prochain démarrage par le raccourci le télécharge à nouveau).',
+    'schedule.renewFailed': 'L’entrée des exécutions automatiques n’a pas pu passer au bon Node.js : {message}',
 
     // --- install-update.mjs ---
     'update.stepCheck': 'Demande de la version la plus récente à GitHub …',

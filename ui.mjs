@@ -26,7 +26,7 @@ import {
 } from './config.mjs';
 import { readJson as readJsonFile, readText, writeAtomic } from './files.mjs';
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
-import { applySchedule, scheduleStatus } from './schedule.mjs';
+import { applySchedule, ownNode, scheduleStatus, schedulerNode } from './schedule.mjs';
 import { createShortcut, removeShortcut, SHORTCUTS, shortcutStatus } from './shortcut.mjs';
 import { createSpotify, isScopeError, LIBRARY_SCOPE, login, openBrowser, REDIRECT_URI, SCOPE_LIST } from './spotify.mjs';
 import { autoRunMessage, autoRunSince, cleanObsolete, installBlocker, installUpdate } from './install-update.mjs';
@@ -416,16 +416,17 @@ async function renewShortcuts(lang) {
   }
 }
 
-// Eintrag im Zeitplaner, der bis auf das Node.js passt (nodeOutdated in schedule.mjs; z. B. noch ein installiertes Node.js aus
-// einer früheren Version, inzwischen gibt es das eigene im Programmordner): beim Start still auf das eigene umstellen. Wie
-// renewShortcuts nur, wenn eine Startdatei gestartet hat; Einträge für andere Ordner oder mit anderen Zeiten bleiben.
+// Eintrag im Zeitplaner, der bis auf das Node.js passt (nodeOutdated in schedule.mjs): beim Start still umstellen – meist von
+// einem installierten Node.js aus einer früheren Version auf das eigene im Programmordner, seltener zurück aufs installierte
+// (das eigene fehlt, z. B. node/ gelöscht). Die Meldung nennt das Ziel. Wie renewShortcuts nur, wenn eine Startdatei gestartet
+// hat; Einträge für andere Ordner oder mit anderen Zeiten bleiben.
 async function renewSchedule(lang) {
   try {
     const cfg = currentConfig(lang);
     if ((cfg.schedule ?? 'off') === 'off') return;
     if (!(await scheduleStatus(cfg, { lang })).nodeOutdated) return;
     await serial(() => applySchedule(cfg, { lang }));
-    console.log(t(lang, 'schedule.renewed'));
+    console.log(t(lang, schedulerNode(HERE) === ownNode(HERE) ? 'schedule.renewed' : 'schedule.renewedInstalled'));
   } catch (e) {
     console.warn(t(lang, 'schedule.renewFailed', { message: e.message }));
   }

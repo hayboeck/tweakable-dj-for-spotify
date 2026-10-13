@@ -524,18 +524,18 @@ test('Zu alte Node-Version: klare Meldung (errorCode node_version)', () => {
   try {
     const { code, err, requests, notifications, result } = run(dir, { MOCK_NODE_VERSION: '16.20.2' }, ['--auto']);
     assert.equal(code, 1, err);
-    assert.match(err, /Tweakable DJ braucht Node\.js 18 oder neuer, installiert ist 16\.20\.2/);
+    assert.match(err, /Tweakable DJ braucht Node\.js 18 oder neuer, hier läuft 16\.20\.2\. Am einfachsten: Tweakable DJ einmal über die Verknüpfung/);
     assert.equal(requests.length, 0);
     assert.deepEqual([result.ok, result.errorCode], [false, 'node_version']);
     assert.deepEqual(noticeOf(notifications[0]), {
-      title: 'Tweakable DJ: automatischer Lauf fehlgeschlagen', text: 'Node.js ist zu alt.\nInstalliere die aktuelle LTS-Version von https://nodejs.org.',
+      title: 'Tweakable DJ: automatischer Lauf fehlgeschlagen', text: 'Node.js ist zu alt.\nStarte Tweakable DJ einmal über die Verknüpfung – das lädt ein eigenes, aktuelles Node.js und stellt die automatischen Läufe darauf um. Oder installiere die aktuelle LTS-Version von https://nodejs.org.',
     });
     // Auch dann gibt es ein Ergebnis für die Oberfläche
     const auto = JSON.parse(fs.readFileSync(path.join(dir, 'automatik.json'), 'utf8'));
     assert.deepEqual([auto.ok, auto.errorCode], [false, 'node_version']);
     assert.match(fs.readFileSync(path.join(dir, 'automatik.log'), 'utf8'), /Tweakable DJ braucht Node\.js 18/);
     const en = run(dir, { MOCK_NODE_VERSION: '16.20.2', TWEAKABLE_DJ_LANG: 'en' });
-    assert.match(en.err, /^Tweakable DJ needs Node\.js 18 or newer, but 16\.20\.2 is installed\./m);
+    assert.match(en.err, /^Tweakable DJ needs Node\.js 18 or newer, but 16\.20\.2 is running here\./m);
   } finally {
     cleanup(dir);
   }
