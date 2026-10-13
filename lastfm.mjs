@@ -104,6 +104,18 @@ export function createLastfm(apiKey, cacheFile, { lang } = {}) {
       return list(d?.toptracks?.track).map(t => ({ artist: t.artist?.name, name: t.name }));
     },
 
+    // Songs, die der Benutzer auf Last.fm mit ♥ markiert hat (neueste zuerst), höchstens maxPages · 200.
+    async lovedTracks(user, maxPages = 5) {
+      const out = [];
+      for (let page = 1; page <= maxPages; page++) {
+        const d = await call('user.getLovedTracks', { user, limit: 200, page });
+        out.push(...list(d?.lovedtracks?.track).map(t => ({ artist: t.artist?.name ?? t.artist?.['#text'], name: t.name })));
+        const totalPages = Number(d?.lovedtracks?.['@attr']?.totalPages) || 1;
+        if (page >= totalPages) break;
+      }
+      return out;
+    },
+
     async recentTracks(user, fromUnix, maxPages = 5) {
       const out = [];
       for (let page = 1; page <= maxPages; page++) {

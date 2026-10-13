@@ -33,6 +33,7 @@ export const DEFAULTS = {
   noRepeatRuns: 3,
   seedsPerRun: 20,
   useLastfmTopTracks: true,
+  useLastfmLovedTracks: true, // Songs mit ♥ auf Last.fm zählen zusätzlich als Favoriten (dj.mjs)
   followedArtists: 0,
   preferNewer: 0, // neuere bzw. ältere Songs bevorzugen (Faktor in lineup.mjs, newerFactor)
   currentDays: 7,

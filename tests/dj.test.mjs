@@ -435,6 +435,40 @@ test('Keine Lieblingssongs: mit Hörverlauf neue Songs, ohne Abbruch statt leere
   }
 });
 
+test('Last.fm-Lieblingssongs (♥): zählen zusätzlich als Favoriten, auf Spotify gesucht; abschaltbar; keine = nichts', () => {
+  const loved = JSON.stringify([['Herzklang', 'Liebeslied'], ['Herzklang', 'Sehnsucht'], ['Seelenruh', 'Stille'], ['Herzklang', 'Nicht auf Spotify'],
+    ['Rin', 'Laut'], ['Nordlicht', 'Polarnacht']]);
+  const dir = setup({ familiarShare: 1, size: 10, maxPerArtist: 5 });
+  try {
+    // Ohne Lieblingssongs auf Spotify: nur die von Last.fm sind Favoriten (Rin gesperrt, einer nicht auf Spotify)
+    const r = run(dir, { MOCK_NO_LIKED: '1', MOCK_LASTFM_LOVED: loved });
+    assert.equal(r.code, 0, r.all);
+    assert.match(r.out, /^ {2}6 Last\.fm-Lieblingssongs \(♥\), davon 6 zusätzlich zu deinen Favoriten$/m);
+    assert.equal(lastfmCalls(r.requests, 'user.getLovedTracks'), 1);
+    const favs = parseLineup(r.out).filter(s => s.kind.startsWith('Favorit')).map(s => `${s.artist} – ${s.name}`).sort();
+    // Nordlicht – Polarnacht wurde kürzlich gehört (excludeRecentDays): bleibt draußen wie jeder Favorit
+    assert.deepEqual(favs, ['Herzklang – Liebeslied', 'Herzklang – Sehnsucht', 'Seelenruh – Stille']);
+    assert.equal(r.result.familiar, 3);
+    // Mit Lieblingssongs auf Spotify: Doppelte zählen nicht noch einmal; Such-Cache: zweiter Lauf sucht sie nicht neu
+    const both = run(dir, { MOCK_LASTFM_LOVED: loved });
+    assert.match(both.out, /^ {2}6 Last\.fm-Lieblingssongs \(♥\), davon 5 zusätzlich zu deinen Favoriten$/m);
+    // Abgeschaltet: keine Abfrage
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, familiarShare: 1, size: 10, maxPerArtist: 5, useLastfmLovedTracks: false }));
+    const off = run(dir, { MOCK_NO_LIKED: '1', MOCK_LASTFM_LOVED: loved });
+    assert.equal(lastfmCalls(off.requests, 'user.getLovedTracks'), 0);
+    assert.equal(off.result.familiar, 0);
+    assert.doesNotMatch(off.out, /Lieblingssongs \(♥\)/);
+    // Keine Lieblingssongs auf Last.fm: keine Zeile, sonst wie bisher
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify(CONFIG));
+    const none = run(dir);
+    assert.equal(none.code, 0, none.all);
+    assert.equal(lastfmCalls(none.requests, 'user.getLovedTracks'), 1);
+    assert.doesNotMatch(none.out, /Lieblingssongs \(♥\)/);
+  } finally {
+    cleanup(dir);
+  }
+});
+
 test('Ungültiger Last.fm-API-Key: Abbruch mit klarer Meldung (errorCode lastfm_key)', () => {
   // Ohne Benutzer ist track.getSimilar die erste Last.fm-Abfrage (dort werden andere Fehler nur gemeldet).
   const dir = setup({ lastfm: { apiKey: 'falscher-key', user: '' } });

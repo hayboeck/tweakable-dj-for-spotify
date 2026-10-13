@@ -193,6 +193,7 @@ Every rule can be changed in `config.jsonc` or in the interface. The setting’s
 | Adventure (`adventure`): 0 = prefer similar songs, 0.5 = no preference, 1 = prefer distant songs. Also sets for how many starting points the DJ wanders off to related artists. | 0.4 | 0–1 |
 | Starting points per run (`seedsPerRun`) | 20 | 1–200 |
 | Also use your Last.fm top songs of the last 3 months as starting points (`useLastfmTopTracks`) | on | `true` or `false` |
+| Last.fm loved songs (`useLastfmLovedTracks`): songs you loved (♥) on Last.fm also count as favorites – for the playlist (searched on Spotify like new songs) and as starting points. Needs your Last.fm username; if you have none, nothing changes. In the interface under *Selection* → *Details for experts* (view *Pro*). | on | `true` or `false` |
 | Followed artists (`followedArtists`): artists you follow on Spotify. -1 = none of them (like the block list, also as a guest via “feat.”), below 0 = less often, 0 = no preference (the list isn’t even fetched), above 0 = more often, 1 = strongly preferred, but not exclusively. Applies to new songs and favorites, not to the starting points. | 0 (no preference) | -1–1 |
 | Newer / older songs (`preferNewer`): by release year according to Spotify. Below 0 = prefer older songs, 0 = no preference, above 0 = prefer newer ones. Only a weight in the draw, nothing is left out. Applies to new songs and favorites, not to the starting points. | 0 (no preference) | -1–1 |
 

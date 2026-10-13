@@ -277,8 +277,9 @@ async function main() {
   const followWeight = track => (byFollowed(track) ? followedWeight : 1);
   // Neuere / ältere Songs (preferNewer, 0 = aus): Faktor nach dem Erscheinungsjahr, unbekanntes Jahr = 1 (lineup.mjs).
   const newerWeight = year => newerFactor(cfg.preferNewer, year);
-  // Favoriten für die Playlist (die Ausgangspunkte bleiben davon unberührt).
+  // Favoriten für die Playlist (die Ausgangspunkte bleiben davon unberührt); die Last.fm-Lieblingssongs kommen unten dazu.
   const favoritePool = favorites.filter(notFollowedOut).filter(notExplicit);
+  let lovedFavorites = [];
 
   // Nicht wiederholen: kürzlich gehört (Last.fm) + in den letzten Läufen schon drin gewesen.
   const blocked = new Set(lastRuns(cfg, state.history).flat());
@@ -310,7 +311,17 @@ async function main() {
       }
       console.log(t(lang, 'run.scrobbles', { total: recent?.length ?? 0, current: current.length, days: cfg.currentDays, artists: currentArtists.size }));
       const top = cfg.useLastfmTopTracks ? await lastfm.userTopTracks(cfg.lastfm.user).catch(warnOr([])) : [];
-      discoverySeeds = [...favorites, ...top, ...current];
+      // Last.fm-Lieblingssongs (♥, useLastfmLovedTracks): zählen zusätzlich als Favoriten – als Ausgangspunkte und für die
+      // Playlist, dort erst bei Bedarf auf Spotify gesucht (resolveLoved). Was schon in der Quelle ist, zählt nicht doppelt.
+      if (cfg.useLastfmLovedTracks !== false) {
+        const loved = await lastfm.lovedTracks(cfg.lastfm.user).catch(warnOr([]));
+        const extra = [...new Map(loved.filter(l => l.artist && l.name && !seedKeys.has(trackKey(l.artist, l.name)))
+          .map(l => [trackKey(l.artist, l.name), { artist: l.artist, name: l.name, loved: true }])).values()];
+        if (loved.length) console.log(t(lang, 'run.loved', { count: loved.length, extra: extra.length }));
+        for (const l of extra) seedKeys.add(trackKey(l.artist, l.name)); // kein „neuer“ Song
+        lovedFavorites = extra.filter(allowed);
+      }
+      discoverySeeds = [...favorites, ...lovedFavorites, ...top, ...current];
     }
   }
   const isCurrent = track => currentKeys.has(trackKey(track.artist, track.name)) || currentArtists.has(norm(track.artist));
@@ -384,19 +395,66 @@ async function main() {
   const current = yes => (yes ? t(lang, 'run.current') : '');
   const asFavorite = track => ({ ...track, tags: tagsOf(track.artist), kind: t(lang, 'run.favorite') + current(isCurrent(track)) });
 
-  const familiar = [];
-  const familiarTarget = Math.round(cfg.size * cfg.familiarShare);
-  for (const track of weightedOrder(favoritePool, f => seedWeight(f) * followWeight(f) * newerWeight(f.releaseYear)).map(asFavorite)) {
-    if (familiar.length >= familiarTarget) break;
-    if (!blocked.has(trackKey(track.artist, track.name)) && fits(track)) take(familiar, track);
-  }
-
-  console.log(t(lang, 'run.searchingSpotify'));
   // Alle Künstler laut Spotify zu den Songs, die dieser Lauf gesucht hat (für probelauf.json und den Export);
   // Songs aus dem Such-Cache in state.json kennen nur den Künstler von Last.fm. Format des Caches: cacheEntry() in lineup.mjs.
   const spotifyArtists = new Map();
-  const fresh = [];
   const cached = key => (Object.hasOwn(state.cache, key) ? cacheEntry(state.cache[key]) : undefined);
+  favoritePool.push(...lovedFavorites.filter(notFollowedOut));
+  // Last.fm-Lieblingssong für die Playlist: jetzt auf Spotify suchen (Such-Cache wie bei neuen Songs), höchstens LOVED_SEARCHES
+  // neue Suchen je Lauf. Ergebnis wie ein Favorit von Spotify, oder null (nicht gefunden, explizit, gesperrt, gefolgt und -1).
+  const LOVED_SEARCHES = 50;
+  let lovedSearches = 0;
+  const resolveLoved = async track => {
+    const key = trackKey(track.artist, track.name);
+    let entry = cached(key);
+    if (searchAgain(entry, excludeExplicit)) {
+      if (lovedSearches++ >= LOVED_SEARCHES) return null;
+      try {
+        const hit = await spotify.findTrack(track.artist, track.name);
+        state.cache[key] = cacheUpdates[key] = cacheValue(hit);
+        entry = cacheEntry(state.cache[key]);
+        for (const h of [hit, hit?.clean]) if (h) spotifyArtists.set(h.uri, h.artists);
+      } catch (e) {
+        if (e.status === 403 || e.errorCode === 'network') throw e;
+        warn(e.message);
+        return null;
+      }
+    }
+    if (!entry) return null;
+    const uri = playableUri(entry, excludeExplicit);
+    if (!uri) {
+      explicitOut.add(key);
+      return null;
+    }
+    const found = { ...track, uri, artists: spotifyArtists.get(uri), durationMs: playableDurationMs(entry, excludeExplicit), releaseYear: entry.year };
+    if (isBlockedTrack(found)) {
+      blockedTrackOut.add(key);
+      return null;
+    }
+    return notFollowedOut(found) ? found : null;
+  };
+  // Favorit nehmen, wenn er passt; Last.fm-Lieblingssongs vorher auf Spotify suchen.
+  const takeFavorite = async track => {
+    if (!fits(track)) return;
+    if (track.loved && !track.uri) {
+      const found = await resolveLoved(track);
+      if (!found) return;
+      track = asFavorite(found);
+      if (!fits(track)) return;
+    }
+    take(familiar, track);
+  };
+  const yearOf = f => f.releaseYear ?? (f.loved ? cached(trackKey(f.artist, f.name))?.year : undefined);
+
+  const familiar = [];
+  const familiarTarget = Math.round(cfg.size * cfg.familiarShare);
+  for (const track of weightedOrder(favoritePool, f => seedWeight(f) * followWeight(f) * newerWeight(yearOf(f))).map(asFavorite)) {
+    if (familiar.length >= familiarTarget) break;
+    if (!blocked.has(trackKey(track.artist, track.name))) await takeFavorite(track);
+  }
+
+  console.log(t(lang, 'run.searchingSpotify'));
+  const fresh = [];
   // Erscheinungsjahr neuer Songs: bekannt nur aus dem Such-Cache (Songs, die schon einmal gesucht wurden), sonst erst nach
   // der Suche unten.
   const ordered = weightedOrder(
@@ -451,7 +509,7 @@ async function main() {
   // Zu wenig gefunden? Mit weiteren Favoriten auffüllen (dann auch kürzlich gehörte).
   for (const track of shuffle(favoritePool).map(asFavorite)) {
     if (familiar.length + fresh.length >= cfg.size) break;
-    if (fits(track)) take(familiar, track);
+    await takeFavorite(track);
   }
 
   if (blockedTrackOut.size) console.log(t(lang, 'run.blockedSongs', { count: blockedTrackOut.size }));

@@ -194,6 +194,7 @@ Jede Regel lässt sich in `config.jsonc` oder in der Oberfläche ändern. Der Na
 | Abenteuer (`adventure`): 0 = ähnliche Songs bevorzugen, 0,5 = egal, 1 = entfernte Songs bevorzugen. Bestimmt auch, bei wie vielen Ausgangspunkten der DJ zu verwandten Künstlern abschweift. | 0,4 | 0–1 |
 | Ausgangspunkte pro Lauf (`seedsPerRun`) | 20 | 1–200 |
 | Last.fm-Top-Songs der letzten 3 Monate zusätzlich als Ausgangspunkte (`useLastfmTopTracks`) | an | `true` oder `false` |
+| Last.fm-Lieblingssongs (`useLastfmLovedTracks`): Songs, die du auf Last.fm mit ♥ markiert hast, zählen zusätzlich als Favoriten – für die Playlist (auf Spotify gesucht wie neue Songs) und als Ausgangspunkte. Braucht deinen Last.fm-Benutzernamen; hast du keine, ändert sich nichts. In der Oberfläche unter *Auswahl* → *Details für Fortgeschrittene* (Ansicht *Pro*). | an | `true` oder `false` |
 | Gefolgte Künstler (`followedArtists`): Künstler, denen du auf Spotify folgst. -1 = keine davon (wie die Sperrliste, auch als Gast über „feat.“), unter 0 = seltener, 0 = egal (die Liste wird gar nicht abgefragt), über 0 = öfter, 1 = stark bevorzugt, aber nicht ausschließlich. Gilt für neue Songs und Favoriten, nicht für die Ausgangspunkte. | 0 (egal) | -1–1 |
 | Neuere / ältere Songs (`preferNewer`): nach dem Erscheinungsjahr laut Spotify. Unter 0 = ältere Songs bevorzugen, 0 = egal, über 0 = neuere bevorzugen. Nur ein Gewicht bei der Auslosung, es fällt nichts weg. Gilt für neue Songs und Favoriten, nicht für die Ausgangspunkte. | 0 (egal) | -1–1 |
 

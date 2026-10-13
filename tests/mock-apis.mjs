@@ -19,6 +19,7 @@
 //   MOCK_SPOTIFY_OFFLINE=1  Spotify (API und Anmeldung) nicht erreichbar: fetch scheitert wie ohne Internet (ENOTFOUND)
 //   MOCK_SPOTIFY_HANG=1     Spotify antwortet nie; die Anfrage endet erst mit ihrem Zeitlimit (signal)
 //   MOCK_LASTFM_OFFLINE=1   Last.fm nicht erreichbar (ENOTFOUND)
+//   MOCK_LASTFM_LOVED   JSON [[Künstler, Titel], …]: Lieblingssongs (♥) von testhoerer auf Last.fm (sonst keine)
 //   MOCK_SEARCH_DELAY_MS  jede Suche auf Spotify (/v1/search) antwortet erst nach so vielen Millisekunden (Lauf dauert länger)
 //   MOCK_GITHUB         JSON-Datei mit der Antwort von GitHub auf die Frage nach dem neuesten Release (update.mjs):
 //                       { "status": 200, "body": { "tag_name": "v0.2.0", "assets": […], … } } oder { "offline": true }
@@ -357,6 +358,15 @@ function lastfmApi(url) {
       const pages = user === 'testhoerer' ? RECENT_PAGES : [];
       const page = Number(q.get('page') ?? 1);
       return json({ recenttracks: { track: pages[page - 1] ?? [], '@attr': { user, page: String(page), totalPages: String(pages.length) } } });
+    }
+    // Lieblingssongs (♥): MOCK_LASTFM_LOVED = JSON [[Künstler, Titel], …] für testhoerer, sonst keine; je Seite höchstens limit
+    case 'user.getLovedTracks': {
+      const loved = user === 'testhoerer' ? JSON.parse(process.env.MOCK_LASTFM_LOVED || '[]') : [];
+      const limit = Number(q.get('limit') ?? 50);
+      const page = Number(q.get('page') ?? 1);
+      const total = Math.max(1, Math.ceil(loved.length / limit));
+      return json({ lovedtracks: { track: loved.slice((page - 1) * limit, page * limit).map(([a, n]) => ({ name: n, artist: { name: a } })),
+        '@attr': { user, page: String(page), totalPages: String(total), total: String(loved.length) } } });
     }
     case 'user.getTopTracks': {
       const top = user === 'testhoerer' ? [['Stadtkind', 'Asphalt'], ['Sternschnuppe', 'Komet'], ['Rin', 'Laut']] : [];

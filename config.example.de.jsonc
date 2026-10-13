@@ -17,6 +17,7 @@
   "adventure": 0.4,                   // 0–1: 0 = ähnliche Songs bevorzugen, 0.5 = egal, 1 = entfernte bevorzugen; zugleich Chance auf Abstecher zu verwandten Künstlern
   "seedsPerRun": 20,                  // So viele Ausgangspunkte werden pro Lauf gezogen, zu denen Last.fm ähnliche Songs sucht (1–200)
   "useLastfmTopTracks": true,         // Deine Last.fm-Top-Songs der letzten 3 Monate zusätzlich als Ausgangspunkte verwenden
+  "useLastfmLovedTracks": true,       // Songs, die du auf Last.fm mit ♥ markiert hast, zählen zusätzlich als Favoriten
   "followedArtists": 0,               // Künstler, denen du auf Spotify folgst (-1–1): -1 = keine davon, 0 = egal (die Liste wird gar nicht abgefragt), 1 = stark bevorzugt; gilt für neue Songs und Favoriten
   "preferNewer": 0,                   // Neuere oder ältere Songs nach Erscheinungsjahr (-1–1): -1 = ältere bevorzugen, 0 = egal, 1 = neuere bevorzugen; ändert nur das Los, nichts fällt weg
 
