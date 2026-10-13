@@ -101,11 +101,31 @@ function connectWebSocket(port, wsPath, onMessage) {
 }
 
 // Auf den GitHub-Runnern startet Chrome manchmal sehr langsam (einmal über 20 s): bis zu 60 s warten und einmal neu versuchen.
+// Scheitern beide Versuche, nennt der Fehler beide Gründe.
 export async function launch(file) {
+  let first;
   try {
     return await launchOnce(file);
-  } catch {
-    return launchOnce(file);
+  } catch (e) {
+    first = e;
+  }
+  try {
+    return await launchOnce(file);
+  } catch (e) {
+    throw new Error(`${e.message} (erster Versuch: ${first.message})`);
+  }
+}
+
+// Profilordner entfernen. Der Browser schreibt nach dem Beenden manchmal noch kurz hinein: ein paar Mal versuchen, sonst liegen
+// lassen (temp).
+async function removeProfile(profile) {
+  for (let i = 0; i < 20; i++) {
+    try {
+      fs.rmSync(profile, { recursive: true, force: true });
+      return;
+    } catch {
+      await sleep(250);
+    }
   }
 }
 
@@ -118,24 +138,10 @@ async function launchOnce(file) {
   let stderr = '';
   proc.stderr.on('data', chunk => (stderr = (stderr + chunk).slice(-4000)));
   const exited = new Promise(resolve => proc.once('exit', resolve));
-  // Port und Pfad stehen in DevToolsActivePort im Profil, sobald der Browser bereit ist.
-  let port;
-  let wsPath;
-  for (let i = 0; i < 600 && !port; i++) {
-    try {
-      [port, wsPath] = fs.readFileSync(path.join(profile, 'DevToolsActivePort'), 'utf8').trim().split(/\r?\n/);
-    } catch {
-      await sleep(100);
-    }
-  }
-  if (!port) {
-    proc.kill();
-    throw new Error(`Browser startet nicht: ${stderr}`);
-  }
   let id = 0;
   const pending = new Map();
   const listeners = new Set();
-  const ws = await connectWebSocket(Number(port), wsPath, text => {
+  const onWsMessage = text => {
     const msg = JSON.parse(text);
     if (msg.id && pending.has(msg.id)) {
       const { resolve, reject } = pending.get(msg.id);
@@ -145,7 +151,28 @@ async function launchOnce(file) {
     } else {
       for (const l of listeners) l(msg);
     }
-  });
+  };
+  let ws;
+  try {
+    // Port und Pfad stehen in DevToolsActivePort im Profil, sobald der Browser bereit ist.
+    let port;
+    let wsPath;
+    for (let i = 0; i < 600 && !port; i++) {
+      try {
+        [port, wsPath] = fs.readFileSync(path.join(profile, 'DevToolsActivePort'), 'utf8').trim().split(/\r?\n/);
+      } catch {
+        await sleep(100);
+      }
+    }
+    if (!port) throw new Error(`Browser startet nicht: ${stderr}`);
+    ws = await connectWebSocket(Number(port), wsPath, onWsMessage);
+  } catch (e) {
+    // Gescheitert (auch erst beim Verbinden): Browser beenden, sein Profil entfernen, dann weiterwerfen.
+    if (proc.exitCode === null) proc.kill();
+    await Promise.race([exited, sleep(5000)]);
+    await removeProfile(profile);
+    throw e;
+  }
   const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
     const n = ++id;
     pending.set(n, { resolve, reject });
@@ -249,15 +276,7 @@ async function launchOnce(file) {
       await Promise.race([exited, sleep(5000)]);
       if (proc.exitCode === null) proc.kill();
       await Promise.race([exited, sleep(5000)]);
-      // Der Browser schreibt nach dem Schließen manchmal noch kurz ins Profil: ein paar Mal versuchen, sonst liegen lassen (temp).
-      for (let i = 0; i < 20; i++) {
-        try {
-          fs.rmSync(profile, { recursive: true, force: true });
-          break;
-        } catch {
-          await sleep(250);
-        }
-      }
+      await removeProfile(profile);
     },
   };
   return browser;
