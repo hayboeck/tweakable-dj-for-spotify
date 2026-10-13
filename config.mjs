@@ -342,6 +342,49 @@ export function saveCredentials(values, lang) {
   writeValues(entries, lang);
 }
 
+// --- Einstellungen sichern und laden (Tab „Einstellungen“, Abschnitt „Programm“) ---
+// Datei: { app: 'tweakable-dj', kind: 'settings', format: 1, version, exportedAt, settings: { …alle Schlüssel aus DEFAULTS… } },
+// also auch Sperrliste, Automatik und Aussehen. Zugangsdaten (spotify.clientId, lastfm.apiKey, lastfm.user) sind keine
+// Einstellungen in diesem Sinn und stehen nie darin – beim Laden bleiben sie, wie sie sind.
+export const SETTINGS_FORMAT = 1;
+export const SETTINGS_MAX_BYTES = 1_000_000;
+export function settingsBackup(cfg, { version = null, now = new Date() } = {}) {
+  const settings = Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, cfg[k] ?? DEFAULTS[k]]));
+  return `${JSON.stringify({ app: 'tweakable-dj', kind: 'settings', format: SETTINGS_FORMAT, version, exportedAt: now.toISOString(), settings }, null, 2)}\n`;
+}
+// Dateiname mit dem Datum (Ortszeit), in jeder Sprache gleich: tweakable-dj-settings-2026-10-13.json
+export function settingsFileName(now = new Date()) {
+  const two = n => String(n).padStart(2, '0');
+  return `tweakable-dj-settings-${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}.json`;
+}
+// Inhalt einer Datei aus „Einstellungen laden …“ → { values (geprüft, nur Schlüssel aus DEFAULTS), skipped (ungültige Werte),
+// version }. Nimmt eine Sicherung – auch von einer älteren oder neueren Version: unbekannte Schlüssel zählen nicht, ungültige
+// Werte werden übersprungen – oder eine config.jsonc (ihre Zugangsdaten zählen nicht). Alles andere: Fehler mit Meldung.
+export function readSettingsFile(text, lang) {
+  let data;
+  try {
+    data = JSON.parse(stripComments(String(text).replace(/^\uFEFF/, '')));
+  } catch {
+    data = null;
+  }
+  const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const ours = object(data) && data.app === 'tweakable-dj' && object(data.settings);
+  const configLike = object(data) && data.app === undefined && Object.keys(data).filter(k => Object.hasOwn(DEFAULTS, k)).length >= 3;
+  if (!ours && !configLike) throw tError(lang, 'settings.notOurs');
+  const values = {};
+  const skipped = [];
+  for (const [key, value] of Object.entries(ours ? data.settings : data)) {
+    if (!Object.hasOwn(DEFAULTS, key)) continue;
+    try {
+      values[key] = checkValue(key, value, lang);
+    } catch {
+      skipped.push(key);
+    }
+  }
+  if (!Object.keys(values).length) throw tError(lang, 'settings.empty');
+  return { values, skipped, version: ours && typeof data.version === 'string' ? data.version : null };
+}
+
 // --- Werte direkt im Text ändern ---
 
 const getPath = (obj, keyPath) => keyPath.split('.').reduce((o, k) => o?.[k], obj);
@@ -358,6 +401,8 @@ function setPath(obj, keyPath, value) {
 const canon = v => JSON.stringify(v, (_, x) => (x && typeof x === 'object' && !Array.isArray(x)
   ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1)))
   : x));
+// Gleicher Wert (Reihenfolge der Schlüssel in Objekten egal)?
+export const sameValue = (a, b) => canon(a) === canon(b);
 
 // Schreibt Werte (Pfad wie "lastfm.user" → Wert) in die config.jsonc: Kommentare, Reihenfolge und Ausrichtung bleiben.
 // Fehlende Schlüssel kommen samt Erklärung aus der Vorlage der Sprache lang dazu.

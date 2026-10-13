@@ -699,6 +699,24 @@ try {
             <span id="update-check-msg" role="status" aria-live="polite"></span></p>
           <p class="help" id="node-text" hidden></p>
         </div>
+        <!-- Einstellungen sichern (GET /api/settings/export) bzw. laden (POST /api/settings/import: erst mit ?dry=1 als Vorschau,
+             nach der Rückfrage übernehmen) – ohne Zugangsdaten -->
+        <div class="row" id="backup-row">
+          <p class="help" data-t="backupHelp"></p>
+          <div class="actions">
+            <button type="button" class="btn" id="backup-save" data-t="backupSave"></button>
+            <button type="button" class="btn" id="backup-load" data-t="backupLoad"></button>
+            <input type="file" id="backup-file" accept=".json,.jsonc,application/json" hidden>
+          </div>
+          <div class="import-preview" id="backup-preview" hidden>
+            <div id="backup-preview-text"></div>
+            <div class="actions">
+              <button type="button" class="btn primary" id="backup-go" data-t="backupGo"></button>
+              <button type="button" class="btn" id="backup-cancel" data-t="backupCancel"></button>
+            </div>
+          </div>
+          <p class="msg" id="backup-msg" role="status" aria-live="polite"></p>
+        </div>
         <div class="row">
           <p class="help" data-t="quitHelp"></p>
           <div class="actions"><button type="button" class="btn" id="quit" data-t="quit"></button></div>
@@ -770,6 +788,11 @@ const TEXT = {
       version: 'Programm',
       quit: 'Tweakable DJ beenden',
       quitHelp: 'Schließt Tweakable DJ. Automatische Läufe finden trotzdem statt. Zum Starten die Verknüpfung auf dem Desktop doppelklicken.',
+      backupHelp: 'Speichert alle Einstellungen samt Sperrliste in einer Datei – ohne Zugangsdaten (Client ID, API-Key, Last.fm-Name). Mit „Einstellungen laden …“ holst du sie zurück, z. B. auf einem anderen Rechner.',
+      backupSave: 'Einstellungen sichern',
+      backupLoad: 'Einstellungen laden …',
+      backupGo: 'Übernehmen',
+      backupCancel: 'Abbrechen',
       quitUnsaved: 'Ungespeicherte Änderungen gehen verloren. Trotzdem beenden?',
       stoppedQuit: 'Tweakable DJ ist beendet – zum Starten die Verknüpfung doppelklicken.',
       stoppedGone: 'Tweakable DJ läuft nicht mehr – bitte über die Verknüpfung neu starten.',
@@ -1028,6 +1051,19 @@ const TEXT = {
       open: 'In Spotify öffnen ↗',
       failed: 'Der Import hat nicht geklappt.',
     },
+    // Einstellungen sichern und laden (Abschnitt „Programm“)
+    backup: {
+      saved: file => `${file} heruntergeladen.`,
+      reading: 'Lese die Datei …',
+      none: 'Die Datei enthält dieselben Einstellungen wie jetzt – es ändert sich nichts.',
+      changes: (n, names) => `Ändert ${plural(n, 'Einstellung', 'Einstellungen')}: ${names}.`,
+      blocked: (a, t, a0, t0) => `Sperrliste danach: ${plural(a, 'Künstler', 'Künstler')} und ${plural(t, 'Song', 'Songs')} (bisher ${num(a0)} und ${num(t0)}).`,
+      skipped: n => `${plural(n, 'ungültiger Wert wird', 'ungültige Werte werden')} übersprungen.`,
+      keep: 'Zugangsdaten bleiben, wie sie sind.',
+      dirty: 'Ungespeicherte Änderungen gehen dabei verloren.',
+      done: n => `${plural(n, 'Einstellung', 'Einstellungen')} übernommen.`,
+      failed: msg => `Das ging nicht: ${msg}`,
+    },
     seed: {
       liked: 'Lieblingssongs',
       likedLong: 'Lieblingssongs (Songs mit Herz)',
@@ -1223,6 +1259,11 @@ const TEXT = {
       version: 'Program',
       quit: 'Quit Tweakable DJ',
       quitHelp: 'Closes Tweakable DJ. Automatic runs still take place. To start it again, double-click the shortcut on the desktop.',
+      backupHelp: 'Saves all settings including the block list to a file – without credentials (Client ID, API key, Last.fm name). With “Load settings …” you get them back, e.g. on another computer.',
+      backupSave: 'Back up settings',
+      backupLoad: 'Load settings …',
+      backupGo: 'Apply',
+      backupCancel: 'Cancel',
       quitUnsaved: 'Unsaved changes will be lost. Quit anyway?',
       stoppedQuit: 'Tweakable DJ has quit – double-click the shortcut to start it.',
       stoppedGone: 'Tweakable DJ is no longer running – please start it again with the shortcut.',
@@ -1477,6 +1518,19 @@ const TEXT = {
       open: 'Open in Spotify ↗',
       failed: 'The import didn’t work.',
     },
+    // Einstellungen sichern und laden (Abschnitt „Programm“)
+    backup: {
+      saved: file => `${file} downloaded.`,
+      reading: 'Reading the file …',
+      none: 'The file has the same settings as now – nothing changes.',
+      changes: (n, names) => `Changes ${plural(n, 'setting', 'settings')}: ${names}.`,
+      blocked: (a, t, a0, t0) => `Block list afterwards: ${plural(a, 'artist', 'artists')} and ${plural(t, 'song', 'songs')} (until now ${num(a0)} and ${num(t0)}).`,
+      skipped: n => `${plural(n, 'invalid value is', 'invalid values are')} skipped.`,
+      keep: 'Credentials stay as they are.',
+      dirty: 'Unsaved changes will be lost.',
+      done: n => `${plural(n, 'setting', 'settings')} applied.`,
+      failed: msg => `That didn’t work: ${msg}`,
+    },
     seed: {
       liked: 'Liked Songs',
       likedLong: 'Liked Songs (songs with a heart)',
@@ -1665,6 +1719,11 @@ const TEXT = {
       version: 'Programa',
       quit: 'Cerrar Tweakable DJ',
       quitHelp: 'Cierra Tweakable DJ. Las ejecuciones automáticas se siguen haciendo. Para iniciarlo, haz doble clic en el acceso directo del escritorio.',
+      backupHelp: 'Guarda todos los ajustes, incluida la lista de bloqueo, en un archivo, sin credenciales (Client ID, clave API, nombre de Last.fm). Con «Cargar ajustes …» los recuperas, p. ej. en otro ordenador.',
+      backupSave: 'Guardar copia de los ajustes',
+      backupLoad: 'Cargar ajustes …',
+      backupGo: 'Aplicar',
+      backupCancel: 'Cancelar',
       quitUnsaved: 'Se perderán los cambios sin guardar. ¿Cerrar de todos modos?',
       stoppedQuit: 'Tweakable DJ está cerrado: haz doble clic en el acceso directo para iniciarlo.',
       stoppedGone: 'Tweakable DJ ya no está en marcha: vuelve a iniciarlo con el acceso directo.',
@@ -1919,6 +1978,19 @@ const TEXT = {
       open: 'Abrir en Spotify ↗',
       failed: 'La importación no ha funcionado.',
     },
+    // Einstellungen sichern und laden (Abschnitt „Programm“)
+    backup: {
+      saved: file => `${file} descargado.`,
+      reading: 'Leyendo el archivo …',
+      none: 'El archivo tiene los mismos ajustes que ahora: no cambia nada.',
+      changes: (n, names) => `Cambia ${plural(n, 'ajuste', 'ajustes')}: ${names}.`,
+      blocked: (a, t, a0, t0) => `Lista de bloqueo después: ${plural(a, 'artista', 'artistas')} y ${plural(t, 'canción', 'canciones')} (hasta ahora ${num(a0)} y ${num(t0)}).`,
+      skipped: n => `${isOne(n) ? 'Se omite' : 'Se omiten'} ${plural(n, 'valor no válido', 'valores no válidos')}.`,
+      keep: 'Las credenciales no cambian.',
+      dirty: 'Los cambios sin guardar se perderán.',
+      done: n => `${plural(n, 'ajuste aplicado', 'ajustes aplicados')}.`,
+      failed: msg => `No ha funcionado: ${msg}`,
+    },
     seed: {
       liked: 'Tus me gusta',
       likedLong: 'Tus me gusta (canciones que te gustan)',
@@ -2108,6 +2180,11 @@ const TEXT = {
       version: 'Programme',
       quit: 'Quitter Tweakable DJ',
       quitHelp: 'Ferme Tweakable DJ. Les exécutions automatiques ont quand même lieu. Pour le démarrer, double-clique sur le raccourci du Bureau.',
+      backupHelp: 'Enregistre tous les paramètres, liste de blocage comprise, dans un fichier – sans identifiants (Client ID, clé API, nom Last.fm). Avec « Charger les paramètres … », tu les récupères, p. ex. sur un autre ordinateur.',
+      backupSave: 'Sauvegarder les paramètres',
+      backupLoad: 'Charger les paramètres …',
+      backupGo: 'Appliquer',
+      backupCancel: 'Annuler',
       quitUnsaved: 'Les modifications non enregistrées seront perdues. Quitter quand même ?',
       stoppedQuit: 'Tweakable DJ est arrêté – double-clique sur le raccourci pour le démarrer.',
       stoppedGone: 'Tweakable DJ ne fonctionne plus – redémarre-le avec le raccourci.',
@@ -2361,6 +2438,19 @@ const TEXT = {
       done: (name, n) => `« ${name} » contient maintenant ${plural(n, 'titre', 'titres')} du fichier ✓ `,
       open: 'Ouvrir dans Spotify ↗',
       failed: 'L’importation n’a pas fonctionné.',
+    },
+    // Einstellungen sichern und laden (Abschnitt „Programm“)
+    backup: {
+      saved: file => `${file} téléchargé.`,
+      reading: 'Lecture du fichier …',
+      none: 'Le fichier contient les mêmes paramètres qu’actuellement – rien ne change.',
+      changes: (n, names) => `Modifie ${plural(n, 'paramètre', 'paramètres')} : ${names}.`,
+      blocked: (a, t, a0, t0) => `Liste de blocage ensuite : ${plural(a, 'artiste', 'artistes')} et ${plural(t, 'titre', 'titres')} (jusqu’ici ${num(a0)} et ${num(t0)}).`,
+      skipped: n => `${plural(n, 'valeur non valide ignorée', 'valeurs non valides ignorées')}.`,
+      keep: 'Les identifiants restent inchangés.',
+      dirty: 'Les modifications non enregistrées seront perdues.',
+      done: n => `${plural(n, 'paramètre appliqué', 'paramètres appliqués')}.`,
+      failed: msg => `Ça n’a pas marché : ${msg}`,
     },
     seed: {
       liked: 'Titres likés',
@@ -3348,6 +3438,8 @@ function refresh(skipInput) {
   for (const b of $('archive-list').querySelectorAll('button')) b.disabled = working;
   $('import-go').disabled = working;
   $('undo').disabled = working;
+  $('backup-load').disabled = working;
+  $('backup-go').disabled = working;
   $('files-help').textContent = T.files.help(saved.playlistName ?? '');
   renderSchedule();
   renderTrial();
@@ -3884,6 +3976,79 @@ function download(text, filename) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(href), 10_000);
+}
+
+// --- Einstellungen sichern und laden (Tab „Einstellungen“, Abschnitt „Programm“) ---
+
+let backupText = null;    // Inhalt der gewählten Datei, solange ihre Vorschau offen ist
+
+// „Einstellungen sichern“: Datei vom Server (ohne Zugangsdaten) im Browser herunterladen
+async function backupSave() {
+  try {
+    const { text, filename } = await apiJson('/api/settings/export');
+    download(text, filename);
+    setMsg($('backup-msg'), 'ok', T.backup.saved(filename));
+  } catch (e) {
+    setMsg($('backup-msg'), 'err', T.backup.failed(e.message));
+  }
+}
+
+const settingName = key => T.items[key]?.label ?? { language: T.page.language, mode: T.page.mode }[key] ?? key;
+const settingsImport = (text, dry) => api(`/api/settings/import${dry ? '?dry=1' : ''}`, { method: 'POST', body: text, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+  .then(async res => {
+    const data = await res.json();
+    if (!res.ok || data.ok === false) throw new Error(data.error);
+    return data;
+  });
+
+// „Einstellungen laden …“, Schritt 1: Der Server prüft die Datei und sagt, was sich ändert (?dry=1) – hier als Vorschau mit Rückfrage.
+async function backupPreview(file) {
+  backupText = null;
+  $('backup-preview').hidden = true;
+  setMsg($('backup-msg'), '', T.backup.reading);
+  try {
+    const text = await file.text();
+    const data = await settingsImport(text, true);
+    const lines = [];
+    if (data.changes.length) {
+      const names = data.changes.map(settingName);
+      lines.push(T.backup.changes(data.changes.length, (names.length > 8 ? [...names.slice(0, 8), '…'] : names).join(', ')));
+      const b = data.blocked;
+      if (data.changes.some(k => k === 'blockedArtists' || k === 'blockedTracks')) {
+        lines.push(T.backup.blocked(b.artists ?? b.artistsBefore, b.tracks ?? b.tracksBefore, b.artistsBefore, b.tracksBefore));
+      }
+    }
+    if (data.skipped.length) lines.push(T.backup.skipped(data.skipped.length));
+    if (!data.changes.length) return setMsg($('backup-msg'), 'ok', [T.backup.none, ...lines].join(' '));
+    lines.push(T.backup.keep);
+    if (dirty()) lines.push(T.backup.dirty);
+    $('backup-preview-text').replaceChildren(...lines.map(l => el('p', { textContent: l })));
+    backupText = text;
+    $('backup-preview').hidden = false;
+    setMsg($('backup-msg'), '', '');
+  } catch (e) {
+    setMsg($('backup-msg'), 'err', T.backup.failed(e.message));
+  }
+}
+
+// Schritt 2 (nach „Übernehmen“): speichern wie mit „Speichern“ (Automatik, zweite Verknüpfung), dann alles neu laden –
+// auch Sprache, Aussehen und Ansicht. Ungespeicherte Änderungen der Seite fallen weg.
+async function backupApply() {
+  if (backupText === null) return;
+  $('backup-go').disabled = true;
+  try {
+    const data = await settingsImport(backupText, false);
+    backupText = null;
+    $('backup-preview').hidden = true;
+    await load();
+    loadSchedule();
+    loadPlaylists();
+    setMsg($('backup-msg'), 'ok', T.backup.done(data.changed));
+  } catch (e) {
+    setMsg($('backup-msg'), 'err', T.backup.failed(e.message));
+  } finally {
+    $('backup-go').disabled = isWorking();
+  }
 }
 
 // --- Textdatei: speichern und importieren (Knopfreihe unter der Ausgabe) ---
@@ -4932,6 +5097,15 @@ $('import-file').onchange = () => {
 $('import-go').onclick = importWrite;
 $('undo').onclick = () => { if (undoEntry) importArchive(undoEntry.id, { undo: true }); };
 $('import-cancel').onclick = () => setImport(null);
+$('backup-save').onclick = backupSave;
+$('backup-load').onclick = () => $('backup-file').click();
+$('backup-file').onchange = () => {
+  const file = $('backup-file').files[0];
+  $('backup-file').value = ''; // dieselbe Datei noch einmal wählen löst wieder change aus
+  if (file) backupPreview(file);
+};
+$('backup-go').onclick = backupApply;
+$('backup-cancel').onclick = () => { backupText = null; $('backup-preview').hidden = true; };
 $('update-close').onclick = dismissUpdate;
 $('notice-close').onclick = () => {
   // „Angemeldet ✓“ ist erledigt; bei den übrigen Gründen merkt sich die Seite das Ausblenden bis zum Neuladen.

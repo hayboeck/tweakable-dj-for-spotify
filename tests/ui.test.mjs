@@ -236,6 +236,52 @@ test('GET /api/playlists: Playlists von Tweakable DJ (Name, „<Name> · Datum U
   }
 });
 
+test('Einstellungen sichern und laden: ohne Zugangsdaten; Vorschau (?dry=1); übernehmen wie Speichern; fremde Dateien abgelehnt', async () => {
+  const configFile = path.join(dir, 'config.jsonc');
+  const before = fs.readFileSync(configFile, 'utf8');
+  try {
+    const exp = await api('/api/settings/export', { lang: 'de' });
+    assert.equal(exp.status, 200);
+    assert.match(exp.data.filename, /^tweakable-dj-settings-\d{4}-\d\d-\d\d\.json$/);
+    const file = JSON.parse(exp.data.text);
+    assert.deepEqual([file.app, file.kind, file.format, file.settings.playlistName, file.settings.blockedArtists], ['tweakable-dj', 'settings', 1, 'Test-DJ', ['Macloud', 'Rin']]);
+    assert.doesNotMatch(exp.data.text, /test-client-id|test-lastfm-key|testhoerer|clientId|apiKey/, 'keine Zugangsdaten');
+    // Andere Werte, dazu ein Schlüssel einer späteren Version, ein ungültiger Wert und Zugangsdaten (zählen nicht)
+    const changed = JSON.stringify({ ...file, version: '9.0.0', settings: { ...file.settings, size: 33, blockedArtists: ['Neu A', 'Neu B', 'Neu C'],
+      kommtSpaeter: true, adventure: 7, spotify: { clientId: 'b'.repeat(32) } } });
+    const dry = await api('/api/settings/import?dry=1', { lang: 'de', method: 'POST', raw: changed, headers: { 'Content-Type': 'text/plain' } });
+    assert.equal(dry.status, 200, dry.text);
+    assert.deepEqual([dry.data.changes, dry.data.skipped, dry.data.version], [['size', 'blockedArtists'], ['adventure'], '9.0.0']);
+    assert.deepEqual(dry.data.blocked, { artists: 3, tracks: 0, artistsBefore: 2, tracksBefore: 0 });
+    assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'Vorschau ändert nichts');
+    const go = await api('/api/settings/import', { lang: 'de', method: 'POST', raw: changed, headers: { 'Content-Type': 'text/plain' } });
+    assert.deepEqual(go.data, { ok: true, changed: 2 });
+    const values = (await api('/api/config')).data.values;
+    assert.deepEqual([values.size, values.blockedArtists, values.adventure], [33, ['Neu A', 'Neu B', 'Neu C'], 0.4]);
+    const text = fs.readFileSync(configFile, 'utf8');
+    assert.match(text, /"clientId": "test-client-id"/, 'Zugangsdaten unverändert');
+    // config.jsonc einer anderen Installation geht auch (ihre Zugangsdaten zählen nicht); fremde Dateien nicht
+    const cfgLike = `// Kommentar\n{ "spotify": { "clientId": "${'c'.repeat(32)}" }, "size": 40, "playlistName": "Test-DJ", "seed": "liked" }`;
+    assert.deepEqual((await api('/api/settings/import?dry=1', { method: 'POST', raw: cfgLike })).data.changes, ['size']);
+    for (const bad of ['kein JSON', '[1, 2]', JSON.stringify({ app: 'anderes', settings: { size: 1 } }), JSON.stringify({ name: 'x' })]) {
+      const r = await api('/api/settings/import?dry=1', { lang: 'de', method: 'POST', raw: bad });
+      assert.deepEqual([r.status, r.data], [200, { ok: false, error: 'Das ist keine Sicherung der Einstellungen von Tweakable DJ. Erwartet wird eine Datei aus „Einstellungen sichern“ (oder eine config.jsonc).' }], bad);
+    }
+    const empty = await api('/api/settings/import?dry=1', { lang: 'en', method: 'POST', raw: JSON.stringify({ app: 'tweakable-dj', settings: { size: 0 } }) });
+    assert.deepEqual([empty.status, empty.data.error], [200, 'The file contains no valid settings.']);
+    const big = await api('/api/settings/import?dry=1', { lang: 'en', method: 'POST', raw: 'x'.repeat(1_100_000) });
+    assert.deepEqual([big.status, big.data.ok], [200, false]);
+    // Ohne ?dry=1: Fehler der Anfrage (400), nichts gespeichert
+    const direct = await api('/api/settings/import', { lang: 'en', method: 'POST', raw: '[]' });
+    assert.equal(direct.status, 400);
+    // Ohne Kopfzeile X-Tweakable-DJ (fremde Webseite): abgelehnt
+    const foreign = await fetch(`${base}/api/settings/export`);
+    assert.equal(foreign.status, 403);
+  } finally {
+    fs.writeFileSync(configFile, before);
+  }
+});
+
 test('POST /api/run: Ausgabe und @@RESULT in der Sprache der Anfrage', async () => {
   const de = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
   assert.equal(de.status, 200);
@@ -778,6 +824,12 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungs
     'update.text': [['0.2.0', '0.1.0'], ['0.2.0', null]],
     'update.version': [['0.4.0-beta.1', true], ['0.3.3', false]],
     'update.confirm': [['0.1.0', '0.2.0']],
+    'update.nodeInfo': [['24.21.0', true], ['22.0.0', false]],
+    presetPro: [[['Gefolgte Künstler', 'Neuere / ältere Songs']], [[]]],
+    'backup.saved': [['tweakable-dj-settings-2026-10-13.json']],
+    'backup.changes': [[2, 'A, B'], [1, 'A']],
+    'backup.blocked': [[2, 1, 0, 3], [1, 0, 1, 1]],
+    'backup.failed': [['Fehler']],
   };
   const texts = {};
   const collect = (lang, v, key) => {

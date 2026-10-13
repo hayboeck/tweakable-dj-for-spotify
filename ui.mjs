@@ -21,8 +21,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import {
-  CONFIG, DEFAULTS, HERE, LIMITS, VARIETY_KEYS, VARIETY_LEVELS, checkValues, configLanguage, isPlaceholder, missingCredentials, numberProblems, readConfig, remindLoginOn,
-  saveCredentials, updateConfig,
+  CONFIG, DEFAULTS, HERE, LIMITS, SETTINGS_MAX_BYTES, VARIETY_KEYS, VARIETY_LEVELS, checkValues, configLanguage, isPlaceholder, missingCredentials, numberProblems,
+  readConfig, readSettingsFile, remindLoginOn, sameValue, saveCredentials, settingsBackup, settingsFileName, updateConfig,
 } from './config.mjs';
 import { readJson as readJsonFile, readText, writeAtomic } from './files.mjs';
 import { locale, resolveLang, systemLang, t } from './i18n.mjs';
@@ -856,6 +856,41 @@ const server = http.createServer(async (req, res) => {
       if (!list) return send(409, { error: t(lang, 'export.noPlaylist', { name: cfg.playlistName }) });
       const text = formatExport({ name: cfg.playlistName, url: list.url, tracks: list.tracks, lang, now });
       return send(200, { text, filename: exportFileName(lang, now), songs: list.tracks.length, playlistUrl: list.url });
+    }
+
+    // „Einstellungen sichern“: alle Einstellungen samt Sperrliste als JSON-Datei für den Download im Browser, ohne Zugangsdaten
+    // (settingsBackup in config.mjs). → { text, filename }
+    if (route === 'GET /api/settings/export') {
+      const now = new Date();
+      return send(200, { text: settingsBackup(currentConfig(lang), { version: VERSION, now }), filename: settingsFileName(now) });
+    }
+
+    // „Einstellungen laden …“: Body = Inhalt der Datei (höchstens 1 MB; readSettingsFile). Mit ?dry=1 nur prüfen und sagen, was
+    // sich ändert: { ok, changes: [Schlüssel], skipped: [Schlüssel mit ungültigem Wert], version, blocked: { artists, tracks,
+    // artistsBefore, tracksBefore } } (artists/tracks null = nicht in der Datei); eine unbrauchbare Datei ist dabei kein Fehler der
+    // Anfrage, sondern { ok: false, error } (die Seite zeigt die Meldung). Sonst die geänderten Werte übernehmen wie
+    // „Speichern“ (Automatik, zweite Verknüpfung, saveSettings) → { ok, changed, schedule? }. Zugangsdaten bleiben, wie sie sind.
+    if (route === 'POST /api/settings/import') {
+      const dry = url.searchParams.get('dry') === '1';
+      let file;
+      try {
+        file = readSettingsFile(await readBody(req, lang, SETTINGS_MAX_BYTES, 'settings.tooLarge'), lang);
+      } catch (e) {
+        if (dry) return send(200, { ok: false, error: e.message });
+        throw e;
+      }
+      const cfg = currentConfig(lang);
+      const changes = Object.keys(file.values).filter(k => !sameValue(file.values[k], cfg[k]));
+      if (dry) {
+        const count = v => (Array.isArray(v) ? v.length : 0);
+        return send(200, {
+          ok: true, changes, skipped: file.skipped, version: file.version,
+          blocked: { artists: file.values.blockedArtists?.length ?? null, tracks: file.values.blockedTracks?.length ?? null,
+            artistsBefore: count(cfg.blockedArtists), tracksBefore: count(cfg.blockedTracks) },
+        });
+      }
+      const schedule = changes.length ? await serial(() => saveSettings(Object.fromEntries(changes.map(k => [k, file.values[k]])), lang)) : null;
+      return send(200, { ok: true, changed: changes.length, ...(schedule && { schedule }) });
     }
 
     // Textdatei importieren, Schritt 1 (Vorschau): Body = Inhalt der Datei (Text, höchstens 1 MB). Sucht die Songs auf
