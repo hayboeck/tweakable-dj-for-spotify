@@ -1028,6 +1028,8 @@ const TEXT = {
       collaborative: ' (gemeinsam)',
       other: 'Playlist aus deinen Einstellungen (nicht in deiner Liste)',
       configured: 'Eingestellte Playlist',
+      own: ' (von Tweakable DJ)',
+      ownLoop: 'Diese Playlist füllt Tweakable DJ selbst. Als Quelle drehen sich die Favoriten im Kreis – wähle besser eine andere.',
       login: 'Deine Playlists erscheinen hier, sobald du bei Spotify angemeldet bist.',
       loading: 'Deine Playlists werden geladen …',
       error: msg => `Deine Playlists sind gerade nicht abrufbar: ${msg}`,
@@ -1474,6 +1476,8 @@ const TEXT = {
       collaborative: ' (collaborative)',
       other: 'Playlist from your settings (not in your list)',
       configured: 'Configured playlist',
+      own: ' (by Tweakable DJ)',
+      ownLoop: 'Tweakable DJ fills this playlist itself. As the source, your favorites go round in circles – better choose another one.',
       login: 'Your playlists appear here once you’re logged in to Spotify.',
       loading: 'Loading your playlists …',
       error: msg => `Your playlists can’t be loaded right now: ${msg}`,
@@ -1913,6 +1917,8 @@ const TEXT = {
       collaborative: ' (colaborativa)',
       other: 'Playlist de tus ajustes (no está en tu lista)',
       configured: 'Playlist configurada',
+      own: ' (de Tweakable DJ)',
+      ownLoop: 'Tweakable DJ llena esta playlist por sí mismo. Como fuente, tus favoritos dan vueltas en círculo: mejor elige otra.',
       login: 'Tus playlists aparecerán aquí en cuanto inicies sesión en Spotify.',
       loading: 'Cargando tus playlists …',
       error: msg => `Ahora mismo no se pueden cargar tus playlists: ${msg}`,
@@ -2353,6 +2359,8 @@ const TEXT = {
       collaborative: ' (collaborative)',
       other: 'Playlist de tes paramètres (absente de ta liste)',
       configured: 'Playlist configurée',
+      own: ' (de Tweakable DJ)',
+      ownLoop: 'Tweakable DJ remplit lui-même cette playlist. Comme source, tes favoris tournent en rond – choisis plutôt une autre.',
       login: 'Tes playlists apparaîtront ici dès que la connexion à Spotify sera établie.',
       loading: 'Chargement de tes playlists …',
       error: msg => `Tes playlists ne peuvent pas être chargées pour le moment : ${msg}`,
@@ -3275,7 +3283,7 @@ function refresh(skipInput) {
     // Ungültiger Wert aus der config.jsonc: Meldung, solange er unverändert ist.
     if (control.problem) control.problem.textContent = same(v, saved[item.key]) ? problems[item.key] ?? '' : '';
     if (control.row) control.row.hidden = Boolean(item.show) && !item.show(current);
-    if (item.type === 'seed') control.note.textContent = seedNoteText();
+    if (item.type === 'seed') control.note.textContent = seedNoteText(v);
     out.textContent = item.type === 'swatches' ? text.fmt(v) : item.type ? '' : OUT_TEXT[item.key] ? OUT_TEXT[item.key](v) : text.fmt(v);
     hint.textContent = OUT_HINT[item.key] ? OUT_HINT[item.key](v) : text.hint ? text.hint(v, current) : '';
     hint.classList.toggle('warn', hintWarn(item.key, v));
@@ -4110,10 +4118,12 @@ async function checkUndo(file) {
 
 function seedLabel(o) {
   const count = o.tracks != null ? ` · ${T.seed.songs(o.tracks)}` : '';
-  return o.value === 'liked' ? `${T.seed.likedLong}${count}` : `${o.name}${o.collaborative ? T.seed.collaborative : ''}${count}`;
+  return o.value === 'liked' ? `${T.seed.likedLong}${count}` : `${o.name}${o.collaborative ? T.seed.collaborative : ''}${o.own ? T.seed.own : ''}${count}`;
 }
 const seedName = v => (v === 'liked' ? T.seed.liked : seedOptions?.find(o => o.value === v)?.name ?? T.seed.playlist);
-const seedNoteText = () => (!seedNote ? '' : seedNote.key === 'error' ? T.seed.error(seedNote.msg) : seedNote.key === 'raw' ? seedNote.msg : T.seed[seedNote.key]);
+// Hinweis unter der Auswahl: Stand der Liste, sonst – ist die gewählte Playlist (value) eine von Tweakable DJ selbst – der Kreislauf.
+const seedNoteText = value => (!seedNote ? (seedOptions?.find(o => o.value === value)?.own ? T.seed.ownLoop : '')
+  : seedNote.key === 'error' ? T.seed.error(seedNote.msg) : seedNote.key === 'raw' ? seedNote.msg : T.seed[seedNote.key]);
 
 function fillSeedSelect(select, value) {
   const options = seedOptions ?? [{ value: 'liked', tracks: null }];
@@ -4149,7 +4159,7 @@ async function loadPlaylists() {
 function renderSeed() {
   refresh();
   if (setup) fillSeedSelect($('w-seed'), $('w-seed').value || current.seed || 'liked');
-  $('w-seed-note').textContent = seedNoteText();
+  $('w-seed-note').textContent = seedNoteText($('w-seed').value);
 }
 
 // --- Anmeldung bei Spotify (Assistent und Hinweis) ---
@@ -4855,6 +4865,7 @@ function wireSetup() {
   loginBox($('notice-login'), () => T.login.start);
   $('w-login-next').onclick = () => openStep(4, true);
   $('w-seed-save').onclick = saveSeed;
+  $('w-seed').onchange = () => { $('w-seed-note').textContent = seedNoteText($('w-seed').value); };
   // „Zu den Reglern“ führt in den Tab „Playlist“, „Zurück zu den Einstellungen“ dorthin, woher der Knopf kam.
   $('w-finish').onclick = finishSetup;
   $('w-shortcut').onchange = () => { shortcutWanted = $('w-shortcut').checked; };

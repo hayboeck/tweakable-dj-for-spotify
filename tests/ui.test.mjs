@@ -202,6 +202,40 @@ test('GET /api/playlists: "Lieblingssongs", "Liked Songs", "Tus me gusta" bzw. "
   assert.equal((await api('/api/playlists', { lang: 'fr' })).data.options[0].name, 'Titres likés');
 });
 
+test('GET /api/playlists: Playlists von Tweakable DJ (Name, „<Name> · Datum Uhrzeit“, gemerkte IDs) nicht als Quelle; eingestellte bleibt mit own', async () => {
+  const file = path.join(dir, 'store.json');
+  const stateFile = path.join(dir, 'state.json');
+  const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+  const stateBefore = fs.existsSync(stateFile) ? fs.readFileSync(stateFile, 'utf8') : null;
+  const list = (id, name) => ({ id, name, description: '', uris: [] });
+  try {
+    const old = before ? JSON.parse(before) : { playlists: [], tracks: {} };
+    fs.writeFileSync(file, JSON.stringify({ ...old, playlists: [
+      list('own0000000000000000001', 'Test-DJ'),
+      list('own0000000000000000002', 'Test-DJ · 07.10.2026 15:32'),
+      list('own0000000000000000003', 'Test-DJ · 10/07/2026 03:32 PM'),
+      list('own0000000000000000004', 'Früherer Name'),
+      list('mine000000000000000001', 'Roadtrip'),
+      list('mine000000000000000002', 'Test-DJ Remixe'),
+    ] }));
+    fs.writeFileSync(stateFile, JSON.stringify({ history: [], cache: {}, ownPlaylistIds: ['own0000000000000000004'] }));
+    const names = data => data.options.slice(1).map(o => `${o.name}${o.own ? ' (own)' : ''}`);
+    const r = await api('/api/playlists', { lang: 'de' });
+    assert.equal(r.status, 200, r.text);
+    assert.deepEqual(names(r.data), ['Roadtrip', 'Test-DJ Remixe']);
+    // Eingestellte Quelle ist eine von Tweakable DJ: bleibt sichtbar, mit own (die Seite weist auf den Kreislauf hin)
+    const seed = 'https://open.spotify.com/playlist/own0000000000000000002';
+    assert.equal((await api('/api/config', { method: 'POST', body: { seed } })).status, 200);
+    assert.deepEqual(names((await api('/api/playlists', { lang: 'de' })).data), ['Roadtrip', 'Test-DJ · 07.10.2026 15:32 (own)', 'Test-DJ Remixe']);
+  } finally {
+    await api('/api/config', { method: 'POST', body: { seed: 'liked' } });
+    if (before === null) fs.rmSync(file, { force: true });
+    else fs.writeFileSync(file, before);
+    if (stateBefore === null) fs.rmSync(stateFile, { force: true });
+    else fs.writeFileSync(stateFile, stateBefore);
+  }
+});
+
 test('POST /api/run: Ausgabe und @@RESULT in der Sprache der Anfrage', async () => {
   const de = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
   assert.equal(de.status, 200);

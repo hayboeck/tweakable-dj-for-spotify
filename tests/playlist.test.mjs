@@ -429,6 +429,23 @@ test('undoTarget: Eintrag vor dem letzten Schreiben, sonst null', async () => {
   assert.deepEqual(undoTarget([{ id: 'x.txt', url: null }, mixed[1]], 'x.txt'), mixed[1], 'neueste ohne Link: der Eintrag davor');
 });
 
+test('isOwnPlaylist und rememberOwnPlaylist: Playlists von Tweakable DJ erkennen, IDs merken', async () => {
+  const { isOwnPlaylist, newPlaylistName, rememberOwnPlaylist, OWN_IDS_MAX } = await import('../playlist.mjs');
+  const at = new Date(2026, 9, 7, 15, 32);
+  const own = (name, ids) => isOwnPlaylist({ id: 'x1', name }, { name: 'Tweakable DJ', ids });
+  for (const lang of ['de', 'en', 'es', 'fr']) assert.equal(own(newPlaylistName('Tweakable DJ', lang, at)), true, lang);
+  assert.equal(own('Tweakable DJ'), true);
+  assert.equal(own('tweakable dj · 1.2.2026 9:05'), true, 'Groß/Klein, einstellige Zahlen');
+  assert.equal(own('Tweakable DJ Remixe'), false);
+  assert.equal(own('Tweakable DJ · Lieblinge'), false);
+  assert.equal(own('Mein Mix'), false);
+  assert.equal(own('Mein Mix', ['x1']), true, 'gemerkte ID');
+  assert.equal(isOwnPlaylist({ id: 'a', name: 'C++ (Mix) · 07.10.2026 15:32' }, { name: 'C++ (Mix)' }), true, 'Sonderzeichen im Namen');
+  assert.deepEqual(rememberOwnPlaylist(['a', 'b'], 'a'), ['b', 'a']);
+  assert.deepEqual(rememberOwnPlaylist(undefined, 'a'), ['a']);
+  assert.equal(rememberOwnPlaylist(Array.from({ length: OWN_IDS_MAX }, (_, i) => `i${i}`), 'neu').length, OWN_IDS_MAX);
+});
+
 test('newPlaylistName: Name · Datum Uhrzeit im Format der Sprache, nur gewöhnliche Leerzeichen', async () => {
   const { newPlaylistName } = await import('../playlist.mjs');
   const at = new Date(2026, 9, 7, 15, 32);

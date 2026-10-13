@@ -33,8 +33,8 @@ import { autoRunMessage, autoRunSince, cleanObsolete, installBlocker, installUpd
 import { NOW_RESULT } from './schedule.mjs';
 import { notify, notifyProblem, remindLogin, testNotice } from './notify.mjs';
 import {
-  exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, parseImport, readPlaylist, resolveImport, validUris,
-  writePlaylist,
+  exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, isOwnPlaylist, parseImport, readPlaylist, resolveImport,
+  validUris, writePlaylist,
 } from './playlist.mjs';
 import { readTrial, TRIAL_IGNORED, trialInfo, trialProblem } from './trial.mjs';
 import { archiveFileCount, archivePlaylist, listArchive, readArchive, undoTarget } from './archive.mjs';
@@ -727,17 +727,28 @@ const server = http.createServer(async (req, res) => {
       return send(200, loginView());
     }
 
-    // Auswahl für die Quelle: Lieblingssongs + eigene bzw. gemeinsame Playlists (ohne die DJ-Playlist selbst).
+    // Auswahl für die Quelle: Lieblingssongs + eigene bzw. gemeinsame Playlists – ohne die, die Tweakable DJ selbst schreibt
+    // (isOwnPlaylist: die aus den Einstellungen, „<Name> · <Datum> <Uhrzeit>“ und alle mit gemerkter ID). Ist so eine gerade die
+    // Quelle, bleibt sie in der Liste, mit own: true (die Seite weist dann auf den Kreislauf hin).
     if (route === 'GET /api/playlists') {
       const cfg = currentConfig(lang);
       if (loginMissing(cfg)) return send(409, { error: t(lang, 'ui.loginFirst'), login: true });
       const spotify = createSpotify(cfg.spotify.clientId, TOKENS, { lang });
       const me = await spotify.me();
       const [liked, lists] = await Promise.all([spotify.likedCount().catch(() => null), spotify.ownPlaylists(me.id)]);
+      let state = {};
+      try {
+        state = readJsonFile(STATE, {}) ?? {};
+      } catch {
+        // kaputte state.json: dann nur Name und Muster
+      }
+      const ids = [...(Array.isArray(state.ownPlaylistIds) ? state.ownPlaylistIds : []), ...Object.values(state.playlistIds ?? {})];
+      const seedId = /^liked$/.test(cfg.seed) ? null : (/playlist[/:]([A-Za-z0-9]+)/.exec(cfg.seed)?.[1] ?? cfg.seed);
       const options = lists
-        .filter(p => p.name !== cfg.playlistName)
+        .map(p => ({ ...p, own: isOwnPlaylist(p, { name: cfg.playlistName, ids }) }))
+        .filter(p => !p.own || p.id === seedId)
         .sort((a, b) => a.name.localeCompare(b.name, locale(lang)))
-        .map(p => ({ value: `https://open.spotify.com/playlist/${p.id}`, name: p.name, tracks: p.tracks, collaborative: p.collaborative }));
+        .map(p => ({ value: `https://open.spotify.com/playlist/${p.id}`, name: p.name, tracks: p.tracks, collaborative: p.collaborative, ...(p.own && { own: true }) }));
       return send(200, { user: me.display_name || me.id, options: [{ value: 'liked', name: t(lang, 'ui.likedSongs'), tracks: liked }, ...options] });
     }
 

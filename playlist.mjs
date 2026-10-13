@@ -70,6 +70,25 @@ export function newPlaylistName(name, lang, now = new Date()) {
   return clean(`${clean(name)} · ${date} ${time}`.replace(/[   ]/g, ' '));
 }
 
+// Hat Tweakable DJ diese Playlist ({ id, name }) selbst angelegt bzw. geschrieben? Dann taugt sie nicht als Quelle der
+// Favoriten (die eigene Ausgabe als Eingabe ergäbe einen Kreislauf). Erkannt an der ID (ids: gemerkt in state.json,
+// ownPlaylistIds und playlistIds), am Namen aus den Einstellungen (name) und am Muster neuer Playlists „<Name> · <Datum> <Uhrzeit>“
+// (newPlaylistName, in allen Sprachen: Datum mit . oder /, Uhrzeit mit oder ohne AM/PM).
+export function isOwnPlaylist(p, { name, ids = [] }) {
+  if (!p || typeof p.name !== 'string') return false;
+  if (p.id && ids.includes(p.id)) return true;
+  const base = clean(name);
+  if (!base) return false;
+  if (p.name === base || p.name === name) return true;
+  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${escaped} · \\d{1,2}[./]\\d{1,2}[./]\\d{4} \\d{1,2}:\\d{2}( [AP]M)?$`, 'i').test(p.name);
+}
+
+// IDs der Playlists, die Tweakable DJ geschrieben hat (state.json: ownPlaylistIds, neueste zuletzt, höchstens OWN_IDS_MAX),
+// mit id dazu.
+export const OWN_IDS_MAX = 200;
+export const rememberOwnPlaylist = (ids, id) => [...(Array.isArray(ids) ? ids : []).filter(x => typeof x === 'string' && x !== id), id].slice(-OWN_IDS_MAX);
+
 // Inhalt der eigenen Playlist name: { id, url, tracks } bzw. null, wenn es sie (noch) nicht gibt.
 // knownId: gemerkte ID (state.json, playlistIds) – wie bei writePlaylist erst über sie, dann über den Namen suchen (die Liste
 // deiner Playlists kann Spotify bei einer Störung unvollständig liefern, und bei zwei gleichnamigen träfe es sonst vielleicht

@@ -37,7 +37,7 @@ import { autoRunSince } from './install-update.mjs';
 import { createSpotify, FOLLOW_SCOPE, isScopeError, login, REDIRECT_URI } from './spotify.mjs';
 import {
   dateTime, exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, mapLimit, newPlaylistName, parseImport,
-  readPlaylist, resolveImport, writePlaylist,
+  readPlaylist, rememberOwnPlaylist, resolveImport, writePlaylist,
 } from './playlist.mjs';
 import { readTrial, removeTrial, saveTrial, trialProblem } from './trial.mjs';
 import { archivedTracks, archivePlaylist, saveArchive } from './archive.mjs';
@@ -522,6 +522,7 @@ async function toSpotify(cfg, spotify, lineup, description) {
   const keys = lineup.map(track => trackKey(track.artist, track.name));
   updateState(state => {
     if (!asNew) state.playlistIds = { [name]: id }; // für das nächste Schreiben (writePlaylist, knownId)
+    state.ownPlaylistIds = rememberOwnPlaylist(state.ownPlaylistIds, id); // nicht als Quelle anbieten (GET /api/playlists)
     state.played = rememberPlayed([...playedSet(state)], keys);
     state.history = lastRuns(cfg, [...state.history, keys]);
   });
