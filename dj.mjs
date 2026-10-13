@@ -128,7 +128,7 @@ function updateState(change) {
 const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null, playlistName: null, playlistUrl: null, missingScope: null, trialId: null, archiveFile: null, artists: null, yearFrom: null, yearTo: null, firstTime: null, summary: null };
 
 // Fehlerart für die Oberfläche: login_expired, not_logged_in, forbidden, lastfm_key, setup_incomplete, node_version,
-// trial_expired (Probelauf lässt sich nicht mehr übernehmen), other.
+// trial_expired (die erstellte Liste lässt sich nicht mehr nach Spotify bringen), other.
 const errorCodeOf = e => e.errorCode ?? (e.status === 403 ? 'forbidden' : 'other');
 
 // Ergebnis melden: automatik.json (bei --auto) und als letzte Zeile "@@RESULT {…}" für die Oberfläche.
@@ -549,7 +549,7 @@ async function toArchive(save) {
   }
 }
 
-// --apply: den gespeicherten Probelauf genau so übernehmen – dieselben Songs in derselben Reihenfolge, ohne neu zu losen.
+// --apply: die erstellte Liste (gespeicherter Probelauf) genau so nach Spotify schreiben – dieselben Songs in derselben Reihenfolge, ohne neu zu losen.
 // --trial=<Kennung> (von der Oberfläche): nur genau diesen Probelauf, nicht einen neueren aus einem anderen Fenster.
 async function applyTrial(cfg, spotify) {
   const trial = readTrial(HERE);

@@ -5,9 +5,9 @@
 // dj.mjs --dry speichert sein Ergebnis in probelauf.json: die Songs in ihrer Reihenfolge (URI, Künstler, Titel, Markierung),
 // Name und Beschreibung der Playlist, die Zahlen für die Zusammenfassung samt Spieldauer (durationMs, durationEstimated;
 // fehlen bei Probeläufen älterer Versionen), den Zeitpunkt und einen Fingerabdruck der Einstellungen, die die Auswahl
-// bestimmen (settingsHash). Übernehmen lässt sich die Liste nur, solange sie gilt
+// bestimmen (settingsHash). Nach Spotify bringen lässt sich die Liste nur, solange sie gilt
 // (trialProblem): höchstens 24 Stunden alt, Einstellungen seitdem unverändert, kein neuerer Probelauf (andere Kennung) und
-// seitdem keine Neuerstellung – ein echter Lauf und das Übernehmen selbst löschen probelauf.json (removeTrial).
+// seitdem keine Neuerstellung – ein echter Lauf und das Schreiben nach Spotify selbst löschen probelauf.json (removeTrial).
 // probelauf.json ist eine persönliche Datei wie state.json: nie im Repository, nie in der ZIP-Datei, ein Update schreibt sie nie.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -37,7 +37,7 @@ const URI = /^spotify:track:[A-Za-z0-9]{1,64}$/;
 const text = v => typeof v === 'string';
 const count = v => Number.isInteger(v) && v >= 0;
 
-// Passt der Inhalt von probelauf.json? (Von Hand geändert oder von einer anderen Version: lieber nicht übernehmen.)
+// Passt der Inhalt von probelauf.json? (Von Hand geändert oder von einer anderen Version: lieber nicht nach Spotify schreiben.)
 function valid(t) {
   return Boolean(t) && t.format === FORMAT && /^[0-9a-f]{12}$/.test(t.id) && Number.isFinite(Date.parse(t.createdAt))
     && text(t.settingsHash) && text(t.playlistName) && t.playlistName.trim() && text(t.description) && text(t.summary)
@@ -98,9 +98,9 @@ export function saveTrial(dir, { cfg, lang, tracks, counts, summary, description
 
 export const removeTrial = dir => fs.rmSync(path.join(dir, TRIAL_FILE), { force: true });
 
-// Warum sich der Probelauf nicht (mehr) übernehmen lässt, als Schlüssel für die Meldung (trial.<grund> in i18n.mjs):
+// Warum sich die erstellte Liste (Probelauf) nicht (mehr) nach Spotify bringen lässt, als Schlüssel für die Meldung (trial.<grund> in i18n.mjs):
 // 'missing' (keine Datei, z. B. weil die Playlist seitdem neu erstellt wurde), 'invalid', 'replaced' (neuerer Probelauf,
-// andere Kennung als id), 'old' (älter als 24 Stunden), 'settings' (Einstellungen geändert). null = lässt sich übernehmen.
+// andere Kennung als id), 'old' (älter als 24 Stunden), 'settings' (Einstellungen geändert). null = lässt sich nach Spotify bringen.
 export function trialProblem(trial, { cfg, id = null, now = Date.now() }) {
   if (trial === null) return 'missing';
   if (trial.invalid) return 'invalid';

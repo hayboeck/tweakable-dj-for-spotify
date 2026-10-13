@@ -471,7 +471,7 @@ test('POST /api/update/install: nicht während eines Laufs oder eines automatisc
   }
 });
 
-// --- Probelauf übernehmen, Textdatei speichern und importieren (Playlists in MOCK_SPOTIFY_STORE = store.json) ---
+// --- Erstellte Liste nach Spotify (Probelauf), Textdatei speichern und importieren (Playlists in MOCK_SPOTIFY_STORE = store.json) ---
 
 const store = () => JSON.parse(fs.readFileSync(path.join(dir, 'store.json'), 'utf8'));
 const spotifyRequests = () => {
@@ -917,7 +917,7 @@ test('GET /api/update?force=1: fragt sofort, zweiter Klick innerhalb einer Minut
 
 // --- Probelauf: Liste für „sperren“, gesperrter Song macht „überschreiben“ ungültig; Import mit Hinweisen ---
 
-test('GET /api/trial?tracks=1: Songs des Probelaufs; einen davon sperren → nicht mehr übernehmbar, nächster Probelauf ohne ihn', async () => {
+test('GET /api/trial?tracks=1: Songs des Probelaufs; einen davon sperren → nicht mehr nach Spotify zu bringen, nächster Probelauf ohne ihn', async () => {
   const dry = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
   const { trialId } = resultLine(dry.text);
   const trial = JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8'));

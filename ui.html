@@ -690,6 +690,7 @@ try {
         <div class="row" id="version-row" hidden>
           <p><span id="version-text"></span><span id="update-check-box"> · <button type="button" class="link" id="update-check"></button></span>
             <span id="update-check-msg" role="status" aria-live="polite"></span></p>
+          <p class="help" id="node-text" hidden></p>
         </div>
         <div class="row">
           <p class="help" data-t="quitHelp"></p>
@@ -1123,6 +1124,7 @@ const TEXT = {
       latest: when => `Du hast die neueste Version ✓ (geprüft am ${when})`,
       // Eigene Version ist eine Vorabversion (z. B. 0.4.0-beta.1): Angeboten wird nur eine neuere reguläre Version
       latestPre: when => `Keine neuere reguläre Version ✓ (geprüft am ${when})`,
+      nodeInfo: (v, own) => `Node.js ${v} (${own ? 'eigenes, im Ordner von Tweakable DJ' : 'installiert'})`,
       stale: when => `Zuletzt geprüft am ${when} – „Nach Updates suchen“ prüft jetzt.`,
       never: 'Noch nicht geprüft – „Nach Updates suchen“ prüft jetzt.',
       found: v => `Version ${v} ist verfügbar – siehe Hinweis oben`,
@@ -1565,6 +1567,7 @@ const TEXT = {
       latest: when => `You’re up to date ✓ (checked ${when})`,
       // Eigene Version ist eine Vorabversion (z. B. 0.4.0-beta.1): Angeboten wird nur eine neuere reguläre Version
       latestPre: when => `No newer regular version ✓ (checked ${when})`,
+      nodeInfo: (v, own) => `Node.js ${v} (${own ? 'own, in the Tweakable DJ folder' : 'installed'})`,
       stale: when => `Last checked ${when} – “Check for updates” checks now.`,
       never: 'Not checked yet – “Check for updates” checks now.',
       found: v => `Version ${v} is available – see the notice at the top`,
@@ -2003,6 +2006,7 @@ const TEXT = {
       latest: when => `Tienes la versión más reciente ✓ (comprobado el ${when})`,
       // Eigene Version ist eine Vorabversion (z. B. 0.4.0-beta.1): Angeboten wird nur eine neuere reguläre Version
       latestPre: when => `No hay ninguna versión estable más reciente ✓ (comprobado el ${when})`,
+      nodeInfo: (v, own) => `Node.js ${v} (${own ? 'propio, en la carpeta de Tweakable DJ' : 'instalado'})`,
       stale: when => `Última comprobación: ${when}. «Buscar actualizaciones» comprueba ahora.`,
       never: 'Aún sin comprobar. «Buscar actualizaciones» comprueba ahora.',
       found: v => `La versión ${v} está disponible: mira el aviso de arriba`,
@@ -2442,6 +2446,7 @@ const TEXT = {
       latest: when => `Tu as la dernière version ✓ (vérifié le ${when})`,
       // Eigene Version ist eine Vorabversion (z. B. 0.4.0-beta.1): Angeboten wird nur eine neuere reguläre Version
       latestPre: when => `Aucune version stable plus récente ✓ (vérifié le ${when})`,
+      nodeInfo: (v, own) => `Node.js ${v} (${own ? 'propre, dans le dossier de Tweakable DJ' : 'installé'})`,
       stale: when => `Dernière vérification : ${when} – « Rechercher des mises à jour » vérifie maintenant.`,
       never: 'Pas encore vérifié – « Rechercher des mises à jour » vérifie maintenant.',
       found: v => `La version ${v} est disponible – voir l’avis en haut`,
@@ -3341,6 +3346,8 @@ async function load(keepEdits = false) {
   varietyOverwritten = false;
   startActivity = data.activity ?? null;
   if (Array.isArray(data.trialIgnored)) notForTrial = data.trialIgnored;
+  nodeInfo = data.node ?? null;
+  renderUpdate();
   loaded = true;
   rememberLook();
   adoptLang(data);
@@ -3527,7 +3534,7 @@ async function fixSchedule() {
   }
 }
 
-// --- Playlist erstellen (Probelauf) und übernehmen ---
+// --- Playlist erstellen (Probelauf) und nach Spotify bringen ---
 
 // Ergebnis des Laufs: letzte Zeile "@@RESULT {json}" der Ausgabe. Die schickt der Server immer mit (auch wenn dj.mjs
 // abstürzt); null nur, wenn sie trotzdem fehlt oder kaputt ist.
@@ -3760,12 +3767,12 @@ async function watchActivity(kind) {
   if (trial) refreshTrial();
 }
 
-// --- Probelauf übernehmen ---
+// --- Erstellte Liste nach Spotify (Probelauf: überschreiben bzw. neue Playlist anlegen) ---
 
 // Einstellungen, die die Auswahl bestimmen (alle außer NOT_FOR_TRIAL): Weichen sie vom Probelauf ab, passt seine Liste nicht mehr.
 const trialChanged = () => ITEMS.some(i => !notForTrial.includes(i.key) && !same(current[i.key], trial.settings[i.key]));
 
-// Warum sich der Probelauf nicht mehr übernehmen lässt: 'blocked' (Song daraus gesperrt), 'dirty' (Einstellungen geändert), 'old' (älter als 24 Stunden),
+// Warum sich die erstellte Liste nicht mehr nach Spotify bringen lässt: 'blocked' (Song daraus gesperrt), 'dirty' (Einstellungen geändert), 'old' (älter als 24 Stunden),
 // sonst ein Grund vom Server (dann steht der Text in trial.message); null = geht.
 function trialReason() {
   if (!trial) return null;
@@ -4278,6 +4285,7 @@ let upd = { phase: '', text: '', to: '' };
 // „Nach Updates suchen“: phase '' (nichts), 'checking', 'latest' (neueste Version), 'found' (Hinweis oben), 'offline'
 // (GitHub nicht erreichbar), 'failed' (Fehler des eigenen Servers, text = Meldung).
 let updCheck = { phase: '', text: '' };
+let nodeInfo = null;      // { version, own } aus GET /api/config: Node.js der Oberfläche (own = das eigene im Programmordner)
 let reloading = false; // Seite lädt nach dem Update neu: dann nicht wegen ungespeicherter Änderungen nachfragen
 const updating = () => upd.phase === 'running';
 
@@ -4322,6 +4330,9 @@ function renderUpdate() {
   // Vorabversion (zum Ausprobieren von Hand installiert): „v0.4.0-beta.1 (Vorabversion)“
   const pre = Boolean(u?.prerelease);
   $('version-text').textContent = version ? T.update.version(version, pre) : '';
+  // Node.js, mit dem die Oberfläche läuft (für Fehlermeldungen; die Vorlage auf GitHub fragt danach): eigenes oder installiertes
+  $('node-text').hidden = !nodeInfo;
+  $('node-text').textContent = nodeInfo ? T.update.nodeInfo(nodeInfo.version, nodeInfo.own) : '';
   $('update-check-box').hidden = !u?.enabled;
   $('update-check').textContent = T.update.check;
   $('update-check').disabled = updCheck.phase === 'checking';

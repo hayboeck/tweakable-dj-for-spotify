@@ -554,7 +554,7 @@ export async function installUpdate({ dir = HERE, lang = resolveLang(), expected
     const tag = typeof release?.tag_name === 'string' ? release.tag_name.trim() : '';
     if (!parseVersion(tag) || release.draft) throw fail(lang, 'update.noRelease');
     to = tag.replace(/^v/i, '');
-    if (release.prerelease || isPrerelease(to)) throw fail(lang, 'update.preRelease', { version: shown(to) });
+    if (release.prerelease || isPrerelease(to)) throw fail(lang, 'update.prerelease', { version: shown(to) });
     if (!isUpdate(to, from)) throw fail(lang, 'update.notNewer', { latest: to, current: from });
     if (expected != null && compareVersions(String(expected), to) !== 0) {
       throw fail(lang, 'update.otherVersion', { latest: to, expected: shown(expected) });

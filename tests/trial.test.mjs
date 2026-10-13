@@ -1,4 +1,4 @@
-// Probelauf übernehmen: trial.mjs (Fingerabdruck der Einstellungen, wann ein Probelauf noch gilt) und End-to-End
+// Erstellte Liste nach Spotify (Probelauf, --apply): trial.mjs (Fingerabdruck der Einstellungen, wann ein Probelauf noch gilt) und End-to-End
 // "node dj.mjs --dry" → "node dj.mjs --apply" mit simulierten APIs (tests/mock-apis.mjs, Playlists in MOCK_SPOTIFY_STORE).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

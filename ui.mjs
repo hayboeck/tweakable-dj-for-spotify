@@ -444,6 +444,16 @@ function restartAfterUpdate(version) {
   setTimeout(() => process.exit(LAUNCHER ? RESTART_CODE : 0), 200);
 }
 
+// Läuft diese Oberfläche mit dem eigenen Node.js im Programmordner (ownNode in schedule.mjs)? Für die Anzeige unter „Programm“.
+function ownNodeRunning() {
+  try {
+    const real = p => fs.realpathSync(p).toLowerCase();
+    return real(process.execPath) === real(ownNode(HERE));
+  } catch {
+    return false; // kein eigenes Node.js da
+  }
+}
+
 // Gemerkte ID der Playlist name aus state.json (playlistIds, vom letzten Schreiben), sonst null (auch bei kaputter Datei).
 function knownPlaylistId(name) {
   try {
@@ -591,7 +601,7 @@ const server = http.createServer(async (req, res) => {
       const values = Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, cfg[k]]));
       return send(200, {
         values, defaults: DEFAULTS, limits: LIMITS, variety: { keys: VARIETY_KEYS, levels: VARIETY_LEVELS }, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running), importing,
-        activity: activity(), trialIgnored: TRIAL_IGNORED,
+        activity: activity(), trialIgnored: TRIAL_IGNORED, node: { version: process.versions.node, own: ownNodeRunning() },
         setup: setupStatus(cfg), archiveFiles: archiveFileCount(HERE),
       });
     }
@@ -790,7 +800,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // Stand des letzten Probelaufs (probelauf.json): Lässt er sich übernehmen? ?id= = Kennung aus @@RESULT (trialId).
+    // Stand des letzten Probelaufs (probelauf.json): Lässt sich die erstellte Liste noch nach Spotify bringen? ?id= = Kennung aus @@RESULT (trialId).
     // { ok, reason ('missing', 'invalid', 'replaced', 'old', 'settings' oder null), message, trial: { id, createdAt, expiresAt, songs, playlistName } }
     // Mit ?tracks=1 zusätzlich tracks: [{ uri, artist, name }] in der Reihenfolge der Liste (für „sperren“ in der Oberfläche).
     if (route === 'GET /api/trial') {

@@ -194,7 +194,7 @@ export const MESSAGES = {
     'run.trialSaved': 'Diese Liste lässt sich 24 Stunden lang nach Spotify bringen: mit den Knöpfen unter der Liste bzw. "node dj.mjs --apply" (als neue Playlist: --apply --new).',
     'run.trialNotSaved': 'Liste nicht gemerkt, sie lässt sich diesmal nicht nach Spotify bringen: {message}',
 
-    // --- Probelauf übernehmen (dj.mjs --apply, trial.mjs) ---
+    // --- Erstellte Liste nach Spotify (dj.mjs --apply, trial.mjs) ---
     'apply.start': 'Schreibe die Liste vom {date}, {time} Uhr ({count|# Song|# Songs}) nach Spotify, ohne neu zu losen …',
     'trial.missing': 'Es gibt keine erstellte Liste, die sich nach Spotify bringen ließe: Noch keine erstellt, oder die Playlist wurde seitdem neu geschrieben. Erstelle sie noch einmal („Playlist erstellen“).',
     'trial.invalid': 'probelauf.json ist beschädigt oder stammt von einer anderen Version. Erstelle die Liste noch einmal („Playlist erstellen“).',
@@ -382,7 +382,7 @@ export const MESSAGES = {
     'update.github': 'GitHub antwortet bei {file} mit Fehler {status}.',
     'update.noRelease': 'Auf GitHub gibt es keine veröffentlichte Version.',
     'update.notNewer': 'Version {latest} ist nicht neuer als deine ({current}).',
-    'update.preRelease': 'Version {version} ist eine Vorabversion. „Jetzt aktualisieren“ installiert nur reguläre Versionen; Vorabversionen lädt man zum Ausprobieren von Hand herunter (README, Abschnitt „Vorabversionen“).',
+    'update.prerelease': 'Version {version} ist eine Vorabversion. „Jetzt aktualisieren“ installiert nur reguläre Versionen; Vorabversionen lädt man zum Ausprobieren von Hand herunter (README, Abschnitt „Vorabversionen“).',
     'update.otherVersion': 'Inzwischen gibt es Version {latest} statt {expected}. Lade die Seite neu und versuche es noch einmal.',
     'update.noAssets': 'Version {version} hat keine Dateien für das automatische Update ({file} fehlt). Lade sie bitte von Hand herunter (README, Abschnitt „Aktualisieren“).',
     'update.missingAsset': '{file} gibt es auf GitHub nicht (mehr).',
@@ -698,7 +698,7 @@ export const MESSAGES = {
     'update.github': 'GitHub answers with error {status} for {file}.',
     'update.noRelease': 'There is no published version on GitHub.',
     'update.notNewer': 'Version {latest} isn’t newer than yours ({current}).',
-    'update.preRelease': 'Version {version} is a pre-release. “Update now” only installs regular versions; pre-releases are downloaded by hand to try them out (README, section “Pre-releases”).',
+    'update.prerelease': 'Version {version} is a pre-release. “Update now” only installs regular versions; pre-releases are downloaded by hand to try them out (README, section “Pre-releases”).',
     'update.otherVersion': 'There is now version {latest} instead of {expected}. Reload the page and try again.',
     'update.noAssets': 'Version {version} has no files for the automatic update ({file} is missing). Please download it manually (README, section “Updating”).',
     'update.missingAsset': '{file} doesn’t exist on GitHub (anymore).',
@@ -827,7 +827,7 @@ export const MESSAGES = {
     'run.trialSaved': 'Puedes pasar exactamente esta lista a Spotify durante 24 horas: con los botones de debajo de la lista o "node dj.mjs --apply" (como playlist nueva: --apply --new).',
     'run.trialNotSaved': 'No se guardó la lista, así que esta vez no se puede pasar a Spotify: {message}',
 
-    // --- Probelauf übernehmen (dj.mjs --apply, trial.mjs) ---
+    // --- Erstellte Liste nach Spotify (dj.mjs --apply, trial.mjs) ---
     'apply.start': 'Usando la lista del {date}, {time} ({count|# canción|# canciones}) sin volver a sortear …',
     'trial.missing': 'No hay ninguna lista creada que usar: todavía no se ha creado ninguna o la playlist se ha escrito desde entonces. Créala de nuevo («Crear playlist»).',
     'trial.invalid': 'probelauf.json está dañado o es de otra versión. Crea la lista de nuevo («Crear playlist»).',
@@ -1015,7 +1015,7 @@ export const MESSAGES = {
     'update.github': 'GitHub responde con el error {status} para {file}.',
     'update.noRelease': 'No hay ninguna versión publicada en GitHub.',
     'update.notNewer': 'La versión {latest} no es más reciente que la tuya ({current}).',
-    'update.preRelease': 'La versión {version} es una versión preliminar. «Actualizar ahora» solo instala versiones estables; las versiones preliminares se descargan a mano para probarlas (README, sección «Pre-releases»).',
+    'update.prerelease': 'La versión {version} es una versión preliminar. «Actualizar ahora» solo instala versiones estables; las versiones preliminares se descargan a mano para probarlas (README, sección «Pre-releases»).',
     'update.otherVersion': 'Ahora hay la versión {latest} en lugar de la {expected}. Recarga la página y vuelve a intentarlo.',
     'update.noAssets': 'La versión {version} no tiene archivos para la actualización automática (falta {file}). Descárgala a mano (README, sección «Updating»).',
     'update.missingAsset': '{file} no existe (o ya no existe) en GitHub.',
@@ -1145,7 +1145,7 @@ export const MESSAGES = {
     'run.trialSaved': 'Tu peux envoyer exactement cette liste vers Spotify pendant 24 heures : avec les boutons sous la liste ou "node dj.mjs --apply" (en nouvelle playlist : --apply --new).',
     'run.trialNotSaved': 'Liste non enregistrée, elle ne peut donc pas aller dans Spotify cette fois : {message}',
 
-    // --- Probelauf übernehmen (dj.mjs --apply, trial.mjs) ---
+    // --- Erstellte Liste nach Spotify (dj.mjs --apply, trial.mjs) ---
     'apply.start': 'Utilisation de la liste du {date}, {time} ({count|# titre|# titres}) sans nouveau tirage …',
     'trial.missing': 'Il n’y a aucune liste créée à utiliser : aucune n’a encore été créée, ou la playlist a été réécrite depuis. Crée-la de nouveau (« Créer la playlist »).',
     'trial.invalid': 'probelauf.json est endommagé ou provient d’une autre version. Crée la liste de nouveau (« Créer la playlist »).',
@@ -1333,7 +1333,7 @@ export const MESSAGES = {
     'update.github': 'GitHub répond avec l’erreur {status} pour {file}.',
     'update.noRelease': 'Il n’y a aucune version publiée sur GitHub.',
     'update.notNewer': 'La version {latest} n’est pas plus récente que la tienne ({current}).',
-    'update.preRelease': 'La version {version} est une préversion. « Mettre à jour » n’installe que les versions stables ; les préversions se téléchargent à la main pour les essayer (README, section « Pre-releases »).',
+    'update.prerelease': 'La version {version} est une préversion. « Mettre à jour » n’installe que les versions stables ; les préversions se téléchargent à la main pour les essayer (README, section « Pre-releases »).',
     'update.otherVersion': 'Il y a maintenant la version {latest} au lieu de {expected}. Recharge la page et réessaie.',
     'update.noAssets': 'La version {version} n’a pas de fichiers pour la mise à jour automatique ({file} manque). Télécharge-la à la main (README, section « Updating »).',
     'update.missingAsset': '{file} n’existe pas (ou plus) sur GitHub.',

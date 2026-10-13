@@ -40,8 +40,8 @@ body:
     attributes:
       label: Output of “Create playlist” / Ausgabe von „Playlist erstellen“
       description: |
-        Click **Create playlist** in the interface and copy the output here (in a terminal, `node dj.mjs --dry` works too). You may shorten the list of songs. Check first: no Client ID, no API key, nothing from `tokens.json`.
-        In der Oberfläche auf **Playlist erstellen** klicken und die Ausgabe hierher kopieren (im Terminal geht auch `node dj.mjs --dry`). Die Songliste darfst du kürzen. Vorher prüfen: keine Client ID, kein API-Key, nichts aus `tokens.json`.
+        Click **Create playlist** in the interface and copy the output here (in a terminal in the Tweakable DJ folder, `node/current/node.exe dj.mjs --dry` on Windows or `node/current/bin/node dj.mjs --dry` on Mac and Linux works too). You may shorten the list of songs. Check first: no Client ID, no API key, nothing from `tokens.json`.
+        In der Oberfläche auf **Playlist erstellen** klicken und die Ausgabe hierher kopieren (im Terminal im Ordner von Tweakable DJ geht auch `node/current/node.exe dj.mjs --dry` unter Windows bzw. `node/current/bin/node dj.mjs --dry` auf Mac und Linux). Die Songliste darfst du kürzen. Vorher prüfen: keine Client ID, kein API-Key, nichts aus `tokens.json`.
       render: text
 
   - type: dropdown
@@ -61,9 +61,9 @@ body:
     attributes:
       label: Node version / Node-Version
       description: |
-        Enter `node --version` in the terminal or command prompt and copy the result here.
-        Im Terminal bzw. in der Eingabeaufforderung `node --version` eingeben und das Ergebnis hierher kopieren.
-      placeholder: e.g. / z. B. v24.11.0
+        In the interface: tab *Settings*, section *Program*, e.g. “Node.js 24.21.0 (own, in the Tweakable DJ folder)”. Copy that line here.
+        In der Oberfläche: Tab *Einstellungen*, Abschnitt *Programm*, z. B. „Node.js 24.21.0 (eigenes, im Ordner von Tweakable DJ)“. Diese Zeile hierher kopieren.
+      placeholder: e.g. / z. B. Node.js 24.21.0 (own)
     validations:
       required: true
 

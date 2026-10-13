@@ -260,7 +260,7 @@ test('export: Playlist aus Spotify als Textdatei; import derselben Datei ergibt 
     assert.equal(fs.existsSync(path.join(dir, 'liste.txt')), false);
     assert.match(dj(dir, ['export'], { TWEAKABLE_DJ_LANG: 'en' }).err, /^Error: The playlist “Test-DJ” doesn’t exist in your Spotify yet\./m);
 
-    // Playlist anlegen (Probelauf übernehmen), dann speichern
+    // Playlist anlegen (erstellte Liste nach Spotify), dann speichern
     assert.equal(dj(dir, ['--dry']).code, 0);
     assert.equal(dj(dir, ['--apply']).code, 0);
     const [playlist] = store(dir).playlists;
