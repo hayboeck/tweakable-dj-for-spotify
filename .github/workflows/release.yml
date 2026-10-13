@@ -5,10 +5,12 @@
 # Ergebnis: tweakable-dj-v<Version>.zip mit dem Ordner tweakable-dj, dazu manifest.json als eigene Datei am Release.
 # In die ZIP-Datei kommen nur Dateien, die im Repository sind (git archive), auch die Screenshots in docs/ und das Logo in assets/
 # (dort auch die Symbole für die Verknüpfung auf dem Desktop: logo.ico, logo.icns).
-# Persönliche Dateien (config.jsonc, tokens.json, state.json, lastfm-cache.json, probelauf.json, das Archiv archiv/) und das
+# Persönliche und automatisch angelegte Dateien (config.jsonc, tokens.json, state.json, lastfm-cache.json, probelauf.json,
+# automatik.json/.log, update-check.json, seen-version.json, jetzt.json/.log, ui.log, die Ordner archiv/ und .update/) und das
 # eigene Node.js (Ordner node/, lädt die Startdatei beim ersten Start) sind per .gitignore nie dabei; der Ablauf prüft das zur
-# Sicherheit noch einmal.
-# Vorher laufen die Tests (npm test); sind sie rot, wird nichts veröffentlicht.
+# Sicherheit noch einmal (find-Liste unten).
+# Vorher laufen alle Tests aus test.yml – Linux mit allen Node-Versionen, Windows und macOS (Startdateien, eigenes Node.js);
+# erst wenn alle grün sind (needs), wird gebaut und veröffentlicht.
 # manifest.json (Version, jede Datei mit Pfad, Größe, SHA-256 und Ausführbar-Bit, dazu überholte Dateien früherer Releases)
 # liegt auch in der ZIP-Datei. Sie ist die Erlaubnisliste für „Jetzt aktualisieren“ (install-update.mjs): Das Update lädt
 # manifest.json und die ZIP-Datei, prüft jede Datei, schreibt nur, was dort steht, und löscht nur überholte Dateien mit
@@ -30,8 +32,14 @@ permissions:
   contents: write
 
 jobs:
+  # Dieselben Tests wie bei jedem Push (test.yml, als wiederverwendbarer Ablauf), auf allen Systemen
+  tests:
+    name: Tests
+    uses: ./.github/workflows/test.yml
+
   zip:
     name: ZIP-Datei bauen und veröffentlichen
+    needs: tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -52,17 +60,12 @@ jobs:
       # wieder. Außerdem: Tag nach SemVer (v1.2.3 bzw. v1.2.3-beta.1) und Abschnitt der Version in CHANGELOG.md (für „Neu in
       # v…“). Ergebnis (outputs): version, prerelease (true/false), title und previous (frühere Releases für obsolete).
       - name: Tag, package.json und CHANGELOG.md prüfen
-        id: pruefung
+        id: check
         run: node .github/release-check.mjs "$GITHUB_REF_NAME" $(git tag -l 'v*')
-
-      # Nur veröffentlichen, wenn die Tests grün sind (dieselben wie in test.yml; Browser-Tests mit dem Chrome des Runners).
-      # Sonst verteilte „Jetzt aktualisieren“ einen kaputten Stand.
-      - name: Tests
-        run: npm test
 
       - name: ZIP-Datei bauen
         env:
-          FRUEHER: ${{ steps.pruefung.outputs.previous }}
+          PREVIOUS: ${{ steps.check.outputs.previous }}
         run: |
           set -eu
           ordner="tweakable-dj"
@@ -126,7 +129,7 @@ jobs:
           # wie ihre ZIP-Dateien entstanden sind: Ihre Dateien, die es jetzt nicht mehr gibt (z. B. alte Screenshots), kommen mit
           # ihren Prüfsummen als obsolete in manifest.json. Ein Update löscht sie nur, wenn sie genau so im Ordner liegen.
           mkdir frueher
-          for frueher_tag in $FRUEHER; do
+          for frueher_tag in $PREVIOUS; do
             mkdir "frueher/${frueher_tag}"
             git archive --format=tar "$frueher_tag" | tar -x -C "frueher/${frueher_tag}"
           done
@@ -141,7 +144,7 @@ jobs:
           # zip speichert die Unix-Rechte mit, entpackt auf Mac und Linux bleiben sie erhalten.
           (cd build && zip -r -X -9 "../${zip_datei}" "${ordner}")
           unzip -Z "${zip_datei}"
-          echo "ZIP_DATEI=${zip_datei}" >> "$GITHUB_ENV"
+          echo "ZIP_FILE=${zip_datei}" >> "$GITHUB_ENV"
 
       # Titel z. B. „Tweakable DJ for Spotify v0.4.0-beta.1 (Vorabversion / pre-release)“. Vorabversion: --prerelease und
       # --latest=false (GitHub macht ein Pre-release ohnehin nie zu „Latest“; doppelt hält besser). Reguläre Version: normales
@@ -150,28 +153,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          VORAB: ${{ steps.pruefung.outputs.prerelease }}
-          TITEL: ${{ steps.pruefung.outputs.title }}
+          PRERELEASE: ${{ steps.check.outputs.prerelease }}
+          TITLE: ${{ steps.check.outputs.title }}
         run: |
           set -eu
           tag="$GITHUB_REF_NAME"
           if gh release view "$tag" >/dev/null 2>&1; then
             # Release gibt es schon (z. B. Ablauf erneut gestartet oder von Hand angelegt): nur ZIP-Datei und manifest.json
             # ersetzen; eine Vorabversion sicherheitshalber (wieder) als Pre-release markieren.
-            gh release upload "$tag" "$ZIP_DATEI" manifest.json --clobber
-            if [ "$VORAB" = "true" ]; then
+            gh release upload "$tag" "$ZIP_FILE" manifest.json --clobber
+            if [ "$PRERELEASE" = "true" ]; then
               gh release edit "$tag" --prerelease --latest=false
             fi
-          elif [ "$VORAB" = "true" ]; then
-            gh release create "$tag" "$ZIP_DATEI" manifest.json \
-              --title "$TITEL" \
+          elif [ "$PRERELEASE" = "true" ]; then
+            gh release create "$tag" "$ZIP_FILE" manifest.json \
+              --title "$TITLE" \
               --generate-notes \
               --verify-tag \
               --prerelease \
               --latest=false
           else
-            gh release create "$tag" "$ZIP_DATEI" manifest.json \
-              --title "$TITEL" \
+            gh release create "$tag" "$ZIP_FILE" manifest.json \
+              --title "$TITLE" \
               --generate-notes \
               --verify-tag
           fi

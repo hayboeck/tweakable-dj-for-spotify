@@ -97,22 +97,25 @@ test('Aufruf wie im Ablauf: Ergebnis in $GITHUB_OUTPUT, Fehler mit ::error:: und
 });
 
 // release.yml nutzt das Ergebnis: Prüfung zuerst, Vorabversion mit --prerelease und --latest=false, reguläre ohne; frühere
-// Releases aus previous (nicht mehr alle Tags v*).
-test('release.yml: Prüfung vor den Tests, Pre-release-Markierung nur für Vorabversionen, frühere Releases aus der Prüfung', () => {
+// Releases aus previous (nicht mehr alle Tags v*). Gebaut wird erst nach allen Tests aus test.yml (Windows, macOS, Linux).
+test('release.yml: erst alle Tests (test.yml), Prüfung zuerst, Pre-release-Markierung nur für Vorabversionen, frühere Releases aus der Prüfung', () => {
   const yml = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'release.yml'), 'utf8').replace(/\r/g, '');
-  const check = yml.indexOf('node .github/release-check.mjs "$GITHUB_REF_NAME" $(git tag -l \'v*\')');
-  assert.ok(check > 0 && check < yml.indexOf('run: npm test'), 'Prüfung vor den Tests');
-  assert.match(yml, /id: pruefung\n\s+run: node \.github\/release-check\.mjs/);
-  assert.match(yml, /FRUEHER: \$\{\{ steps\.pruefung\.outputs\.previous \}\}/);
-  assert.match(yml, /for frueher_tag in \$FRUEHER; do/);
-  assert.match(yml, /VORAB: \$\{\{ steps\.pruefung\.outputs\.prerelease \}\}/);
-  assert.match(yml, /TITEL: \$\{\{ steps\.pruefung\.outputs\.title \}\}/);
+  assert.match(yml, /\n {2}tests:\n {4}name: Tests\n {4}uses: \.\/\.github\/workflows\/test\.yml\n/);
+  assert.match(yml, /\n {2}zip:\n {4}name: [^\n]+\n {4}needs: tests\n/);
+  const tests = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'test.yml'), 'utf8').replace(/\r/g, '');
+  assert.match(tests, /\non:\n {2}push:\n {4}branches: \["\*\*"\]\n {2}pull_request:\n {2}workflow_call:\n/);
+  for (const os of ['ubuntu-latest', 'windows-latest', 'macos-latest']) assert.match(tests, new RegExp(`os: \\[?${os}`), os);
+  assert.match(yml, /id: check\n\s+run: node \.github\/release-check\.mjs "\$GITHUB_REF_NAME" \$\(git tag -l 'v\*'\)/);
+  assert.match(yml, /PREVIOUS: \$\{\{ steps\.check\.outputs\.previous \}\}/);
+  assert.match(yml, /for frueher_tag in \$PREVIOUS; do/);
+  assert.match(yml, /PRERELEASE: \$\{\{ steps\.check\.outputs\.prerelease \}\}/);
+  assert.match(yml, /TITLE: \$\{\{ steps\.check\.outputs\.title \}\}/);
   // Drei Fälle: Release gibt es schon (Vorabversion wieder als Pre-release markiert), Vorabversion neu, reguläre neu
   const step = yml.slice(yml.indexOf('- name: Release anlegen und ZIP-Datei anhängen'));
-  const [existing, pre, regular] = step.split(/\n\s+(?:elif \[ "\$VORAB" = "true" \]; then|else)\n/);
-  assert.match(existing, /gh release upload "\$tag" "\$ZIP_DATEI" manifest\.json --clobber\n\s+if \[ "\$VORAB" = "true" \]; then\n\s+gh release edit "\$tag" --prerelease --latest=false/);
-  assert.match(pre, /gh release create "\$tag" "\$ZIP_DATEI" manifest\.json[\s\\]+--title "\$TITEL"[\s\\]+--generate-notes[\s\\]+--verify-tag[\s\\]+--prerelease[\s\\]+--latest=false$/);
-  assert.match(regular, /gh release create "\$tag" "\$ZIP_DATEI" manifest\.json[\s\\]+--title "\$TITEL"[\s\\]+--generate-notes[\s\\]+--verify-tag\n\s+fi/);
+  const [existing, pre, regular] = step.split(/\n\s+(?:elif \[ "\$PRERELEASE" = "true" \]; then|else)\n/);
+  assert.match(existing, /gh release upload "\$tag" "\$ZIP_FILE" manifest\.json --clobber\n\s+if \[ "\$PRERELEASE" = "true" \]; then\n\s+gh release edit "\$tag" --prerelease --latest=false/);
+  assert.match(pre, /gh release create "\$tag" "\$ZIP_FILE" manifest\.json[\s\\]+--title "\$TITLE"[\s\\]+--generate-notes[\s\\]+--verify-tag[\s\\]+--prerelease[\s\\]+--latest=false$/);
+  assert.match(regular, /gh release create "\$tag" "\$ZIP_FILE" manifest\.json[\s\\]+--title "\$TITLE"[\s\\]+--generate-notes[\s\\]+--verify-tag\n\s+fi/);
   assert.doesNotMatch(regular, /prerelease|latest/);
   assert.doesNotMatch(yml, /case "\$tag" in \*-\*\)/, 'kein Raten am Bindestrich mehr');
 });
