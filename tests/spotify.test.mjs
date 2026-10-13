@@ -172,3 +172,22 @@ test('readPlaylist: über die gemerkte ID, auch wenn die Liste der Playlists unv
     assert.deepEqual(calls, ['GET /playlists/alt1/items'], 'gerade geschriebene Playlist: ohne Nachfrage');
   } finally { done(); }
 });
+
+// Testschutz in tests/mock-apis.mjs: openBrowser (Oberfläche, Spotify-Anmeldung) öffnet in Tests nie den echten Browser,
+// sondern schreibt nur die Adresse in MOCK_LOG.
+test('Mit den Mock-APIs öffnet openBrowser nie den echten Browser', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj browser-schutz '));
+  try {
+    const log = path.join(dir, 'log.jsonl');
+    const code = `const { openBrowser } = await import(${JSON.stringify(pathToFileURL(path.join(root, 'spotify.mjs')).href)}); openBrowser('http://127.0.0.1:1/test'); await new Promise(r => setTimeout(r, 300));`;
+    const r = spawnSync(process.execPath, ['--import', pathToFileURL(path.join(root, 'tests', 'mock-apis.mjs')).href, '--input-type=module', '-e', code],
+      { env: { ...process.env, MOCK_LOG: log }, encoding: 'utf8', timeout: 30_000 });
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(fs.readFileSync(log, 'utf8').trim().split('\n').map(l => JSON.parse(l)), [{ browser: 'http://127.0.0.1:1/test' }]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

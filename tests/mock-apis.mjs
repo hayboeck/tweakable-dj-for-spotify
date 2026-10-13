@@ -31,6 +31,7 @@
 //                       "list": […] ist die Liste aller Releases (/repos/<owner>/<repo>/releases, z. B. mit Pre-releases);
 //                       das Programm fragt sie nie ab – die Tests prüfen das anhand von MOCK_LOG.
 //                       Wird bei jeder Anfrage neu gelesen; ohne Datei ist GitHub ebenfalls nicht erreichbar.
+//   Der Browser öffnet sich nie: openBrowser (spotify.mjs) schreibt nur { browser: Adresse } in MOCK_LOG.
 //   MOCK_NOTIFY=fail    Systembenachrichtigungen (notify.mjs) scheitern (Exit-Code 1). Echte Benachrichtigungen gibt es nie:
 //                       execFile für powershell.exe, osascript und notify-send wird nur als { notify: { file, args, toast } }
 //                       in MOCK_LOG geschrieben (toast = XML aus der Umgebungsvariable TWEAKABLE_DJ_TOAST unter Windows).
@@ -74,6 +75,18 @@ childProcess.execFile = function execFile(file, ...rest) {
     if (process.env.MOCK_NOTIFY === 'fail') callback?.(Object.assign(new Error('simuliert'), { code: 1 }), '', 'Simulierter Fehler beim Senden');
     else callback?.(null, '', '');
   });
+  return undefined;
+};
+// Testschutz: Nie den echten Browser öffnen (openBrowser in spotify.mjs: start / open / xdg-open über exec) – weder für die
+// Oberfläche noch für die Spotify-Anmeldung. Nur protokollieren ({ browser: Adresse } in MOCK_LOG).
+const BROWSER_OPENERS = /^\s*(start\s+""|open|xdg-open)\s+"([^"]*)"\s*$/i;
+const realExec = childProcess.exec;
+childProcess.exec = function exec(command, ...rest) {
+  const m = BROWSER_OPENERS.exec(String(command));
+  if (!m) return realExec.call(this, command, ...rest);
+  log({ browser: m[2] });
+  const callback = rest.find(r => typeof r === 'function');
+  setImmediate(() => callback?.(null, '', ''));
   return undefined;
 };
 syncBuiltinESMExports();
