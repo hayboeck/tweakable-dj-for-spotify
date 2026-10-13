@@ -310,6 +310,13 @@
 
   .bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--border); }
   .bar-inner { max-width: 760px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  /* Schmale Bildschirme (z. B. 375 px): Verwerfen und Speichern nebeneinander, darunter „Playlist erstellen“ über die ganze
+     Breite – so rutscht in keiner Sprache ein einzelner Knopf in eine zweite Zeile. Im Tab „Einstellungen“ bleibt eine Zeile. */
+  @media (max-width: 480px) {
+    .bar-inner { display: grid; grid-template-columns: 1fr 1fr; padding: 10px 16px; }
+    .bar-inner #create { grid-column: 1 / -1; }
+    main { padding-bottom: 150px; }
+  }
   button.btn { font: inherit; font-weight: 600; padding: 9px 14px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
   button.btn.small { padding: 5px 10px; font-size: 13.5px; }
   button.btn.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
