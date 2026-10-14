@@ -5,17 +5,29 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.4.0-beta.4] – 2026-10-14
+
+*Pre-release to try out: installed programs never update to it by themselves (see the README, section “Pre-releases”).*
+
+*Vorabversion zum Ausprobieren: Installierte Programme aktualisieren nie von selbst darauf (siehe README, Abschnitt „Vorabversionen“).*
+
 ### English
 
 **Changed**
 
+- **Only the login is missing**: if Client ID and Last.fm are set and only the Spotify login is missing (e.g. `tokens.json` deleted), Tweakable DJ shows the controls with the notice to log in again and a login button – not the setup wizard. *Finish the setup* only appears when credentials are really missing.
 - **Quits sooner without an open page**: started from the shortcut (without a window), Tweakable DJ now quits by itself after 5 instead of 10 minutes without an open page.
+- **Console window explains itself**: started with `Tweakable DJ.cmd`, `Tweakable DJ.command` or `./start.sh`, the window says it only has to stay open because of that; the desktop shortcut runs without a window and quits by itself 5 minutes after the page is closed.
+- **PowerShell without special permissions**: notifications and the desktop shortcut on Windows no longer pass `-ExecutionPolicy Bypass`; they work the same under the strictest setting (*Restricted*).
 
 ### Deutsch
 
 **Geändert**
 
+- **Nur die Anmeldung fehlt**: Sind Client ID und Last.fm eingetragen und fehlt nur die Anmeldung bei Spotify (z. B. `tokens.json` gelöscht), zeigt Tweakable DJ die Regler mit dem Hinweis, dich neu anzumelden, und einem Knopf dafür – nicht den Einrichtungs-Assistenten. *Einrichtung abschließen* erscheint nur, wenn wirklich Zugangsdaten fehlen.
 - **Beendet sich früher ohne offene Seite**: Über die Verknüpfung (ohne Fenster) gestartet, beendet sich Tweakable DJ jetzt nach 5 statt 10 Minuten ohne offene Seite von selbst.
+- **Konsolenfenster erklärt sich**: Mit `Tweakable DJ.cmd`, `Tweakable DJ.command` bzw. `./start.sh` gestartet, sagt das Fenster, dass es nur deshalb offen bleiben muss; die Verknüpfung auf dem Desktop läuft ohne Fenster und beendet sich 5 Minuten nach dem Schließen der Seite von selbst.
+- **PowerShell ohne Sonderrechte**: Benachrichtigungen und die Verknüpfung auf dem Desktop übergeben unter Windows kein `-ExecutionPolicy Bypass` mehr; sie laufen auch unter der strengsten Einstellung (*Restricted*) gleich.
 
 ## [0.4.0-beta.3] – 2026-10-14
 
@@ -551,6 +563,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.4.0-beta.4]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.4
 [0.4.0-beta.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.3
 [0.4.0-beta.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.2
 [0.4.0-beta.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.1
