@@ -295,6 +295,8 @@ test('Erst einmal umsehen: ohne Einrichtung zu den Reglern, speichern geht; Play
     });
     await page.goto(`${url}/`);
     await page.waitFor("!document.getElementById('setup').hidden && !document.getElementById('w-browse-box').hidden");
+    // Ohne config.jsonc gilt die Sprache des Browsers – hier fest Deutsch, ohne sie zu speichern
+    await page.eval("setLang('de', { save: false })");
     assert.equal(await text(page, 'w-browse'), 'Erst einmal umsehen');
     await page.click('#w-browse');
     await page.waitFor("!document.getElementById('main-view').hidden");
