@@ -5,6 +5,52 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.4.0-beta.3] – 2026-10-14
+
+*Pre-release to try out: installed programs never update to it by themselves (see the README, section “Pre-releases”).*
+
+*Vorabversion zum Ausprobieren: Installierte Programme aktualisieren nie von selbst darauf (siehe README, Abschnitt „Vorabversionen“).*
+
+### English
+
+**New**
+
+- **Look around first**: the setup wizard has a button that leads to the controls without Spotify, Last.fm or logging in. Controls, presets and settings can be tried out and saved; creating a playlist, saving or importing playlists, automatic runs and the second shortcut wait until the setup is done – instead of an error, a notice says so, with *Continue setup*.
+
+**Changed**
+
+- **Load settings**: the button is now called *Load*. The preview shows the version and date of the backup and names skipped values. If automatic runs or the second shortcut can’t be set up on this computer, the other settings are loaded anyway, and a message says what stayed as it was. Controls changed after opening the preview lead to a second confirmation.
+- **Simple view**: the notice names hidden controls with their value (e.g. *Followed artists: more*); if a preset matches, *Reset hidden controls* keeps it.
+
+**Fixed**
+
+- **No silent wait without write access**: if Tweakable DJ can’t write to its folder (e.g. under `C:\Program Files`), the start says so right away instead of waiting 20 minutes without a word. If there is no suitable Node.js for the system, the message says why instead of suggesting the internet connection.
+- **Last.fm loved songs**: if a later page fails, the songs already loaded still count (with a warning); “… in addition to your favorites” no longer counts blocked songs. The README names the limits (the newest 1,000, at most 50 new Spotify searches per run).
+- **Download sizes** of Node.js checked and the same everywhere: Windows about 40 MB, Mac about 55 MB, Linux about 30 MB (about 60 MB without xz).
+- **Imports**: a playlist that an import creates also counts as Tweakable DJ’s own, so it isn’t offered as the source after renaming.
+- **Bug report template**: the Windows command now works in cmd (`node\current\node.exe dj.mjs --dry`).
+- Number and unit stay on one line on narrow screens (all languages); KB and MB are counted in thousands everywhere; clearer texts in English, Spanish and French; the README quotes the messages word for word. Without tar.exe, Windows also unpacks only `node.exe` and `LICENSE`.
+
+### Deutsch
+
+**Neu**
+
+- **Erst einmal umsehen**: Der Einrichtungs-Assistent hat einen Knopf, der ohne Spotify, Last.fm und Anmeldung zu den Reglern führt. Regler, Voreinstellungen und Einstellungen lassen sich ausprobieren und speichern; Playlist erstellen, Playlists speichern oder importieren, die Automatik und die zweite Verknüpfung warten, bis die Einrichtung fertig ist – statt eines Fehlers sagt das ein Hinweis, mit *Einrichtung fortsetzen*.
+
+**Geändert**
+
+- **Einstellungen laden**: Der Knopf heißt jetzt *Laden*. Die Vorschau zeigt Version und Datum der Sicherung und nennt übersprungene Werte mit Namen. Lässt sich die Automatik oder die zweite Verknüpfung auf diesem Rechner nicht einrichten, werden die übrigen Einstellungen trotzdem geladen, und eine Meldung sagt, was blieb, wie es war. Wer nach dem Öffnen der Vorschau noch Regler verstellt, wird noch einmal gefragt.
+- **Ansicht „Einfach“**: Der Hinweis nennt ausgeblendete Regler mit ihrem Wert (z. B. *Gefolgte Künstler: mehr*); passt eine Voreinstellung, behält *Ausgeblendete Regler zurücksetzen* sie bei.
+
+**Behoben**
+
+- **Kein stummes Warten ohne Schreibrecht**: Kann Tweakable DJ in seinem Ordner nicht schreiben (z. B. unter `C:\Program Files`), sagt der Start das sofort, statt 20 Minuten wortlos zu warten. Gibt es für das System kein passendes Node.js, nennt die Meldung den Grund, statt auf die Internetverbindung zu verweisen.
+- **Last.fm-Lieblingssongs**: Scheitert eine spätere Seite, zählen die schon geladenen Songs trotzdem (mit Warnung); „… zusätzlich zu deinen Favoriten“ zählt gesperrte Songs nicht mehr mit. Das README nennt die Grenzen (die neuesten 1 000, höchstens 50 neue Spotify-Suchen je Lauf).
+- **Download-Größen** von Node.js geprüft und überall gleich: Windows ca. 40 MB, Mac ca. 55 MB, Linux ca. 30 MB (ohne xz ca. 60 MB).
+- **Import**: Eine Playlist, die ein Import anlegt, zählt ebenfalls als eigene von Tweakable DJ und erscheint nach dem Umbenennen nicht als Quelle.
+- **Vorlage für Fehlermeldungen**: Der Befehl für Windows klappt jetzt in cmd (`node\current\node.exe dj.mjs --dry`).
+- Zahl und Einheit bleiben auf schmalen Bildschirmen in einer Zeile (alle Sprachen); KB und MB sind überall mit 1000 gerechnet; klarere Texte auf Englisch, Spanisch und Französisch; das README zitiert die Meldungen wortgleich. Ohne tar.exe entpackt Windows ebenfalls nur `node.exe` und `LICENSE`.
+
 ## [0.4.0-beta.2] – 2026-10-13
 
 *Pre-release to try out: installed programs never update to it by themselves (see the README, section “Pre-releases”).*
@@ -493,6 +539,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.4.0-beta.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.3
 [0.4.0-beta.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.2
 [0.4.0-beta.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.1
 [0.3.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.3.3
