@@ -5,6 +5,18 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+### English
+
+**Changed**
+
+- **Quits sooner without an open page**: started from the shortcut (without a window), Tweakable DJ now quits by itself after 5 instead of 10 minutes without an open page.
+
+### Deutsch
+
+**Geändert**
+
+- **Beendet sich früher ohne offene Seite**: Über die Verknüpfung (ohne Fenster) gestartet, beendet sich Tweakable DJ jetzt nach 5 statt 10 Minuten ohne offene Seite von selbst.
+
 ## [0.4.0-beta.3] – 2026-10-14
 
 *Pre-release to try out: installed programs never update to it by themselves (see the README, section “Pre-releases”).*

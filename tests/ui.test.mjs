@@ -1669,8 +1669,8 @@ test('Hinweis in der Konsole: aus einer Startdatei mit Fenster „nur über dies
   try {
     // Ausgabe ist gepuffert: kurz warten, bis die Zeilen nach „läuft auf …“ da sind
     for (let i = 0; i < 50 && !launcher.out().includes('Strg+C'); i++) await new Promise(r => setTimeout(r, 100));
-    assert.ok(launcher.out().includes(t('de', 'ui.launcherHint', { minutes: 10 })), launcher.out());
-    assert.match(launcher.out(), /Dieses Fenster muss nur offen bleiben, wenn du Tweakable DJ über diese Datei startest\. Startest du es über die Verknüpfung auf dem Desktop, läuft es ohne Fenster und beendet sich 10 Minuten nach dem Schließen der Seite von selbst\./);
+    assert.ok(launcher.out().includes(t('de', 'ui.launcherHint', { minutes: 5 })), launcher.out());
+    assert.match(launcher.out(), /Dieses Fenster muss nur offen bleiben, wenn du Tweakable DJ über diese Datei startest\. Startest du es über die Verknüpfung auf dem Desktop, läuft es ohne Fenster und beendet sich 5\u00a0Minuten nach dem Schließen der Seite von selbst\./);
     assert.doesNotMatch(launcher.out(), /solange du Tweakable DJ benutzt/);
   } finally {
     await launcher.stop();
@@ -1686,9 +1686,9 @@ test('Hinweis in der Konsole: aus einer Startdatei mit Fenster „nur über dies
   }
   // Alle Sprachen: die Minutenzahl steht drin, drei Zeilen
   for (const lang of ['de', 'en', 'es', 'fr']) {
-    const hint = t(lang, 'ui.launcherHint', { minutes: 10 });
+    const hint = t(lang, 'ui.launcherHint', { minutes: 5 });
     assert.equal(hint.split('\n').length, 3, lang);
-    assert.match(hint, / 10 /, lang);
+    assert.match(hint, / 5\u00a0/, lang);
   }
 });
 

@@ -6,7 +6,7 @@
 //   node ui.mjs --no-browser   dasselbe, ohne den Browser zu öffnen (so auch beim Neustart nach einem Update)
 //   node ui.mjs --hidden       ohne Fenster (so startet die Verknüpfung auf dem Desktop; auch TWEAKABLE_DJ_HIDDEN=1): Ausgaben
 //                              in ui.log, Probleme beim Start als Systembenachrichtigung, und ohne offene Seite beendet sich
-//                              der Server nach 10 Minuten von selbst (TWEAKABLE_DJ_IDLE_MS)
+//                              der Server nach 5 Minuten von selbst (TWEAKABLE_DJ_IDLE_MS)
 // Läuft schon eine Oberfläche auf dem Port, öffnet ein zweiter Start nur den Browser und endet; ein fremdes Programm auf dem
 // Port meldet er. „Tweakable DJ beenden“ in der Oberfläche: POST /api/quit.
 // Sprache der Antworten: Header "X-Lang: de|en|es|fr" der Anfrage, sonst "language" aus config.jsonc, sonst die Systemsprache.
@@ -51,7 +51,7 @@ const UI_LOG = 'ui.log';
 const UI_LOG_OLD = 'ui.old.log';
 const LOG_MAX = 1_000_000;
 // Ohne Fenster: so lange ohne Lebenszeichen einer Seite (sie fragt alle 30 s GET /api/version), dann beenden.
-const IDLE_DEFAULT_MS = 10 * 60_000;
+const IDLE_DEFAULT_MS = 5 * 60_000;
 const IDLE_MS = Number(process.env.TWEAKABLE_DJ_IDLE_MS) > 0 ? Number(process.env.TWEAKABLE_DJ_IDLE_MS) : IDLE_DEFAULT_MS;
 
 // Ohne Fenster: alles, was sonst in der Konsole stünde, nach ui.log (die Konsole sieht niemand).
