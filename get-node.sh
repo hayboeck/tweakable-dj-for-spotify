@@ -50,13 +50,13 @@ os=${TWEAKABLE_DJ_NODE_OS:-$(uname -s)}
 arch=${TWEAKABLE_DJ_NODE_ARCH:-$(uname -m)}
 case "$os" in
   Darwin)
-    platform=darwin ext=tar.gz size=50
+    platform=darwin ext=tar.gz size=55
     # Terminal unter Rosetta meldet x86_64, der Mac kann aber arm64.
     if [ -z "$TWEAKABLE_DJ_NODE_ARCH" ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = 1 ]; then arch=arm64; fi
     ;;
   Linux)
     platform=linux
-    if command -v xz >/dev/null 2>&1; then ext=tar.xz size=30; else ext=tar.gz size=55; fi
+    if command -v xz >/dev/null 2>&1; then ext=tar.xz size=30; else ext=tar.gz size=60; fi
     ;;
   *) keinSystem ;;
 esac

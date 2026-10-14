@@ -245,7 +245,7 @@ test('get-node.sh: Dateinamen je System, nicht unterstützte Systeme, Hinweistex
   fs.writeFileSync(path.join(dir, 'node-version.txt'), '24.21.0\r\n');
   assert.match(await name('Linux', 'x86_64'), /^node-v24\.21\.0-linux-x64/, 'CRLF egal');
   const msg = await getNode(dir, ['--message'], { TWEAKABLE_DJ_NODE_OS: 'Darwin', TWEAKABLE_DJ_NODE_ARCH: 'arm64' }, true);
-  assert.equal(msg.out.trim(), 'Node.js wird einmalig heruntergeladen (ca. 50 MB) … / Node.js is being downloaded once (about 50 MB) …');
+  assert.equal(msg.out.trim(), 'Node.js wird einmalig heruntergeladen (ca. 55 MB) … / Node.js is being downloaded once (about 55 MB) …');
 });
 
 test('get-node.sh: Läuft das geladene Node.js hier nicht, merkt es sich das und versucht es nicht jedes Mal neu', { skip: WIN && 'nur macOS/Linux' }, async () => {

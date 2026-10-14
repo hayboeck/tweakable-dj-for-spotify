@@ -95,7 +95,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 **Also fixed**
 
-- **Clear message without internet**: if Spotify or Last.fm can’t be reached, the output says so (*Spotify can’t be reached … Check your internet connection*) instead of *fetch failed*, and a hanging connection ends after 30 seconds instead of showing *Running …* for minutes. Without Last.fm, a run warns once and continues with your favorites.
+- **Clear message without internet**: if Spotify or Last.fm can’t be reached, the output says so (*Spotify can’t be reached … Check your internet connection*) instead of *fetch failed*, and a hanging connection ends after 20 seconds (Last.fm) or 30 seconds (Spotify) instead of showing *Running …* for minutes. Without Last.fm, a run warns once and continues with your favorites.
 - **Spotify login refreshed only once**: several requests at the same time (e.g. the searches of an import) no longer refresh the login each on their own; a refresh by another run is picked up.
 - **Save playlist and archive find the playlist by its ID**, like writing already did; after an import, the playlist ID is remembered too.
 - **config.jsonc saved as “UTF-8 with BOM”** (some editors, PowerShell 5.1) is no longer reported as invalid.
@@ -123,7 +123,7 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 **Außerdem behoben**
 
-- **Klare Meldung ohne Internet**: Ist Spotify oder Last.fm nicht erreichbar, steht das in der Ausgabe (*Spotify ist nicht erreichbar … Prüfe die Internetverbindung*) statt *fetch failed*, und eine hängende Verbindung endet nach 30 Sekunden, statt minutenlang *Läuft …* zu zeigen. Ohne Last.fm warnt ein Lauf einmal und macht mit deinen Favoriten weiter.
+- **Klare Meldung ohne Internet**: Ist Spotify oder Last.fm nicht erreichbar, steht das in der Ausgabe (*Spotify ist nicht erreichbar … Prüfe die Internetverbindung*) statt *fetch failed*, und eine hängende Verbindung endet nach 20 Sekunden (Last.fm) bzw. 30 Sekunden (Spotify), statt minutenlang *Läuft …* zu zeigen. Ohne Last.fm warnt ein Lauf einmal und macht mit deinen Favoriten weiter.
 - **Spotify-Anmeldung wird nur einmal erneuert**: Mehrere Anfragen gleichzeitig (z. B. die Suchen eines Imports) erneuern die Anmeldung nicht mehr jede für sich; erneuert ein anderer Lauf, wird das übernommen.
 - **Playlist speichern und das Archiv finden die Playlist über ihre ID**, wie es das Schreiben schon tat; nach einem Import wird die ID ebenfalls gemerkt.
 - **config.jsonc als „UTF-8 mit BOM“ gespeichert** (manche Editoren, PowerShell 5.1) gilt nicht mehr als fehlerhaft.
