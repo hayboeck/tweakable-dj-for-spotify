@@ -119,3 +119,11 @@ test('release.yml: erst alle Tests (test.yml), Prüfung zuerst, Pre-release-Mark
   assert.doesNotMatch(regular, /prerelease|latest/);
   assert.doesNotMatch(yml, /case "\$tag" in \*-\*\)/, 'kein Raten am Bindestrich mehr');
 });
+
+test('Fehlermelde-Vorlage: Befehle je System so, wie sie in cmd bzw. im Terminal laufen', () => {
+  const yml = fs.readFileSync(path.join(ROOT, '.github', 'ISSUE_TEMPLATE', 'bug.yml'), 'utf8');
+  // cmd.exe liest „node/current/…“ als Befehl node mit dem Schalter /current/…; unter Windows also Backslashes.
+  assert.doesNotMatch(yml, /node\/current\/node\.exe/);
+  assert.equal(yml.split('`node\\current\\node.exe dj.mjs --dry`').length - 1, 2, 'en und de');
+  assert.equal(yml.split('`node/current/bin/node dj.mjs --dry`').length - 1, 2, 'Mac und Linux, en und de');
+});
