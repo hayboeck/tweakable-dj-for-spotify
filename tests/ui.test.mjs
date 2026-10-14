@@ -1609,9 +1609,10 @@ test('ui.html: Fehlerzeilen der Ausgabe in allen Sprachen erkannt (run.error, au
 
 // Eigener Server in einem neuen Ordner (config: Inhalt der config.jsonc oder null, tokens: Inhalt der tokens.json oder null)
 // mit simuliertem Zeitplaner (MOCK_SCHEDULER in tests/mock-apis.mjs, Datei zeitplaner.json): Der echte wird nie gefragt oder
-// geändert, dazu ein Test-Name, falls doch. → { dir, call, scheduler (gespeicherter Stand), stop }
+// geändert, dazu ein Test-Name, falls doch. env: weitere Umgebungsvariablen. → { dir, call, scheduler (gespeicherter Stand), out
+// (Ausgabe bisher), stop }
 const TOKENS_OK = JSON.stringify({ access_token: 'x', refresh_token: 'fake-refresh-token', expires_at: 0, authorized_at: Date.now() });
-async function freshServer({ config = null, tokens = null, scheduler = {}, name = 'Tweakable DJ TEST eigener Server' } = {}) {
+async function freshServer({ config = null, tokens = null, scheduler = {}, name = 'Tweakable DJ TEST eigener Server', env = {} } = {}) {
   const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj eigen ü-'));
   for (const f of fs.readdirSync(ROOT)) {
     if (f.endsWith('.mjs') || /^config\.example(\.de)?\.jsonc$/.test(f) || f === 'ui.html') fs.copyFileSync(path.join(ROOT, f), path.join(fresh, f));
@@ -1626,7 +1627,7 @@ async function freshServer({ config = null, tokens = null, scheduler = {}, name 
   const proc = spawn(process.execPath, ['ui.mjs', '--no-browser'], { cwd: fresh, env: {
     ...process.env, TWEAKABLE_DJ_PORT: String(port), TWEAKABLE_DJ_LANG: 'de', NODE_OPTIONS: `--import=${MOCK}`, TWEAKABLE_DJ_NO_UPDATE_CHECK: '1',
     MOCK_LOG: path.join(fresh, 'mock-anfragen.jsonl'), MOCK_SCHEDULER: schedulerFile, TWEAKABLE_DJ_DESKTOP: path.join(fresh, 'desktop'),
-    TWEAKABLE_DJ_TASK_NAME: name,
+    TWEAKABLE_DJ_TASK_NAME: name, ...env,
   } });
   const stop = async () => {
     if (proc.exitCode === null) {
@@ -1646,6 +1647,7 @@ async function freshServer({ config = null, tokens = null, scheduler = {}, name 
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`Server startet nicht: ${out}`)), 15_000);
       proc.stdout.on('data', c => { out += c; if (out.includes(url)) { clearTimeout(timer); resolve(); } });
+      proc.stderr.on('data', c => (out += c));
       proc.on('exit', code => reject(new Error(`Server beendet (${code}): ${out}`)));
     });
   } catch (e) {
@@ -1657,9 +1659,38 @@ async function freshServer({ config = null, tokens = null, scheduler = {}, name 
       body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
     return { status: res.status, data: await res.json() };
   };
-  return { dir: fresh, call, scheduler: () => JSON.parse(fs.readFileSync(schedulerFile, 'utf8')), stop };
+  return { dir: fresh, call, scheduler: () => JSON.parse(fs.readFileSync(schedulerFile, 'utf8')), out: () => out, stop };
 }
 const configText = values => `// Test\n${JSON.stringify({ ...CONFIG, ...values }, null, 2)}\n`;
+
+test('Hinweis in der Konsole: aus einer Startdatei mit Fenster „nur über diese Datei offen lassen; Verknüpfung ohne Fenster, beendet sich von selbst“', async () => {
+  const { t } = await import('../i18n.mjs');
+  const launcher = await freshServer({ config: configText({ language: 'de' }), tokens: TOKENS_OK, env: { TWEAKABLE_DJ_LAUNCHER: '1' } });
+  try {
+    // Ausgabe ist gepuffert: kurz warten, bis die Zeilen nach „läuft auf …“ da sind
+    for (let i = 0; i < 50 && !launcher.out().includes('Strg+C'); i++) await new Promise(r => setTimeout(r, 100));
+    assert.ok(launcher.out().includes(t('de', 'ui.launcherHint', { minutes: 10 })), launcher.out());
+    assert.match(launcher.out(), /Dieses Fenster muss nur offen bleiben, wenn du Tweakable DJ über diese Datei startest\. Startest du es über die Verknüpfung auf dem Desktop, läuft es ohne Fenster und beendet sich 10 Minuten nach dem Schließen der Seite von selbst\./);
+    assert.doesNotMatch(launcher.out(), /solange du Tweakable DJ benutzt/);
+  } finally {
+    await launcher.stop();
+  }
+  // Direkt mit "node ui.mjs" (ohne Startdatei): wie bisher nur „Fenster offen lassen“
+  const direct = await freshServer({ config: configText({ language: 'en' }), tokens: TOKENS_OK });
+  try {
+    for (let i = 0; i < 50 && !direct.out().includes('Ctrl+C'); i++) await new Promise(r => setTimeout(r, 100));
+    assert.ok(direct.out().includes(t('en', 'ui.stopHint')), direct.out());
+    assert.doesNotMatch(direct.out(), /desktop shortcut/);
+  } finally {
+    await direct.stop();
+  }
+  // Alle Sprachen: die Minutenzahl steht drin, drei Zeilen
+  for (const lang of ['de', 'en', 'es', 'fr']) {
+    const hint = t(lang, 'ui.launcherHint', { minutes: 10 });
+    assert.equal(hint.split('\n').length, 3, lang);
+    assert.match(hint, / 10 /, lang);
+  }
+});
 
 test('Einstellungen laden: Zeitplaner scheitert → übrige Werte gespeichert, Warnung, Automatik unverändert', async () => {
   const name = 'Tweakable DJ TEST Zeitplan';

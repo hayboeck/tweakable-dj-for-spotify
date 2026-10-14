@@ -51,7 +51,8 @@ const UI_LOG = 'ui.log';
 const UI_LOG_OLD = 'ui.old.log';
 const LOG_MAX = 1_000_000;
 // Ohne Fenster: so lange ohne Lebenszeichen einer Seite (sie fragt alle 30 s GET /api/version), dann beenden.
-const IDLE_MS = Number(process.env.TWEAKABLE_DJ_IDLE_MS) > 0 ? Number(process.env.TWEAKABLE_DJ_IDLE_MS) : 10 * 60_000;
+const IDLE_DEFAULT_MS = 10 * 60_000;
+const IDLE_MS = Number(process.env.TWEAKABLE_DJ_IDLE_MS) > 0 ? Number(process.env.TWEAKABLE_DJ_IDLE_MS) : IDLE_DEFAULT_MS;
 
 // Ohne Fenster: alles, was sonst in der Konsole stünde, nach ui.log (die Konsole sieht niemand).
 function logToFile() {
@@ -1085,7 +1086,10 @@ function watchIdle() {
 server.listen(PORT, '127.0.0.1', () => {
   const lang = defaultLang();
   console.log(t(lang, 'ui.listening', { url: URL_BASE }));
-  console.log(HIDDEN ? t(lang, 'ui.hiddenHint', { minutes: Math.round(IDLE_MS / 60_000) }) : t(lang, 'ui.stopHint'));
+  // Mit Fenster aus einer Startdatei: Hinweis, dass die Verknüpfung auf dem Desktop ohne Fenster startet (und sich ohne offene
+  // Seite nach IDLE_DEFAULT_MS beendet); direkt mit "node ui.mjs" gestartet nur, dass das Fenster offen bleiben muss.
+  console.log(HIDDEN ? t(lang, 'ui.hiddenHint', { minutes: Math.round(IDLE_MS / 60_000) })
+    : t(lang, LAUNCHER ? 'ui.launcherHint' : 'ui.stopHint', { minutes: Math.round(IDLE_DEFAULT_MS / 60_000) }));
   if (!noBrowser) openPage();
   if (HIDDEN) watchIdle();
   if (LAUNCHER) renewShortcuts(lang).then(() => renewSchedule(lang));

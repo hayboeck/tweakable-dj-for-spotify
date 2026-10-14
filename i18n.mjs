@@ -345,6 +345,9 @@ export const MESSAGES = {
     'ui.stopHint': 'Die Oberfläche öffnest du im Browser unter dieser Adresse.\n'
       + 'Dieses Fenster muss offen bleiben, solange du Tweakable DJ benutzt – wird es geschlossen, ist das Programm beendet.\n'
       + 'Beenden mit Strg+C oder durch Schließen des Fensters.',
+    'ui.launcherHint': 'Die Oberfläche öffnest du im Browser unter dieser Adresse.\n'
+      + 'Dieses Fenster muss nur offen bleiben, wenn du Tweakable DJ über diese Datei startest. Startest du es über die Verknüpfung auf dem Desktop, läuft es ohne Fenster und beendet sich {minutes} Minuten nach dem Schließen der Seite von selbst.\n'
+      + 'Beenden mit Strg+C oder durch Schließen des Fensters.',
     'ui.badPort': 'TWEAKABLE_DJ_PORT muss eine Zahl von 1 bis 65535 sein, nicht "{value}".',
     'ui.keyFormat': 'Ein API-Key hat genau 32 Zeichen aus 0–9 und a–f.',
     'ui.userFormat': 'Dieser Benutzername enthält Zeichen, die es bei Last.fm nicht gibt.',
@@ -672,6 +675,9 @@ export const MESSAGES = {
     'ui.listening': 'Tweakable DJ – interface running at {url}',
     'ui.stopHint': 'Open the interface in your browser at this address.\n'
       + 'Keep this window open while you use Tweakable DJ – closing it stops the program.\n'
+      + 'To stop, press Ctrl+C or close this window.',
+    'ui.launcherHint': 'Open the interface in your browser at this address.\n'
+      + 'This window only needs to stay open when you start Tweakable DJ with this file. Started from the desktop shortcut, it runs without a window and quits by itself {minutes} minutes after you close the page.\n'
       + 'To stop, press Ctrl+C or close this window.',
     'ui.badPort': 'TWEAKABLE_DJ_PORT must be a number from 1 to 65535, not "{value}".',
     'ui.keyFormat': 'An API key has exactly 32 characters from 0–9 and a–f.',
@@ -1002,6 +1008,9 @@ export const MESSAGES = {
     'ui.stopHint': 'Abre la interfaz en tu navegador con esta dirección.\n'
       + 'Deja esta ventana abierta mientras uses Tweakable DJ: si la cierras, el programa se detiene.\n'
       + 'Para salir, pulsa Ctrl+C o cierra esta ventana.',
+    'ui.launcherHint': 'Abre la interfaz en tu navegador con esta dirección.\n'
+      + 'Esta ventana solo tiene que quedarse abierta si inicias Tweakable DJ con este archivo. Si lo inicias con el acceso directo del escritorio, funciona sin ventana y se cierra solo {minutes} minutos después de cerrar la página.\n'
+      + 'Para salir, pulsa Ctrl+C o cierra esta ventana.',
     'ui.badPort': 'TWEAKABLE_DJ_PORT debe ser un número de 1 a 65535, no "{value}".',
     'ui.keyFormat': 'Una clave API tiene exactamente 32 caracteres de 0–9 y a–f.',
     'ui.userFormat': 'Este nombre de usuario contiene caracteres que Last.fm no admite.',
@@ -1331,6 +1340,9 @@ export const MESSAGES = {
     'ui.listening': 'Tweakable DJ – l’interface tourne sur {url}',
     'ui.stopHint': 'Ouvre l’interface dans ton navigateur à cette adresse.\n'
       + 'Laisse cette fenêtre ouverte tant que tu utilises Tweakable DJ : si tu la fermes, le programme s’arrête.\n'
+      + 'Pour arrêter, appuie sur Ctrl+C ou ferme cette fenêtre.',
+    'ui.launcherHint': 'Ouvre l’interface dans ton navigateur à cette adresse.\n'
+      + 'Cette fenêtre ne doit rester ouverte que si tu lances Tweakable DJ avec ce fichier. Si tu le lances avec le raccourci du bureau, il fonctionne sans fenêtre et s’arrête tout seul {minutes} minutes après la fermeture de la page.\n'
       + 'Pour arrêter, appuie sur Ctrl+C ou ferme cette fenêtre.',
     'ui.badPort': 'TWEAKABLE_DJ_PORT doit être un nombre de 1 à 65535, pas "{value}".',
     'ui.keyFormat': 'Une clé API compte exactement 32 caractères parmi 0–9 et a–f.',
