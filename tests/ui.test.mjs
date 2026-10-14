@@ -1606,3 +1606,69 @@ test('ui.html: Fehlerzeilen der Ausgabe in allen Sprachen erkannt (run.error, au
   const re = new Function(`return ${m[1]}`)();
   for (const lang of ['de', 'en', 'es', 'fr']) assert.match(t(lang, 'run.error', { message: 'x' }), re, lang);
 });
+
+test('Ohne Einrichtung („Erst einmal umsehen“): Einstellungen speichern geht; Automatik, zweite Verknüpfung, Lauf und Schreiben → 409', async () => {
+  // Eigener Server in einem neuen Ordner ohne config.jsonc und ohne Anmeldung. Test-Name für den Zeitplaner, falls die Sperre
+  // doch nicht greift – der echte Eintrag bleibt so in jedem Fall unberührt.
+  const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj neu ü-'));
+  for (const f of fs.readdirSync(ROOT)) {
+    if (f.endsWith('.mjs') || /^config\.example(\.de)?\.jsonc$/.test(f) || f === 'ui.html') fs.copyFileSync(path.join(ROOT, f), path.join(fresh, f));
+  }
+  const freshDesktop = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj desktop neu ö-'));
+  const port = await freePort();
+  const url = `http://127.0.0.1:${port}`;
+  const proc = spawn(process.execPath, ['ui.mjs', '--no-browser'], { cwd: fresh, env: {
+    ...process.env, TWEAKABLE_DJ_PORT: String(port), TWEAKABLE_DJ_LANG: 'de', NODE_OPTIONS: `--import=${MOCK}`, TWEAKABLE_DJ_NO_UPDATE_CHECK: '1',
+    MOCK_LOG: path.join(fresh, 'mock-anfragen.jsonl'), TWEAKABLE_DJ_DESKTOP: freshDesktop, TWEAKABLE_DJ_TASK_NAME: 'Tweakable DJ TEST umsehen',
+  } });
+  const call = async (route, { method = 'GET', body } = {}) => {
+    const res = await fetch(url + route, { method, headers: { 'X-Tweakable-DJ': '1', 'Content-Type': 'application/json', 'X-Lang': 'de' },
+      body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
+    return { status: res.status, data: await res.json() };
+  };
+  try {
+    let out = '';
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Server startet nicht: ${out}`)), 15_000);
+      proc.stdout.on('data', c => { out += c; if (out.includes(url)) { clearTimeout(timer); resolve(); } });
+      proc.on('exit', code => reject(new Error(`Server beendet (${code}): ${out}`)));
+    });
+    const cfg = await call('/api/config');
+    assert.deepEqual([cfg.data.setup.needsSetup, cfg.data.setup.configExists], [true, false]);
+    // Einstellungen speichern: legt die config.jsonc aus der Vorlage an, ohne Zugangsdaten
+    assert.equal((await call('/api/config', { method: 'POST', body: { size: 33, blockedArtists: ['Rin'] } })).status, 200);
+    const text = fs.readFileSync(path.join(fresh, 'config.jsonc'), 'utf8');
+    assert.match(text, /"size": 33/);
+    assert.equal((await call('/api/config')).data.setup.needsSetup, true);
+    // Automatik und zweite Verknüpfung: 409 mit Code, nichts gespeichert
+    const setupFirst = 'Tweakable DJ ist noch nicht eingerichtet. Bitte zuerst die Einrichtung abschließen (Spotify und Last.fm).';
+    const schedule = await call('/api/config', { method: 'POST', body: { schedule: 'daily', size: 34 } });
+    assert.deepEqual([schedule.status, schedule.data.errorCode], [409, 'setup']);
+    assert.match(schedule.data.error, /^Für die Automatik bitte zuerst die Einrichtung abschließen/);
+    const shortcut = await call('/api/config', { method: 'POST', body: { runShortcut: true } });
+    assert.deepEqual([shortcut.status, shortcut.data.errorCode], [409, 'setup']);
+    assert.deepEqual(fs.readdirSync(freshDesktop), [], 'keine Verknüpfung');
+    const values = (await call('/api/config')).data.values;
+    assert.deepEqual([values.size, values.schedule, values.runShortcut], [33, 'off', false]);
+    // Lauf, Schreiben, Playlists, Import: 409 statt eines Fehlers von Spotify
+    assert.deepEqual(await call('/api/run?dry=1', { method: 'POST' }), { status: 409, data: { error: setupFirst, errorCode: 'setup' } });
+    assert.deepEqual(await call('/api/apply', { method: 'POST', body: { id: '0123456789ab' } }), { status: 409, data: { error: setupFirst, errorCode: 'setup' } });
+    assert.equal((await call('/api/playlists')).status, 409);
+    assert.equal((await call('/api/import/preview', { method: 'POST', body: 'A – B' })).status, 409);
+    // Einstellungen laden mit Automatik: Rest gespeichert, Warnung
+    const backup = JSON.stringify({ app: 'tweakable-dj', kind: 'settings', settings: { schedule: 'daily', scheduleTime: '08:00', size: 40 } });
+    const loaded = await call('/api/settings/import', { method: 'POST', body: backup });
+    assert.equal(loaded.status, 200);
+    assert.deepEqual([loaded.data.changed, loaded.data.warnings.length], [1, 1]);
+    assert.match(loaded.data.warnings[0], /^Für die Automatik bitte zuerst die Einrichtung abschließen; sie bleibt, wie sie war\.$/);
+    assert.deepEqual([(await call('/api/config')).data.values.size, (await call('/api/config')).data.values.schedule], [40, 'off']);
+  } finally {
+    if (proc.exitCode === null) {
+      const exited = new Promise(resolve => proc.once('exit', resolve));
+      proc.kill();
+      await exited;
+    }
+    fs.rmSync(fresh, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    fs.rmSync(freshDesktop, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
+});

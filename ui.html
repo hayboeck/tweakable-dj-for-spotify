@@ -132,6 +132,8 @@
   /* × oben rechts: blendet den Hinweis aus, bis sich der Grund ändert (z. B. „Angemeldet ✓“ nach der Anmeldung) */
   .notice { position: relative; padding-right: 44px; }
   .notice > .close { position: absolute; top: 8px; right: 8px; }
+  #setup-note .actions { margin-top: 10px; }
+  .browse { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: -6px 0 18px; }
   /* Hinweis auf eine neue Version: Rahmen in der Akzentfarbe, mit × zum Ausblenden (wie bei der Sperrliste).
      Text | „Jetzt aktualisieren“ | ×; auf schmalen Bildschirmen rutscht die Schaltfläche unter den Text.
      Darunter (über die ganze Breite) Rückfrage, Fortschritt und Ergebnis des Updates. */
@@ -459,6 +461,13 @@ try {
     <p id="notice-text"></p>
     <div id="notice-login"></div>
   </div>
+  <!-- Noch nicht eingerichtet („Erst einmal umsehen“): Hinweis mit „Einrichtung fortsetzen“; × blendet ihn aus, bis man etwas
+       versucht, das die Einrichtung braucht (dann sagt er, wofür) -->
+  <div id="setup-note" class="notice" hidden>
+    <button type="button" class="close" id="setup-note-close">×</button>
+    <p id="setup-note-text" role="status"></p>
+    <div class="actions"><button type="button" class="btn small primary" id="setup-note-go" data-t="setupContinue"></button></div>
+  </div>
   <!-- Neue Version auf GitHub (GET /api/update), ausblendbar je Version; „Jetzt aktualisieren“ mit Rückfrage (POST /api/update/install) -->
   <div id="update" class="update" hidden>
     <p role="status"><span id="update-text"></span> – <a id="update-link" target="_blank" rel="noopener"></a></p>
@@ -490,6 +499,11 @@ try {
   <!-- Einrichtungs-Assistent -->
   <div id="setup" hidden>
     <p class="intro" data-t="intro"></p>
+    <!-- „Erst einmal umsehen“: ohne Einrichtung zu den Reglern (nur solange die Einrichtung fehlt; sonst „Zurück“ unten) -->
+    <div class="browse" id="w-browse-box" hidden>
+      <button type="button" class="btn" id="w-browse" data-t="browse"></button>
+      <span class="help" data-t="browseHelp"></span>
+    </div>
     <ol class="steps">
       <li class="step">
         <h2><button type="button" class="step-head" aria-controls="step-1"><span class="num">1</span><span data-t="step1"></span><span class="step-state"></span></button></h2>
@@ -798,6 +812,9 @@ const TEXT = {
       stoppedGone: 'Tweakable DJ läuft nicht mehr – bitte über die Verknüpfung neu starten.',
       shortcut: 'Verknüpfung',
       intro: 'Du brauchst Spotify Premium, ein kostenloses Last.fm-Konto und etwa 10 Minuten.',
+      browse: 'Erst einmal umsehen',
+      browseHelp: 'Ohne Anmeldung zu den Reglern – einrichten kannst du jederzeit später.',
+      setupContinue: 'Einrichtung fortsetzen',
       step1: 'Spotify-App anlegen',
       step2: 'Last.fm verbinden',
       step3: 'Bei Spotify anmelden',
@@ -984,6 +1001,14 @@ const TEXT = {
     presetPro: names => `Eigene Pro-Einstellungen aktiv${names.length ? ` (${names.join(', ')})` : ''} – sie wirken weiter, auch wenn ihre Regler hier ausgeblendet sind (siehe „Pro“ oben).`,
     presetExtra: (name, value) => `${name}: ${value}`,
     presetResetExtras: 'Ausgeblendete Regler zurücksetzen',
+    // „Erst einmal umsehen“: Hinweis oben, solange die Einrichtung fehlt, und was erst danach geht
+    browse: {
+      note: 'Noch nicht eingerichtet – du kannst dich umsehen und die Regler speichern, aber noch keine Playlist erstellen.',
+      create: 'Für „Playlist erstellen“ bitte zuerst die Einrichtung abschließen.',
+      files: 'Zum Speichern und Importieren von Playlists bitte zuerst die Einrichtung abschließen.',
+      schedule: 'Für die Automatik bitte zuerst die Einrichtung abschließen.',
+      runShortcut: 'Für die zweite Verknüpfung bitte zuerst die Einrichtung abschließen.',
+    },
     emptyName: 'Der Name der Playlist darf nicht leer sein.',
     // Kurzgründe zu errorCode aus @@RESULT bzw. automatik.json ('other' → Text aus error)
     errors: {
@@ -1273,6 +1298,9 @@ const TEXT = {
       stoppedGone: 'Tweakable DJ is no longer running – please start it again with the shortcut.',
       shortcut: 'Shortcut',
       intro: 'You need Spotify Premium, a free Last.fm account and about 10 minutes.',
+      browse: 'Look around first',
+      browseHelp: 'Go to the controls without logging in – you can set up any time later.',
+      setupContinue: 'Continue setup',
       step1: 'Create a Spotify app',
       step2: 'Connect Last.fm',
       step3: 'Log in to Spotify',
@@ -1459,6 +1487,13 @@ const TEXT = {
     presetPro: names => `Custom Pro settings active${names.length ? ` (${names.join(', ')})` : ''} – they still apply, even though their controls are hidden here (see “Pro” at the top).`,
     presetExtra: (name, value) => `${name}: ${value}`,
     presetResetExtras: 'Reset hidden controls',
+    browse: {
+      note: 'Not set up yet – you can look around and save the controls, but not create a playlist yet.',
+      create: 'To use “Create playlist”, please finish the setup first.',
+      files: 'To save or import playlists, please finish the setup first.',
+      schedule: 'For automatic runs, please finish the setup first.',
+      runShortcut: 'For the second shortcut, please finish the setup first.',
+    },
     emptyName: 'The playlist name can’t be empty.',
     errors: {
       login_expired: 'Spotify login expired',
@@ -1737,6 +1772,9 @@ const TEXT = {
       stoppedGone: 'Tweakable DJ ya no está en marcha: vuelve a iniciarlo con el acceso directo.',
       shortcut: 'Acceso directo',
       intro: 'Necesitas Spotify Premium, una cuenta gratuita de Last.fm y unos 10 minutos.',
+      browse: 'Echar un vistazo primero',
+      browseHelp: 'Ir a los controles sin iniciar sesión: puedes configurarlo cuando quieras.',
+      setupContinue: 'Continuar la configuración',
       step1: 'Crear una app de Spotify',
       step2: 'Conectar Last.fm',
       step3: 'Iniciar sesión en Spotify',
@@ -1923,6 +1961,13 @@ const TEXT = {
     presetPro: names => `Ajustes Pro propios activos${names.length ? ` (${names.join(', ')})` : ''}: siguen aplicándose aunque sus controles estén ocultos aquí (ver «Pro» arriba).`,
     presetExtra: (name, value) => `${name}: ${value}`,
     presetResetExtras: 'Restablecer los controles ocultos',
+    browse: {
+      note: 'Aún no está configurado: puedes echar un vistazo y guardar los controles, pero todavía no crear una playlist.',
+      create: 'Para «Crear playlist», termina primero la configuración.',
+      files: 'Para guardar o importar playlists, termina primero la configuración.',
+      schedule: 'Para las ejecuciones automáticas, termina primero la configuración.',
+      runShortcut: 'Para el segundo acceso directo, termina primero la configuración.',
+    },
     emptyName: 'El nombre de la playlist no puede estar vacío.',
     errors: {
       login_expired: 'La sesión de Spotify ha caducado',
@@ -2202,6 +2247,9 @@ const TEXT = {
       stoppedGone: 'Tweakable DJ ne fonctionne plus – redémarre-le avec le raccourci.',
       shortcut: 'Raccourci',
       intro: 'Il te faut Spotify Premium, un compte Last.fm gratuit et une dizaine de minutes.',
+      browse: 'D’abord jeter un œil',
+      browseHelp: 'Aller aux curseurs sans connexion – tu pourras configurer plus tard à tout moment.',
+      setupContinue: 'Continuer la configuration',
       step1: 'Créer une app Spotify',
       step2: 'Connecter Last.fm',
       step3: 'Se connecter à Spotify',
@@ -2388,6 +2436,13 @@ const TEXT = {
     presetPro: names => `Paramètres Pro personnalisés actifs${names.length ? ` (${names.join(', ')})` : ''} – ils s’appliquent toujours, même si leurs curseurs sont masqués ici (voir « Pro » en haut).`,
     presetExtra: (name, value) => `${name} : ${value}`,
     presetResetExtras: 'Réinitialiser les curseurs masqués',
+    browse: {
+      note: 'Pas encore configuré – tu peux jeter un œil et enregistrer les curseurs, mais pas encore créer de playlist.',
+      create: 'Pour « Créer la playlist », termine d’abord la configuration.',
+      files: 'Pour enregistrer ou importer des playlists, termine d’abord la configuration.',
+      schedule: 'Pour les exécutions automatiques, termine d’abord la configuration.',
+      runShortcut: 'Pour le deuxième raccourci, termine d’abord la configuration.',
+    },
     emptyName: 'Le nom de la playlist ne peut pas être vide.',
     errors: {
       login_expired: 'Connexion Spotify expirée',
@@ -3168,6 +3223,8 @@ function renderVariety() {
 }
 
 function set(key, value, refreshInput = true) {
+  // Ohne Einrichtung: Automatik und zweite Verknüpfung lassen sich nicht einschalten – Hinweis statt Fehler beim Speichern.
+  if (((key === 'schedule' && value !== 'off') || (key === 'runShortcut' && value === true)) && needsSetupFor(key)) return refresh();
   current[key] = value;
   if (SCHEDULE_KEYS.includes(key)) setMsg($('auto-msg'), '', ''); // alte Meldung passt nicht mehr
   refresh(refreshInput ? null : key);
@@ -3435,6 +3492,7 @@ function refresh(skipInput) {
   $('preset-reset').hidden = !custom;
   $('preset-reset').textContent = match ? T.presetResetExtras : T.page.presetReset;
   renderMode();
+  renderSetupNote();
 
   const isDirty = dirty();
   const working = isWorking(); // Lauf, Import oder Update: dann weder speichern noch etwas Neues starten
@@ -3753,7 +3811,7 @@ function renderSummary() {
 // tut nichts.
 let runPending = false;
 async function run(kind) {
-  if (runPending || isWorking()) return;
+  if (runPending || isWorking() || needsSetupFor('create')) return;
   runPending = true;
   try {
     await startRun(kind);
@@ -4093,6 +4151,7 @@ async function backupApply() {
 // „Playlist speichern“ (Textdatei) (GET /api/export): nach einem Probelauf dessen Liste (Dateiname mit „-neu“), sonst die
 // Playlist, wie sie gerade in Spotify ist. So gibt es nur einen Knopf, und er speichert, was die Ausgabe gerade zeigt.
 async function exportList() {
+  if (needsSetupFor('files')) return;
   const id = trialExportable() ? trial.id : null;
   setImport(null);
   setMsg($('files-msg'), '', id ? '' : T.files.loading);
@@ -4117,6 +4176,7 @@ async function exportList() {
 
 // „Importieren …“ klappt die Auswahl der Quellen auf bzw. zu (open: true = auf, false = zu).
 function toggleImportMenu(open = $('import-menu').hidden) {
+  if (open && needsSetupFor('files')) return;
   $('import-menu').hidden = !open;
   $('import').setAttribute('aria-expanded', String(open));
   if (!open) toggleArchive(false);
@@ -4825,6 +4885,44 @@ function renderTabs() {
 function renderCredentials() {
   const { loggedIn, credentials } = setup;
   $('cred-state').textContent = `${loggedIn ? T.cred.loggedIn : T.cred.loggedOut} · ${credentials.user ? T.cred.user(credentials.user) : T.cred.noUser}`;
+  $('open-setup').textContent = setup.needsSetup ? T.page.setupContinue : T.page.openSetup;
+}
+
+// --- „Erst einmal umsehen“: Hauptansicht, solange die Einrichtung fehlt ---
+// Auf der Seite gilt alles ohne Spotify und Last.fm (Regler, Voreinstellungen, Einfach/Pro, Einstellungen wie Sperrliste,
+// Aussehen, Archiv) und lässt sich speichern (der Server legt die config.jsonc dafür aus der Vorlage an, noch ohne
+// Zugangsdaten). Was Zugangsdaten braucht, fragt erst gar nicht beim Server: Der Hinweis oben sagt, wofür die Einrichtung
+// fehlt, mit „Einrichtung fortsetzen“. Beim nächsten Öffnen der Seite kommt wieder der Assistent (mit diesem Knopf oben):
+// Er zeigt, was noch fehlt – ein Klick führt wieder hierher.
+let setupNeed = null;          // wofür zuletzt die Einrichtung fehlte ('create', 'files', 'schedule', 'runShortcut') oder null
+let setupNoteClosed = false;   // × am Hinweis (bis man etwas versucht, das die Einrichtung braucht)
+const setupMissing = () => Boolean(setup?.needsSetup);
+
+function renderSetupNote() {
+  const show = view === 'main' && setupMissing() && (Boolean(setupNeed) || !setupNoteClosed);
+  $('setup-note').hidden = !show;
+  if (!show) return;
+  $('setup-note-text').textContent = setupNeed ? T.browse[setupNeed] : T.browse.note;
+  $('setup-note-close').title = T.update.close;
+  $('setup-note-close').setAttribute('aria-label', T.update.close);
+}
+
+// Fehlt die Einrichtung für what? Dann Hinweis zeigen (auch wenn er ausgeblendet war) und true – der Aufrufer bricht ab.
+function needsSetupFor(what) {
+  if (!setupMissing()) return false;
+  setupNeed = what;
+  setupNoteClosed = false;
+  renderSetupNote();
+  $('setup-note').scrollIntoView({ block: 'nearest' });
+  $('setup-note-go').focus({ preventScroll: true });
+  return true;
+}
+
+function lookAround() {
+  setupNeed = null;
+  showTab('playlist');
+  showView('main');
+  scrollTo(0, 0);
 }
 
 // --- Verknüpfung auf dem Desktop (Abschnitt im Tab „Einstellungen“ und letzter Schritt des Assistenten) ---
@@ -4955,6 +5053,7 @@ function renderSetup() {
   $('w-done-text').textContent = open.length ? T.setup.open(open) : T.setup.allDone;
   $('w-finish').disabled = setup.needsSetup;
   $('w-close').hidden = setup.needsSetup || !fromSettings;
+  $('w-browse-box').hidden = !setup.needsSetup;
   renderLogin();
   renderCredentials();
   renderShortcut();
@@ -5090,7 +5189,15 @@ function wireSetup() {
   $('w-finish').onclick = finishSetup;
   $('w-shortcut').onchange = () => { shortcutWanted = $('w-shortcut').checked; };
   $('w-close').onclick = () => { showTab('settings'); showView('main'); scrollTo(0, 0); };
-  $('open-setup').onclick = () => openSetup(1, true);
+  // Fehlt die Einrichtung noch, geht es beim ersten offenen Schritt weiter.
+  $('open-setup').onclick = () => openSetup(setup.needsSetup ? undefined : 1, true);
+  $('w-browse').onclick = lookAround;
+  $('setup-note-go').onclick = () => openSetup(undefined, true);
+  $('setup-note-close').onclick = () => {
+    setupNoteClosed = true;
+    setupNeed = null;
+    renderSetupNote();
+  };
 }
 
 function wireTabs() {

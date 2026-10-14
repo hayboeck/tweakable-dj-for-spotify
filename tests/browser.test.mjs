@@ -268,3 +268,73 @@ test('Alle Sprachen in beiden Tabs vollständig; 375 px ohne seitliches Scrollen
   assert.deepEqual(page.errors, []);
   await page.close();
 });
+
+test('Erst einmal umsehen: ohne Einrichtung zu den Reglern, speichern geht; Playlist erstellen, Import und Automatik → Hinweis statt Fehler', { skip }, async () => {
+  // Eigene Kopie ohne config.jsonc und ohne Anmeldung, eigener Server
+  const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj neu ü-'));
+  for (const f of fs.readdirSync(dir)) {
+    if (f.endsWith('.mjs') || /^config\.example(\.de)?\.jsonc$/.test(f) || f === 'ui.html') fs.copyFileSync(path.join(dir, f), path.join(fresh, f));
+  }
+  fs.mkdirSync(path.join(fresh, 'assets'));
+  for (const f of fs.readdirSync(path.join(dir, 'assets'))) fs.copyFileSync(path.join(dir, 'assets', f), path.join(fresh, 'assets', f));
+  fs.mkdirSync(path.join(fresh, 'desktop'));
+  const port = await freePort();
+  const url = `http://127.0.0.1:${port}`;
+  const log = path.join(fresh, 'mock-anfragen.jsonl');
+  const proc = spawn(process.execPath, ['ui.mjs', '--no-browser'], { cwd: fresh, env: {
+    ...process.env, TWEAKABLE_DJ_PORT: String(port), TWEAKABLE_DJ_LANG: 'de', NODE_OPTIONS: `--import=${MOCK}`, TWEAKABLE_DJ_NO_UPDATE_CHECK: '1',
+    MOCK_LOG: log, TWEAKABLE_DJ_DESKTOP: path.join(fresh, 'desktop'), TWEAKABLE_DJ_TASK_NAME: 'Tweakable DJ TEST umsehen',
+  } });
+  let out = '';
+  const page = await browser.newPage({ width: 375 });
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Server startet nicht: ${out}`)), 15_000);
+      proc.stdout.on('data', c => { out += c; if (out.includes(url)) { clearTimeout(timer); resolve(); } });
+      proc.on('exit', code => reject(new Error(`Server beendet (${code}): ${out}`)));
+    });
+    await page.goto(`${url}/`);
+    await page.waitFor("!document.getElementById('setup').hidden && !document.getElementById('w-browse-box').hidden");
+    assert.equal(await text(page, 'w-browse'), 'Erst einmal umsehen');
+    await page.click('#w-browse');
+    await page.waitFor("!document.getElementById('main-view').hidden");
+    assert.match(await text(page, 'setup-note-text'), /^Noch nicht eingerichtet – /);
+    // Playlist erstellen und Importieren: Hinweis, keine Anfrage an den Server
+    await page.click('#create');
+    assert.equal(await text(page, 'setup-note-text'), 'Für „Playlist erstellen“ bitte zuerst die Einrichtung abschließen.');
+    await page.click('#import');
+    assert.match(await text(page, 'setup-note-text'), /^Zum Speichern und Importieren von Playlists /);
+    assert.ok(await page.eval("document.getElementById('import-menu').hidden"));
+    // Regler verstellen und speichern: legt die config.jsonc an (ohne Zugangsdaten)
+    await page.eval("set('size', 33)");
+    await page.click('#save');
+    await page.waitFor("document.getElementById('status').textContent === 'Gespeichert'");
+    assert.match(fs.readFileSync(path.join(fresh, 'config.jsonc'), 'utf8'), /"size": 33/);
+    // Automatik einschalten: Hinweis, bleibt aus
+    await page.eval("showTab('settings'); set('schedule', 'daily')");
+    assert.equal(await page.eval('current.schedule'), 'off');
+    assert.equal(await text(page, 'setup-note-text'), 'Für die Automatik bitte zuerst die Einrichtung abschließen.');
+    // × blendet den Hinweis aus; „Einrichtung fortsetzen“ (Zugangsdaten) führt zum ersten offenen Schritt
+    await page.click('#setup-note-close');
+    assert.ok(await page.eval("document.getElementById('setup-note').hidden"));
+    assert.equal(await text(page, 'open-setup'), 'Einrichtung fortsetzen');
+    await page.click('#open-setup');
+    await page.waitFor("!document.getElementById('setup').hidden");
+    assert.equal(await page.eval('activeStep'), 1);
+    assert.ok(await page.eval('document.documentElement.scrollWidth <= 375'), 'kein seitliches Scrollen');
+    // Nach dem Neuladen: wieder der Assistent, mit dem Knopf
+    await page.reload();
+    await page.waitFor("!document.getElementById('setup').hidden && !document.getElementById('w-browse-box').hidden");
+    const requests = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
+    assert.doesNotMatch(requests, /api\.spotify\.com|audioscrobbler/, 'keine Anfrage an Spotify oder Last.fm');
+    assert.deepEqual(page.errors, []);
+  } finally {
+    await page.close();
+    if (proc.exitCode === null) {
+      const exited = new Promise(resolve => proc.once('exit', resolve));
+      proc.kill();
+      await exited;
+    }
+    fs.rmSync(fresh, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
+});

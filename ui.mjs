@@ -297,6 +297,26 @@ async function saveSettings(values, lang, { warnings } = {}) {
   const before = currentConfig(lang);
   const after = { ...before, ...values };
   const nameLang = resolveLang(after.language, lang);
+  // Ohne Einrichtung („Erst einmal umsehen“) lassen sich Automatik und zweite Verknüpfung nicht einschalten: Sie liefen nur
+  // ins Leere. Beim normalen Speichern ein Fehler (409), beim Laden einer Sicherung eine Warnung, der Rest wird gespeichert.
+  const notReady = setupStatus(before).needsSetup;
+  const refuse = key => {
+    const message = t(lang, key === 'runShortcut' ? 'ui.setupFirstShortcut' : 'ui.setupFirstSchedule');
+    if (!warnings) throw Object.assign(new Error(message), { status: 409, errorCode: 'setup' });
+    warnings.push(message);
+  };
+  if (notReady && values.runShortcut === true && before.runShortcut !== true) {
+    refuse('runShortcut');
+    delete values.runShortcut;
+    after.runShortcut = before.runShortcut;
+  }
+  if (notReady && after.schedule !== 'off' && SCHEDULE_KEYS.some(k => after[k] !== before[k])) {
+    refuse('schedule');
+    for (const k of SCHEDULE_KEYS) {
+      delete values[k];
+      after[k] = before[k];
+    }
+  }
   if ('runShortcut' in values && values.runShortcut !== (before.runShortcut === true)) {
     try {
       await applyRunShortcut(values.runShortcut, lang, nameLang);
@@ -631,6 +651,8 @@ const server = http.createServer(async (req, res) => {
     if (route === 'GET /api/schedule') return send(200, { ...await scheduleStatus(currentConfig(lang), { lang }), archiveFiles: archiveFileCount(HERE) });
 
     if (route === 'POST /api/schedule') {
+      const cfg = currentConfig(lang);
+      if (cfg.schedule !== 'off' && setupStatus(cfg).needsSetup) return send(409, { error: t(lang, 'ui.setupFirstSchedule'), errorCode: 'setup' });
       try {
         return send(200, await serial(() => applySchedule(currentConfig(lang), { lang })));
       } catch (e) {
@@ -807,6 +829,7 @@ const server = http.createServer(async (req, res) => {
     if (route === 'POST /api/run') {
       const busy = runBusy(lang);
       if (busy) return send(409, { error: busy, activity: activity() });
+      if (setupStatus(currentConfig(lang)).needsSetup) return send(409, { error: t(lang, 'ui.setupFirst'), errorCode: 'setup' });
       const dry = url.searchParams.get('dry') === '1';
       return streamRun(res, ['dj.mjs', ...(dry ? ['--dry'] : [])], lang, dry ? 'dry' : 'run');
     }
@@ -846,6 +869,7 @@ const server = http.createServer(async (req, res) => {
       const { id, target = 'standard' } = await readJson(req, lang);
       const busy = runBusy(lang);
       if (busy) return send(409, { error: busy, activity: activity() });
+      if (setupStatus(currentConfig(lang)).needsSetup) return send(409, { error: t(lang, 'ui.setupFirst'), errorCode: 'setup' });
       if (typeof id !== 'string' || !/^[0-9a-f]{12}$/.test(id) || !['standard', 'new'].includes(target)) return send(400, { error: t(lang, 'ui.badRequest') });
       const reason = trialProblem(readTrial(HERE), { cfg: currentConfig(lang), id });
       if (reason) return send(409, { error: t(lang, `trial.${reason}`), reason });
@@ -1013,7 +1037,7 @@ const server = http.createServer(async (req, res) => {
     send(404, { error: t(lang, 'ui.notFound') });
   } catch (e) {
     const relogin = LOGIN_CODES.includes(e.errorCode);
-    send(400, { error: e.message, ...(e.errorCode && { errorCode: e.errorCode }), ...(relogin && { login: true }) });
+    send(e.status === 409 ? 409 : 400, { error: e.message, ...(e.errorCode && { errorCode: e.errorCode }), ...(relogin && { login: true }) });
   }
 });
 
