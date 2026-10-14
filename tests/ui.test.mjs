@@ -1668,7 +1668,13 @@ test('Ohne Einrichtung („Erst einmal umsehen“): Einstellungen speichern geht
       proc.kill();
       await exited;
     }
-    fs.rmSync(fresh, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
-    fs.rmSync(freshDesktop, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    // Unter Windows ist der Ordner kurz nach dem Ende des Servers manchmal noch belegt: länger versuchen, ein Rest stört nicht.
+    for (const d of [fresh, freshDesktop]) {
+      try {
+        fs.rmSync(d, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+      } catch {
+        // bleibt im Temp-Ordner
+      }
+    }
   }
 });

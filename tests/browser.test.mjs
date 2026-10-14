@@ -335,6 +335,11 @@ test('Erst einmal umsehen: ohne Einrichtung zu den Reglern, speichern geht; Play
       proc.kill();
       await exited;
     }
-    fs.rmSync(fresh, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    // Unter Windows ist der Ordner kurz nach dem Ende des Servers manchmal noch belegt: länger versuchen, ein Rest stört nicht.
+    try {
+      fs.rmSync(fresh, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    } catch {
+      // bleibt im Temp-Ordner
+    }
   }
 });
