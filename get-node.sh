@@ -6,10 +6,12 @@
 #                            Exit-Code 0: node/current/bin/node ist da – die festgelegte Version oder, wenn der Download
 #                            nicht klappt bzw. sie auf diesem Rechner nicht läuft, die vorige. 1: kein eigenes Node.js.
 #                            2: für dieses System gibt es keins, node-version.txt ist ungültig, oder die festgelegte
-#                            Version läuft hier nicht und es gibt keine vorige.
+#                            Version läuft hier nicht und es gibt keine vorige. 3: Tweakable DJ kann in seinem Ordner
+#                            nicht schreiben. Bei 2 und 3 nennt eine Meldung den Grund.
 #   sh get-node.sh --check   lädt nichts: 0 = nichts zu tun (passt; oder die vorige Version tut es, weil die festgelegte hier
 #                            nicht läuft; oder ein Download wurde heute schon versucht und ein brauchbares Node.js ab 18 ist
-#                            da, eigenes oder installiertes), 1 = Download nötig, 2 = für dieses System gibt es keins.
+#                            da, eigenes oder installiertes), 1 = Download nötig, 2 = für dieses System gibt es keins,
+#                            3 = kein Schreibrecht im Ordner.
 #                            So versucht der Start ohne Terminal den Download höchstens einmal am Tag (node/last-download).
 #   sh get-node.sh --message der Hinweis auf den Download (für die Systembenachrichtigung ohne Fenster)
 #   sh get-node.sh --name    nur die Datei, die es laden würde (für Tests)
@@ -22,18 +24,27 @@
 # erneut).
 # Immer nur ein Aufruf zugleich: Sperre über den Ordner node/lock (mkdir ist atomar) mit der Prozessnummer darin. Endet der
 # Aufruf, kommt die Sperre weg (trap); läuft der Prozess, der sie angelegt hat, nicht mehr (z. B. Terminal geschlossen), gilt
-# sie als verwaist. Der zweite Aufruf wartet, bis der erste fertig ist (höchstens etwa 20 Minuten).
+# sie als verwaist. Der zweite Aufruf wartet, bis der erste fertig ist (höchstens etwa 20 Minuten). Lässt sich die Sperre
+# nicht anlegen, weil in node/ das Schreibrecht fehlt, wartet nichts: Meldung und Exit-Code 3.
 # Nur für Tests: TWEAKABLE_DJ_NODE_MIRROR (andere Adresse statt https://nodejs.org/dist), TWEAKABLE_DJ_NODE_OS und
-# TWEAKABLE_DJ_NODE_ARCH (statt uname -s und uname -m).
+# TWEAKABLE_DJ_NODE_ARCH (statt uname -s und uname -m), TWEAKABLE_DJ_TEST_DATE (Datum für „heute schon versucht“).
 
 cd "$(dirname "$0")" || exit 1
 
+keineVersion() {
+  echo "Die Datei node-version.txt fehlt oder ist ungültig (erwartet z. B. 24.0.0). / The file node-version.txt is missing or invalid (expected e.g. 24.0.0)."
+  exit 2
+}
 version=$(tr -d ' \t\r\n' < node-version.txt 2>/dev/null)
 case "$version" in
-  *[!0-9.]* | '') exit 2 ;;
+  *[!0-9.]* | '') keineVersion ;;
   [0-9]*.[0-9]*.[0-9]*) ;;
-  *) exit 2 ;;
+  *) keineVersion ;;
 esac
+keinSystem() {
+  echo "Für dieses System ($os, $arch) gibt es kein passendes Node.js zum Herunterladen. / There is no suitable Node.js to download for this system ($os, $arch)."
+  exit 2
+}
 
 os=${TWEAKABLE_DJ_NODE_OS:-$(uname -s)}
 arch=${TWEAKABLE_DJ_NODE_ARCH:-$(uname -m)}
@@ -47,16 +58,17 @@ case "$os" in
     platform=linux
     if command -v xz >/dev/null 2>&1; then ext=tar.xz size=30; else ext=tar.gz size=55; fi
     ;;
-  *) exit 2 ;;
+  *) keinSystem ;;
 esac
 case "$arch" in
   x86_64 | amd64 | x64) arch=x64 ;;
   arm64 | aarch64) arch=arm64 ;;
-  *) exit 2 ;;
+  *) keinSystem ;;
 esac
 name="node-v$version-$platform-$arch"
 file="$name.$ext"
 url="${TWEAKABLE_DJ_NODE_MIRROR:-https://nodejs.org/dist}/v$version"
+heute=${TWEAKABLE_DJ_TEST_DATE:-$(date +%Y-%m-%d)}
 message="Node.js wird einmalig heruntergeladen (ca. $size MB) … / Node.js is being downloaded once (about $size MB) …"
 
 case "$1" in
@@ -120,11 +132,24 @@ fehler() {
   vorige
 }
 
+# Kein Schreibrecht im Ordner (z. B. eine Kopie, die root gehört): sofort melden statt auf eine Sperre zu warten.
+keinSchreibrecht() {
+  echo "Tweakable DJ kann in seinem Ordner nicht schreiben. Bitte den Ordner von Tweakable DJ an einen Ort wie „Dokumente“ verschieben und von dort starten. / Tweakable DJ can't write to its folder. Please move the Tweakable DJ folder to a place like “Documents” and start it from there."
+  exit 3
+}
+# Lässt sich in node/ eine Datei anlegen? (Probe; die Datei kommt gleich wieder weg.) In einer Subshell, denn scheitert
+# die Umleitung bei ":", beendet sich sonst das ganze Skript.
+schreibbar() {
+  (: > node/schreibprobe) 2>/dev/null && rm -f node/schreibprobe
+}
+
 # Sperre (siehe oben). Ein anderer Aufruf ist dran: Lädt er gerade, einmal darauf hinweisen; dann jede Sekunde neu versuchen.
-mkdir -p node || exit 1
+mkdir -p node 2>/dev/null || keinSchreibrecht
 gewartet=0
 gesagt=
 until mkdir node/lock 2>/dev/null; do
+  # Sperre nicht bekommen: Lässt sich in node/ gar nichts anlegen, fehlt das Schreibrecht – dann nicht warten.
+  schreibbar || keinSchreibrecht
   pid=$(cat node/lock/pid 2>/dev/null)
   # Verwaist: Prozess läuft nicht mehr, oder (abgebrochen zwischen mkdir und echo) seit über einer Minute ohne Nummer
   if { [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; } || { [ -z "$pid" ] && [ -n "$(find node/lock -prune -mmin +1 2>/dev/null)" ]; }; then
@@ -159,13 +184,13 @@ if [ -f "node/not-runnable-$name" ]; then
 fi
 if [ "$1" = "--check" ]; then
   # Download nötig – außer er wurde heute schon versucht und ein brauchbares Node.js ist da.
-  [ "$(cat node/last-download 2>/dev/null)" = "$(date +%Y-%m-%d)" ] && brauchbar && exit 0
+  [ "$(cat node/last-download 2>/dev/null)" = "$heute" ] && brauchbar && exit 0
   exit 1
 fi
 
 echo
 echo "$message"
-date +%Y-%m-%d > node/last-download
+echo "$heute" > node/last-download
 rm -rf node/download
 mkdir -p node/download || fehler
 holen "$url/SHASUMS256.txt" node/download/SHASUMS256.txt || fehler

@@ -18,6 +18,8 @@ rem Ohne Fenster laedt diese Datei nichts: Ist ein Download noetig (get-node.cmd
 rem neu (TWEAKABLE_DJ_WINDOW=download) - aber nur, wenn es gar kein brauchbares Node.js gibt oder heute noch kein Versuch
 rem war; sonst startet sie gleich ohne Fenster mit dem vorhandenen. Nach dem Download startet das Fenster Tweakable DJ wieder
 rem ohne Fenster (conhost --headless, wie die Verknuepfung) und schliesst sich.
+rem Kann Tweakable DJ in seinem Ordner nicht schreiben (get-node.cmd endet mit 3, z. B. unter C:\Program Files), zeigt ein
+rem Fenster die Meldung und Tweakable DJ startet nicht (ohne Schreibrecht liesse sich nichts speichern).
 rem Nur fuer Tests: TWEAKABLE_DJ_TEST_START=1 - statt sich neu zu starten (mit bzw. ohne Fenster), nur "START ..." ausgeben.
 rem
 rem Alles Weitere steht in EINEM Klammerblock, der mit exit /b endet: cmd.exe liest den ganzen Block ein, bevor es
@@ -35,8 +37,14 @@ rem bleibt es dabei, weil TWEAKABLE_DJ_HIDDEN gesetzt bleibt.
   if defined TWEAKABLE_DJ_WINDOW set "TWEAKABLE_DJ_HIDDEN="
   set "TWEAKABLE_DJ_NODE="
   set "TWEAKABLE_DJ_NODE_FALLBACK="
+  set "TWEAKABLE_DJ_NODE_NONE="
   if exist get-node.cmd if defined TWEAKABLE_DJ_HIDDEN (
     call .\get-node.cmd --check
+    if errorlevel 3 (
+      set "TWEAKABLE_DJ_WINDOW=1"
+      if defined TWEAKABLE_DJ_TEST_START (echo START window %1) else start "Tweakable DJ" "%~f0"
+      exit /b 1
+    )
     if errorlevel 1 if not errorlevel 2 (
       set "TWEAKABLE_DJ_WINDOW=download"
       if defined TWEAKABLE_DJ_TEST_START (echo START window %1) else if /i "%~1"=="--now" (start "Tweakable DJ" "%~f0" --now) else start "Tweakable DJ" "%~f0"
@@ -45,7 +53,13 @@ rem bleibt es dabei, weil TWEAKABLE_DJ_HIDDEN gesetzt bleibt.
   )
   if exist get-node.cmd if not defined TWEAKABLE_DJ_HIDDEN (
     call .\get-node.cmd
-    if errorlevel 1 set "TWEAKABLE_DJ_NODE_FALLBACK=1"
+    rem Hoechster Code zuerst: In .cmd-Dateien setzt "set" den Errorlevel auf 0 zurueck.
+    if errorlevel 3 (
+      pause
+      if defined TWEAKABLE_DJ_WINDOW exit
+      exit /b 1
+    )
+    if errorlevel 2 (set "TWEAKABLE_DJ_NODE_NONE=1" & set "TWEAKABLE_DJ_NODE_FALLBACK=1") else if errorlevel 1 set "TWEAKABLE_DJ_NODE_FALLBACK=1"
   )
   rem Node.js waehlen: das eigene, wenn es laeuft - ab Version 18 -, sonst ein installiertes.
   if exist "node\current\node.exe" "node\current\node.exe" -e "process.exit(parseInt(process.versions.node, 10) >= 18 ? 0 : 1)" 2>nul && set "TWEAKABLE_DJ_NODE=node\current\node.exe"
@@ -59,13 +73,21 @@ rem bleibt es dabei, weil TWEAKABLE_DJ_HIDDEN gesetzt bleibt.
       exit /b 1
     )
     echo.
-    echo Node.js fehlt: Tweakable DJ konnte sein eigenes Node.js nicht einrichten ^(siehe oben^), und es ist auch keins
-    echo installiert. Bitte die Internetverbindung pruefen und Tweakable DJ noch einmal starten - oder Node.js von
-    echo https://nodejs.org installieren ^(Version 18 oder neuer^).
-    echo.
-    echo Node.js is missing: Tweakable DJ couldn't set up its own Node.js ^(see above^), and none is installed.
-    echo Please check the internet connection and start Tweakable DJ again - or install Node.js from
-    echo https://nodejs.org ^(version 18 or newer^).
+    if defined TWEAKABLE_DJ_NODE_NONE (
+      echo Node.js fehlt: Fuer dieses System kann Tweakable DJ kein eigenes Node.js einrichten ^(siehe oben^), und es ist
+      echo auch keins installiert. Bitte Node.js von https://nodejs.org installieren ^(Version 18 oder neuer^).
+      echo.
+      echo Node.js is missing: Tweakable DJ can't set up its own Node.js on this system ^(see above^), and none is installed.
+      echo Please install Node.js from https://nodejs.org ^(version 18 or newer^).
+    ) else (
+      echo Node.js fehlt: Tweakable DJ konnte sein eigenes Node.js nicht einrichten ^(siehe oben^), und es ist auch keins
+      echo installiert. Bitte die Internetverbindung pruefen und Tweakable DJ noch einmal starten - oder Node.js von
+      echo https://nodejs.org installieren ^(Version 18 oder neuer^).
+      echo.
+      echo Node.js is missing: Tweakable DJ couldn't set up its own Node.js ^(see above^), and none is installed.
+      echo Please check the internet connection and start Tweakable DJ again - or install Node.js from
+      echo https://nodejs.org ^(version 18 or newer^).
+    )
     pause
     if defined TWEAKABLE_DJ_WINDOW exit
     exit /b 1

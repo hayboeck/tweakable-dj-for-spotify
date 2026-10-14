@@ -29,8 +29,9 @@ after(() => fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryD
 // Programm ausführen, ohne die Ereignisschleife zu blockieren (der Server läuft im selben Prozess).
 function run(file, args, { cwd, env = {}, timeout = 120_000 } = {}) {
   return new Promise(resolve => {
-    // Nie nodejs.org: ohne eigene Adresse ein Port, an dem niemand antwortet.
-    const fullEnv = { ...process.env, TWEAKABLE_DJ_NODE_MIRROR: 'http://127.0.0.1:1', ...env };
+    // Nie nodejs.org: ohne eigene Adresse ein Port, an dem niemand antwortet. Ein festes „heute“ für „heute schon versucht“,
+    // damit kein Test scheitert, wenn er über Mitternacht läuft.
+    const fullEnv = { ...process.env, TWEAKABLE_DJ_NODE_MIRROR: 'http://127.0.0.1:1', TWEAKABLE_DJ_TEST_DATE: 'Testtag', ...env };
     for (const [k, v] of Object.entries(fullEnv)) if (v === undefined) delete fullEnv[k];
     const child = spawn(file, args, { cwd, env: fullEnv, windowsHide: true, windowsVerbatimArguments: WIN && file === 'cmd.exe', stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
@@ -515,4 +516,99 @@ test('get-node.sh: verwaiste Sperre (Prozess läuft nicht mehr) zählt nicht', {
   } finally {
     await srv.close();
   }
+});
+
+// --- Kein Schreibrecht, kein passendes Node.js, Entpacken ohne tar.exe, Datum ---
+
+// Ordner dir für den laufenden Nutzer schreibgeschützt machen (Windows: Verweigern-Eintrag für „Jeder“; sonst chmod).
+function readOnly(dir, on) {
+  if (WIN) {
+    const r = spawnSync('icacls', on ? [dir, '/deny', '*S-1-1-0:(OI)(CI)(WD,AD)'] : [dir, '/remove:d', '*S-1-1-0'], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+  } else fs.chmodSync(dir, on ? 0o555 : 0o755);
+}
+const ROOT_USER = !WIN && process.getuid?.() === 0;
+
+test('Kein Schreibrecht (Ordner bzw. node/): sofort Meldung und Exit-Code 3 statt 20 Minuten zu warten; die Startdatei startet nicht', { skip: ROOT_USER && 'root darf alles', timeout: 300_000 }, async () => {
+  const dir = program();
+  fs.writeFileSync(path.join(dir, 'ui.mjs'), FAKE_UI);
+  const noWrite = /kann in seinem Ordner nicht schreiben[\s\S]*can't write to its folder/;
+  const check = async (what, sh = false) => {
+    for (const args of [['--check'], []]) {
+      const t = Date.now();
+      const r = await getNode(dir, args, {}, sh);
+      assert.equal(r.code, 3, `${what} ${args}: ${r.out}`);
+      assert.match(r.out, noWrite, what);
+      assert.ok(Date.now() - t < 30_000, `${what}: wartet nicht`);
+    }
+  };
+  // 1) Der Ordner selbst ist schreibgeschützt (node/ lässt sich nicht anlegen), 2) node/ ist da, aber schreibgeschützt
+  readOnly(dir, true);
+  try {
+    await check('Ordner');
+  } finally {
+    readOnly(dir, false);
+  }
+  const nodeDir = path.join(dir, 'node');
+  fs.mkdirSync(nodeDir);
+  readOnly(nodeDir, true);
+  try {
+    await check('node/');
+    if (WIN) {
+      const base = { TWEAKABLE_DJ_TEST_START: '1', TWEAKABLE_DJ_LAUNCHER: undefined, TWEAKABLE_DJ_HIDDEN: undefined, TWEAKABLE_DJ_WINDOW: undefined };
+      // Ohne Fenster: Neustart mit Fenster, damit man die Meldung sieht; das Fenster zeigt sie und startet nichts.
+      assert.match((await startFile(dir, ['--hidden'], { ...withNode, ...base })).out, /START window --hidden/);
+      const win = await startFile(dir, [], { ...withNode, ...base, TWEAKABLE_DJ_WINDOW: '1' });
+      assert.match(win.out, noWrite);
+      assert.doesNotMatch(win.out, /START/);
+    } else {
+      const r = await startFile(dir, [], withNode);
+      assert.equal(r.code, 1, r.out);
+      assert.match(r.out, noWrite);
+    }
+    assert.ok(!fs.existsSync(path.join(dir, 'ui-lief-mit.json')), 'Tweakable DJ startet nicht');
+  } finally {
+    readOnly(nodeDir, false);
+  }
+});
+
+test('Exit-Code 2 mit Meldung: ungültige node-version.txt bzw. kein passendes System; Startdatei ohne Node.js sagt, dass es hier keins gibt', { timeout: 300_000 }, async () => {
+  const dir = program('kaputt');
+  const r = await getNode(dir, []);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /node-version\.txt fehlt oder ist ung(ü|ue)ltig/);
+  if (SH) {
+    const s = await getNode(program('24.21.0'), [], { TWEAKABLE_DJ_NODE_OS: 'FreeBSD', TWEAKABLE_DJ_NODE_ARCH: 'amd64' }, true);
+    assert.equal(s.code, 2, s.out);
+    assert.match(s.out, /Für dieses System \(FreeBSD, amd64\) gibt es kein passendes Node\.js/);
+  }
+  if (WIN) {
+    fs.writeFileSync(path.join(dir, 'ui.mjs'), FAKE_UI);
+    const start = await startFile(dir, [], { PATH: noNodePath(), TWEAKABLE_DJ_LAUNCHER: undefined, TWEAKABLE_DJ_HIDDEN: undefined, TWEAKABLE_DJ_WINDOW: undefined });
+    assert.match(start.out, /Fuer dieses System kann Tweakable DJ kein eigenes Node\.js einrichten/, start.out);
+    assert.doesNotMatch(start.out, /Internetverbindung/);
+  }
+});
+
+test('get-node.cmd ohne tar.exe: PowerShell entpackt ebenso nur node.exe und LICENSE', { skip: !WIN && 'nur Windows', timeout: 300_000 }, async () => {
+  const dir = program();
+  const file = await archiveName(dir);
+  const srv = await mirror(file, buildArchive(file));
+  try {
+    const r = await getNode(dir, [], { TWEAKABLE_DJ_NODE_MIRROR: srv.url, TWEAKABLE_DJ_NODE_NO_TAR: '1' });
+    assert.equal(r.code, 0, r.out);
+    assert.deepEqual(fs.readdirSync(path.join(dir, 'node', 'current')).sort(), ['LICENSE', 'node.exe']);
+    assert.deepEqual(leftovers(dir), []);
+  } finally {
+    await srv.close();
+  }
+});
+
+test('„Heute schon versucht“ hängt am Datum: an einem neuen Tag ist der Download wieder nötig', { timeout: 300_000 }, async () => {
+  const dir = program();
+  // Download scheitert (offline), ein installiertes Node.js ist da
+  assert.equal((await getNode(dir, [], { TWEAKABLE_DJ_TEST_DATE: 'Tag1' })).code, 1);
+  const nodeInPath = { PATH: `${path.dirname(process.execPath)}${path.delimiter}${process.env.PATH}` };
+  assert.equal((await getNode(dir, ['--check'], { ...nodeInPath, TWEAKABLE_DJ_TEST_DATE: 'Tag1' })).code, 0, 'heute schon versucht');
+  assert.equal((await getNode(dir, ['--check'], { ...nodeInPath, TWEAKABLE_DJ_TEST_DATE: 'Tag2' })).code, 1, 'neuer Tag');
 });

@@ -50,19 +50,29 @@ oberflaeche() {
 
 # Eigenes Node.js (get-node.sh): Ohne Terminal kündigt eine Systembenachrichtigung einen nötigen Download an, die Ausgaben
 # kommen nach ui.log. Danach steht in $node das eigene Node.js (wenn es läuft, ab Version 18), sonst einfach node (ein
-# installiertes, falls es eins gibt).
+# installiertes, falls es eins gibt). keins=1: Für dieses System gibt es kein eigenes Node.js (get-node.sh endet mit 2).
+# Kann Tweakable DJ in seinem Ordner nicht schreiben (3), kommt die Meldung, und Tweakable DJ startet nicht.
 eigenesNode() {
   node=node
+  keins=
   [ -f get-node.sh ] || return 0
   if [ -n "$hidden" ]; then
-    sh ./get-node.sh --check >/dev/null 2>&1
-    if [ $? -eq 1 ]; then
+    meldung=$(sh ./get-node.sh --check 2>&1)
+    rc=$?
+    if [ $rc -eq 1 ]; then
       melde "$(sh ./get-node.sh --message)"
       sh ./get-node.sh >>ui.log 2>&1
+      rc=$?
+    elif [ $rc -eq 3 ]; then
+      melde "$meldung"
+      exit 1
     fi
   else
     sh ./get-node.sh
+    rc=$?
+    [ $rc -eq 3 ] && fertig 1
   fi
+  [ $rc -eq 2 ] && keins=1
   if [ -x node/current/bin/node ] && node/current/bin/node -e 'process.exit(parseInt(process.versions.node, 10) >= 18 ? 0 : 1)' >/dev/null 2>&1; then
     node="$PWD/node/current/bin/node"
   fi
@@ -82,6 +92,12 @@ main() {
   eigenesNode
 
   if ! command -v "$node" >/dev/null 2>&1; then
+    if [ -n "$keins" ]; then
+      text="Node.js fehlt: Für dieses System kann Tweakable DJ kein eigenes Node.js einrichten, und es ist auch keins installiert. Bitte Node.js installieren (Version 18 oder neuer): https://nodejs.org / Node.js is missing: Tweakable DJ can't set up its own Node.js on this system, and none is installed. Please install Node.js (version 18 or newer): https://nodejs.org"
+      [ -n "$hidden" ] && { melde "$text"; exit 1; }
+      echo "$text"
+      fertig 1
+    fi
     if [ -n "$hidden" ]; then
       melde "Node.js fehlt: Tweakable DJ konnte sein eigenes Node.js nicht einrichten (Details in ui.log). Bitte die Internetverbindung prüfen und Tweakable DJ erneut starten – oder Node.js installieren (Version 18 oder neuer): https://nodejs.org / Node.js is missing: Tweakable DJ couldn't set up its own Node.js (details in ui.log). Please check the internet connection and start Tweakable DJ again – or install Node.js (version 18 or newer): https://nodejs.org"
       exit 1
