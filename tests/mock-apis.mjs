@@ -37,10 +37,16 @@
 //                       in MOCK_LOG geschrieben (toast = XML aus der Umgebungsvariable TWEAKABLE_DJ_TOAST unter Windows).
 //                       PowerShell ohne TWEAKABLE_DJ_TOAST (Verknüpfung auf dem Desktop, shortcut.mjs) läuft wirklich,
 //                       aber nur mit einem Test-Desktop (TWEAKABLE_DJ_DESKTOP); ohne ihn scheitert es (Testschutz).
+//   MOCK_SCHEDULER      JSON-Datei mit einem simulierten Zeitplaner für ui.mjs: { entries: { <Name>: { when } }, fail: "<Meldung>"
+//                       oder null, calls: [] }. Ersetzt den Zeitplaner dieser Plattform (PLATFORMS in schedule.mjs neben dem
+//                       gestarteten Programm); install und remove scheitern mit fail, sonst ändern sie entries; jeder Aufruf
+//                       landet in calls. schtasks, launchctl und crontab starten dann nie (Testschutz).
 
 import childProcess from 'node:child_process';
 import fs from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const ACCESS_TOKEN = 'mock-access-neu';
 const REFRESH_TOKEN = 'fake-refresh-token';
@@ -68,6 +74,11 @@ childProcess.execFile = function execFile(file, ...rest) {
     setImmediate(() => callback?.(Object.assign(new Error('Testschutz'), { code: 1 }), '', 'Testschutz: PowerShell nur mit Test-Desktop (TWEAKABLE_DJ_DESKTOP)'));
     return undefined;
   }
+  if (process.env.MOCK_SCHEDULER && SCHEDULERS.test(name)) {
+    // Testschutz: mit simuliertem Zeitplaner nie den echten fragen oder ändern
+    setImmediate(() => callback?.(Object.assign(new Error('Testschutz'), { code: 1 }), Buffer.alloc(0), Buffer.from('Testschutz: simulierter Zeitplaner')));
+    return undefined;
+  }
   if (!NOTIFIERS.test(name) || !toast) return realExecFile.call(this, file, ...rest);
   const args = Array.isArray(rest[0]) ? rest[0] : [];
   log({ notify: { file: name, args, toast: options.env?.TWEAKABLE_DJ_TOAST ?? null } });
@@ -90,6 +101,32 @@ childProcess.exec = function exec(command, ...rest) {
   return undefined;
 };
 syncBuiltinESMExports();
+
+// Simulierter Zeitplaner (MOCK_SCHEDULER, siehe oben): dieselbe schedule.mjs wie das gestartete Programm (gleiche Adresse wie
+// beim Start von Node.js: Pfad aufgelöst, Verknüpfungen aufgelöst), damit ui.mjs ihn verwendet.
+if (process.env.MOCK_SCHEDULER && process.argv[1]) {
+  const main = pathToFileURL(fs.realpathSync(path.resolve(process.argv[1])));
+  const { PLATFORMS } = await import(new URL('schedule.mjs', main).href);
+  const file = process.env.MOCK_SCHEDULER;
+  const load = () => ({ entries: {}, fail: null, calls: [], ...JSON.parse(fs.readFileSync(file, 'utf8')) });
+  const when = s => `${s.schedule} ${s.scheduleTime}${s.schedule === 'weekly' ? ` ${s.scheduleDay}` : ''}`;
+  const change = (o, what, entry) => {
+    const store = load();
+    store.calls.push(`${what} ${o.name}`);
+    if (!store.fail) {
+      if (entry) store.entries[o.name] = entry;
+      else delete store.entries[o.name];
+    }
+    fs.writeFileSync(file, JSON.stringify(store, null, 2));
+    if (store.fail) throw new Error(store.fail);
+  };
+  PLATFORMS[process.platform] = {
+    read: async o => load().entries[o.name] ?? null,
+    check: (entry, o, s) => (entry.when === when(s) ? null : 'settings'),
+    install: async (o, s) => change(o, 'install', { when: when(s) }),
+    remove: async o => change(o, 'remove', null),
+  };
+}
 const json = (body, status = 200, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
 const hash = s => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);

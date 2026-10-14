@@ -1607,6 +1607,74 @@ test('ui.html: Fehlerzeilen der Ausgabe in allen Sprachen erkannt (run.error, au
   for (const lang of ['de', 'en', 'es', 'fr']) assert.match(t(lang, 'run.error', { message: 'x' }), re, lang);
 });
 
+test('Einstellungen laden: Zeitplaner scheitert → übrige Werte gespeichert, Warnung, Automatik unverändert', async () => {
+  // Eigener Server mit simuliertem Zeitplaner (MOCK_SCHEDULER in tests/mock-apis.mjs): Der echte wird nie gefragt oder geändert,
+  // dazu ein Test-Name, falls doch.
+  const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj zeitplan ü-'));
+  for (const f of fs.readdirSync(ROOT)) {
+    if (f.endsWith('.mjs') || /^config.example(.de)?.jsonc$/.test(f) || f === 'ui.html') fs.copyFileSync(path.join(ROOT, f), path.join(fresh, f));
+  }
+  const freshDesktop = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj desktop zeitplan ö-'));
+  const name = 'Tweakable DJ TEST Zeitplan';
+  const scheduler = path.join(fresh, 'zeitplaner.json');
+  fs.writeFileSync(scheduler, JSON.stringify({ entries: { [name]: { when: 'daily 07:00' } }, fail: 'Simulierter Fehler des Zeitplaners', calls: [] }));
+  const configFile = path.join(fresh, 'config.jsonc');
+  fs.writeFileSync(configFile, `// Test
+${JSON.stringify({ ...CONFIG, schedule: 'daily', scheduleTime: '07:00' }, null, 2)}
+`);
+  fs.writeFileSync(path.join(fresh, 'tokens.json'), JSON.stringify({ access_token: 'x', refresh_token: 'fake-refresh-token', expires_at: 0, authorized_at: Date.now() }));
+  const port = await freePort();
+  const url = `http://127.0.0.1:${port}`;
+  const proc = spawn(process.execPath, ['ui.mjs', '--no-browser'], { cwd: fresh, env: {
+    ...process.env, TWEAKABLE_DJ_PORT: String(port), TWEAKABLE_DJ_LANG: 'de', NODE_OPTIONS: `--import=${MOCK}`, TWEAKABLE_DJ_NO_UPDATE_CHECK: '1',
+    MOCK_LOG: path.join(fresh, 'mock-anfragen.jsonl'), MOCK_SCHEDULER: scheduler, TWEAKABLE_DJ_DESKTOP: freshDesktop, TWEAKABLE_DJ_TASK_NAME: name,
+  } });
+  const call = async (route, { method = 'GET', body } = {}) => {
+    const res = await fetch(url + route, { method, headers: { 'X-Tweakable-DJ': '1', 'Content-Type': 'application/json', 'X-Lang': 'de' },
+      body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
+    return { status: res.status, data: await res.json() };
+  };
+  const store = () => JSON.parse(fs.readFileSync(scheduler, 'utf8'));
+  try {
+    let out = '';
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Server startet nicht: ${out}`)), 15_000);
+      proc.stdout.on('data', c => { out += c; if (out.includes(url)) { clearTimeout(timer); resolve(); } });
+      proc.on('exit', code => reject(new Error(`Server beendet (${code}): ${out}`)));
+    });
+    // Der simulierte Eintrag passt zur Einstellung (zeigt auch: ui.mjs nimmt den simulierten Zeitplaner)
+    const before = (await call('/api/schedule')).data;
+    assert.deepEqual([before.supported, before.installed, before.matches, before.name], [true, true, true, name]);
+    const backup = JSON.stringify({ app: 'tweakable-dj', kind: 'settings', format: 1, version: '0.4.0',
+      settings: { schedule: 'weekly', scheduleDay: 'MON', scheduleTime: '09:30', size: 41 } });
+    const loaded = await call('/api/settings/import', { method: 'POST', body: backup });
+    assert.equal(loaded.status, 200, JSON.stringify(loaded.data));
+    assert.deepEqual([loaded.data.ok, loaded.data.changed, loaded.data.warnings.length], [true, 1, 1]);
+    assert.equal(loaded.data.warnings[0], 'Die Automatik ließ sich nicht einrichten und bleibt, wie sie war. Simulierter Fehler des Zeitplaners');
+    // Übrige Werte gespeichert, Automatik in config.jsonc und im Zeitplaner wie vorher
+    const values = (await call('/api/config')).data.values;
+    assert.deepEqual([values.size, values.schedule, values.scheduleTime], [41, 'daily', '07:00']);
+    assert.match(fs.readFileSync(configFile, 'utf8'), /"schedule": "daily"/);
+    assert.deepEqual(store().entries, { [name]: { when: 'daily 07:00' } });
+    assert.deepEqual(store().calls, [`install ${name}`], 'nur der eine (gescheiterte) Versuch');
+    const after = (await call('/api/schedule')).data;
+    assert.deepEqual([after.installed, after.matches], [true, true]);
+  } finally {
+    if (proc.exitCode === null) {
+      const exited = new Promise(resolve => proc.once('exit', resolve));
+      proc.kill();
+      await exited;
+    }
+    for (const d of [fresh, freshDesktop]) {
+      try {
+        fs.rmSync(d, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+      } catch {
+        // bleibt im Temp-Ordner
+      }
+    }
+  }
+});
+
 test('Ohne Einrichtung („Erst einmal umsehen“): Einstellungen speichern geht; Automatik, zweite Verknüpfung, Lauf und Schreiben → 409', async () => {
   // Eigener Server in einem neuen Ordner ohne config.jsonc und ohne Anmeldung. Test-Name für den Zeitplaner, falls die Sperre
   // doch nicht greift – der echte Eintrag bleibt so in jedem Fall unberührt.
