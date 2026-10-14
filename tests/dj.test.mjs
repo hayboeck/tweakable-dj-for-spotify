@@ -139,7 +139,7 @@ test('Probelauf: Auswahl, Regeln, Sperrliste, Token-Refresh und Last.fm-Cache', 
     assert.ok(!lineup.some(t => t.name === 'Talfahrt' || t.name.startsWith('Nicht auf Spotify') || t.artist === 'Lokal'));
     assert.ok(!lineup.some(t => t.kind.startsWith('neu') && t.name === 'Polarnacht'));
     assert.match(first.out, /^ {2}11 Songs$/m, 'Lieblingssongs über zwei Seiten, ohne lokale Datei');
-    assert.match(first.out, /^ {2}6 Scrobbles, davon 4 in den letzten 7 Tagen/m, 'Hörverlauf über zwei Seiten');
+    assert.match(first.out, /^ {2}6 Scrobbles, davon 4 in den letzten 7\u00a0Tagen/m, 'Hörverlauf über zwei Seiten');
 
     // Abfragen: Paging, 429 mit Wiederholung, Last.fm-Fehler 6, keine Schreibzugriffe
     const paths = first.requests.map(r => r.path ?? '');
@@ -190,7 +190,7 @@ test('Probelauf auf Englisch: TWEAKABLE_DJ_LANG=en schlägt "language" in config
       'Looking up the songs on Spotify …', '  6 songs left out because of the block list', 'Not written to Spotify yet; the playlist is unchanged.']) {
       assert.ok(out.split(/\r?\n/).includes(line), `fehlt: ${line}`);
     }
-    assert.match(out, /^ {2}6 scrobbles, 4 of them in the last 7 days \(\d+ artists\)$/m);
+    assert.match(out, /^ {2}6 scrobbles, 4 of them in the last 7\u00a0days \(\d+ artists\)$/m);
     assert.match(out, /^ {2}\d+ of \d+ starting points from your current listening \(factor 3\)$/m);
     assert.match(out, /^ {2}\d+ candidates \(\d+ of \d+ Last\.fm requests from the cache\)$/m);
     const lineup = parseLineup(out);
@@ -373,7 +373,7 @@ test('Erinnerung an die Spotify-Anmeldung: in der letzten Woche nach einem autom
     assert.equal(due.code, 0, due.all);
     assert.deepEqual(noticeOf(due.notifications[0]), {
       title: 'Tweakable DJ: Spotify-Anmeldung läuft bald ab',
-      text: 'Die Spotify-Anmeldung läuft in 5 Tagen ab – öffne Tweakable DJ und melde dich neu an.',
+      text: 'Die Spotify-Anmeldung läuft in 5\u00a0Tagen ab – öffne Tweakable DJ und melde dich neu an.',
     });
     assert.ok(state().cache && state().loginReminderAt, 'Tag gemerkt, Such-Cache bleibt');
     // Heute schon erinnert: keine zweite
@@ -623,7 +623,7 @@ test('0 = aus: excludeRecentDays und currentDays 0 sperren bzw. markieren nichts
   try {
     const { code, out, all, result } = run(dir);
     assert.equal(code, 0, all);
-    assert.match(out, /^ {2}6 Scrobbles, davon 0 in den letzten 0 Tagen \(0 Künstler\)$/m);
+    assert.match(out, /^ {2}6 Scrobbles, davon 0 in den letzten 0\u00a0Tagen \(0 Künstler\)$/m);
     assert.match(out, /^ {2}0 von \d+ Ausgangspunkten aus deinem aktuellen Hören/m);
     const lineup = parseLineup(out);
     assert.equal(lineup.length, 20);

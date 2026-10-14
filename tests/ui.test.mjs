@@ -729,7 +729,7 @@ test('Textdatei importieren: Vorschau mit Fortschritt und nicht gefundenen Zeile
   await status(preview('# nur ein Kommentar\n\n'), 400, 'Die Datei enthält keine Songs. Leere Zeilen und Kommentarzeilen zählen nicht.');
   await status(preview(Array.from({ length: 501 }, (_, i) => `A – T${i}`).join('\n'), { lang: 'en' }), 400,
     'The file contains 501 songs; the playlist holds at most 500.');
-  await status(preview('x'.repeat(1_000_001)), 400, 'Die Datei ist zu groß (höchstens 1 MB).');
+  await status(preview('x'.repeat(1_000_001)), 400, 'Die Datei ist zu groß (höchstens 1\u00a0MB).');
   await status(api('/api/import', { lang: 'en', method: 'POST', body: { uris: ['spotify:album:aaaaaaaaaaaaaaaaaaaaaa'] } }), 400,
     'Invalid list: expected 1 to 500 Spotify songs (spotify:track:…).');
   await status(api('/api/import', { lang: 'de', method: 'POST', body: {} }), 400, 'Ungültige Liste: erwartet sind 1 bis 500 Spotify-Songs (spotify:track:…).');
@@ -819,9 +819,13 @@ test('ui.html: TEXT.de, TEXT.en, TEXT.es und TEXT.fr haben dieselben Schlüssel'
   assert.doesNotMatch(html, /data-lang=|\.lang button/, 'kein Umschalter DE | EN mehr');
 });
 
+// Zahl (bzw. Platzhalter) und Einheit mit normalem Leerzeichen dazwischen – gehört ein geschütztes hin (U+00A0)
+const UNIT_AFTER_SPACE = /(\d|#|\}) (MB|KB|Mo|Ko|Std\.|Min\.|min|h|%|Sekunden?|Minuten?|Stunden?|Tagen?|Tage|Monate|Jahre|seconds?|minutes?|hours?|days?|months|years|segundos?|minutos?|horas?|días?|día|meses|años|secondes?|heures?|jours?|mois|ans)(?![\p{L}\d])/u;
+
 // Alle Texte aus TEXT ausrechnen (Funktionen mit Beispielwerten): keine Ausnahme, kein undefined, Französisch mit
-// schmalem geschütztem Leerzeichen vor : ; ! ? und in « », Spanisch mit ¿…? und ¡…!; Hinweis auf die Übersetzung nur es/fr.
-test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungshinweis nur bei es und fr', async () => {
+// schmalem geschütztem Leerzeichen vor : ; ! ? und in « », Spanisch mit ¿…? und ¡…!, Zahl und Einheit mit geschütztem
+// Leerzeichen; Hinweis auf die Übersetzung nur es/fr.
+test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Zahl und Einheit, Übersetzungshinweis nur bei es und fr', async () => {
   const vm = await import('node:vm');
   const html = fs.readFileSync(path.join(ROOT, 'ui.html'), 'utf8');
   const start = html.indexOf('const LASTFM_APPS');
@@ -833,6 +837,7 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungs
     const pct = v => T.pct(v);
     const isOne = n => new Intl.PluralRules(T.locale).select(Number(n)) === 'one';
     const plural = (n, one, many) => \`\${num(n)} \${isOne(n) ? one : many}\`;
+    const pluralUnit = (n, one, many) => \`\${num(n)}\\u00a0\${isOne(n) ? one : many}\`;
     const windowHint = (v, c, text) => text(Math.ceil(c.size * v / c.artistWindow));
     const adventureHint = () => '';
     const followedLabel = () => '';
@@ -901,6 +906,11 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungs
     assert.equal((text.match(/\?/g) ?? []).length, (text.match(/¿/g) ?? []).length, `es ${key}: ¿…?`);
     assert.equal((visible(text).match(/!/g) ?? []).length, (text.match(/¡/g) ?? []).length, `es ${key}: ¡…!`);
     assert.doesNotMatch(visible(text), /[„“”]/, `es ${key}: deutsche bzw. englische Anführungszeichen`);
+  }
+  // Zahl und Einheit (MB, Min., Tage …) in allen Sprachen mit geschütztem Leerzeichen (bei 375 px rutscht sonst die Einheit
+  // allein in die nächste Zeile); vor % im Französischen U+202F (oben geprüft)
+  for (const lang of Object.keys(texts)) {
+    for (const [key, text] of texts[lang]) assert.doesNotMatch(visible(text), UNIT_AFTER_SPACE, `${key}: Zahl und Einheit mit U+00A0: ${text}`);
   }
   // Einzahl/Mehrzahl in der Oberfläche: fr 0 = Einzahl, es 0 = Mehrzahl
   ctx.setT('fr');
@@ -974,6 +984,7 @@ test('ui.html: Spieldauer wie in i18n.mjs, in der Zusammenfassung und beim letzt
     const num = v => Number(v).toLocaleString(T.locale, { maximumFractionDigits: 2 });
     const isOne = n => new Intl.PluralRules(T.locale).select(Number(n)) === 'one';
     const plural = (n, one, many) => \`\${num(n)} \${isOne(n) ? one : many}\`;
+    const pluralUnit = (n, one, many) => \`\${num(n)}\\u00a0\${isOne(n) ? one : many}\`;
     ${html.slice(start, end + 3)}
     this.TEXT = TEXT; this.setT = l => { T = TEXT[l]; }; this.durationText = durationText;`, ctx);
   const NBSP = String.fromCharCode(0xa0);

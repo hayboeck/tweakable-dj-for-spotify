@@ -267,9 +267,9 @@ test('Windows (simuliert): Fehler von PowerShell mit verständlicher Meldung, ke
   const slow = async () => ({ code: 'timeout', stdout: '{"desk', stderr: '' });
   assert.equal(RUN_TIMEOUT, 90_000);
   assert.equal((await shortcutStatus({ platform: 'win32', run: slow, dir: 'C:\\x', lang: 'de' })).message,
-    'PowerShell hat nicht rechtzeitig geantwortet (nach 90 Sekunden abgebrochen). Bitte noch einmal versuchen.');
+    'PowerShell hat nicht rechtzeitig geantwortet (nach 90\u00a0Sekunden abgebrochen). Bitte noch einmal versuchen.');
   await assert.rejects(createShortcut({ platform: 'win32', run: slow, dir: 'C:\\x', lang: 'en' }),
-    { message: 'PowerShell didn’t respond in time (stopped after 90 seconds). Please try again.' });
+    { message: 'PowerShell didn’t respond in time (stopped after 90\u00a0seconds). Please try again.' });
   const empty = async () => ({ code: 0, stdout: JSON.stringify({ desktop: '', exists: false }), stderr: '' });
   assert.equal((await shortcutStatus({ platform: 'win32', run: empty, dir: 'C:\\x', lang: 'fr' })).message, 'Aucun dossier Bureau trouvé.');
 });

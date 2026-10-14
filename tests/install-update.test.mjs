@@ -232,8 +232,8 @@ test('Update: ersetzt die Programmdateien, Version danach neu; persönliche und 
 
   assert.deepEqual(steps, [
     'Frage GitHub nach der neuesten Version …',
-    `Lade manifest.json (${Math.round(fs.statSync(r.manifestFile).size / 1000) || 1} KB) …`,
-    `Lade tweakable-dj-v0.2.0.zip (${Math.round(fs.statSync(r.zipFile).size / 1000) || 1} KB) …`,
+    `Lade manifest.json (${Math.round(fs.statSync(r.manifestFile).size / 1000) || 1}\u00a0KB) …`,
+    `Lade tweakable-dj-v0.2.0.zip (${Math.round(fs.statSync(r.zipFile).size / 1000) || 1}\u00a0KB) …`,
     'Prüfe 9 Dateien (Größe und SHA-256) …',
     'Sichere 5 Programmdateien nach .update/backup-0.1.0 …',
     'Ersetze 7 Dateien (3 sind unverändert) …',
@@ -384,7 +384,7 @@ test('Download nur von GitHub per HTTPS, mit Größenlimit; fehlende Release-Dat
     reply.body.assets = reply.body.assets.slice(1);
     fs.writeFileSync(r.github, JSON.stringify(reply));
   }, /manifest\.json fehlt/);
-  await expectUnchanged(rel => publish(rel, { version: '0.2.0' }), /tweakable-dj-v0\.2\.0\.zip ist größer als erlaubt \(1 KB\)/,
+  await expectUnchanged(rel => publish(rel, { version: '0.2.0' }), /tweakable-dj-v0\.2\.0\.zip ist größer als erlaubt \(1\u00a0KB\)/,
     { limits: { release: 1e6, manifest: 1e5, zip: 1000, file: 1e6, total: 1e7, files: 100 } });
 });
 

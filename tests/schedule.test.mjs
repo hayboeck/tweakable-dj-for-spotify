@@ -455,7 +455,7 @@ test('Zeitlimit: großzügig, Zeitüberschreitung mit verständlicher Meldung st
   assert.equal(RUN_TIMEOUT, 90_000);
   const slow = { code: 'timeout', stdout: Buffer.from('halb'), stderr: Buffer.from('') };
   assert.equal(runFailure('de', 'Die Aufgabenplanung', slow).message,
-    'Die Aufgabenplanung hat nicht rechtzeitig geantwortet (nach 90 Sekunden abgebrochen). Bitte noch einmal versuchen.');
-  assert.equal(runFailure('en', 'crontab', slow).message, 'crontab didn’t respond in time (stopped after 90 seconds). Please try again.');
+    'Die Aufgabenplanung hat nicht rechtzeitig geantwortet (nach 90\u00a0Sekunden abgebrochen). Bitte noch einmal versuchen.');
+  assert.equal(runFailure('en', 'crontab', slow).message, 'crontab didn’t respond in time (stopped after 90\u00a0seconds). Please try again.');
   assert.equal(runFailure('de', 'crontab', { code: 1, stdout: Buffer.from(''), stderr: Buffer.from('kaputt\n') }).message, 'crontab meldet: kaputt');
 });

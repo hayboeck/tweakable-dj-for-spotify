@@ -125,7 +125,7 @@ test('notifyProblem: verständlicher Grund auf Deutsch und Englisch', () => {
   assert.equal(notifyProblem('en', { reason: 'unavailable', platform: 'linux' }),
     'The “notify-send” command is missing. Install the package “libnotify-bin” (Debian, Ubuntu) or “libnotify” (Fedora, Arch).');
   assert.equal(notifyProblem('de', { reason: 'unavailable', platform: 'win32' }), 'Windows PowerShell wurde nicht gefunden.');
-  assert.equal(notifyProblem('en', { reason: 'timeout' }), 'No response after 10 seconds.');
+  assert.equal(notifyProblem('en', { reason: 'timeout' }), 'No response after 10\u00a0seconds.');
   assert.equal(notifyProblem('de', { reason: 'failed', detail: 'Element not found.' }), 'Senden fehlgeschlagen: Element not found.');
   assert.equal(notifyProblem('en', { reason: 'unsupported' }), 'Notifications are only available on Windows, macOS and Linux.');
 });
@@ -191,7 +191,7 @@ test('remindLogin: sendet, merkt sich den Tag in state.json (Rest bleibt), Schal
   const send = async notice => (sent.push(notice), { ok: true });
   assert.equal(await remindLogin({ dir, lang: 'de', enabled: false, now, send }), null);
   assert.deepEqual(await remindLogin({ dir, lang: 'de', now, send }), { ok: true });
-  assert.deepEqual(sent, [{ title: 'Tweakable DJ: Spotify-Anmeldung läuft bald ab', text: 'Die Spotify-Anmeldung läuft in 5 Tagen ab – öffne Tweakable DJ und melde dich neu an.' }]);
+  assert.deepEqual(sent, [{ title: 'Tweakable DJ: Spotify-Anmeldung läuft bald ab', text: 'Die Spotify-Anmeldung läuft in 5\u00a0Tagen ab – öffne Tweakable DJ und melde dich neu an.' }]);
   const state = file => JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
   assert.deepEqual(state('state.json'), { history: [], cache: {}, loginReminderAt: now.toISOString() }, 'neu angelegt wie von dj.mjs');
   assert.equal(await remindLogin({ dir, lang: 'de', now, send }), null, 'heute schon erinnert');
@@ -201,7 +201,7 @@ test('remindLogin: sendet, merkt sich den Tag in state.json (Rest bleibt), Schal
   assert.equal(state('state.json').loginReminderAt, undefined);
   await remindLogin({ dir, lang: 'en', now, send });
   assert.deepEqual(state('state.json'), { history: [['a|b']], cache: { k: null }, loginReminderAt: now.toISOString() });
-  assert.equal(sent.at(-1).text, 'Your Spotify login expires in 5 days – open Tweakable DJ and log in again.');
+  assert.equal(sent.at(-1).text, 'Your Spotify login expires in 5\u00a0days – open Tweakable DJ and log in again.');
   fs.writeFileSync(path.join(dir, 'state.json'), '{ kaputt');
   assert.equal(await remindLogin({ dir, lang: 'de', now, send }), null);
   assert.equal(fs.readFileSync(path.join(dir, 'state.json'), 'utf8'), '{ kaputt');

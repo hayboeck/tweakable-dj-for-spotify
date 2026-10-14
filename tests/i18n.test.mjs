@@ -48,6 +48,15 @@ test('Typografie: Französisch mit geschützten Leerzeichen, Spanisch mit ¿ und
   assert.equal(t('fr', 'ui.lastfmOk', { name: 'x', scrobbles: 2 }), 'C’est bon ✓ «\u202fx\u202f» a 2 scrobbles.');
 });
 
+test('Typografie: Zahl und Einheit (MB, Sekunden, Tage …) in allen Sprachen mit geschütztem Leerzeichen', () => {
+  const unitAfterSpace = /(\d|#|\}) (MB|KB|Mo|Ko|Std\.|Min\.|min|h|%|Sekunden?|Minuten?|Stunden?|Tagen?|Tage|Monate|Jahre|seconds?|minutes?|hours?|days?|months|years|segundos?|minutos?|horas?|días?|día|meses|años|secondes?|heures?|jours?|mois|ans)(?![\p{L}\d])/u;
+  for (const lang of LANGS) {
+    for (const [key, text] of Object.entries(MESSAGES[lang])) assert.doesNotMatch(text, unitAfterSpace, `${lang} ${key}: Zahl und Einheit mit U+00A0`);
+  }
+  assert.equal(t('de', 'import.tooLarge'), 'Die Datei ist zu groß (höchstens 1\u00a0MB).');
+  assert.equal(t('en', 'notify.loginText', { days: 3 }), 'Your Spotify login expires in 3\u00a0days – open Tweakable DJ and log in again.');
+});
+
 test('Alle Schlüssel, die die Programmdateien verwenden, gibt es', () => {
   const used = new Set();
   for (const file of fs.readdirSync(ROOT).filter(f => f.endsWith('.mjs') && f !== 'i18n.mjs')) {
@@ -113,7 +122,7 @@ test('Einzahl und Mehrzahl nach den Regeln der Sprache (Intl.PluralRules)', () =
   assert.equal(t('fr', 'run.startingPoints', { current: 1, total: 20, factor: 3 }), '  1 point de départ sur 20 vient de ce que tu écoutes en ce moment (facteur 3)');
   assert.equal(t('fr', 'run.startingPoints', { current: 5, total: 20, factor: 1.5 }), '  5 points de départ sur 20 viennent de ce que tu écoutes en ce moment (facteur 1,5)');
   assert.equal(t('es', 'import.hintBlocked', { count: 1 }), 'Aviso: 1 canción está en tu lista de bloqueo y entra igualmente; el archivo es tu lista:');
-  assert.ok(t('fr', 'notify.loginText', { days: 1 }).startsWith('Ta connexion Spotify expire dans 1 jour :'));
+  assert.ok(t('fr', 'notify.loginText', { days: 1 }).startsWith('Ta connexion Spotify expire dans 1\u00a0jour :'));
 });
 
 test('t: Einzahl und Mehrzahl mit {name|eins|mehr}, Zahl im Format der Sprache', () => {
@@ -129,8 +138,8 @@ test('t: Einzahl und Mehrzahl mit {name|eins|mehr}, Zahl im Format der Sprache',
   assert.equal(t('en', 'run.summary', { ...counts, songs: 2, familiar: 2, duration: '4 min' }), 'DJ: 2 songs · 4 min (0 new, 0 of them via current listening; 2 favorites)');
   assert.equal(t('de', 'run.blocked', { count: 1 }), '  1 Song wegen der Sperrliste aussortiert');
   assert.equal(t('en', 'run.blocked', { count: 3 }), '  3 songs left out because of the block list');
-  assert.equal(t('de', 'run.scrobbles', { total: 1, current: 1, days: 1, artists: 1 }), '  1 Scrobble, davon 1 in den letzten 24 Stunden (1 Künstler)');
-  assert.equal(t('en', 'run.scrobbles', { total: 1000, current: 5, days: 7, artists: 1 }), '  1,000 scrobbles, 5 of them in the last 7 days (1 artist)');
+  assert.equal(t('de', 'run.scrobbles', { total: 1, current: 1, days: 1, artists: 1 }), '  1 Scrobble, davon 1 in den letzten 24\u00a0Stunden (1 Künstler)');
+  assert.equal(t('en', 'run.scrobbles', { total: 1000, current: 5, days: 7, artists: 1 }), '  1,000 scrobbles, 5 of them in the last 7\u00a0days (1 artist)');
   assert.equal(t('de', 'run.startingPoints', { current: 0, total: 1, factor: 3 }), '  0 von 1 Ausgangspunkt aus deinem aktuellen Hören (Faktor 3)');
   assert.equal(t('en', 'run.candidates', { count: 1, hits: 0, total: 1 }), '  1 candidate (0 of 1 Last.fm request from the cache)');
   // Ohne Spieldauer: Die zeigt Spotify bei der Playlist selbst an.
@@ -190,9 +199,9 @@ test('Zahlen: Tausender in Ausgabe, Oberfläche und READMEs im selben Format', (
   const de = (1000).toLocaleString('de-AT');
   assert.equal(de, `1${NBSP}000`);
   assert.equal(t('de', 'run.scrobbles', { total: 1000, current: 1000, days: 7, artists: 1200 }),
-    `  ${de} Scrobbles, davon ${de} in den letzten 7 Tagen (1${NBSP}200 Künstler)`);
+    `  ${de} Scrobbles, davon ${de} in den letzten 7\u00a0Tagen (1${NBSP}200 Künstler)`);
   assert.equal(t('en', 'run.scrobbles', { total: 1000, current: 1000, days: 7, artists: 1200 }),
-    '  1,000 scrobbles, 1,000 of them in the last 7 days (1,200 artists)');
+    '  1,000 scrobbles, 1,000 of them in the last 7\u00a0days (1,200 artists)');
   assert.equal(t('en', 'run.candidates', { count: 1500, hits: 1200, total: 2000 }), '  1,500 candidates (1,200 of 2,000 Last.fm requests from the cache)');
   assert.equal(t('de', 'run.startingPoints', { current: 1000, total: 1000, factor: 1.5 }),
     `  ${de} von ${de} Ausgangspunkten aus deinem aktuellen Hören (Faktor 1,5)`);

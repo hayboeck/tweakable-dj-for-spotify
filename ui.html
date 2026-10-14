@@ -765,9 +765,9 @@ const durationText = r => (Number.isFinite(r?.durationMs) && r.durationMs > 0 ? 
 const TEXT = {
   de: {
     locale: 'de-AT',
-    pct: v => `${Math.round(v * 100)} %`,
+    pct: v => `${Math.round(v * 100)} %`,
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
-    duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h}:${two(m)} Std.` : `${m} Min.`)),
+    duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h}:${two(m)} Std.` : `${m} Min.`)),
     fileSize: ['KB', 'MB'], // Einheiten für den Platzbedarf des Archivs
     // Archiv: Stand neben „Archivierte Playlists“ (files = Dateien im Archiv, keep = eingestellte Anzahl) und Hinweis nach dem Import
     archiveInfo: (files, keep) => (files == null ? '' : keep > 0
@@ -797,7 +797,7 @@ const TEXT = {
       stoppedQuit: 'Tweakable DJ ist beendet – zum Starten die Verknüpfung doppelklicken.',
       stoppedGone: 'Tweakable DJ läuft nicht mehr – bitte über die Verknüpfung neu starten.',
       shortcut: 'Verknüpfung',
-      intro: 'Du brauchst Spotify Premium, ein kostenloses Last.fm-Konto und etwa 10 Minuten.',
+      intro: 'Du brauchst Spotify Premium, ein kostenloses Last.fm-Konto und etwa 10 Minuten.',
       step1: 'Spotify-App anlegen',
       step2: 'Last.fm verbinden',
       step3: 'Bei Spotify anmelden',
@@ -869,8 +869,8 @@ const TEXT = {
     // „Neuere / ältere Songs“ (preferNewer): levels von −1 bis +1, die Enden stehen unter dem Regler
     newer: {
       levels: ['ältere', 'eher ältere', 'egal', 'eher neuere', 'neuere'],
-      newer: x => `Songs von diesem Jahr haben ein ${x}× größeres Los, 20 Jahre alte ein ${x}× kleineres`,
-      older: x => `20 Jahre alte Songs haben ein ${x}× größeres Los, Songs von diesem Jahr ein ${x}× kleineres`,
+      newer: x => `Songs von diesem Jahr haben ein ${x}× größeres Los, 20 Jahre alte ein ${x}× kleineres`,
+      older: x => `20 Jahre alte Songs haben ein ${x}× größeres Los, Songs von diesem Jahr ein ${x}× kleineres`,
       neutral: 'Egal – das Erscheinungsjahr spielt keine Rolle',
     },
     variety: {
@@ -907,13 +907,13 @@ const TEXT = {
         help: '0 = ähnliche, 1 = entfernte Songs bevorzugen; bestimmt auch, wie oft der DJ zu verwandten Künstlern abschweift.' },
       seedsPerRun: { label: 'Ausgangspunkte pro Lauf', fmt: v => num(v),
         help: 'Zu so vielen Songs sucht Last.fm ähnliche – mehr ergibt einen breiteren Mix, dauert aber etwas länger.' },
-      useLastfmTopTracks: { label: 'Last.fm-Top-Songs einbeziehen', help: 'Deine meistgehörten Songs der letzten 3 Monate als zusätzliche Ausgangspunkte.' },
+      useLastfmTopTracks: { label: 'Last.fm-Top-Songs einbeziehen', help: 'Deine meistgehörten Songs der letzten 3 Monate als zusätzliche Ausgangspunkte.' },
       useLastfmLovedTracks: { label: 'Last.fm-Lieblingssongs einbeziehen', help: 'Songs, die du auf Last.fm mit ♥ markiert hast, zählen zusätzlich als Favoriten. Braucht deinen Last.fm-Benutzernamen.' },
       followedArtists: { label: 'Gefolgte Künstler', fmt: v => followedLabel(v), hint: v => followedHint(v),
         help: 'Künstler, denen du auf Spotify folgst, auch als Gast („feat.“).' },
       preferNewer: { label: 'Neuere / ältere Songs', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'Nach Erscheinungsjahr laut Spotify; gilt für neue Songs und Favoriten, nichts fällt weg.' },
-      currentDays: { label: 'Zeitraum „aktuell“', fmt: v => (v ? plural(v, 'Tag', 'Tage') : 'aus'), help: 'Was du laut Last.fm in diesem Zeitraum gehört hast.' },
+      currentDays: { label: 'Zeitraum „aktuell“', fmt: v => (v ? pluralUnit(v, 'Tag', 'Tage') : 'aus'), help: 'Was du laut Last.fm in diesem Zeitraum gehört hast.' },
       currentFactor: { label: 'Gewicht für aktuelles Hören', fmt: v => (v === 1 ? 'aus' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Aktuell Gehörtes hat ein ${num(v)}× größeres Los`),
         help: 'Für Ausgangspunkte, neue Songs und Favoriten; 1 = aus.' },
@@ -924,7 +924,7 @@ const TEXT = {
         help: 'Zählt auch neue Songs, die über diesen Künstler gefunden wurden.' },
       artistGap: { label: 'Abstand gleicher Interpret', fmt: v => (v ? plural(v, 'Song', 'Songs') : 'aus'),
         help: 'Mindestens so viele andere Songs dazwischen.' },
-      excludeRecentDays: { label: 'Kürzlich Gehörtes sperren', fmt: v => (v ? plural(v, 'Tag', 'Tage') : 'aus'),
+      excludeRecentDays: { label: 'Kürzlich Gehörtes sperren', fmt: v => (v ? pluralUnit(v, 'Tag', 'Tage') : 'aus'),
         help: 'Was du laut Last.fm in diesem Zeitraum gehört hast.' },
       noRepeatRuns: { label: 'Vorige Läufe sperren', fmt: v => (v ? plural(v, 'Lauf', 'Läufe') : 'aus'),
         help: 'Songs aus so vielen vorigen Läufen kommen nicht wieder.' },
@@ -950,7 +950,7 @@ const TEXT = {
       runShortcut: { label: 'Zweite Verknüpfung: Playlist jetzt neu erstellen',
         help: 'Legt beim Speichern „Tweakable DJ – Playlist neu erstellen“ auf den Desktop. Ein Doppelklick darauf erstellt die Playlist mit den gespeicherten Einstellungen neu, ohne Oberfläche, und meldet sich danach mit einer Benachrichtigung.' },
       remindLogin: { label: 'An neue Anmeldung erinnern',
-        help: 'Die Spotify-Anmeldung gilt 180 Tage. Eine Woche vorher kommt eine Systembenachrichtigung.' },
+        help: 'Die Spotify-Anmeldung gilt 180 Tage. Eine Woche vorher kommt eine Systembenachrichtigung.' },
     },
     list: {
       add: 'Hinzufügen',
@@ -975,7 +975,7 @@ const TEXT = {
     presets: {
       discover: ['Entdecken', 'Viele neue Songs, auch weiter weg von deinem Geschmack, und kaum Wiederholungen.'],
       familiar: ['Vertraut', 'Mehr Favoriten und sehr ähnliche neue Songs, wenig Überraschungen.'],
-      current: ['Meine aktuelle Phase', 'Richtet sich stark nach dem, was du in den letzten 7 Tagen gehört hast.'],
+      current: ['Meine aktuelle Phase', 'Richtet sich stark nach dem, was du in den letzten 7 Tagen gehört hast.'],
       standard: ['Standard', 'Die ausgewogenen Grundeinstellungen.'],
     },
     presetMatch: name => `Passt gerade genau: ${name}`,
@@ -997,7 +997,7 @@ const TEXT = {
       network: 'Spotify bzw. Last.fm nicht erreichbar',
     },
     run: {
-      running: kind => (kind === 'dry' ? 'Playlist wird erstellt … (ca. 1 Minute)' : kind === 'new' ? 'Neue Playlist wird in Spotify angelegt …' : 'Playlist wird überschrieben …'),
+      running: kind => (kind === 'dry' ? 'Playlist wird erstellt … (ca. 1 Minute)' : kind === 'new' ? 'Neue Playlist wird in Spotify angelegt …' : 'Playlist wird überschrieben …'),
       ok: (r, dry) => `${dry ? 'Erstellt' : 'Fertig'}: ${!dry && r.playlistName ? `„${r.playlistName}“ · ` : ''}${plural(r.songs, 'Song', 'Songs')}${durationText(r)} (${num(r.fresh)} neu, davon ${num(r.freshCurrent)} über aktuelles Hören; ${plural(r.familiar, 'Favorit', 'Favoriten')})`,
       unchanged: ' · noch nicht in Spotify',
       failedWith: reason => `Fehlgeschlagen: ${reason} – siehe Ausgabe`,
@@ -1019,7 +1019,7 @@ const TEXT = {
       overwrite: name => `„${name}“ überschreiben`,
       saveNew: 'Neue Playlist anlegen',
       dirty: 'Geht nicht mehr: Du hast seit dem Erstellen Einstellungen geändert. Stelle sie zurück oder klicke noch einmal auf „Playlist erstellen“.',
-      old: 'Geht nicht mehr: Die Liste ist älter als 24 Stunden. Klicke noch einmal auf „Playlist erstellen“.',
+      old: 'Geht nicht mehr: Die Liste ist älter als 24 Stunden. Klicke noch einmal auf „Playlist erstellen“.',
       blocked: 'Geht nicht mehr: Du hast einen Song aus dieser Liste gesperrt. Klicke noch einmal auf „Playlist erstellen“ – das speichert vorher.',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
@@ -1036,7 +1036,7 @@ const TEXT = {
       help: name => `Ersetzt den Inhalt von „${name}“ nach einer Vorschau. Textdatei: je Zeile „Künstler – Titel“ oder ein Spotify-Link.`,
       loading: 'Lese die Playlist aus Spotify …',
       saved: (file, n) => `${file} heruntergeladen (${plural(n, 'Song', 'Songs')}).`,
-      tooLarge: 'Die Datei ist größer als 1 MB. Mehr als 500 Songs passen ohnehin nicht in die Playlist.',
+      tooLarge: 'Die Datei ist größer als 1 MB. Mehr als 500 Songs passen ohnehin nicht in die Playlist.',
       reading: file => `Lese ${file} …`,
       found: (found, total) => `${num(found)} von ${num(total)} gefunden`,
       missingHead: n => (isOne(n) ? 'Diese Zeile kommt nicht in die Playlist:' : `Diese ${num(n)} Zeilen kommen nicht in die Playlist:`),
@@ -1093,16 +1093,16 @@ const TEXT = {
       newClientId: 'Neue Client ID gespeichert – bitte melde dich neu an.',
     },
     notice: {
-      done: 'Angemeldet ✓ Die Spotify-Anmeldung gilt jetzt wieder 180 Tage (rund 6 Monate).',
+      done: 'Angemeldet ✓ Die Spotify-Anmeldung gilt jetzt wieder 180 Tage (rund 6 Monate).',
       expired: 'Deine Spotify-Anmeldung ist abgelaufen oder fehlt. Melde dich neu an, dann klappt es wieder.',
-      left: n => `Deine Spotify-Anmeldung läuft in ${plural(n, 'Tag', 'Tagen')} ab. Spotify verlangt alle 6 Monate eine neue Anmeldung.`,
-      probably: 'Deine Spotify-Anmeldung ist wahrscheinlich abgelaufen. Spotify verlangt alle 6 Monate eine neue Anmeldung.',
+      left: n => `Deine Spotify-Anmeldung läuft in ${pluralUnit(n, 'Tag', 'Tagen')} ab. Spotify verlangt alle 6 Monate eine neue Anmeldung.`,
+      probably: 'Deine Spotify-Anmeldung ist wahrscheinlich abgelaufen. Spotify verlangt alle 6 Monate eine neue Anmeldung.',
       scope: 'Für „Gefolgte Künstler“ bitte einmal neu bei Spotify anmelden.',
       library: 'Für ♥ (Lieblingssongs) bitte einmal neu bei Spotify anmelden.',
     },
     setup: {
       done: 'erledigt ✓',
-      loggedIn: age => `Du bist angemeldet ✓${age == null ? '' : age === 0 ? ' (seit heute)' : ` (seit ${plural(age, 'Tag', 'Tagen')})`}. Neu anmelden nur für ein anderes Konto oder nach Ablauf.`,
+      loggedIn: age => `Du bist angemeldet ✓${age == null ? '' : age === 0 ? ' (seit heute)' : ` (seit ${pluralUnit(age, 'Tag', 'Tagen')})`}. Neu anmelden nur für ein anderes Konto oder nach Ablauf.`,
       notLoggedIn: 'Noch nicht angemeldet.',
       open: steps => `Noch offen: Schritt${isOne(steps.length) ? '' : 'e'} ${steps.join(', ')}.`,
       allDone: 'Alles eingerichtet ✓ Wähle eine Voreinstellung und klicke auf „Playlist erstellen“ – in Spotify ändert sich erst etwas, wenn du danach die Playlist überschreibst oder eine neue anlegst.',
@@ -1243,7 +1243,7 @@ const TEXT = {
     locale: 'en-US',
     pct: v => `${Math.round(v * 100)}%`,
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
-    duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`)),
+    duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`)),
     fileSize: ['KB', 'MB'], // Einheiten für den Platzbedarf des Archivs
     archiveInfo: (files, keep) => (files == null ? '' : keep > 0
       ? `${num(files)}/${plural(keep, 'playlist', 'playlists')} in the archive${files > keep ? ` · With the next playlist, ${isOne(files + 1 - keep) ? 'the oldest one is' : `the ${num(files + 1 - keep)} oldest are`} deleted.` : ''}`
@@ -1272,7 +1272,7 @@ const TEXT = {
       stoppedQuit: 'Tweakable DJ has quit – double-click the shortcut to start it.',
       stoppedGone: 'Tweakable DJ is no longer running – please start it again with the shortcut.',
       shortcut: 'Shortcut',
-      intro: 'You need Spotify Premium, a free Last.fm account and about 10 minutes.',
+      intro: 'You need Spotify Premium, a free Last.fm account and about 10 minutes.',
       step1: 'Create a Spotify app',
       step2: 'Connect Last.fm',
       step3: 'Log in to Spotify',
@@ -1382,13 +1382,13 @@ const TEXT = {
         help: '0 = prefer similar, 1 = prefer distant songs; also sets how often the DJ wanders off to related artists.' },
       seedsPerRun: { label: 'Starting points per run', fmt: v => num(v),
         help: 'Last.fm looks for songs similar to this many songs – more gives a broader mix but takes a little longer.' },
-      useLastfmTopTracks: { label: 'Include Last.fm top songs', help: 'Your most-played songs of the last 3 months as extra starting points.' },
+      useLastfmTopTracks: { label: 'Include Last.fm top songs', help: 'Your most-played songs of the last 3 months as extra starting points.' },
       useLastfmLovedTracks: { label: 'Include Last.fm loved songs', help: 'Songs you loved (♥) on Last.fm also count as favorites. Needs your Last.fm username.' },
       followedArtists: { label: 'Followed artists', fmt: v => followedLabel(v), hint: v => followedHint(v),
         help: 'Artists you follow on Spotify, also as a guest (“feat.”).' },
       preferNewer: { label: 'Newer / older songs', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'By release year according to Spotify; applies to new songs and favorites, nothing is left out.' },
-      currentDays: { label: 'Period counted as “current”', fmt: v => (v ? plural(v, 'day', 'days') : 'off'), help: 'What Last.fm says you played in this period.' },
+      currentDays: { label: 'Period counted as “current”', fmt: v => (v ? pluralUnit(v, 'day', 'days') : 'off'), help: 'What Last.fm says you played in this period.' },
       currentFactor: { label: 'Weight of current listening', fmt: v => (v === 1 ? 'off' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `What you’re listening to now is ${num(v)}× as likely to be drawn`),
         help: 'For starting points, new songs and favorites; 1 = off.' },
@@ -1399,7 +1399,7 @@ const TEXT = {
         help: 'Also counts new songs found via that artist.' },
       artistGap: { label: 'Gap between songs by the same artist', fmt: v => (v ? plural(v, 'song', 'songs') : 'off'),
         help: 'At least this many other songs in between.' },
-      excludeRecentDays: { label: 'Block recently played songs', fmt: v => (v ? plural(v, 'day', 'days') : 'off'),
+      excludeRecentDays: { label: 'Block recently played songs', fmt: v => (v ? pluralUnit(v, 'day', 'days') : 'off'),
         help: 'What Last.fm says you played in this period.' },
       noRepeatRuns: { label: 'Block previous runs', fmt: v => (v ? plural(v, 'run', 'runs') : 'off'),
         help: 'Songs from this many previous runs don’t come back.' },
@@ -1425,7 +1425,7 @@ const TEXT = {
       runShortcut: { label: 'Second shortcut: rebuild playlist now',
         help: 'Saving puts “Tweakable DJ – Rebuild playlist” on the desktop. Double-clicking it rebuilds the playlist with the saved settings, without the interface, and then shows a notification.' },
       remindLogin: { label: 'Remind me to log in again',
-        help: 'Your Spotify login lasts 180 days. One week before it ends, you get a system notification.' },
+        help: 'Your Spotify login lasts 180 days. One week before it ends, you get a system notification.' },
     },
     list: {
       add: 'Add',
@@ -1450,7 +1450,7 @@ const TEXT = {
     presets: {
       discover: ['Discover', 'Lots of new songs, also further from your taste, and hardly any repeats.'],
       familiar: ['Familiar', 'More favorites and very similar new songs, few surprises.'],
-      current: ['My current phase', 'Closely follows what you’ve listened to in the last 7 days.'],
+      current: ['My current phase', 'Closely follows what you’ve listened to in the last 7 days.'],
       standard: ['Default', 'The balanced basic settings.'],
     },
     presetMatch: name => `Matches exactly: ${name}`,
@@ -1471,7 +1471,7 @@ const TEXT = {
       network: 'Spotify or Last.fm can’t be reached',
     },
     run: {
-      running: kind => (kind === 'dry' ? 'Creating the playlist … (about 1 minute)' : kind === 'new' ? 'Creating a new playlist in Spotify …' : 'Overwriting the playlist …'),
+      running: kind => (kind === 'dry' ? 'Creating the playlist … (about 1 minute)' : kind === 'new' ? 'Creating a new playlist in Spotify …' : 'Overwriting the playlist …'),
       ok: (r, dry) => `${dry ? 'Created' : 'Done'}: ${!dry && r.playlistName ? `“${r.playlistName}” · ` : ''}${plural(r.songs, 'song', 'songs')}${durationText(r)} (${num(r.fresh)} new, ${num(r.freshCurrent)} of them via current listening; ${plural(r.familiar, 'favorite', 'favorites')})`,
       unchanged: ' · not in Spotify yet',
       failedWith: reason => `Failed: ${reason} – see output`,
@@ -1491,7 +1491,7 @@ const TEXT = {
       overwrite: name => `Overwrite “${name}”`,
       saveNew: 'Create new playlist',
       dirty: 'No longer possible: you’ve changed settings since creating it. Change them back or click “Create playlist” again.',
-      old: 'No longer possible: the list is more than 24 hours old. Click “Create playlist” again.',
+      old: 'No longer possible: the list is more than 24 hours old. Click “Create playlist” again.',
       blocked: 'No longer possible: you blocked a song from this list. Click “Create playlist” again – it saves first.',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
@@ -1507,7 +1507,7 @@ const TEXT = {
       help: name => `Replaces the content of “${name}” after a preview. Text file: one “artist – title” or Spotify link per line.`,
       loading: 'Reading the playlist from Spotify …',
       saved: (file, n) => `Downloaded ${file} (${plural(n, 'song', 'songs')}).`,
-      tooLarge: 'The file is larger than 1 MB. The playlist can’t hold more than 500 songs anyway.',
+      tooLarge: 'The file is larger than 1 MB. The playlist can’t hold more than 500 songs anyway.',
       reading: file => `Reading ${file} …`,
       found: (found, total) => `${num(found)} of ${num(total)} found`,
       missingHead: n => (isOne(n) ? 'This line won’t be in the playlist:' : `These ${num(n)} lines won’t be in the playlist:`),
@@ -1564,16 +1564,16 @@ const TEXT = {
       newClientId: 'New Client ID saved – please log in again.',
     },
     notice: {
-      done: 'Logged in ✓ The Spotify login is valid for another 180 days (about 6 months).',
+      done: 'Logged in ✓ The Spotify login is valid for another 180 days (about 6 months).',
       expired: 'Your Spotify login has expired or is missing. Log in again and it will work again.',
-      left: n => `Your Spotify login expires in ${plural(n, 'day', 'days')}. Spotify requires a new login every 6 months.`,
-      probably: 'Your Spotify login has probably expired. Spotify requires a new login every 6 months.',
+      left: n => `Your Spotify login expires in ${pluralUnit(n, 'day', 'days')}. Spotify requires a new login every 6 months.`,
+      probably: 'Your Spotify login has probably expired. Spotify requires a new login every 6 months.',
       scope: 'For “Followed artists”, please log in to Spotify again once.',
       library: 'For ♥ (Liked Songs), please log in to Spotify again once.',
     },
     setup: {
       done: 'done ✓',
-      loggedIn: age => `You’re logged in ✓${age == null ? '' : age === 0 ? ' (since today)' : ` (for ${plural(age, 'day', 'days')})`}. Only log in again for a different account or when the login has expired.`,
+      loggedIn: age => `You’re logged in ✓${age == null ? '' : age === 0 ? ' (since today)' : ` (for ${pluralUnit(age, 'day', 'days')})`}. Only log in again for a different account or when the login has expired.`,
       notLoggedIn: 'Not logged in yet.',
       open: steps => `Still to do: step${isOne(steps.length) ? '' : 's'} ${steps.join(', ')}.`,
       allDone: 'All set ✓ Pick a preset and click “Create playlist” – nothing changes in Spotify until you then overwrite the playlist or create a new one.',
@@ -1705,9 +1705,9 @@ const TEXT = {
   // Spanisch (maschinell übersetzt): „tú“, Begriffe wie in der Spotify-App (Tus me gusta, playlist, canción).
   es: {
     locale: 'es-ES',
-    pct: v => `${Math.round(v * 100)} %`,
+    pct: v => `${Math.round(v * 100)} %`,
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
-    duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`)),
+    duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`)),
     fileSize: ['KB', 'MB'], // Einheiten für den Platzbedarf des Archivs
     archiveInfo: (files, keep) => (files == null ? '' : keep > 0
       ? `${num(files)}/${plural(keep, 'playlist', 'playlists')} en el archivo de playlists${files > keep ? ` · Con la próxima playlist ${isOne(files + 1 - keep) ? 'se borra la más antigua' : `se borran las ${num(files + 1 - keep)} más antiguas`}.` : ''}`
@@ -1736,7 +1736,7 @@ const TEXT = {
       stoppedQuit: 'Tweakable DJ está cerrado: haz doble clic en el acceso directo para iniciarlo.',
       stoppedGone: 'Tweakable DJ ya no está en marcha: vuelve a iniciarlo con el acceso directo.',
       shortcut: 'Acceso directo',
-      intro: 'Necesitas Spotify Premium, una cuenta gratuita de Last.fm y unos 10 minutos.',
+      intro: 'Necesitas Spotify Premium, una cuenta gratuita de Last.fm y unos 10 minutos.',
       step1: 'Crear una app de Spotify',
       step2: 'Conectar Last.fm',
       step3: 'Iniciar sesión en Spotify',
@@ -1808,8 +1808,8 @@ const TEXT = {
     // „Neuere / ältere Songs“ (preferNewer): levels von −1 bis +1, die Enden stehen unter dem Regler
     newer: {
       levels: ['antiguas', 'más bien antiguas', 'da igual', 'más bien nuevas', 'nuevas'],
-      newer: x => `Las canciones de este año tienen ${x}× más probabilidades de salir; las de hace 20 años, ${x}× menos`,
-      older: x => `Las canciones de hace 20 años tienen ${x}× más probabilidades de salir; las de este año, ${x}× menos`,
+      newer: x => `Las canciones de este año tienen ${x}× más probabilidades de salir; las de hace 20 años, ${x}× menos`,
+      older: x => `Las canciones de hace 20 años tienen ${x}× más probabilidades de salir; las de este año, ${x}× menos`,
       neutral: 'Da igual: el año de publicación no cuenta',
     },
     variety: {
@@ -1846,13 +1846,13 @@ const TEXT = {
         help: '0 = preferir similares, 1 = preferir lejanas; también decide cuánto se desvía el DJ hacia artistas relacionados.' },
       seedsPerRun: { label: 'Puntos de partida por ejecución', fmt: v => num(v),
         help: 'Last.fm busca canciones similares a tantas canciones: más da una mezcla más amplia, pero tarda un poco más.' },
-      useLastfmTopTracks: { label: 'Incluir las canciones top de Last.fm', help: 'Tus canciones más escuchadas de los últimos 3 meses como puntos de partida adicionales.' },
+      useLastfmTopTracks: { label: 'Incluir las canciones top de Last.fm', help: 'Tus canciones más escuchadas de los últimos 3 meses como puntos de partida adicionales.' },
       useLastfmLovedTracks: { label: 'Incluir las canciones favoritas de Last.fm', help: 'Las canciones que marcaste con ♥ en Last.fm también cuentan como favoritas. Necesita tu nombre de usuario de Last.fm.' },
       followedArtists: { label: 'Artistas que sigues', fmt: v => followedLabel(v), hint: v => followedHint(v),
         help: 'Artistas que sigues en Spotify, también como invitados («feat.»).' },
       preferNewer: { label: 'Canciones más nuevas / más antiguas', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'Según el año de publicación en Spotify; vale para canciones nuevas y favoritas, no se excluye nada.' },
-      currentDays: { label: 'Periodo «actual»', fmt: v => (v ? plural(v, 'día', 'días') : 'no'), help: 'Lo que según Last.fm has escuchado en este periodo.' },
+      currentDays: { label: 'Periodo «actual»', fmt: v => (v ? pluralUnit(v, 'día', 'días') : 'no'), help: 'Lo que según Last.fm has escuchado en este periodo.' },
       currentFactor: { label: 'Peso de lo que escuchas ahora', fmt: v => (v === 1 ? 'no' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Lo que escuchas ahora tiene ${num(v)}× más probabilidades de salir`),
         help: 'Para puntos de partida, canciones nuevas y favoritas; 1 = no.' },
@@ -1863,7 +1863,7 @@ const TEXT = {
         help: 'Cuenta también las canciones nuevas encontradas a través de ese artista.' },
       artistGap: { label: 'Separación entre canciones del mismo artista', fmt: v => (v ? plural(v, 'canción', 'canciones') : 'no'),
         help: 'Al menos tantas canciones distintas entre medias.' },
-      excludeRecentDays: { label: 'Bloquear lo escuchado hace poco', fmt: v => (v ? plural(v, 'día', 'días') : 'no'),
+      excludeRecentDays: { label: 'Bloquear lo escuchado hace poco', fmt: v => (v ? pluralUnit(v, 'día', 'días') : 'no'),
         help: 'Lo que según Last.fm has escuchado en este periodo.' },
       noRepeatRuns: { label: 'Bloquear ejecuciones anteriores', fmt: v => (v ? plural(v, 'ejecución', 'ejecuciones') : 'no'),
         help: 'Las canciones de tantas ejecuciones anteriores no vuelven a salir.' },
@@ -1889,7 +1889,7 @@ const TEXT = {
       runShortcut: { label: 'Segundo acceso directo: recrear la playlist ahora',
         help: 'Al guardar, pone «Tweakable DJ – Recrear la playlist» en el escritorio. Un doble clic recrea la playlist con los ajustes guardados, sin la interfaz, y después muestra una notificación.' },
       remindLogin: { label: 'Recordarme volver a iniciar sesión',
-        help: 'La sesión de Spotify dura 180 días. Una semana antes recibes una notificación del sistema.' },
+        help: 'La sesión de Spotify dura 180 días. Una semana antes recibes una notificación del sistema.' },
     },
     list: {
       add: 'Añadir',
@@ -1914,7 +1914,7 @@ const TEXT = {
     presets: {
       discover: ['Descubrir', 'Muchas canciones nuevas, también más alejadas de tus gustos, y casi sin repeticiones.'],
       familiar: ['Conocido', 'Más favoritas y canciones nuevas muy parecidas, pocas sorpresas.'],
-      current: ['Mi fase actual', 'Se guía mucho por lo que has escuchado en los últimos 7 días.'],
+      current: ['Mi fase actual', 'Se guía mucho por lo que has escuchado en los últimos 7 días.'],
       standard: ['Predeterminado', 'Los ajustes básicos equilibrados.'],
     },
     presetMatch: name => `Coincide exactamente: ${name}`,
@@ -1935,7 +1935,7 @@ const TEXT = {
       network: 'No se puede acceder a Spotify o Last.fm',
     },
     run: {
-      running: kind => (kind === 'dry' ? 'Creando la playlist … (aprox. 1 minuto)' : kind === 'new' ? 'Creando una playlist nueva en Spotify …' : 'Sobrescribiendo la playlist …'),
+      running: kind => (kind === 'dry' ? 'Creando la playlist … (aprox. 1 minuto)' : kind === 'new' ? 'Creando una playlist nueva en Spotify …' : 'Sobrescribiendo la playlist …'),
       ok: (r, dry) => `${dry ? 'Creada' : 'Listo'}: ${!dry && r.playlistName ? `«${r.playlistName}» · ` : ''}${plural(r.songs, 'canción', 'canciones')}${durationText(r)} (${plural(r.fresh, 'nueva', 'nuevas')}, ${num(r.freshCurrent)} de ellas por lo que escuchas ahora; ${plural(r.familiar, 'favorita', 'favoritas')})`,
       unchanged: ' · todavía no está en Spotify',
       failedWith: reason => `Error: ${reason} (ver la salida)`,
@@ -1955,7 +1955,7 @@ const TEXT = {
       overwrite: name => `Sobrescribir «${name}»`,
       saveNew: 'Crear playlist nueva',
       dirty: 'Ya no es posible: has cambiado ajustes desde que la creaste. Vuelve a dejarlos como estaban o haz clic otra vez en «Crear playlist».',
-      old: 'Ya no es posible: la lista tiene más de 24 horas. Haz clic otra vez en «Crear playlist».',
+      old: 'Ya no es posible: la lista tiene más de 24 horas. Haz clic otra vez en «Crear playlist».',
       blocked: 'Ya no es posible: has bloqueado una canción de esta lista. Haz clic otra vez en «Crear playlist» (antes se guarda todo).',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
@@ -1971,7 +1971,7 @@ const TEXT = {
       help: name => `Sustituye el contenido de «${name}» tras una vista previa. Archivo de texto: una línea por canción, «artista – título» o un enlace de Spotify.`,
       loading: 'Leyendo la playlist de Spotify …',
       saved: (file, n) => `${file} descargado (${plural(n, 'canción', 'canciones')}).`,
-      tooLarge: 'El archivo ocupa más de 1 MB. De todos modos, en la playlist no caben más de 500 canciones.',
+      tooLarge: 'El archivo ocupa más de 1 MB. De todos modos, en la playlist no caben más de 500 canciones.',
       reading: file => `Leyendo ${file} …`,
       found: (found, total) => `${num(found)} de ${num(total)} encontradas`,
       missingHead: n => (isOne(n) ? 'Esta línea no entrará en la playlist:' : `Estas ${num(n)} líneas no entrarán en la playlist:`),
@@ -2028,16 +2028,16 @@ const TEXT = {
       newClientId: 'Nuevo Client ID guardado: vuelve a iniciar sesión.',
     },
     notice: {
-      done: 'Sesión iniciada ✓ El inicio de sesión de Spotify vuelve a valer 180 días (unos 6 meses).',
+      done: 'Sesión iniciada ✓ El inicio de sesión de Spotify vuelve a valer 180 días (unos 6 meses).',
       expired: 'Tu sesión de Spotify ha caducado o falta. Vuelve a iniciar sesión y todo funcionará de nuevo.',
-      left: n => `Tu sesión de Spotify caduca dentro de ${plural(n, 'día', 'días')}. Spotify pide iniciar sesión de nuevo cada 6 meses.`,
-      probably: 'Probablemente tu sesión de Spotify ha caducado. Spotify pide iniciar sesión de nuevo cada 6 meses.',
+      left: n => `Tu sesión de Spotify caduca dentro de ${pluralUnit(n, 'día', 'días')}. Spotify pide iniciar sesión de nuevo cada 6 meses.`,
+      probably: 'Probablemente tu sesión de Spotify ha caducado. Spotify pide iniciar sesión de nuevo cada 6 meses.',
       scope: 'Para «Artistas que sigues», vuelve a iniciar sesión en Spotify una vez.',
       library: 'Para ♥ (Tus me gusta), vuelve a iniciar sesión en Spotify una vez.',
     },
     setup: {
       done: 'hecho ✓',
-      loggedIn: age => `Has iniciado sesión ✓${age == null ? '' : age === 0 ? ' (desde hoy)' : ` (desde hace ${plural(age, 'día', 'días')})`}. Solo hace falta volver a iniciarla para otra cuenta o si ha caducado.`,
+      loggedIn: age => `Has iniciado sesión ✓${age == null ? '' : age === 0 ? ' (desde hoy)' : ` (desde hace ${pluralUnit(age, 'día', 'días')})`}. Solo hace falta volver a iniciarla para otra cuenta o si ha caducado.`,
       notLoggedIn: 'Todavía no has iniciado sesión.',
       open: steps => `Falta${isOne(steps.length) ? ' el paso' : 'n los pasos'} ${steps.join(', ')}.`,
       allDone: '¡Todo listo! ✓ Elige un ajuste predefinido y haz clic en «Crear playlist»: en Spotify no cambia nada hasta que después sobrescribas la playlist o crees una nueva.',
@@ -2172,7 +2172,7 @@ const TEXT = {
     locale: 'fr-FR',
     pct: v => `${Math.round(v * 100)} %`,
     // Spieldauer, z. B. bei „Anzahl Songs“ und nach einem Lauf (wie formatDuration() in i18n.mjs)
-    duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${two(m)}` : ''}` : `${m} min`)),
+    duration: (ms, approx) => formatDuration(ms, approx, (h, m) => (h ? `${h} h${m ? ` ${two(m)}` : ''}` : `${m} min`)),
     fileSize: ['Ko', 'Mo'], // Einheiten für den Platzbedarf des Archivs
     archiveInfo: (files, keep) => (files == null ? '' : keep > 0
       ? `${num(files)}/${plural(keep, 'playlist', 'playlists')} dans les archives${files > keep ? ` · Avec la prochaine playlist, ${isOne(files + 1 - keep) ? 'la plus ancienne sera supprimée' : `les ${num(files + 1 - keep)} plus anciennes seront supprimées`}.` : ''}`
@@ -2273,8 +2273,8 @@ const TEXT = {
     // „Neuere / ältere Songs“ (preferNewer): levels von −1 bis +1, die Enden stehen unter dem Regler
     newer: {
       levels: ['anciens', 'plutôt anciens', 'peu importe', 'plutôt récents', 'récents'],
-      newer: x => `Les titres de cette année ont ${x}× plus de chances d’être tirés, ceux d’il y a 20 ans ${x}× moins`,
-      older: x => `Les titres d’il y a 20 ans ont ${x}× plus de chances d’être tirés, ceux de cette année ${x}× moins`,
+      newer: x => `Les titres de cette année ont ${x}× plus de chances d’être tirés, ceux d’il y a 20 ans ${x}× moins`,
+      older: x => `Les titres d’il y a 20 ans ont ${x}× plus de chances d’être tirés, ceux de cette année ${x}× moins`,
       neutral: 'Aucune importance – l’année de sortie ne compte pas',
     },
     variety: {
@@ -2317,7 +2317,7 @@ const TEXT = {
         help: 'Les artistes que tu suis sur Spotify, aussi en invité (« feat. »).' },
       preferNewer: { label: 'Titres récents / anciens', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'Selon l’année de sortie sur Spotify, pour les nouveaux titres et les favoris – rien n’est exclu.' },
-      currentDays: { label: 'Période « actuelle »', fmt: v => (v ? plural(v, 'jour', 'jours') : 'désactivé'), help: 'Ce que tu as écouté pendant cette période selon Last.fm.' },
+      currentDays: { label: 'Période « actuelle »', fmt: v => (v ? pluralUnit(v, 'jour', 'jours') : 'désactivé'), help: 'Ce que tu as écouté pendant cette période selon Last.fm.' },
       currentFactor: { label: 'Poids de l’écoute actuelle', fmt: v => (v === 1 ? 'désactivé' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Ce que tu écoutes en ce moment a ${num(v)}× plus de chances d’être tiré`),
         help: 'Pour les points de départ, les nouveaux titres et les favoris ; 1 = désactivé.' },
@@ -2328,7 +2328,7 @@ const TEXT = {
         help: 'Compte aussi les nouveaux titres trouvés grâce à cet artiste.' },
       artistGap: { label: 'Écart entre titres du même artiste', fmt: v => (v ? plural(v, 'titre', 'titres') : 'désactivé'),
         help: 'Au moins autant d’autres titres entre les deux.' },
-      excludeRecentDays: { label: 'Bloquer les écoutes récentes', fmt: v => (v ? plural(v, 'jour', 'jours') : 'désactivé'),
+      excludeRecentDays: { label: 'Bloquer les écoutes récentes', fmt: v => (v ? pluralUnit(v, 'jour', 'jours') : 'désactivé'),
         help: 'Ce que tu as écouté pendant cette période selon Last.fm.' },
       noRepeatRuns: { label: 'Bloquer les exécutions précédentes', fmt: v => (v ? plural(v, 'exécution', 'exécutions') : 'désactivé'),
         help: 'Les titres d’autant d’exécutions précédentes ne reviennent pas.' },
@@ -2354,7 +2354,7 @@ const TEXT = {
       runShortcut: { label: 'Deuxième raccourci : recréer la playlist maintenant',
         help: 'À l’enregistrement, place « Tweakable DJ – Recréer la playlist » sur le Bureau. Un double-clic recrée la playlist avec les paramètres enregistrés, sans l’interface, puis affiche une notification.' },
       remindLogin: { label: 'Me rappeler de me reconnecter',
-        help: 'La connexion Spotify dure 180 jours. Une semaine avant, tu reçois une notification système.' },
+        help: 'La connexion Spotify dure 180 jours. Une semaine avant, tu reçois une notification système.' },
     },
     list: {
       add: 'Ajouter',
@@ -2400,7 +2400,7 @@ const TEXT = {
       network: 'Spotify ou Last.fm est injoignable',
     },
     run: {
-      running: kind => (kind === 'dry' ? 'Création de la playlist … (environ 1 minute)' : kind === 'new' ? 'Création d’une nouvelle playlist dans Spotify …' : 'Remplacement de la playlist …'),
+      running: kind => (kind === 'dry' ? 'Création de la playlist … (environ 1 minute)' : kind === 'new' ? 'Création d’une nouvelle playlist dans Spotify …' : 'Remplacement de la playlist …'),
       ok: (r, dry) => `${dry ? 'Créée' : 'Terminé'} : ${!dry && r.playlistName ? `« ${r.playlistName} » · ` : ''}${plural(r.songs, 'titre', 'titres')}${durationText(r)} (${plural(r.fresh, 'nouveau', 'nouveaux')}, dont ${num(r.freshCurrent)} via ce que tu écoutes en ce moment ; ${plural(r.familiar, 'favori', 'favoris')})`,
       unchanged: ' · pas encore dans Spotify',
       failedWith: reason => `Échec : ${reason} – voir la sortie`,
@@ -2420,7 +2420,7 @@ const TEXT = {
       overwrite: name => `Remplacer « ${name} »`,
       saveNew: 'Créer une nouvelle playlist',
       dirty: 'Plus possible : tu as modifié des paramètres depuis sa création. Remets-les comme avant ou clique de nouveau sur « Créer la playlist ».',
-      old: 'Plus possible : la liste date de plus de 24 heures. Clique de nouveau sur « Créer la playlist ».',
+      old: 'Plus possible : la liste date de plus de 24 heures. Clique de nouveau sur « Créer la playlist ».',
       blocked: 'Plus possible : tu as bloqué un titre de cette liste. Clique de nouveau sur « Créer la playlist » – elle enregistre d’abord.',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
@@ -2436,7 +2436,7 @@ const TEXT = {
       help: name => `Remplace le contenu de « ${name} » après un aperçu. Fichier texte : une ligne par titre, « artiste – titre » ou un lien Spotify.`,
       loading: 'Lecture de la playlist depuis Spotify …',
       saved: (file, n) => `${file} téléchargé (${plural(n, 'titre', 'titres')}).`,
-      tooLarge: 'Le fichier dépasse 1 Mo. De toute façon, la playlist ne peut pas contenir plus de 500 titres.',
+      tooLarge: 'Le fichier dépasse 1 Mo. De toute façon, la playlist ne peut pas contenir plus de 500 titres.',
       reading: file => `Lecture de ${file} …`,
       found: (found, total) => `${num(found)} sur ${num(total)} trouvé${isOne(found) ? '' : 's'}`,
       missingHead: n => (isOne(n) ? 'Cette ligne n’entrera pas dans la playlist :' : `Ces ${num(n)} lignes n’entreront pas dans la playlist :`),
@@ -2493,16 +2493,16 @@ const TEXT = {
       newClientId: 'Nouveau Client ID enregistré – reconnecte-toi.',
     },
     notice: {
-      done: 'Connexion réussie ✓ La connexion Spotify est de nouveau valable 180 jours (environ 6 mois).',
+      done: 'Connexion réussie ✓ La connexion Spotify est de nouveau valable 180 jours (environ 6 mois).',
       expired: 'Ta connexion Spotify a expiré ou manque. Reconnecte-toi et tout fonctionnera à nouveau.',
-      left: n => `Ta connexion Spotify expire dans ${plural(n, 'jour', 'jours')}. Spotify demande une nouvelle connexion tous les 6 mois.`,
-      probably: 'Ta connexion Spotify a probablement expiré. Spotify demande une nouvelle connexion tous les 6 mois.',
+      left: n => `Ta connexion Spotify expire dans ${pluralUnit(n, 'jour', 'jours')}. Spotify demande une nouvelle connexion tous les 6 mois.`,
+      probably: 'Ta connexion Spotify a probablement expiré. Spotify demande une nouvelle connexion tous les 6 mois.',
       scope: 'Pour « Artistes suivis », reconnecte-toi une fois à Spotify.',
       library: 'Pour ♥ (Titres likés), reconnecte-toi une fois à Spotify.',
     },
     setup: {
       done: 'fait ✓',
-      loggedIn: age => `Connexion active ✓${age == null ? '' : age === 0 ? ' (depuis aujourd’hui)' : ` (depuis ${plural(age, 'jour', 'jours')})`}. Reconnecte-toi seulement pour un autre compte ou si la connexion a expiré.`,
+      loggedIn: age => `Connexion active ✓${age == null ? '' : age === 0 ? ' (depuis aujourd’hui)' : ` (depuis ${pluralUnit(age, 'jour', 'jours')})`}. Reconnecte-toi seulement pour un autre compte ou si la connexion a expiré.`,
       notLoggedIn: 'Pas encore de connexion.',
       open: steps => `Reste à faire : étape${isOne(steps.length) ? '' : 's'} ${steps.join(', ')}.`,
       allDone: 'Tout est prêt ✓ Choisis un préréglage et clique sur « Créer la playlist » – rien ne change dans Spotify tant que tu ne remplaces pas ensuite la playlist ou n’en crées pas une nouvelle.',
@@ -2667,6 +2667,8 @@ const isOne = n => {
   }
 };
 const plural = (n, one, many) => `${num(n)} ${isOne(n) ? one : many}`;
+// Ebenso für Einheiten wie Tage: mit geschütztem Leerzeichen, damit die Einheit nicht allein in die nächste Zeile rutscht.
+const pluralUnit = (n, one, many) => `${num(n)}\u00a0${isOne(n) ? one : many}`;
 // Hinweis zur Fensterregel mit der Höchstzahl pro Künstler in der ganzen Playlist; leer bei ungültigen Werten (z. B. Fenster 0).
 const windowHint = (v, c, text) => {
   const n = Math.ceil(c.size * v / c.artistWindow);
@@ -3336,11 +3338,12 @@ const sizeText = v => `${T.items.size.fmt(v)} (${T.duration(v * songMs(), true)}
 // (Link 53 Zeichen, Namen im Schnitt etwa 35).
 const ARCHIVE_HEAD_BYTES = 150;
 const ARCHIVE_SONG_BYTES = 90;
+// KB und MB wie überall in Tweakable DJ mit 1000 gerechnet (1 KB = 1000 Byte, 1 MB = 1000 KB).
 function fileSizeText(bytes) {
   const [kb, mb] = T.fileSize;
-  const k = bytes / 1024;
+  const k = bytes / 1000;
   const fmt = (x, digits) => `${x.toLocaleString(T.locale, { maximumFractionDigits: digits })} `;
-  return k < 1024 ? `${fmt(Math.max(1, Math.round(k)), 0)}${kb}` : `${fmt(k / 1024, 1)}${mb}`;
+  return k < 1000 ? `${fmt(Math.max(1, Math.round(k)), 0)}${kb}` : `${fmt(k / 1000, 1)}${mb}`;
 }
 const archiveText = v => (v > 0
   ? `${T.items.archiveCount.fmt(v)} (≈ ${fileSizeText(v * (ARCHIVE_HEAD_BYTES + (current.size || 0) * ARCHIVE_SONG_BYTES))})`

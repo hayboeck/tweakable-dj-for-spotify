@@ -344,10 +344,10 @@ async function download(href, { fetch, lang, limit, timeout, name, api = false }
   throw fail(lang, 'update.github', { file: name, status: 'redirect' });
 }
 
-// 1,3 MB bzw. 1.3 MB (unter 100 KB in KB)
+// 1,3 MB bzw. 1.3 MB (unter 100 KB in KB); KB und MB mit 1000 gerechnet, Zahl und Einheit mit geschütztem Leerzeichen
 function size(bytes, lang) {
-  if (bytes < 100_000) return `${Math.max(1, Math.round(bytes / 1000)).toLocaleString(locale(lang))} KB`;
-  return `${(bytes / 1e6).toLocaleString(locale(lang), { maximumFractionDigits: 1 })} MB`;
+  if (bytes < 100_000) return `${Math.max(1, Math.round(bytes / 1000)).toLocaleString(locale(lang))} KB`;
+  return `${(bytes / 1e6).toLocaleString(locale(lang), { maximumFractionDigits: 1 })} MB`;
 }
 
 // --- Vorbedingungen ---

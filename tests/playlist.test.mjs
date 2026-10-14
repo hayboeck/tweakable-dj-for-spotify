@@ -120,7 +120,7 @@ test('parseImport: leere Datei, nur Kommentare, zu viele Songs, zu groß', () =>
   assert.equal(parseImport(`# Kopf\n# Zweite Kopfzeile\n${lines(500)}\n\n`, 'de').length, 500, '500 Songs plus Kopfzeilen gehen');
   assert.throws(() => parseImport(lines(501), 'de'), /^Error: Die Datei enthält 501 Songs, in die Playlist passen höchstens 500\.$/);
   assert.throws(() => parseImport(lines(1234), 'en'), /^Error: The file contains 1,234 songs; the playlist holds at most 500\.$/);
-  assert.throws(() => parseImport('ü'.repeat(IMPORT_MAX_BYTES / 2 + 1), 'de'), /^Error: Die Datei ist zu groß \(höchstens 1 MB\)\.$/, 'Bytes, nicht Zeichen');
+  assert.throws(() => parseImport('ü'.repeat(IMPORT_MAX_BYTES / 2 + 1), 'de'), /^Error: Die Datei ist zu groß \(höchstens 1\u00a0MB\)\.$/, 'Bytes, nicht Zeichen');
 });
 
 test('validUris: nur 1 bis 500 Song-URIs', () => {

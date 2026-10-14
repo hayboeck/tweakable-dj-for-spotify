@@ -82,7 +82,7 @@ test('saveTrial/readTrial/trialProblem: gilt 24 Stunden, mit denselben Einstellu
   assert.equal(trialProblem(saved, at(0)), null);
   assert.equal(trialProblem(saved, { ...at(60_000), id: trial.id }), null);
   assert.equal(trialProblem(saved, { ...at(60_000), id: '0123456789ab' }), 'replaced');
-  assert.equal(trialProblem(saved, at(TRIAL_MAX_AGE)), null, 'genau 24 Stunden geht noch');
+  assert.equal(trialProblem(saved, at(TRIAL_MAX_AGE)), null, 'genau 24\u00a0Stunden geht noch');
   assert.equal(trialProblem(saved, at(TRIAL_MAX_AGE + 1)), 'old');
   assert.equal(trialProblem(saved, at(-10 * 60_000)), 'old', 'aus der Zukunft (Uhr verstellt)');
   assert.equal(trialProblem(saved, { ...at(0), cfg: cfg({ size: 30 }) }), 'settings');
@@ -140,7 +140,7 @@ test('Übernehmen: genau die Liste des Probelaufs, in derselben Reihenfolge, ohn
     const dry = dj(dir, ['--dry']);
     assert.equal(dry.code, 0, dry.all);
     assert.deepEqual(writes(dry.requests), [], 'Probelauf schreibt nichts');
-    assert.match(dry.out, /^Diese Liste lässt sich 24 Stunden lang nach Spotify bringen: mit den Knöpfen unter der Liste bzw\. "node dj\.mjs --apply" \(als neue Playlist: --apply --new\)\.$/m);
+    assert.match(dry.out, /^Diese Liste lässt sich 24\u00a0Stunden lang nach Spotify bringen: mit den Knöpfen unter der Liste bzw\. "node dj\.mjs --apply" \(als neue Playlist: --apply --new\)\.$/m);
     const trial = readTrial(dir);
     assert.equal(dry.result.trialId, trial.id);
     assert.deepEqual([trial.songs, trial.fresh, trial.familiar], [dry.result.songs, dry.result.fresh, dry.result.familiar]);
@@ -213,8 +213,8 @@ test('Übernehmen geht nicht mehr: Einstellungen geändert, älter als 24 Stunde
     const file = path.join(dir, TRIAL_FILE);
     const trial = JSON.parse(fs.readFileSync(file, 'utf8'));
     fs.writeFileSync(file, JSON.stringify({ ...trial, createdAt: new Date(Date.now() - TRIAL_MAX_AGE - 60_000).toISOString() }));
-    expired(dj(dir, ['--apply']), /^Fehler: Die Liste ist älter als 24 Stunden\./m);
-    expired(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }), /^Error: The list is more than 24 hours old\./m);
+    expired(dj(dir, ['--apply']), /^Fehler: Die Liste ist älter als 24\u00a0Stunden\./m);
+    expired(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }), /^Error: The list is more than 24\u00a0hours old\./m);
 
     // Andere Kennung (die Oberfläche zeigt einen anderen Probelauf als den gespeicherten)
     fs.writeFileSync(file, JSON.stringify(trial));
