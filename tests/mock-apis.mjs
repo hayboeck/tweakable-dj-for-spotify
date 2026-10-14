@@ -61,6 +61,7 @@ const log = entry => process.env.MOCK_LOG && fs.appendFileSync(process.env.MOCK_
 
 // Systembenachrichtigungen abfangen (siehe oben); alle anderen Programme starten wie gewohnt.
 const NOTIFIERS = /^(powershell\.exe|osascript|notify-send)$/i;
+const SCHEDULERS = /^(schtasks\.exe|launchctl|crontab)$/i;
 const realExecFile = childProcess.execFile;
 childProcess.execFile = function execFile(file, ...rest) {
   const name = String(file).split(/[\\/]/).pop();
@@ -127,6 +128,7 @@ if (process.env.MOCK_SCHEDULER && process.argv[1]) {
     remove: async o => change(o, 'remove', null),
   };
 }
+
 const json = (body, status = 200, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
 const hash = s => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
