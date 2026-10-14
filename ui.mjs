@@ -190,7 +190,9 @@ function readTokens() {
   }
 }
 
-// Stand der Einrichtung: Fehlt noch etwas, zeigt die Seite den Assistenten statt der Regler.
+// Stand der Einrichtung: Fehlt noch etwas, zeigt die Seite den Assistenten statt der Regler. loginOnly: Die Zugangsdaten sind
+// vollständig, es fehlt nur die Anmeldung bei Spotify (tokens.json fehlt oder ist ungültig, z. B. gelöscht) – dann zeigt die
+// Seite die Regler mit dem Hinweis „neu anmelden“, und der Server meldet not_logged_in statt „Einrichtung abschließen“.
 function setupStatus(cfg) {
   const tokens = readTokens();
   const configExists = fs.existsSync(CONFIG);
@@ -203,6 +205,7 @@ function setupStatus(cfg) {
   const clean = v => (typeof v === 'string' && !isPlaceholder(v) ? v : '');
   return {
     needsSetup: !configExists || missing.length > 0 || !loggedIn,
+    loginOnly: configExists && missing.length === 0 && !loggedIn,
     configExists,
     missing,
     loggedIn,
@@ -299,10 +302,12 @@ async function saveSettings(values, lang, { warnings } = {}) {
   const nameLang = resolveLang(after.language, lang);
   // Ohne Einrichtung („Erst einmal umsehen“) lassen sich Automatik und zweite Verknüpfung nicht einschalten: Sie liefen nur
   // ins Leere. Beim normalen Speichern ein Fehler (409), beim Laden einer Sicherung eine Warnung, der Rest wird gespeichert.
-  const notReady = setupStatus(before).needsSetup;
+  // Fehlt nur die Anmeldung (loginOnly), heißt es „neu anmelden“ statt „Einrichtung abschließen“.
+  const ready = setupStatus(before);
+  const notReady = ready.needsSetup;
   const refuse = key => {
-    const message = t(lang, key === 'runShortcut' ? 'ui.setupFirstShortcut' : 'ui.setupFirstSchedule');
-    if (!warnings) throw Object.assign(new Error(message), { status: 409, errorCode: 'setup' });
+    const message = t(lang, `ui.${ready.loginOnly ? 'loginFirst' : 'setupFirst'}${key === 'runShortcut' ? 'Shortcut' : 'Schedule'}`);
+    if (!warnings) throw Object.assign(new Error(message), { status: 409, errorCode: ready.loginOnly ? 'not_logged_in' : 'setup' });
     warnings.push(message);
   };
   if (notReady && values.runShortcut === true && before.runShortcut !== true) {
@@ -386,7 +391,15 @@ const runBusy = lang => ownBusy(lang) ?? autoRunMessage(HERE, lang, Date.now(), 
   ?? (loginJob?.status === 'pending' ? t(lang, 'ui.loginBusy') : null);
 const importBusy = runBusy;
 // Ohne Client ID oder Anmeldung geht nichts, was Spotify fragt.
-const loginMissing = cfg => missingCredentials(cfg).includes('spotify.clientId') || !readTokens();
+const loginMissing = cfg => missingCredentials(cfg).includes('spotify.clientId') || !readTokens()?.refresh_token;
+// Antwort 409, wenn für einen Lauf noch etwas fehlt, sonst null: Fehlt nur die Anmeldung (loginOnly), die Meldung und der Code
+// einer fehlenden Anmeldung (not_logged_in, login); sonst „Einrichtung abschließen“ (setup).
+function setupRefusal(lang) {
+  const status = setupStatus(currentConfig(lang));
+  if (!status.needsSetup) return null;
+  if (status.loginOnly) return { error: t(lang, 'spotify.notLoggedIn', { again: t(lang, 'spotify.loginAgain') }), errorCode: 'not_logged_in', login: true };
+  return { error: t(lang, 'ui.setupFirst'), errorCode: 'setup' };
+}
 // Warum Tweakable DJ gerade nicht beendet werden kann (Lauf, Import, Update, Anmeldung), sonst null.
 const quitBusy = lang => ownBusy(lang) ?? (loginJob?.status === 'pending' ? t(lang, 'ui.loginBusy') : restarting ? t(lang, 'update.inProgress') : null);
 
@@ -652,7 +665,11 @@ const server = http.createServer(async (req, res) => {
 
     if (route === 'POST /api/schedule') {
       const cfg = currentConfig(lang);
-      if (cfg.schedule !== 'off' && setupStatus(cfg).needsSetup) return send(409, { error: t(lang, 'ui.setupFirstSchedule'), errorCode: 'setup' });
+      const status = setupStatus(cfg);
+      if (cfg.schedule !== 'off' && status.needsSetup) {
+        return send(409, status.loginOnly ? { error: t(lang, 'ui.loginFirstSchedule'), errorCode: 'not_logged_in', login: true }
+          : { error: t(lang, 'ui.setupFirstSchedule'), errorCode: 'setup' });
+      }
       try {
         return send(200, await serial(() => applySchedule(currentConfig(lang), { lang })));
       } catch (e) {
@@ -829,7 +846,8 @@ const server = http.createServer(async (req, res) => {
     if (route === 'POST /api/run') {
       const busy = runBusy(lang);
       if (busy) return send(409, { error: busy, activity: activity() });
-      if (setupStatus(currentConfig(lang)).needsSetup) return send(409, { error: t(lang, 'ui.setupFirst'), errorCode: 'setup' });
+      const refusal = setupRefusal(lang);
+      if (refusal) return send(409, refusal);
       const dry = url.searchParams.get('dry') === '1';
       return streamRun(res, ['dj.mjs', ...(dry ? ['--dry'] : [])], lang, dry ? 'dry' : 'run');
     }
@@ -869,7 +887,8 @@ const server = http.createServer(async (req, res) => {
       const { id, target = 'standard' } = await readJson(req, lang);
       const busy = runBusy(lang);
       if (busy) return send(409, { error: busy, activity: activity() });
-      if (setupStatus(currentConfig(lang)).needsSetup) return send(409, { error: t(lang, 'ui.setupFirst'), errorCode: 'setup' });
+      const refusal = setupRefusal(lang);
+      if (refusal) return send(409, refusal);
       if (typeof id !== 'string' || !/^[0-9a-f]{12}$/.test(id) || !['standard', 'new'].includes(target)) return send(400, { error: t(lang, 'ui.badRequest') });
       const reason = trialProblem(readTrial(HERE), { cfg: currentConfig(lang), id });
       if (reason) return send(409, { error: t(lang, `trial.${reason}`), reason });

@@ -345,3 +345,69 @@ test('Erst einmal umsehen: ohne Einrichtung zu den Reglern, speichern geht; Play
     }
   }
 });
+
+test('Nur die Anmeldung fehlt (tokens.json gelöscht): Regler mit dem Hinweis „neu anmelden“ statt des Assistenten; Playlist erstellen und Automatik → derselbe Hinweis', { skip }, async () => {
+  // Eigene Kopie mit vollständigen Zugangsdaten, aber ohne tokens.json; simulierter Zeitplaner und Test-Name (nie der echte)
+  const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj anmeldung ü-'));
+  for (const f of fs.readdirSync(dir)) {
+    if (f.endsWith('.mjs') || /^config\.example(\.de)?\.jsonc$/.test(f) || f === 'ui.html') fs.copyFileSync(path.join(dir, f), path.join(fresh, f));
+  }
+  fs.mkdirSync(path.join(fresh, 'assets'));
+  for (const f of fs.readdirSync(path.join(dir, 'assets'))) fs.copyFileSync(path.join(dir, 'assets', f), path.join(fresh, 'assets', f));
+  fs.mkdirSync(path.join(fresh, 'desktop'));
+  fs.writeFileSync(path.join(fresh, 'config.jsonc'), `// Test-Einstellungen\n${JSON.stringify(CONFIG, null, 2)}\n`);
+  const scheduler = path.join(fresh, 'zeitplaner.json');
+  fs.writeFileSync(scheduler, JSON.stringify({ entries: {}, fail: null, calls: [] }));
+  const port = await freePort();
+  const url = `http://127.0.0.1:${port}`;
+  const log = path.join(fresh, 'mock-anfragen.jsonl');
+  const proc = spawn(process.execPath, ['ui.mjs', '--no-browser'], { cwd: fresh, env: {
+    ...process.env, TWEAKABLE_DJ_PORT: String(port), TWEAKABLE_DJ_LANG: 'de', NODE_OPTIONS: `--import=${MOCK}`, TWEAKABLE_DJ_NO_UPDATE_CHECK: '1',
+    MOCK_LOG: log, MOCK_SCHEDULER: scheduler, TWEAKABLE_DJ_DESKTOP: path.join(fresh, 'desktop'), TWEAKABLE_DJ_TASK_NAME: 'Tweakable DJ TEST Anmeldung',
+  } });
+  let out = '';
+  const page = await browser.newPage({ width: 375 });
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Server startet nicht: ${out}`)), 15_000);
+      proc.stdout.on('data', c => { out += c; if (out.includes(url)) { clearTimeout(timer); resolve(); } });
+      proc.on('exit', code => reject(new Error(`Server beendet (${code}): ${out}`)));
+    });
+    await page.goto(`${url}/`);
+    await page.waitFor("!document.getElementById('main-view').hidden && document.getElementById('status').textContent !== 'Lädt …'");
+    const expired = 'Deine Spotify-Anmeldung ist abgelaufen oder fehlt. Melde dich neu an, dann klappt es wieder.';
+    assert.ok(await page.eval("document.getElementById('setup').hidden"), 'kein Assistent');
+    assert.ok(await page.eval("!document.getElementById('notice').hidden && document.getElementById('setup-note').hidden"));
+    assert.equal(await text(page, 'notice-text'), expired);
+    assert.equal(await page.eval("document.querySelector('#notice-login button').textContent"), 'Mit Spotify anmelden');
+    assert.equal(await text(page, 'open-setup'), 'Zugangsdaten ändern');
+    // × blendet ihn aus; „Playlist erstellen“ zeigt ihn wieder, ohne Anfrage an den Server
+    await page.click('#notice-close');
+    assert.ok(await page.eval("document.getElementById('notice').hidden"));
+    await page.click('#create');
+    assert.ok(await page.eval("!document.getElementById('notice').hidden"));
+    assert.equal(await text(page, 'notice-text'), expired);
+    assert.equal(await page.eval('document.activeElement === document.querySelector("#notice-login button")'), true, 'Knopf zum Anmelden im Fokus');
+    // Automatik einschalten: derselbe Hinweis, bleibt aus, Zeitplaner nicht gefragt
+    await page.eval("showTab('settings'); set('schedule', 'daily')");
+    assert.equal(await page.eval('current.schedule'), 'off');
+    assert.ok(await page.eval("!document.getElementById('notice').hidden && document.getElementById('setup-note').hidden"));
+    assert.deepEqual(JSON.parse(fs.readFileSync(scheduler, 'utf8')).calls, []);
+    const requests = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
+    assert.doesNotMatch(requests, /api\.spotify\.com|audioscrobbler/, 'keine Anfrage an Spotify oder Last.fm');
+    assert.ok(await page.eval('document.documentElement.scrollWidth <= 375'), 'kein seitliches Scrollen');
+    assert.deepEqual(page.errors, []);
+  } finally {
+    await page.close();
+    if (proc.exitCode === null) {
+      const exited = new Promise(resolve => proc.once('exit', resolve));
+      proc.kill();
+      await exited;
+    }
+    try {
+      fs.rmSync(fresh, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    } catch {
+      // bleibt im Temp-Ordner
+    }
+  }
+});

@@ -4539,7 +4539,7 @@ function scopeNeeded() {
 
 function currentNoticeReason() {
   const age = setup?.authAgeDays;
-  return noticeReason ?? (loginNeeded(scheduleInfo?.lastRun) ? 'auto' : scopeNeeded() ? 'scope'
+  return noticeReason ?? (loginOnly() ? 'expired' : loginNeeded(scheduleInfo?.lastRun) ? 'auto' : scopeNeeded() ? 'scope'
     : libraryScopeFailed && setup?.loggedIn ? 'library' : age != null && age >= 170 ? 'age' : null);
 }
 
@@ -4885,7 +4885,7 @@ function renderTabs() {
 function renderCredentials() {
   const { loggedIn, credentials } = setup;
   $('cred-state').textContent = `${loggedIn ? T.cred.loggedIn : T.cred.loggedOut} · ${credentials.user ? T.cred.user(credentials.user) : T.cred.noUser}`;
-  $('open-setup').textContent = setup.needsSetup ? T.page.setupContinue : T.page.openSetup;
+  $('open-setup').textContent = setupMissing() ? T.page.setupContinue : T.page.openSetup;
 }
 
 // --- „Erst einmal umsehen“: Hauptansicht, solange die Einrichtung fehlt ---
@@ -4896,7 +4896,10 @@ function renderCredentials() {
 // Er zeigt, was noch fehlt – ein Klick führt wieder hierher.
 let setupNeed = null;          // wofür zuletzt die Einrichtung fehlte ('create', 'files', 'schedule', 'runShortcut') oder null
 let setupNoteClosed = false;   // × am Hinweis (bis man etwas versucht, das die Einrichtung braucht)
-const setupMissing = () => Boolean(setup?.needsSetup);
+// Fehlen Zugangsdaten? Fehlt nur die Anmeldung bei Spotify (loginOnly, z. B. tokens.json gelöscht), gilt die Einrichtung als
+// abgeschlossen: Die Seite zeigt die Regler mit dem Hinweis „neu anmelden“ (renderNotice), nicht „Einrichtung abschließen“.
+const setupMissing = () => Boolean(setup?.needsSetup) && !setup.loginOnly;
+const loginOnly = () => Boolean(setup?.needsSetup && setup.loginOnly);
 
 function renderSetupNote() {
   const show = view === 'main' && setupMissing() && (Boolean(setupNeed) || !setupNoteClosed);
@@ -4908,7 +4911,15 @@ function renderSetupNote() {
 }
 
 // Fehlt die Einrichtung für what? Dann Hinweis zeigen (auch wenn er ausgeblendet war) und true – der Aufrufer bricht ab.
+// Fehlt nur die Anmeldung: der Hinweis „neu anmelden“ mit dem Knopf zum Anmelden.
 function needsSetupFor(what) {
+  if (loginOnly()) {
+    noticeClosed = null;
+    showNotice('expired');
+    $('notice').scrollIntoView({ block: 'nearest' });
+    $('notice-login').querySelector('button')?.focus({ preventScroll: true });
+    return true;
+  }
   if (!setupMissing()) return false;
   setupNeed = what;
   setupNoteClosed = false;
@@ -5190,7 +5201,7 @@ function wireSetup() {
   $('w-shortcut').onchange = () => { shortcutWanted = $('w-shortcut').checked; };
   $('w-close').onclick = () => { showTab('settings'); showView('main'); scrollTo(0, 0); };
   // Fehlt die Einrichtung noch, geht es beim ersten offenen Schritt weiter.
-  $('open-setup').onclick = () => openSetup(setup.needsSetup ? undefined : 1, true);
+  $('open-setup').onclick = () => openSetup(setupMissing() ? undefined : 1, true);
   $('w-browse').onclick = lookAround;
   $('setup-note-go').onclick = () => openSetup(undefined, true);
   $('setup-note-close').onclick = () => {
@@ -5287,7 +5298,7 @@ wireSetup();
 wireTabs();
 renderLang();
 load().then(async () => {
-  if (setup.needsSetup || ['#einrichtung', '#setup'].includes(location.hash)) openSetup(undefined, !setup.needsSetup);
+  if (setupMissing() || ['#einrichtung', '#setup'].includes(location.hash)) openSetup(undefined, !setupMissing());
   else {
     tab = hashTab();
     showView('main');

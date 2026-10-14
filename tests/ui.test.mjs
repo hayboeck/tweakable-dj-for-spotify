@@ -1607,71 +1607,134 @@ test('ui.html: Fehlerzeilen der Ausgabe in allen Sprachen erkannt (run.error, au
   for (const lang of ['de', 'en', 'es', 'fr']) assert.match(t(lang, 'run.error', { message: 'x' }), re, lang);
 });
 
-test('Einstellungen laden: Zeitplaner scheitert → übrige Werte gespeichert, Warnung, Automatik unverändert', async () => {
-  // Eigener Server mit simuliertem Zeitplaner (MOCK_SCHEDULER in tests/mock-apis.mjs): Der echte wird nie gefragt oder geändert,
-  // dazu ein Test-Name, falls doch.
-  const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj zeitplan ü-'));
+// Eigener Server in einem neuen Ordner (config: Inhalt der config.jsonc oder null, tokens: Inhalt der tokens.json oder null)
+// mit simuliertem Zeitplaner (MOCK_SCHEDULER in tests/mock-apis.mjs, Datei zeitplaner.json): Der echte wird nie gefragt oder
+// geändert, dazu ein Test-Name, falls doch. → { dir, call, scheduler (gespeicherter Stand), stop }
+const TOKENS_OK = JSON.stringify({ access_token: 'x', refresh_token: 'fake-refresh-token', expires_at: 0, authorized_at: Date.now() });
+async function freshServer({ config = null, tokens = null, scheduler = {}, name = 'Tweakable DJ TEST eigener Server' } = {}) {
+  const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj eigen ü-'));
   for (const f of fs.readdirSync(ROOT)) {
-    if (f.endsWith('.mjs') || /^config.example(.de)?.jsonc$/.test(f) || f === 'ui.html') fs.copyFileSync(path.join(ROOT, f), path.join(fresh, f));
+    if (f.endsWith('.mjs') || /^config\.example(\.de)?\.jsonc$/.test(f) || f === 'ui.html') fs.copyFileSync(path.join(ROOT, f), path.join(fresh, f));
   }
-  const freshDesktop = fs.mkdtempSync(path.join(os.tmpdir(), 'tweakable dj desktop zeitplan ö-'));
-  const name = 'Tweakable DJ TEST Zeitplan';
-  const scheduler = path.join(fresh, 'zeitplaner.json');
-  fs.writeFileSync(scheduler, JSON.stringify({ entries: { [name]: { when: 'daily 07:00' } }, fail: 'Simulierter Fehler des Zeitplaners', calls: [] }));
-  const configFile = path.join(fresh, 'config.jsonc');
-  fs.writeFileSync(configFile, `// Test
-${JSON.stringify({ ...CONFIG, schedule: 'daily', scheduleTime: '07:00' }, null, 2)}
-`);
-  fs.writeFileSync(path.join(fresh, 'tokens.json'), JSON.stringify({ access_token: 'x', refresh_token: 'fake-refresh-token', expires_at: 0, authorized_at: Date.now() }));
+  fs.mkdirSync(path.join(fresh, 'desktop'));
+  const schedulerFile = path.join(fresh, 'zeitplaner.json');
+  fs.writeFileSync(schedulerFile, JSON.stringify({ entries: {}, fail: null, calls: [], ...scheduler }));
+  if (config !== null) fs.writeFileSync(path.join(fresh, 'config.jsonc'), config);
+  if (tokens !== null) fs.writeFileSync(path.join(fresh, 'tokens.json'), tokens);
   const port = await freePort();
   const url = `http://127.0.0.1:${port}`;
   const proc = spawn(process.execPath, ['ui.mjs', '--no-browser'], { cwd: fresh, env: {
     ...process.env, TWEAKABLE_DJ_PORT: String(port), TWEAKABLE_DJ_LANG: 'de', NODE_OPTIONS: `--import=${MOCK}`, TWEAKABLE_DJ_NO_UPDATE_CHECK: '1',
-    MOCK_LOG: path.join(fresh, 'mock-anfragen.jsonl'), MOCK_SCHEDULER: scheduler, TWEAKABLE_DJ_DESKTOP: freshDesktop, TWEAKABLE_DJ_TASK_NAME: name,
+    MOCK_LOG: path.join(fresh, 'mock-anfragen.jsonl'), MOCK_SCHEDULER: schedulerFile, TWEAKABLE_DJ_DESKTOP: path.join(fresh, 'desktop'),
+    TWEAKABLE_DJ_TASK_NAME: name,
   } });
-  const call = async (route, { method = 'GET', body } = {}) => {
-    const res = await fetch(url + route, { method, headers: { 'X-Tweakable-DJ': '1', 'Content-Type': 'application/json', 'X-Lang': 'de' },
-      body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
-    return { status: res.status, data: await res.json() };
-  };
-  const store = () => JSON.parse(fs.readFileSync(scheduler, 'utf8'));
-  try {
-    let out = '';
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Server startet nicht: ${out}`)), 15_000);
-      proc.stdout.on('data', c => { out += c; if (out.includes(url)) { clearTimeout(timer); resolve(); } });
-      proc.on('exit', code => reject(new Error(`Server beendet (${code}): ${out}`)));
-    });
-    // Der simulierte Eintrag passt zur Einstellung (zeigt auch: ui.mjs nimmt den simulierten Zeitplaner)
-    const before = (await call('/api/schedule')).data;
-    assert.deepEqual([before.supported, before.installed, before.matches, before.name], [true, true, true, name]);
-    const backup = JSON.stringify({ app: 'tweakable-dj', kind: 'settings', format: 1, version: '0.4.0',
-      settings: { schedule: 'weekly', scheduleDay: 'MON', scheduleTime: '09:30', size: 41 } });
-    const loaded = await call('/api/settings/import', { method: 'POST', body: backup });
-    assert.equal(loaded.status, 200, JSON.stringify(loaded.data));
-    assert.deepEqual([loaded.data.ok, loaded.data.changed, loaded.data.warnings.length], [true, 1, 1]);
-    assert.equal(loaded.data.warnings[0], 'Die Automatik ließ sich nicht einrichten und bleibt, wie sie war. Simulierter Fehler des Zeitplaners');
-    // Übrige Werte gespeichert, Automatik in config.jsonc und im Zeitplaner wie vorher
-    const values = (await call('/api/config')).data.values;
-    assert.deepEqual([values.size, values.schedule, values.scheduleTime], [41, 'daily', '07:00']);
-    assert.match(fs.readFileSync(configFile, 'utf8'), /"schedule": "daily"/);
-    assert.deepEqual(store().entries, { [name]: { when: 'daily 07:00' } });
-    assert.deepEqual(store().calls, [`install ${name}`], 'nur der eine (gescheiterte) Versuch');
-    const after = (await call('/api/schedule')).data;
-    assert.deepEqual([after.installed, after.matches], [true, true]);
-  } finally {
+  const stop = async () => {
     if (proc.exitCode === null) {
       const exited = new Promise(resolve => proc.once('exit', resolve));
       proc.kill();
       await exited;
     }
-    for (const d of [fresh, freshDesktop]) {
-      try {
-        fs.rmSync(d, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
-      } catch {
-        // bleibt im Temp-Ordner
-      }
+    // Unter Windows ist der Ordner kurz nach dem Ende des Servers manchmal noch belegt: länger versuchen, ein Rest stört nicht.
+    try {
+      fs.rmSync(fresh, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    } catch {
+      // bleibt im Temp-Ordner
     }
+  };
+  let out = '';
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Server startet nicht: ${out}`)), 15_000);
+      proc.stdout.on('data', c => { out += c; if (out.includes(url)) { clearTimeout(timer); resolve(); } });
+      proc.on('exit', code => reject(new Error(`Server beendet (${code}): ${out}`)));
+    });
+  } catch (e) {
+    await stop();
+    throw e;
+  }
+  const call = async (route, { method = 'GET', body } = {}) => {
+    const res = await fetch(url + route, { method, headers: { 'X-Tweakable-DJ': '1', 'Content-Type': 'application/json', 'X-Lang': 'de' },
+      body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
+    return { status: res.status, data: await res.json() };
+  };
+  return { dir: fresh, call, scheduler: () => JSON.parse(fs.readFileSync(schedulerFile, 'utf8')), stop };
+}
+const configText = values => `// Test\n${JSON.stringify({ ...CONFIG, ...values }, null, 2)}\n`;
+
+test('Einstellungen laden: Zeitplaner scheitert → übrige Werte gespeichert, Warnung, Automatik unverändert', async () => {
+  const name = 'Tweakable DJ TEST Zeitplan';
+  const s = await freshServer({ name, config: configText({ schedule: 'daily', scheduleTime: '07:00' }), tokens: TOKENS_OK,
+    scheduler: { entries: { [name]: { when: 'daily 07:00' } }, fail: 'Simulierter Fehler des Zeitplaners' } });
+  try {
+    // Der simulierte Eintrag passt zur Einstellung (zeigt auch: ui.mjs nimmt den simulierten Zeitplaner)
+    const before = (await s.call('/api/schedule')).data;
+    assert.deepEqual([before.supported, before.installed, before.matches, before.name], [true, true, true, name]);
+    const backup = JSON.stringify({ app: 'tweakable-dj', kind: 'settings', format: 1, version: '0.4.0',
+      settings: { schedule: 'weekly', scheduleDay: 'MON', scheduleTime: '09:30', size: 41 } });
+    const loaded = await s.call('/api/settings/import', { method: 'POST', body: backup });
+    assert.equal(loaded.status, 200, JSON.stringify(loaded.data));
+    assert.deepEqual([loaded.data.ok, loaded.data.changed, loaded.data.warnings.length], [true, 1, 1]);
+    assert.equal(loaded.data.warnings[0], 'Die Automatik ließ sich nicht einrichten und bleibt, wie sie war. Simulierter Fehler des Zeitplaners');
+    // Übrige Werte gespeichert, Automatik in config.jsonc und im Zeitplaner wie vorher
+    const values = (await s.call('/api/config')).data.values;
+    assert.deepEqual([values.size, values.schedule, values.scheduleTime], [41, 'daily', '07:00']);
+    assert.match(fs.readFileSync(path.join(s.dir, 'config.jsonc'), 'utf8'), /"schedule": "daily"/);
+    assert.deepEqual(s.scheduler().entries, { [name]: { when: 'daily 07:00' } });
+    assert.deepEqual(s.scheduler().calls, [`install ${name}`], 'nur der eine (gescheiterte) Versuch');
+    const after = (await s.call('/api/schedule')).data;
+    assert.deepEqual([after.installed, after.matches], [true, true]);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('Nur die Anmeldung fehlt (tokens.json gelöscht oder ungültig): „neu anmelden“ (not_logged_in) statt „Einrichtung abschließen“', async () => {
+  const s = await freshServer({ config: configText({}), tokens: null });
+  const loginText = /^Noch nicht bei Spotify angemeldet\. In der Oberfläche neu bei Spotify anmelden/;
+  const scheduleText = 'Für die Automatik bitte zuerst neu bei Spotify anmelden; sie bleibt, wie sie war.';
+  try {
+    const file = path.join(s.dir, 'tokens.json');
+    for (const tokens of [null, '{ kaputt', JSON.stringify({ access_token: 'x' })]) {
+      if (tokens === null) fs.rmSync(file, { force: true });
+      else fs.writeFileSync(file, tokens);
+      const setup = (await s.call('/api/config')).data.setup;
+      assert.deepEqual([setup.needsSetup, setup.loginOnly, setup.loggedIn, setup.missing], [true, true, false, []], String(tokens));
+      for (const [route, body] of [['/api/run?dry=1', undefined], ['/api/apply', { id: '0123456789ab' }]]) {
+        const r = await s.call(route, { method: 'POST', body });
+        assert.deepEqual([r.status, r.data.errorCode, r.data.login], [409, 'not_logged_in', true], route);
+        assert.match(r.data.error, loginText);
+      }
+      const playlists = await s.call('/api/playlists');
+      assert.deepEqual([playlists.status, playlists.data.login], [409, true]);
+    }
+    // Automatik und zweite Verknüpfung: 409 mit dem Hinweis auf die Anmeldung, nichts gespeichert, Zeitplaner nicht gefragt
+    const schedule = await s.call('/api/config', { method: 'POST', body: { schedule: 'daily', size: 34 } });
+    assert.deepEqual([schedule.status, schedule.data.errorCode, schedule.data.error], [409, 'not_logged_in', scheduleText]);
+    const shortcut = await s.call('/api/config', { method: 'POST', body: { runShortcut: true } });
+    assert.deepEqual([shortcut.status, shortcut.data.error], [409, 'Für die zweite Verknüpfung bitte zuerst neu bei Spotify anmelden; sie bleibt, wie sie war.']);
+    assert.deepEqual(fs.readdirSync(path.join(s.dir, 'desktop')), [], 'keine Verknüpfung');
+    // Sicherung laden: übrige Werte gespeichert, Warnung mit demselben Hinweis
+    const backup = JSON.stringify({ app: 'tweakable-dj', kind: 'settings', settings: { schedule: 'daily', scheduleTime: '08:00', size: 40 } });
+    const loaded = await s.call('/api/settings/import', { method: 'POST', body: backup });
+    assert.deepEqual([loaded.status, loaded.data.changed, loaded.data.warnings], [200, 1, [scheduleText]]);
+    const values = (await s.call('/api/config')).data.values;
+    assert.deepEqual([values.size, values.schedule], [40, 'off']);
+    // Fehlen dagegen Zugangsdaten (hier die Client ID), bleibt es bei „Einrichtung abschließen“ – auch mit Anmeldung
+    fs.writeFileSync(file, TOKENS_OK);
+    fs.writeFileSync(path.join(s.dir, 'config.jsonc'), configText({ spotify: { clientId: '' } }));
+    const setup = (await s.call('/api/config')).data.setup;
+    assert.deepEqual([setup.needsSetup, setup.loginOnly, setup.missing], [true, false, ['spotify.clientId']]);
+    const run = await s.call('/api/run?dry=1', { method: 'POST' });
+    assert.deepEqual([run.status, run.data], [409, { error: 'Tweakable DJ ist noch nicht eingerichtet. Bitte zuerst die Einrichtung abschließen (Spotify und Last.fm).', errorCode: 'setup' }]);
+    const refused = await s.call('/api/config', { method: 'POST', body: { schedule: 'daily' } });
+    assert.deepEqual([refused.status, refused.data.errorCode, refused.data.error], [409, 'setup', 'Für die Automatik bitte zuerst die Einrichtung abschließen; sie bleibt, wie sie war.']);
+    // Alles da: weder noch
+    fs.writeFileSync(path.join(s.dir, 'config.jsonc'), configText({}));
+    const ready = (await s.call('/api/config')).data.setup;
+    assert.deepEqual([ready.needsSetup, ready.loginOnly], [false, false]);
+    assert.deepEqual(s.scheduler().calls, [], 'Zeitplaner nie geändert');
+  } finally {
+    await s.stop();
   }
 });
 
