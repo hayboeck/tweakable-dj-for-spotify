@@ -187,14 +187,23 @@ test('Speichern, während man einen Regler verstellt: Nur das Gesendete gilt als
   await page.close();
 });
 
-test('Einfach: ausgeblendete Regler außerhalb der Voreinstellungen → Hinweis mit Namen; Zurücksetzen setzt auch sie; Leiste bei 375 px', { skip }, async () => {
-  await api('/api/config', { method: 'POST', body: JSON.stringify({ mode: 'simple', followedArtists: 0.5 }) });
+test('Einfach: ausgeblendete Regler außerhalb der Voreinstellungen → Hinweis mit Name und Wert; Zurücksetzen behält eine passende Voreinstellung; Leiste bei 375 px', { skip }, async () => {
+  await api('/api/config', { method: 'POST', body: JSON.stringify({ mode: 'simple', followedArtists: 0.5, useLastfmLovedTracks: false }) });
   const page = await open();
   try {
-    assert.match(await text(page, 'preset-state'), /^Eigene Pro-Einstellungen aktiv \(Gefolgte Künstler\) – /);
+    assert.match(await text(page, 'preset-state'), /^Eigene Pro-Einstellungen aktiv \(Gefolgte Künstler: mehr, Last\.fm-Lieblingssongs einbeziehen: aus\) – /);
     assert.equal(await page.eval("document.getElementById('preset-reset').hidden"), false);
+    // Voreinstellung „Entdecken“ passt, nur die Extras weichen ab: Zurücksetzen behält „Entdecken“
+    await page.eval("usePreset(PRESETS.find(p => p.id === 'discover'))");
+    assert.equal(await text(page, 'preset-reset'), 'Ausgeblendete Regler zurücksetzen');
     await page.click('#preset-reset');
     assert.equal(await page.eval("document.getElementById('preset-reset').hidden"), true);
+    assert.match(await text(page, 'preset-state'), /^Passt gerade genau: Entdecken$/);
+    assert.deepEqual(await page.eval('[current.followedArtists, current.useLastfmLovedTracks]'), [0, true]);
+    // Ohne passende Voreinstellung: alles auf „Standard“
+    await page.eval("set('familiarShare', 0.55); set('preferNewer', 0.5)");
+    assert.equal(await text(page, 'preset-reset'), 'Auf „Standard“ zurücksetzen');
+    await page.click('#preset-reset');
     assert.match(await text(page, 'preset-state'), /^Passt gerade genau: Standard$/);
     assert.equal(await text(page, 'status'), 'Ungespeicherte Änderungen');
     // Untere Leiste bei 375 px: Verwerfen und Speichern nebeneinander, „Playlist erstellen“ darunter über die ganze Breite
@@ -207,7 +216,38 @@ test('Einfach: ausgeblendete Regler außerhalb der Voreinstellungen → Hinweis 
     await page.click('#discard');
   } finally {
     await page.close();
-    await api('/api/config', { method: 'POST', body: JSON.stringify({ mode: 'pro', followedArtists: 0 }) });
+    await api('/api/config', { method: 'POST', body: JSON.stringify({ mode: 'pro', followedArtists: 0, useLastfmLovedTracks: true }) });
+  }
+});
+
+test('Einstellungen laden: Vorschau mit Version und übersprungenen Werten; nach der Vorschau verstellte Regler → noch einmal nachfragen', { skip }, async () => {
+  const before = fs.readFileSync(path.join(dir, 'config.jsonc'), 'utf8');
+  const page = await open();
+  try {
+    await page.eval("showTab('settings')");
+    const file = JSON.stringify({ app: 'tweakable-dj', kind: 'settings', format: 1, version: '0.4.0', exportedAt: '2026-10-13T10:00:00.000Z',
+      settings: { size: 31, adventure: 7 } });
+    await page.eval(`backupPreview(new File([${JSON.stringify(file)}], 'sicherung.json'))`);
+    await page.waitFor("!document.getElementById('backup-preview').hidden");
+    const preview = await text(page, 'backup-preview-text');
+    assert.match(preview, /Sicherung von Tweakable DJ 0\.4\.0 vom 13\. Oktober 2026\./);
+    assert.match(preview, /Ändert 1 Einstellung: Anzahl Songs\./);
+    assert.match(preview, /Übersprungen, weil ungültig: Abenteuer\./);
+    assert.doesNotMatch(preview, /Ungespeicherte Änderungen/);
+    assert.equal(await text(page, 'backup-go'), 'Laden');
+    // Erst jetzt einen Regler verstellen: Der erste Klick fragt nach, der zweite lädt
+    await page.eval("set('artistGap', 3)");
+    await page.click('#backup-go');
+    assert.match(await text(page, 'backup-msg'), /^Du hast inzwischen Regler geändert/);
+    assert.equal(await page.eval("document.getElementById('backup-preview').hidden"), false);
+    assert.doesNotMatch(fs.readFileSync(path.join(dir, 'config.jsonc'), 'utf8'), /"size": 31/, 'noch nichts geladen');
+    await page.click('#backup-go');
+    await page.waitFor("document.getElementById('backup-msg').textContent === '1 Einstellung geladen.'");
+    assert.deepEqual(await page.eval('[current.size, current.artistGap]'), [31, 2], 'ungespeicherte Änderung verworfen');
+    assert.deepEqual(page.errors, []);
+  } finally {
+    await page.close();
+    fs.writeFileSync(path.join(dir, 'config.jsonc'), before);
   }
 });
 

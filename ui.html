@@ -597,7 +597,7 @@ try {
         <button type="button" class="btn small" id="preset-reset" data-t="presetReset" hidden></button>
       </section>
       <div id="groups"></div>
-      <!-- Ausgabe von „Playlist erstellen“ (Probelauf) und dem Übernehmen (immer sichtbar, vor dem ersten Lauf mit Platzhalter),
+      <!-- Ausgabe von „Playlist erstellen“ (Probelauf) und vom Schreiben nach Spotify (immer sichtbar, vor dem ersten Lauf mit Platzhalter),
            darunter eine Knopfreihe: nach dem Erstellen „„<Name>“ überschreiben“ (POST /api/apply, Primärknopf) und „Neu in Spotify
            anlegen“ (POST /api/apply mit target 'new'); „Playlist speichern“ (Textdatei) (GET /api/export, nach dem Erstellen die erstellte
            Liste); „Importieren …“ mit der Auswahl „Aus Datei …“ bzw. „Frühere Playlist …“ (Archiv: GET /api/archive,
@@ -700,7 +700,7 @@ try {
           <p class="help" id="node-text" hidden></p>
         </div>
         <!-- Einstellungen sichern (GET /api/settings/export) bzw. laden (POST /api/settings/import: erst mit ?dry=1 als Vorschau,
-             nach der Rückfrage übernehmen) – ohne Zugangsdaten -->
+             nach der Rückfrage mit „Laden“ speichern) – ohne Zugangsdaten -->
         <div class="row" id="backup-row">
           <p class="help" data-t="backupHelp"></p>
           <div class="actions">
@@ -791,7 +791,7 @@ const TEXT = {
       backupHelp: 'Speichert alle Einstellungen samt Sperrliste in einer Datei – ohne Zugangsdaten (Client ID, API-Key, Last.fm-Name). Mit „Einstellungen laden …“ holst du sie zurück, z. B. auf einem anderen Rechner.',
       backupSave: 'Einstellungen sichern',
       backupLoad: 'Einstellungen laden …',
-      backupGo: 'Übernehmen',
+      backupGo: 'Laden',
       backupCancel: 'Abbrechen',
       quitUnsaved: 'Ungespeicherte Änderungen gehen verloren. Trotzdem beenden?',
       stoppedQuit: 'Tweakable DJ ist beendet – zum Starten die Verknüpfung doppelklicken.',
@@ -982,6 +982,8 @@ const TEXT = {
     presetNone: 'Keine Voreinstellung passt genau – das ist deine eigene Mischung.',
     // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
     presetPro: names => `Eigene Pro-Einstellungen aktiv${names.length ? ` (${names.join(', ')})` : ''} – sie wirken weiter, auch wenn ihre Regler hier ausgeblendet sind (siehe „Pro“ oben).`,
+    presetExtra: (name, value) => `${name}: ${value}`,
+    presetResetExtras: 'Ausgeblendete Regler zurücksetzen',
     emptyName: 'Der Name der Playlist darf nicht leer sein.',
     // Kurzgründe zu errorCode aus @@RESULT bzw. automatik.json ('other' → Text aus error)
     errors: {
@@ -1058,10 +1060,12 @@ const TEXT = {
       none: 'Die Datei enthält dieselben Einstellungen wie jetzt – es ändert sich nichts.',
       changes: (n, names) => `Ändert ${plural(n, 'Einstellung', 'Einstellungen')}: ${names}.`,
       blocked: (a, t, a0, t0) => `Sperrliste danach: ${plural(a, 'Künstler', 'Künstler')} und ${plural(t, 'Song', 'Songs')} (bisher ${num(a0)} und ${num(t0)}).`,
-      skipped: n => `${plural(n, 'ungültiger Wert wird', 'ungültige Werte werden')} übersprungen.`,
+      skipped: (n, names) => `Übersprungen, weil ungültig: ${names}.`,
+      from: (v, d) => `Sicherung${v ? ` von Tweakable DJ ${v}` : ''}${d ? ` vom ${d}` : ''}.`,
       keep: 'Zugangsdaten bleiben, wie sie sind.',
       dirty: 'Ungespeicherte Änderungen gehen dabei verloren.',
-      done: n => `${plural(n, 'Einstellung', 'Einstellungen')} übernommen.`,
+      dirtyAgain: 'Du hast inzwischen Regler geändert, die noch nicht gespeichert sind. Sie gehen beim Laden verloren – zum Laden noch einmal auf „Laden“ klicken.',
+      done: n => `${plural(n, 'Einstellung', 'Einstellungen')} geladen.`,
       failed: msg => `Das ging nicht: ${msg}`,
     },
     seed: {
@@ -1262,7 +1266,7 @@ const TEXT = {
       backupHelp: 'Saves all settings including the block list to a file – without credentials (Client ID, API key, Last.fm name). With “Load settings …” you get them back, e.g. on another computer.',
       backupSave: 'Back up settings',
       backupLoad: 'Load settings …',
-      backupGo: 'Apply',
+      backupGo: 'Load',
       backupCancel: 'Cancel',
       quitUnsaved: 'Unsaved changes will be lost. Quit anyway?',
       stoppedQuit: 'Tweakable DJ has quit – double-click the shortcut to start it.',
@@ -1453,6 +1457,8 @@ const TEXT = {
     presetNone: 'No preset matches exactly – this is your own mix.',
     // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
     presetPro: names => `Custom Pro settings active${names.length ? ` (${names.join(', ')})` : ''} – they still apply, even though their controls are hidden here (see “Pro” at the top).`,
+    presetExtra: (name, value) => `${name}: ${value}`,
+    presetResetExtras: 'Reset hidden controls',
     emptyName: 'The playlist name can’t be empty.',
     errors: {
       login_expired: 'Spotify login expired',
@@ -1524,11 +1530,13 @@ const TEXT = {
       reading: 'Reading the file …',
       none: 'The file has the same settings as now – nothing changes.',
       changes: (n, names) => `Changes ${plural(n, 'setting', 'settings')}: ${names}.`,
-      blocked: (a, t, a0, t0) => `Block list afterwards: ${plural(a, 'artist', 'artists')} and ${plural(t, 'song', 'songs')} (until now ${num(a0)} and ${num(t0)}).`,
-      skipped: n => `${plural(n, 'invalid value is', 'invalid values are')} skipped.`,
+      blocked: (a, t, a0, t0) => `Block list afterwards: ${plural(a, 'artist', 'artists')} and ${plural(t, 'song', 'songs')} (currently ${num(a0)} and ${num(t0)}).`,
+      skipped: (n, names) => `Skipped because invalid: ${names}.`,
+      from: (v, d) => `Backup${v ? ` from Tweakable DJ ${v}` : ''}${d ? `, made on ${d}` : ''}.`,
       keep: 'Credentials stay as they are.',
       dirty: 'Unsaved changes will be lost.',
-      done: n => `${plural(n, 'setting', 'settings')} applied.`,
+      dirtyAgain: 'You have changed controls since then that aren’t saved yet. They will be lost – to load anyway, click “Load” again.',
+      done: n => `${plural(n, 'setting', 'settings')} loaded.`,
       failed: msg => `That didn’t work: ${msg}`,
     },
     seed: {
@@ -1722,7 +1730,7 @@ const TEXT = {
       backupHelp: 'Guarda todos los ajustes, incluida la lista de bloqueo, en un archivo, sin credenciales (Client ID, clave API, nombre de Last.fm). Con «Cargar ajustes …» los recuperas, p. ej. en otro ordenador.',
       backupSave: 'Guardar copia de los ajustes',
       backupLoad: 'Cargar ajustes …',
-      backupGo: 'Aplicar',
+      backupGo: 'Cargar',
       backupCancel: 'Cancelar',
       quitUnsaved: 'Se perderán los cambios sin guardar. ¿Cerrar de todos modos?',
       stoppedQuit: 'Tweakable DJ está cerrado: haz doble clic en el acceso directo para iniciarlo.',
@@ -1913,6 +1921,8 @@ const TEXT = {
     presetNone: 'Ningún ajuste predefinido coincide exactamente: es tu propia mezcla.',
     // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
     presetPro: names => `Ajustes Pro propios activos${names.length ? ` (${names.join(', ')})` : ''}: siguen aplicándose aunque sus controles estén ocultos aquí (ver «Pro» arriba).`,
+    presetExtra: (name, value) => `${name}: ${value}`,
+    presetResetExtras: 'Restablecer los controles ocultos',
     emptyName: 'El nombre de la playlist no puede estar vacío.',
     errors: {
       login_expired: 'La sesión de Spotify ha caducado',
@@ -1985,10 +1995,12 @@ const TEXT = {
       none: 'El archivo tiene los mismos ajustes que ahora: no cambia nada.',
       changes: (n, names) => `Cambia ${plural(n, 'ajuste', 'ajustes')}: ${names}.`,
       blocked: (a, t, a0, t0) => `Lista de bloqueo después: ${plural(a, 'artista', 'artistas')} y ${plural(t, 'canción', 'canciones')} (hasta ahora ${num(a0)} y ${num(t0)}).`,
-      skipped: n => `${isOne(n) ? 'Se omite' : 'Se omiten'} ${plural(n, 'valor no válido', 'valores no válidos')}.`,
+      skipped: (n, names) => `${isOne(n) ? 'Se omite por no ser válido' : 'Se omiten por no ser válidos'}: ${names}.`,
+      from: (v, d) => `Copia${v ? ` de Tweakable DJ ${v}` : ''}${d ? ` del ${d}` : ''}.`,
       keep: 'Las credenciales no cambian.',
       dirty: 'Los cambios sin guardar se perderán.',
-      done: n => `${plural(n, 'ajuste aplicado', 'ajustes aplicados')}.`,
+      dirtyAgain: 'Desde entonces has cambiado controles que aún no están guardados. Se perderán: para cargar igualmente, haz clic de nuevo en «Cargar».',
+      done: n => `${plural(n, 'ajuste cargado', 'ajustes cargados')}.`,
       failed: msg => `No ha funcionado: ${msg}`,
     },
     seed: {
@@ -2000,7 +2012,7 @@ const TEXT = {
       other: 'Playlist de tus ajustes (no está en tu lista)',
       configured: 'Playlist configurada',
       own: ' (de Tweakable DJ)',
-      ownLoop: 'Tweakable DJ llena esta playlist por sí mismo. Como fuente, tus favoritos dan vueltas en círculo: mejor elige otra.',
+      ownLoop: 'Tweakable DJ llena esta playlist por sí mismo. Como fuente, tus favoritas dan vueltas en círculo: mejor elige otra.',
       login: 'Tus playlists aparecerán aquí en cuanto inicies sesión en Spotify.',
       loading: 'Cargando tus playlists …',
       error: msg => `Ahora mismo no se pueden cargar tus playlists: ${msg}`,
@@ -2183,7 +2195,7 @@ const TEXT = {
       backupHelp: 'Enregistre tous les paramètres, liste de blocage comprise, dans un fichier – sans identifiants (Client ID, clé API, nom Last.fm). Avec « Charger les paramètres … », tu les récupères, p. ex. sur un autre ordinateur.',
       backupSave: 'Sauvegarder les paramètres',
       backupLoad: 'Charger les paramètres …',
-      backupGo: 'Appliquer',
+      backupGo: 'Charger',
       backupCancel: 'Annuler',
       quitUnsaved: 'Les modifications non enregistrées seront perdues. Quitter quand même ?',
       stoppedQuit: 'Tweakable DJ est arrêté – double-clique sur le raccourci pour le démarrer.',
@@ -2374,6 +2386,8 @@ const TEXT = {
     presetNone: 'Aucun préréglage ne correspond exactement – c’est ton propre mélange.',
     // Ansicht „Einfach“, aber keine Voreinstellung passt: Die ausgeblendeten Regler wirken trotzdem.
     presetPro: names => `Paramètres Pro personnalisés actifs${names.length ? ` (${names.join(', ')})` : ''} – ils s’appliquent toujours, même si leurs curseurs sont masqués ici (voir « Pro » en haut).`,
+    presetExtra: (name, value) => `${name} : ${value}`,
+    presetResetExtras: 'Réinitialiser les curseurs masqués',
     emptyName: 'Le nom de la playlist ne peut pas être vide.',
     errors: {
       login_expired: 'Connexion Spotify expirée',
@@ -2446,10 +2460,12 @@ const TEXT = {
       none: 'Le fichier contient les mêmes paramètres qu’actuellement – rien ne change.',
       changes: (n, names) => `Modifie ${plural(n, 'paramètre', 'paramètres')} : ${names}.`,
       blocked: (a, t, a0, t0) => `Liste de blocage ensuite : ${plural(a, 'artiste', 'artistes')} et ${plural(t, 'titre', 'titres')} (jusqu’ici ${num(a0)} et ${num(t0)}).`,
-      skipped: n => `${plural(n, 'valeur non valide ignorée', 'valeurs non valides ignorées')}.`,
+      skipped: (n, names) => `${isOne(n) ? 'Ignoré car non valide' : 'Ignorés car non valides'} : ${names}.`,
+      from: (v, d) => `Sauvegarde${v ? ` de Tweakable DJ ${v}` : ''}${d ? ` du ${d}` : ''}.`,
       keep: 'Les identifiants restent inchangés.',
       dirty: 'Les modifications non enregistrées seront perdues.',
-      done: n => `${plural(n, 'paramètre appliqué', 'paramètres appliqués')}.`,
+      dirtyAgain: 'Tu as modifié depuis des curseurs pas encore enregistrés. Ils seront perdus – pour charger quand même, clique à nouveau sur « Charger ».',
+      done: n => `${plural(n, 'paramètre chargé', 'paramètres chargés')}.`,
       failed: msg => `Ça n’a pas marché : ${msg}`,
     },
     seed: {
@@ -2555,7 +2571,7 @@ const TEXT = {
       latest: when => `Tu as la dernière version ✓ (vérifié le ${when})`,
       // Eigene Version ist eine Vorabversion (z. B. 0.4.0-beta.1): Angeboten wird nur eine neuere reguläre Version
       latestPre: when => `Aucune version stable plus récente ✓ (vérifié le ${when})`,
-      nodeInfo: (v, own) => `Node.js ${v} (${own ? 'propre, dans le dossier de Tweakable DJ' : 'installé'})`,
+      nodeInfo: (v, own) => `Node.js ${v} (${own ? 'celui de Tweakable DJ, dans son dossier' : 'installé'})`,
       stale: when => `Dernière vérification : ${when} – « Rechercher des mises à jour » vérifie maintenant.`,
       never: 'Pas encore vérifié – « Rechercher des mises à jour » vérifie maintenant.',
       found: v => `La version ${v} est disponible – voir l’avis en haut`,
@@ -2836,7 +2852,7 @@ let libraryScopeFailed = false;   // ♥ angeklickt, aber der Anmeldung fehlt us
 // ♥ in der Liste des Probelaufs: URI → true (Lieblingssong) bzw. false; fehlt eine URI, ist der Stand unbekannt (♡).
 let likes = {};
 const likeBusy = new Set(); // URIs, deren Klick gerade beim Server ist
-// Probelauf zum Übernehmen: { id, expiresAt, settings (Einstellungen beim Probelauf), serverReason, message } oder null
+// Erstellte Liste (Probelauf), die sich nach Spotify schreiben lässt: { id, expiresAt, settings (Einstellungen beim Probelauf), serverReason, message } oder null
 let trial = null;
 let trialTimer = null;
 let importRunning = false;  // Import aus einer Textdatei läuft (Suche oder Schreiben)
@@ -3343,10 +3359,14 @@ function setArchiveFiles(n) {
 
 const presetValues = p => Object.fromEntries(PRESET_KEYS.map(k => [k, p.values[k] ?? defaults[k]]));
 // Regler, die nur in „Pro“ zu sehen sind, aber keine Voreinstellung setzt (gefolgte Künstler, neuere/ältere Songs, Last.fm-
-// Lieblingssongs): Weichen sie vom Standard ab, zeigt „Einfach“ das wie eine eigene Mischung an, und „Auf „Standard“
-// zurücksetzen“ setzt auch sie zurück.
+// Lieblingssongs): Weichen sie vom Standard ab, nennt „Einfach“ sie mit ihrem Wert. Passt eine Voreinstellung, setzt der Knopf
+// darunter nur sie zurück („Ausgeblendete Regler zurücksetzen“) und die Voreinstellung bleibt; sonst alles auf „Standard“.
 const proExtraKeys = () => GROUPS.filter(g => g.pro).flatMap(g => g.items.map(i => i.key)).filter(k => !PRESET_KEYS.includes(k));
 const changedExtras = () => proExtraKeys().filter(k => k in defaults && !same(current[k], defaults[k]));
+const extraText = k => {
+  const v = current[k];
+  return T.presetExtra(T.items[k].label, typeof v === 'boolean' ? (v ? T.on : T.off) : T.items[k].fmt ? T.items[k].fmt(v) : String(v));
+};
 const matchingPreset = () => PRESETS.find(p => Object.entries(presetValues(p)).every(([k, v]) => current[k] === v));
 const usePreset = p => { Object.assign(current, presetValues(p)); refresh(); };
 
@@ -3407,9 +3427,10 @@ function refresh(skipInput) {
   // Ansicht „Einfach“ ohne passende Voreinstellung: Die ausgeblendeten Regler wirken weiter – darauf hinweisen, mit Knopf zurück.
   const extras = simpleMode() ? changedExtras() : [];
   const custom = simpleMode() && (!match || extras.length > 0);
-  $('preset-state').textContent = custom ? T.presetPro(extras.map(k => T.items[k].label)) : match ? T.presetMatch(T.presets[match.id][0]) : T.presetNone;
+  $('preset-state').textContent = custom ? T.presetPro(extras.map(extraText)) : match ? T.presetMatch(T.presets[match.id][0]) : T.presetNone;
   $('preset-state').className = custom ? 'hint warn' : match ? 'hint' : 'help';
   $('preset-reset').hidden = !custom;
+  $('preset-reset').textContent = match ? T.presetResetExtras : T.page.presetReset;
   renderMode();
 
   const isDirty = dirty();
@@ -3981,6 +4002,7 @@ function download(text, filename) {
 // --- Einstellungen sichern und laden (Tab „Einstellungen“, Abschnitt „Programm“) ---
 
 let backupText = null;    // Inhalt der gewählten Datei, solange ihre Vorschau offen ist
+let backupWarned = false; // Hinweis „Ungespeicherte Änderungen gehen verloren“ schon gezeigt (in der Vorschau oder nach Klick)
 
 // „Einstellungen sichern“: Datei vom Server (ohne Zugangsdaten) im Browser herunterladen
 async function backupSave() {
@@ -4010,6 +4032,10 @@ async function backupPreview(file) {
     const text = await file.text();
     const data = await settingsImport(text, true);
     const lines = [];
+    if (data.version || data.exportedAt) {
+      const date = data.exportedAt && new Date(data.exportedAt).toLocaleDateString(T.locale, { day: 'numeric', month: 'long', year: 'numeric' });
+      lines.push(T.backup.from(data.version, date));
+    }
     if (data.changes.length) {
       const names = data.changes.map(settingName);
       lines.push(T.backup.changes(data.changes.length, (names.length > 8 ? [...names.slice(0, 8), '…'] : names).join(', ')));
@@ -4018,10 +4044,11 @@ async function backupPreview(file) {
         lines.push(T.backup.blocked(b.artists ?? b.artistsBefore, b.tracks ?? b.tracksBefore, b.artistsBefore, b.tracksBefore));
       }
     }
-    if (data.skipped.length) lines.push(T.backup.skipped(data.skipped.length));
+    if (data.skipped.length) lines.push(T.backup.skipped(data.skipped.length, data.skipped.map(settingName).join(', ')));
     if (!data.changes.length) return setMsg($('backup-msg'), 'ok', [T.backup.none, ...lines].join(' '));
     lines.push(T.backup.keep);
-    if (dirty()) lines.push(T.backup.dirty);
+    backupWarned = dirty();
+    if (backupWarned) lines.push(T.backup.dirty);
     $('backup-preview-text').replaceChildren(...lines.map(l => el('p', { textContent: l })));
     backupText = text;
     $('backup-preview').hidden = false;
@@ -4031,10 +4058,16 @@ async function backupPreview(file) {
   }
 }
 
-// Schritt 2 (nach „Übernehmen“): speichern wie mit „Speichern“ (Automatik, zweite Verknüpfung), dann alles neu laden –
-// auch Sprache, Aussehen und Ansicht. Ungespeicherte Änderungen der Seite fallen weg.
+// Schritt 2 (nach „Laden“): speichern wie mit „Speichern“ (Automatik, zweite Verknüpfung), dann alles neu laden – auch
+// Sprache, Aussehen und Ansicht. Ungespeicherte Änderungen der Seite fallen weg: Kamen sie erst nach dem Öffnen der Vorschau
+// dazu, fragt der erste Klick noch einmal nach. Ließ sich die Automatik bzw. die zweite Verknüpfung nicht ändern, ist der Rest
+// trotzdem geladen; die Meldung sagt, was blieb, wie es war.
 async function backupApply() {
   if (backupText === null) return;
+  if (dirty() && !backupWarned) {
+    backupWarned = true;
+    return setMsg($('backup-msg'), 'warn', T.backup.dirtyAgain);
+  }
   $('backup-go').disabled = true;
   try {
     const data = await settingsImport(backupText, false);
@@ -4043,7 +4076,8 @@ async function backupApply() {
     await load();
     loadSchedule();
     loadPlaylists();
-    setMsg($('backup-msg'), 'ok', T.backup.done(data.changed));
+    const warnings = data.warnings ?? [];
+    setMsg($('backup-msg'), warnings.length ? 'warn' : 'ok', [T.backup.done(data.changed), ...warnings].join(' '));
   } catch (e) {
     setMsg($('backup-msg'), 'err', T.backup.failed(e.message));
   } finally {
@@ -5078,8 +5112,9 @@ $('create').onclick = () => run('dry');
 $('trial-apply').onclick = () => applyTrial('apply');
 $('trial-new').onclick = () => applyTrial('new');
 $('preset-reset').onclick = () => {
+  const match = matchingPreset();
   for (const k of proExtraKeys()) if (k in defaults) current[k] = defaults[k];
-  usePreset(PRESETS.find(p => p.id === 'standard'));
+  usePreset(match ?? PRESETS.find(p => p.id === 'standard'));
 };
 for (const r of $('mode').querySelectorAll('input')) r.onchange = () => setMode(r.value);
 $('export').onclick = exportList;

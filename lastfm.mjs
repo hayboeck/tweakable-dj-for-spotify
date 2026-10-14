@@ -104,11 +104,19 @@ export function createLastfm(apiKey, cacheFile, { lang } = {}) {
       return list(d?.toptracks?.track).map(t => ({ artist: t.artist?.name, name: t.name }));
     },
 
-    // Songs, die der Benutzer auf Last.fm mit ♥ markiert hat (neueste zuerst), höchstens maxPages · 200.
-    async lovedTracks(user, maxPages = 5) {
+    // Songs, die der Benutzer auf Last.fm mit ♥ markiert hat (neueste zuerst), höchstens maxPages · 200. Scheitert eine
+    // Folgeseite, bleiben die schon geladenen: onPartial(Fehler, Anzahl) meldet das (ohne onPartial: Fehler wie bei Seite 1).
+    async lovedTracks(user, maxPages = 5, onPartial = null) {
       const out = [];
       for (let page = 1; page <= maxPages; page++) {
-        const d = await call('user.getLovedTracks', { user, limit: 200, page });
+        let d;
+        try {
+          d = await call('user.getLovedTracks', { user, limit: 200, page });
+        } catch (e) {
+          if (page === 1 || !onPartial || e.fatal) throw e;
+          onPartial(e, out.length);
+          break;
+        }
         out.push(...list(d?.lovedtracks?.track).map(t => ({ artist: t.artist?.name ?? t.artist?.['#text'], name: t.name })));
         const totalPages = Number(d?.lovedtracks?.['@attr']?.totalPages) || 1;
         if (page >= totalPages) break;

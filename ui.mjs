@@ -33,8 +33,8 @@ import { autoRunMessage, autoRunSince, cleanObsolete, installBlocker, installUpd
 import { NOW_RESULT } from './schedule.mjs';
 import { notify, notifyProblem, remindLogin, testNotice } from './notify.mjs';
 import {
-  exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, isOwnPlaylist, parseImport, readPlaylist, resolveImport,
-  validUris, writePlaylist,
+  exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, isOwnPlaylist, parseImport, readPlaylist,
+  rememberOwnPlaylist, resolveImport, validUris, writePlaylist,
 } from './playlist.mjs';
 import { readTrial, TRIAL_IGNORED, trialInfo, trialProblem } from './trial.mjs';
 import { archiveFileCount, archivePlaylist, listArchive, readArchive, undoTarget } from './archive.mjs';
@@ -142,7 +142,7 @@ const VERSION = currentVersion();
 const LAUNCHER = process.env.TWEAKABLE_DJ_LAUNCHER === '1';
 const RESTART_CODE = 75;
 const APP_ID = 'tweakable-dj'; // in GET /api/version: So erkennt ein zweiter Start die eigene Oberfläche
-let running = null;           // gestarteter Lauf von dj.mjs (Probelauf, Neuerstellung oder Übernehmen)
+let running = null;           // gestarteter Lauf von dj.mjs (Probelauf, Neuerstellung oder Schreiben der erstellten Liste)
 let loginJob = null;
 let installing = false;
 let importing = false;        // Import aus einer Textdatei (Suche oder Schreiben)
@@ -278,27 +278,35 @@ let queue = Promise.resolve();
 const serial = fn => (queue = queue.then(fn, fn));
 const SCHEDULE_KEYS = ['schedule', 'scheduleTime', 'scheduleDay'];
 
-// Zweite Verknüpfung (runShortcut): beim Speichern anlegen bzw. die eigene entfernen; klappt das nicht, wird nichts gespeichert.
-// nameLang: Sprache ihres Namens (die der Oberfläche).
+// Zweite Verknüpfung (runShortcut): beim Speichern anlegen bzw. die eigene entfernen. nameLang: Sprache ihres Namens (die der
+// Oberfläche).
 async function applyRunShortcut(on, lang, nameLang = lang) {
-  try {
-    if (on) await createShortcut({ lang, nameLang, kind: 'run' });
-    else if ((await shortcutStatus({ lang, kind: 'run' })).installed) await removeShortcut({ lang, kind: 'run' });
-  } catch (e) {
-    throw new Error(t(lang, 'ui.runShortcutNotSaved', { message: e.message }));
-  }
+  if (on) await createShortcut({ lang, nameLang, kind: 'run' });
+  else if ((await shortcutStatus({ lang, kind: 'run' })).installed) await removeShortcut({ lang, kind: 'run' });
 }
 
 // Speichert Einstellungen aus der Oberfläche. Ändert sich die Automatik, wird zuerst der Zeitplaner angepasst;
 // nur wenn das klappt, kommen die Werte in die config.jsonc. Ergebnis: neuer Stand der Automatik oder null.
 // Fehlende Schlüssel kommen mit der Erklärung aus der Vorlage der gewählten Sprache dazu.
-async function saveSettings(values, lang) {
+// Lässt sich die zweite Verknüpfung bzw. die Automatik nicht ändern, wird beim normalen Speichern gar nichts gespeichert
+// (Fehler). Mit warnings (Array; „Einstellungen laden“) bleibt nur sie, wie sie war: Die übrigen Werte kommen trotzdem in die
+// config.jsonc, und warnings bekommt die Meldung.
+async function saveSettings(values, lang, { warnings } = {}) {
+  values = { ...values };
   const tplLang = resolveLang(values.language, lang);
   const before = currentConfig(lang);
   const after = { ...before, ...values };
   const nameLang = resolveLang(after.language, lang);
-  if ('runShortcut' in values && values.runShortcut !== (before.runShortcut === true)) await applyRunShortcut(values.runShortcut, lang, nameLang);
-  else if ('language' in values && values.language !== before.language && after.runShortcut === true) {
+  if ('runShortcut' in values && values.runShortcut !== (before.runShortcut === true)) {
+    try {
+      await applyRunShortcut(values.runShortcut, lang, nameLang);
+    } catch (e) {
+      if (!warnings) throw new Error(t(lang, 'ui.runShortcutNotSaved', { message: e.message }));
+      warnings.push(t(lang, 'ui.runShortcutKept', { message: e.message }));
+      delete values.runShortcut;
+      after.runShortcut = before.runShortcut;
+    }
+  } else if ('language' in values && values.language !== before.language && after.runShortcut === true) {
     // Andere Sprache: die zweite Verknüpfung bekommt ihren Namen in der neuen Sprache. Klappt das nicht, bleibt sie, wie sie ist
     // (beim nächsten Start versucht es renewShortcuts noch einmal); die Sprache wird trotzdem gespeichert.
     await createShortcut({ lang, nameLang, kind: 'run' }).catch(e => console.warn(t(lang, 'shortcut.renewFailed', { message: e.message })));
@@ -310,7 +318,11 @@ async function saveSettings(values, lang) {
   try {
     await applySchedule(after, { lang });
   } catch (e) {
-    throw new Error(t(lang, 'ui.scheduleNotSaved', { message: e.message }));
+    if (!warnings) throw new Error(t(lang, 'ui.scheduleNotSaved', { message: e.message }));
+    warnings.push(t(lang, 'ui.scheduleKept', { message: e.message }));
+    for (const k of SCHEDULE_KEYS) delete values[k];
+    updateConfig(values, tplLang);
+    return null;
   }
   // Alle drei zusammen und in dieser Reihenfolge schreiben, damit sie in der config.jsonc beisammen stehen.
   const rest = Object.entries(values).filter(([k]) => !SCHEDULE_KEYS.includes(k));
@@ -463,13 +475,15 @@ function knownPlaylistId(name) {
   }
 }
 
-// Nach einem Import: ID der Playlist in state.json merken, falls sie neu ist (wie dj.mjs import). Frisch lesen, nur playlistIds
-// ändern, atomar schreiben; eine kaputte state.json bleibt, wie sie ist (dann wirft es).
+// Nach einem Import: ID der Playlist in state.json merken, falls sie neu ist (wie dj.mjs import) – unter playlistIds und als
+// eigene Playlist (ownPlaylistIds; so bietet die Liste der Quellen sie auch nach dem Umbenennen nicht an). Frisch lesen, nur
+// diese beiden ändern, atomar schreiben; eine kaputte state.json bleibt, wie sie ist (dann wirft es).
 function rememberPlaylistId(name, id) {
   const state = readJsonFile(STATE, {});
   if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('state.json');
-  if (state.playlistIds?.[name] === id) return;
-  writeAtomic(STATE, JSON.stringify({ history: [], cache: {}, ...state, playlistIds: { [name]: id } }, null, 2));
+  if (state.playlistIds?.[name] === id && state.ownPlaylistIds?.includes?.(id)) return;
+  const ownPlaylistIds = rememberOwnPlaylist(state.ownPlaylistIds, id);
+  writeAtomic(STATE, JSON.stringify({ history: [], cache: {}, ...state, playlistIds: { [name]: id }, ownPlaylistIds }, null, 2));
 }
 
 // Ergebnis für die Oberfläche, falls dj.mjs ohne eigene "@@RESULT"-Zeile endet (z. B. abgestürzt).
@@ -839,7 +853,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // „Playlist speichern“ (Textdatei): { text, filename, songs } für den Download im Browser. Ohne ?trial= die Playlist, wie sie
-    // gerade in Spotify ist; mit ?trial=<Kennung> der Probelauf, der noch nicht übernommen ist (aus probelauf.json).
+    // gerade in Spotify ist; mit ?trial=<Kennung> die erstellte Liste, die noch nicht in Spotify ist (aus probelauf.json).
     if (route === 'GET /api/export') {
       const now = new Date();
       const id = url.searchParams.get('trial');
@@ -866,10 +880,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     // „Einstellungen laden …“: Body = Inhalt der Datei (höchstens 1 MB; readSettingsFile). Mit ?dry=1 nur prüfen und sagen, was
-    // sich ändert: { ok, changes: [Schlüssel], skipped: [Schlüssel mit ungültigem Wert], version, blocked: { artists, tracks,
+    // sich ändert: { ok, changes: [Schlüssel], skipped: [Schlüssel mit ungültigem Wert], version, exportedAt, blocked: { artists, tracks,
     // artistsBefore, tracksBefore } } (artists/tracks null = nicht in der Datei); eine unbrauchbare Datei ist dabei kein Fehler der
-    // Anfrage, sondern { ok: false, error } (die Seite zeigt die Meldung). Sonst die geänderten Werte übernehmen wie
-    // „Speichern“ (Automatik, zweite Verknüpfung, saveSettings) → { ok, changed, schedule? }. Zugangsdaten bleiben, wie sie sind.
+    // Anfrage, sondern { ok: false, error } (die Seite zeigt die Meldung). Sonst die geänderten Werte speichern wie „Speichern“
+    // (Automatik, zweite Verknüpfung, saveSettings) → { ok, changed, warnings, schedule? }. Lässt sich die Automatik bzw. die
+    // zweite Verknüpfung nicht ändern (z. B. Linux ohne crontab), kommt der Rest trotzdem in die config.jsonc; warnings sagt,
+    // was blieb, wie es war, und changed zählt nur, was gespeichert ist. Zugangsdaten bleiben, wie sie sind.
     if (route === 'POST /api/settings/import') {
       const dry = url.searchParams.get('dry') === '1';
       let file;
@@ -884,13 +900,16 @@ const server = http.createServer(async (req, res) => {
       if (dry) {
         const count = v => (Array.isArray(v) ? v.length : 0);
         return send(200, {
-          ok: true, changes, skipped: file.skipped, version: file.version,
+          ok: true, changes, skipped: file.skipped, version: file.version, exportedAt: file.exportedAt,
           blocked: { artists: file.values.blockedArtists?.length ?? null, tracks: file.values.blockedTracks?.length ?? null,
             artistsBefore: count(cfg.blockedArtists), tracksBefore: count(cfg.blockedTracks) },
         });
       }
-      const schedule = changes.length ? await serial(() => saveSettings(Object.fromEntries(changes.map(k => [k, file.values[k]])), lang)) : null;
-      return send(200, { ok: true, changed: changes.length, ...(schedule && { schedule }) });
+      const warnings = [];
+      const schedule = changes.length ? await serial(() => saveSettings(Object.fromEntries(changes.map(k => [k, file.values[k]])), lang, { warnings })) : null;
+      const saved = currentConfig(lang);
+      const changed = changes.filter(k => sameValue(file.values[k], saved[k])).length;
+      return send(200, { ok: true, changed, warnings, ...(schedule && { schedule }) });
     }
 
     // Textdatei importieren, Schritt 1 (Vorschau): Body = Inhalt der Datei (Text, höchstens 1 MB). Sucht die Songs auf

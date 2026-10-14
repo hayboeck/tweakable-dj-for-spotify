@@ -443,7 +443,7 @@ test('Last.fm-Lieblingssongs (♥): zählen zusätzlich als Favoriten, auf Spoti
     // Ohne Lieblingssongs auf Spotify: nur die von Last.fm sind Favoriten (Rin gesperrt, einer nicht auf Spotify)
     const r = run(dir, { MOCK_NO_LIKED: '1', MOCK_LASTFM_LOVED: loved });
     assert.equal(r.code, 0, r.all);
-    assert.match(r.out, /^ {2}6 Last\.fm-Lieblingssongs \(♥\), davon 6 zusätzlich zu deinen Favoriten$/m);
+    assert.match(r.out, /^ {2}6 Last\.fm-Lieblingssongs \(♥\), davon 5 zusätzlich zu deinen Favoriten$/m, 'ohne den gesperrten (Rin)');
     assert.equal(lastfmCalls(r.requests, 'user.getLovedTracks'), 1);
     const favs = parseLineup(r.out).filter(s => s.kind.startsWith('Favorit')).map(s => `${s.artist} – ${s.name}`).sort();
     // Nordlicht – Polarnacht wurde kürzlich gehört (excludeRecentDays): bleibt draußen wie jeder Favorit
@@ -451,7 +451,7 @@ test('Last.fm-Lieblingssongs (♥): zählen zusätzlich als Favoriten, auf Spoti
     assert.equal(r.result.familiar, 3);
     // Mit Lieblingssongs auf Spotify: Doppelte zählen nicht noch einmal; Such-Cache: zweiter Lauf sucht sie nicht neu
     const both = run(dir, { MOCK_LASTFM_LOVED: loved });
-    assert.match(both.out, /^ {2}6 Last\.fm-Lieblingssongs \(♥\), davon 5 zusätzlich zu deinen Favoriten$/m);
+    assert.match(both.out, /^ {2}6 Last\.fm-Lieblingssongs \(♥\), davon 4 zusätzlich zu deinen Favoriten$/m);
     // Abgeschaltet: keine Abfrage
     fs.writeFileSync(path.join(dir, 'config.jsonc'), JSON.stringify({ ...CONFIG, familiarShare: 1, size: 10, maxPerArtist: 5, useLastfmLovedTracks: false }));
     const off = run(dir, { MOCK_NO_LIKED: '1', MOCK_LASTFM_LOVED: loved });
@@ -464,6 +464,33 @@ test('Last.fm-Lieblingssongs (♥): zählen zusätzlich als Favoriten, auf Spoti
     assert.equal(none.code, 0, none.all);
     assert.equal(lastfmCalls(none.requests, 'user.getLovedTracks'), 1);
     assert.doesNotMatch(none.out, /Lieblingssongs \(♥\)/);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('Last.fm-Lieblingssongs: mehrere Seiten; scheitert eine Folgeseite, zählen die schon geladenen; höchstens 50 neue Suchen je Lauf', () => {
+  // 450 Lieblingssongs = 3 Seiten zu 200; keiner ist auf Spotify, also sucht der Lauf, bis die Grenze erreicht ist.
+  const loved = JSON.stringify(Array.from({ length: 450 }, (_, i) => [`Herz ${i + 1}`, `Nicht auf Spotify ${i + 1}`]));
+  const dir = setup({ familiarShare: 1, size: 10, maxPerArtist: 5 });
+  // Gesuchte Lieblingssongs (verschiedene Lieblingssongs in den Suchanfragen an Spotify; ähnliche Songs zählen nicht)
+  const searched = requests => new Set(requests.filter(r => r.path?.startsWith('/v1/search'))
+    .map(r => new URLSearchParams(r.path.split('?')[1]).get('q')?.match(/^track:"(Nicht auf Spotify (\d+))" artist:"Herz \2"$/)?.[1]).filter(Boolean));
+  try {
+    const r = run(dir, { MOCK_NO_LIKED: '1', MOCK_LASTFM_LOVED: loved });
+    assert.equal(r.code, 0, r.all);
+    assert.equal(lastfmCalls(r.requests, 'user.getLovedTracks'), 3);
+    assert.match(r.out, /^ {2}450 Last\.fm-Lieblingssongs \(♥\), davon 450 zusätzlich zu deinen Favoriten$/m);
+    assert.equal(searched(r.requests).size, 50, 'höchstens 50 neue Suchen');
+    // Seite 2 scheitert: Seite 1 (die 200 neuesten) zählt, mit Warnung
+    const partial = run(dir, { MOCK_NO_LIKED: '1', MOCK_LASTFM_LOVED: loved, MOCK_LASTFM_LOVED_FAIL_PAGE: '2' });
+    assert.equal(partial.code, 0, partial.all);
+    assert.match(partial.out, /^ {2}200 Last\.fm-Lieblingssongs \(♥\)/m);
+    assert.match(partial.all, /Last\.fm-Lieblingssongs: nur die neuesten 200 geladen, der Rest fehlt diesmal\. Last\.fm user\.getLovedTracks: Service Offline/);
+    // Seite 1 scheitert: keine Lieblingssongs von Last.fm, nur eine Warnung
+    const none = run(dir, { MOCK_NO_LIKED: '1', MOCK_LASTFM_LOVED: loved, MOCK_LASTFM_LOVED_FAIL_PAGE: '1' });
+    assert.doesNotMatch(none.out, /Lieblingssongs \(♥\)/);
+    assert.match(none.all, /Service Offline/);
   } finally {
     cleanup(dir);
   }

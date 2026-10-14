@@ -372,11 +372,13 @@ function lastfmApi(url) {
       const page = Number(q.get('page') ?? 1);
       return json({ recenttracks: { track: pages[page - 1] ?? [], '@attr': { user, page: String(page), totalPages: String(pages.length) } } });
     }
-    // Lieblingssongs (♥): MOCK_LASTFM_LOVED = JSON [[Künstler, Titel], …] für testhoerer, sonst keine; je Seite höchstens limit
+    // Lieblingssongs (♥): MOCK_LASTFM_LOVED = JSON [[Künstler, Titel], …] für testhoerer, sonst keine; je Seite höchstens limit.
+    // MOCK_LASTFM_LOVED_FAIL_PAGE = Seite, die mit einem Fehler von Last.fm antwortet.
     case 'user.getLovedTracks': {
       const loved = user === 'testhoerer' ? JSON.parse(process.env.MOCK_LASTFM_LOVED || '[]') : [];
       const limit = Number(q.get('limit') ?? 50);
       const page = Number(q.get('page') ?? 1);
+      if (String(page) === process.env.MOCK_LASTFM_LOVED_FAIL_PAGE) return json({ error: 11, message: 'Service Offline' });
       const total = Math.max(1, Math.ceil(loved.length / limit));
       return json({ lovedtracks: { track: loved.slice((page - 1) * limit, page * limit).map(([a, n]) => ({ name: n, artist: { name: a } })),
         '@attr': { user, page: String(page), totalPages: String(total), total: String(loved.length) } } });

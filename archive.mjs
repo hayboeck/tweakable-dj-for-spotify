@@ -1,5 +1,5 @@
 // Playlist-Archiv: Nach jedem Schreiben der Playlist in Spotify (Lauf aus der Oberfläche oder dem Terminal, automatischer
-// Lauf, übernommener Probelauf, Import) legt Tweakable DJ die geschriebene Liste als Textdatei im Ordner archiv/ ab – im
+// Lauf, „„<Name>“ überschreiben“ bzw. „Neue Playlist anlegen“ nach „Playlist erstellen“, Import) legt Tweakable DJ die geschriebene Liste als Textdatei im Ordner archiv/ ab – im
 // selben Format wie „Playlist speichern“ (Textdatei) (formatExport in playlist.mjs). „Importieren … → Frühere Playlist …“ in der
 // Oberfläche holt sie zurück (Vorschau und Rückfrage wie beim Import einer Datei).
 //

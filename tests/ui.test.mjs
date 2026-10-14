@@ -251,11 +251,11 @@ test('Einstellungen sichern und laden: ohne Zugangsdaten; Vorschau (?dry=1); üb
       kommtSpaeter: true, adventure: 7, spotify: { clientId: 'b'.repeat(32) } } });
     const dry = await api('/api/settings/import?dry=1', { lang: 'de', method: 'POST', raw: changed, headers: { 'Content-Type': 'text/plain' } });
     assert.equal(dry.status, 200, dry.text);
-    assert.deepEqual([dry.data.changes, dry.data.skipped, dry.data.version], [['size', 'blockedArtists'], ['adventure'], '9.0.0']);
+    assert.deepEqual([dry.data.changes, dry.data.skipped, dry.data.version, dry.data.exportedAt], [['size', 'blockedArtists'], ['adventure'], '9.0.0', file.exportedAt]);
     assert.deepEqual(dry.data.blocked, { artists: 3, tracks: 0, artistsBefore: 2, tracksBefore: 0 });
     assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'Vorschau ändert nichts');
     const go = await api('/api/settings/import', { lang: 'de', method: 'POST', raw: changed, headers: { 'Content-Type': 'text/plain' } });
-    assert.deepEqual(go.data, { ok: true, changed: 2 });
+    assert.deepEqual(go.data, { ok: true, changed: 2, warnings: [] });
     const values = (await api('/api/config')).data.values;
     assert.deepEqual([values.size, values.blockedArtists, values.adventure], [33, ['Neu A', 'Neu B', 'Neu C'], 0.4]);
     const text = fs.readFileSync(configFile, 'utf8');
@@ -263,7 +263,8 @@ test('Einstellungen sichern und laden: ohne Zugangsdaten; Vorschau (?dry=1); üb
     // config.jsonc einer anderen Installation geht auch (ihre Zugangsdaten zählen nicht); fremde Dateien nicht
     const cfgLike = `// Kommentar\n{ "spotify": { "clientId": "${'c'.repeat(32)}" }, "size": 40, "playlistName": "Test-DJ", "seed": "liked" }`;
     assert.deepEqual((await api('/api/settings/import?dry=1', { method: 'POST', raw: cfgLike })).data.changes, ['size']);
-    for (const bad of ['kein JSON', '[1, 2]', JSON.stringify({ app: 'anderes', settings: { size: 1 } }), JSON.stringify({ name: 'x' })]) {
+    for (const bad of ['kein JSON', '[1, 2]', JSON.stringify({ app: 'anderes', settings: { size: 1 } }), JSON.stringify({ name: 'x' }),
+      JSON.stringify({ app: 'tweakable-dj', kind: 'etwasAnderes', settings: { size: 1 } })]) {
       const r = await api('/api/settings/import?dry=1', { lang: 'de', method: 'POST', raw: bad });
       assert.deepEqual([r.status, r.data], [200, { ok: false, error: 'Das ist keine Sicherung der Einstellungen von Tweakable DJ. Erwartet wird eine Datei aus „Einstellungen sichern“ (oder eine config.jsonc).' }], bad);
     }
@@ -277,6 +278,42 @@ test('Einstellungen sichern und laden: ohne Zugangsdaten; Vorschau (?dry=1); üb
     // Ohne Kopfzeile X-Tweakable-DJ (fremde Webseite): abgelehnt
     const foreign = await fetch(`${base}/api/settings/export`);
     assert.equal(foreign.status, 403);
+  } finally {
+    fs.writeFileSync(configFile, before);
+  }
+});
+
+test('Einstellungen laden: andere Sprache; zweite Verknüpfung scheitert → Rest trotzdem gespeichert, Warnung', async () => {
+  const configFile = path.join(dir, 'config.jsonc');
+  const before = fs.readFileSync(configFile, 'utf8');
+  const backup = settings => JSON.stringify({ app: 'tweakable-dj', kind: 'settings', format: 1, version: '0.4.0', settings });
+  try {
+    // Sprache wechseln: gilt danach für Anfragen ohne X-Lang
+    const lang = await api('/api/settings/import', { lang: 'de', method: 'POST', raw: backup({ language: 'en', size: 34 }) });
+    assert.deepEqual(lang.data, { ok: true, changed: 2, warnings: [] });
+    assert.equal((await api('/api/config')).data.values.language, 'en');
+    assert.match((await api('/api/settings/import?dry=1', { method: 'POST', raw: 'x' })).data.error, /^This isn’t a Tweakable DJ settings backup\./);
+    fs.writeFileSync(configFile, before);
+    if (!fileNames('run', 'de')[process.platform]) return; // keine Verknüpfungen auf dieser Plattform
+    // Desktop-Ordner gibt es nicht (an seiner Stelle eine Datei): Die zweite Verknüpfung lässt sich nicht anlegen.
+    fs.rmSync(desktop, { recursive: true, force: true });
+    fs.writeFileSync(desktop, 'kein Ordner');
+    try {
+      const r = await api('/api/settings/import', { lang: 'de', method: 'POST', raw: backup({ runShortcut: true, size: 35 }) });
+      assert.equal(r.status, 200, r.text);
+      assert.equal(r.data.changed, 1, 'nur die Anzahl Songs');
+      assert.equal(r.data.warnings.length, 1);
+      assert.match(r.data.warnings[0], /^Die zweite Verknüpfung ließ sich nicht ändern und bleibt, wie sie war\./);
+      const values = (await api('/api/config')).data.values;
+      assert.deepEqual([values.size, values.runShortcut], [35, false]);
+      // Beim normalen Speichern bleibt es bei „alles oder nichts“
+      const save = await api('/api/config', { lang: 'de', method: 'POST', body: { runShortcut: true, size: 36 } });
+      assert.equal(save.status, 400, save.text);
+      assert.equal((await api('/api/config')).data.values.size, 35);
+    } finally {
+      fs.rmSync(desktop, { force: true });
+      fs.mkdirSync(desktop);
+    }
   } finally {
     fs.writeFileSync(configFile, before);
   }
@@ -825,7 +862,10 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Übersetzungs
     'update.version': [['0.4.0-beta.1', true], ['0.3.3', false]],
     'update.confirm': [['0.1.0', '0.2.0']],
     'update.nodeInfo': [['24.21.0', true], ['22.0.0', false]],
-    presetPro: [[['Gefolgte Künstler', 'Neuere / ältere Songs']], [[]]],
+    presetPro: [[['Gefolgte Künstler: mehr', 'Neuere / ältere Songs: neuere']], [[]]],
+    presetExtra: [['Gefolgte Künstler', 'mehr']],
+    'backup.skipped': [[2, 'A, B'], [1, 'A']],
+    'backup.from': [['0.4.0', '13. Oktober 2026'], [null, '13. Oktober 2026'], ['0.4.0', null]],
     'backup.saved': [['tweakable-dj-settings-2026-10-13.json']],
     'backup.changes': [[2, 'A, B'], [1, 'A']],
     'backup.blocked': [[2, 1, 0, 3], [1, 0, 1, 1]],

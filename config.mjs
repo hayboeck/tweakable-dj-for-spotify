@@ -358,8 +358,10 @@ export function settingsFileName(now = new Date()) {
   return `tweakable-dj-settings-${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}.json`;
 }
 // Inhalt einer Datei aus „Einstellungen laden …“ → { values (geprüft, nur Schlüssel aus DEFAULTS), skipped (ungültige Werte),
-// version }. Nimmt eine Sicherung – auch von einer älteren oder neueren Version: unbekannte Schlüssel zählen nicht, ungültige
-// Werte werden übersprungen – oder eine config.jsonc (ihre Zugangsdaten zählen nicht). Alles andere: Fehler mit Meldung.
+// version, exportedAt (ISO-Zeit oder null) }. Nimmt eine Sicherung – auch von einer älteren oder neueren Version: unbekannte
+// Schlüssel zählen nicht, ungültige Werte werden übersprungen – oder eine config.jsonc (ihre Zugangsdaten zählen nicht). Eine
+// Datei von Tweakable DJ mit anderem kind (etwas anderes als eine Sicherung der Einstellungen, z. B. aus einer späteren
+// Version) zählt nicht; ohne kind gilt sie als Sicherung. Alles andere: Fehler mit Meldung.
 export function readSettingsFile(text, lang) {
   let data;
   try {
@@ -368,7 +370,7 @@ export function readSettingsFile(text, lang) {
     data = null;
   }
   const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
-  const ours = object(data) && data.app === 'tweakable-dj' && object(data.settings);
+  const ours = object(data) && data.app === 'tweakable-dj' && (data.kind ?? 'settings') === 'settings' && object(data.settings);
   const configLike = object(data) && data.app === undefined && Object.keys(data).filter(k => Object.hasOwn(DEFAULTS, k)).length >= 3;
   if (!ours && !configLike) throw tError(lang, 'settings.notOurs');
   const values = {};
@@ -382,7 +384,9 @@ export function readSettingsFile(text, lang) {
     }
   }
   if (!Object.keys(values).length) throw tError(lang, 'settings.empty');
-  return { values, skipped, version: ours && typeof data.version === 'string' ? data.version : null };
+  const version = ours && typeof data.version === 'string' && /^\d+\.\d+\.\d+[\w.+-]*$/.test(data.version) ? data.version : null;
+  const exportedAt = ours && typeof data.exportedAt === 'string' && !Number.isNaN(Date.parse(data.exportedAt)) ? data.exportedAt : null;
+  return { values, skipped, version, exportedAt };
 }
 
 // --- Werte direkt im Text ändern ---

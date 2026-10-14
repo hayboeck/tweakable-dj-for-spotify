@@ -100,7 +100,8 @@ const TOKENS = path.join(HERE, 'tokens.json');
 const STATE = path.join(HERE, 'state.json');
 const LASTFM_CACHE = path.join(HERE, 'lastfm-cache.json');
 
-// Inhalt von state.json (Verlauf history, Such-Cache cache, played, playlistIds, loginReminderAt); fehlt die Datei, leer.
+// Inhalt von state.json (Verlauf history, Such-Cache cache, played, playlistIds, ownPlaylistIds, loginReminderAt); fehlt die
+// Datei, leer.
 // Kaputter Inhalt wirft (dann lieber abbrechen, als Verlauf und Such-Cache zu überschreiben).
 function readState() {
   const state = readJson(STATE, null) ?? {};
@@ -111,8 +112,8 @@ function readState() {
 }
 
 // state.json ändern: frisch lesen, nur die Änderungen dieses Laufs einmischen (change), dann atomar schreiben (files.mjs).
-// So bleiben Verlauf, gemerkte Playlist-ID und Erinnerungszeit (loginReminderAt) eines anderen Laufs erhalten, der seit dem
-// Start dieses Laufs fertig geworden ist (z. B. ein automatischer Lauf neben einem aus der Oberfläche).
+// So bleiben Verlauf, gemerkte Playlist-IDs (playlistIds, ownPlaylistIds) und Erinnerungszeit (loginReminderAt) eines anderen
+// Laufs erhalten, der seit dem Start dieses Laufs fertig geworden ist (z. B. ein automatischer Lauf neben einem aus der Oberfläche).
 function updateState(change) {
   const state = readState();
   change(state);
@@ -314,12 +315,15 @@ async function main() {
       // Last.fm-Lieblingssongs (♥, useLastfmLovedTracks): zählen zusätzlich als Favoriten – als Ausgangspunkte und für die
       // Playlist, dort erst bei Bedarf auf Spotify gesucht (resolveLoved). Was schon in der Quelle ist, zählt nicht doppelt.
       if (cfg.useLastfmLovedTracks !== false) {
-        const loved = await lastfm.lovedTracks(cfg.lastfm.user).catch(warnOr([]));
+        // Höchstens 1000 (5 Seiten zu 200, die neuesten); scheitert eine Folgeseite, zählen die schon geladenen.
+        const partly = (e, count) => warnError(e, t(lang, 'run.lovedPartial', { count }));
+        const loved = await lastfm.lovedTracks(cfg.lastfm.user, 5, partly).catch(warnOr([]));
         const extra = [...new Map(loved.filter(l => l.artist && l.name && !seedKeys.has(trackKey(l.artist, l.name)))
           .map(l => [trackKey(l.artist, l.name), { artist: l.artist, name: l.name, loved: true }])).values()];
-        if (loved.length) console.log(t(lang, 'run.loved', { count: loved.length, extra: extra.length }));
         for (const l of extra) seedKeys.add(trackKey(l.artist, l.name)); // kein „neuer“ Song
         lovedFavorites = extra.filter(allowed);
+        // „davon N zusätzlich“: ohne die schon in der Quelle und ohne gesperrte
+        if (loved.length) console.log(t(lang, 'run.loved', { count: loved.length, extra: lovedFavorites.length }));
       }
       discoverySeeds = [...favorites, ...lovedFavorites, ...top, ...current];
     }
@@ -555,9 +559,15 @@ async function main() {
 const knownPlaylistId = name => readState().playlistIds?.[name] ?? null;
 
 // Nach einem Import: ID der Playlist merken, falls sie neu ist (z. B. gerade angelegt) – fürs nächste Schreiben, für „Playlist
-// speichern“ (Textdatei) und das Archiv. Sonst bleibt state.json unverändert (ein Import ist kein Lauf des DJ).
+// speichern“ (Textdatei) und das Archiv, und als eigene Playlist (ownPlaylistIds: nach dem Umbenennen keine Quelle). Sonst
+// bleibt state.json unverändert (ein Import ist kein Lauf des DJ).
 function rememberPlaylistId(name, id) {
-  if (knownPlaylistId(name) !== id) updateState(state => (state.playlistIds = { [name]: id }));
+  const state = readState();
+  if (state.playlistIds?.[name] === id && Array.isArray(state.ownPlaylistIds) && state.ownPlaylistIds.includes(id)) return;
+  updateState(s => {
+    s.playlistIds = { [name]: id };
+    s.ownPlaylistIds = rememberOwnPlaylist(s.ownPlaylistIds, id);
+  });
 }
 
 // Songs, die der DJ schon in die Playlist geschrieben hat, als Set von trackKey (state.played, für „zum ersten Mal dabei“).
@@ -567,7 +577,7 @@ function playedSet(state) {
   return new Set([...(state.history ?? []).flat(), ...archivedTracks(HERE).map(s => trackKey(s.artist, s.name))]);
 }
 
-// Songs eines Laufs (bzw. eines übernommenen Probelaufs) in die Playlist schreiben und als Lauf merken (state.history, für
+// Songs eines Laufs (bzw. der erstellten Liste eines Probelaufs, --apply) in die Playlist schreiben und als Lauf merken (state.history, für
 // „Vorige Läufe sperren“, und state.played, für „zum ersten Mal dabei“). Ein älterer Probelauf passt danach nicht mehr zum Verlauf: probelauf.json kommt weg.
 // Mit --new in eine neue Playlist mit Datum und Uhrzeit im Namen; ins Archiv kommt sie unter diesem Namen.
 async function toSpotify(cfg, spotify, lineup, description) {
