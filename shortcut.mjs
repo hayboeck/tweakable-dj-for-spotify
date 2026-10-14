@@ -3,7 +3,8 @@
 // Namen; erneutes Anlegen ersetzt sie (z. B. nach dem Verschieben des Ordners).
 //   Windows: "Tweakable DJ.lnk" auf dem Desktop (auch bei Umleitung nach OneDrive: [Environment]::GetFolderPath('Desktop')),
 //            angelegt mit PowerShell und WScript.Shell. Das Skript ist fest (-EncodedCommand), Pfade und Texte kommen nur
-//            über Umgebungsvariablen – Leerzeichen, Umlaute, Apostrophe und $ kommen unverändert an.
+//            über Umgebungsvariablen – Leerzeichen, Umlaute, Apostrophe und $ kommen unverändert an. Ohne -ExecutionPolicy:
+//            Die Ausführungsrichtlinie gilt nur für Skriptdateien, nicht für -EncodedCommand (läuft auch unter „Restricted“).
 //            Ziel: conhost.exe --headless cmd.exe /d /c call "…\Tweakable DJ.cmd" --hidden (kein Fenster), Arbeitsordner =
 //            Programmordner, Symbol assets\logo.ico. Frühere Fassungen zielten direkt auf "Tweakable DJ.cmd" (mit Fenster).
 //   macOS:   kleines Programm "Tweakable DJ.app" in ~/Desktop: Info.plist (Kennung io.github.tweakable-dj.launcher,
@@ -236,7 +237,7 @@ export function windowsCommand(action, { dir, desktop = '', lang, kind, nameLang
   const s = windowsShortcut(dir, { lang, kind, env });
   return {
     file: `${root}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
-    args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(PS_SCRIPT, 'utf16le').toString('base64')],
+    args: ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(PS_SCRIPT, 'utf16le').toString('base64')],
     env: {
       ...env, [`${PS_PREFIX}ACTION`]: action, [`${PS_PREFIX}DESKTOP`]: desktop, [`${PS_PREFIX}FILE`]: fileNameOf({ kind, nameLang: resolveLang(nameLang), altName }, 'win32'),
       [`${PS_PREFIX}TARGET`]: s.target, [`${PS_PREFIX}ARGUMENTS`]: s.arguments, [`${PS_PREFIX}WORKDIR`]: s.workdir, [`${PS_PREFIX}ICON`]: s.icon,

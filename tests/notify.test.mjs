@@ -35,7 +35,7 @@ test('Windows: PowerShell versteckt, festes Skript als -EncodedCommand, Text nur
   const env = { SystemRoot: 'C:\\WINDOWS', PATH: 'C:\\x' };
   const cmd = notifyCommand({ title: TITLE, text: TRICKY, platform: 'win32', env });
   assert.equal(cmd.file, 'C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe');
-  assert.deepEqual(cmd.args.slice(0, -1), ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-EncodedCommand']);
+  assert.deepEqual(cmd.args.slice(0, -1), ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand']);
   // Nichts vom Text in der Befehlszeile – auch nicht im Skript
   const script = Buffer.from(cmd.args.at(-1), 'base64').toString('utf16le');
   for (const part of ['Jörg', 'rm -rf', 'whoami', 'Probe', '<Test>']) {

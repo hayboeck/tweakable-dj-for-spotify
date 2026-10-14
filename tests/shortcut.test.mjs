@@ -169,7 +169,7 @@ test('Windows: Ziel conhost --headless, Arbeitsordner, Symbol; Werte nur in der 
   assert.equal(windowsOwner({ target: 'C:\\Windows\\notepad.exe', arguments: s.arguments }), null);
   const c = windowsCommand('write', { dir, desktop: 'D:\\Test Desktop ü', lang: 'de', env: { SystemRoot: 'C:\\Windows', PATH: 'x' } });
   assert.equal(c.file, 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe');
-  assert.equal(c.args.at(-2), '-EncodedCommand');
+  assert.deepEqual(c.args.slice(0, -1), ['-NoProfile', '-NonInteractive', '-EncodedCommand'], 'ohne -ExecutionPolicy');
   assert.ok(!c.args.some(a => a.includes('Hayb') || a.includes('Desktop')), 'kein Pfad in der Befehlszeile');
   const script = Buffer.from(c.args.at(-1), 'base64').toString('utf16le');
   assert.match(script, /GetFolderPath\('Desktop'\)/);

@@ -4,7 +4,8 @@
 //   Windows: PowerShell zeigt eine Toast-Benachrichtigung (Windows.UI.Notifications) unter der App-Kennung von Windows
 //            PowerShell – die gibt es auf jedem Windows 10/11, eine eigene Registrierung ist nicht nötig. Der Text kommt
 //            als fertig maskiertes XML in einer Umgebungsvariable, das (feste) Skript als -EncodedCommand: In der
-//            Befehlszeile steht nichts vom Text, also lässt sich nichts einschleusen.
+//            Befehlszeile steht nichts vom Text, also lässt sich nichts einschleusen. Ohne -ExecutionPolicy: Die
+//            Ausführungsrichtlinie gilt nur für Skriptdateien, nicht für -EncodedCommand (läuft auch unter „Restricted“).
 //   macOS:   osascript mit "display notification"; Titel und Text als Argumente des Skripts (on run argv), nie im Skript.
 //   Linux:   notify-send, falls vorhanden. Fehlt DBUS_SESSION_BUS_ADDRESS (z. B. unter cron), der übliche Bus des Benutzers
 //            (/run/user/<uid>/bus), sofern es ihn gibt.
@@ -71,8 +72,7 @@ export function notifyCommand({ title, text, platform = process.platform, env = 
     const root = env.SystemRoot || env.SYSTEMROOT || 'C:\\Windows';
     return {
       file: `${root}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
-      args: ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass',
-        '-EncodedCommand', Buffer.from(PS_SCRIPT, 'utf16le').toString('base64')],
+      args: ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', Buffer.from(PS_SCRIPT, 'utf16le').toString('base64')],
       env: { ...env, [TOAST_VAR]: toastXml(title, text), [APP_VAR]: WINDOWS_APP_ID },
     };
   }
