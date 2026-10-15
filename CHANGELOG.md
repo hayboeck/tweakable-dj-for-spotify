@@ -5,6 +5,20 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+### English
+
+**Changed**
+
+- **A created list can be saved even after changing controls**: if you move controls after *Create playlist* (even while the list is being created), *Overwrite “…”* and *Create new playlist* stay available and save exactly the list shown – a note below the buttons says so. Previously, any changed control disabled them.
+- **No more 24-hour limit**: the created list can be brought to Spotify until you create a new one or another run writes the playlist. It is still disabled if a song from it has been blocked since or a different Spotify or Last.fm account is set up. A list created with an older version has to be created once more.
+
+### Deutsch
+
+**Geändert**
+
+- **Erstellte Liste auch nach verstellten Reglern speicherbar**: Verstellst du nach *Playlist erstellen* Regler (auch während die Liste entsteht), bleiben *„…“ überschreiben* und *Neue Playlist anlegen* frei und speichern genau die angezeigte Liste – ein Hinweis unter den Knöpfen sagt das. Bisher sperrte jeder geänderte Regler die Knöpfe.
+- **Keine 24-Stunden-Grenze mehr**: Die erstellte Liste lässt sich nach Spotify bringen, bis du eine neue erstellst oder ein weiterer Lauf die Playlist schreibt. Gesperrt bleibt sie, wenn ein Song daraus inzwischen gesperrt ist oder ein anderes Spotify- oder Last.fm-Konto eingerichtet ist. Eine mit einer älteren Version erstellte Liste muss einmal neu erstellt werden.
+
 ## [0.4.0] – 2026-10-15
 
 ### English

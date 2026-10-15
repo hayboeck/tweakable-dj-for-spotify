@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DEFAULTS } from '../config.mjs';
 import { trackKey } from '../lineup.mjs';
-import { readTrial, saveTrial, settingsHash, TRIAL_FILE, TRIAL_KEYS, TRIAL_MAX_AGE, trialInfo, trialProblem } from '../trial.mjs';
+import { accountHash, readTrial, saveTrial, TRIAL_FILE, TRIAL_IGNORED, trialInfo, trialProblem } from '../trial.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MOCK = pathToFileURL(path.join(ROOT, 'tests', 'mock-apis.mjs')).href;
@@ -29,26 +29,18 @@ const cfg = (extra = {}) => ({ ...DEFAULTS, ...CONFIG, ...extra });
 
 // --- trial.mjs ---
 
-test('settingsHash: nur Einstellungen, die die Auswahl bestimmen, dazu Spotify-App und Last.fm-Benutzer', () => {
-  const base = settingsHash(cfg());
+test('accountHash: nur Spotify-App und Last.fm-Benutzer – Regler zählen nicht (die erstellte Liste ist fertig)', () => {
+  const base = accountHash(cfg());
   assert.match(base, /^[0-9a-f]{16}$/);
-  assert.equal(settingsHash(cfg()), base, 'gleich bei gleichen Werten');
-  // Automatik, Sprache, Archiv und Aussehen ändern nichts an der Auswahl
-  for (const extra of [{ schedule: 'daily' }, { scheduleTime: '05:30' }, { scheduleDay: 'FRI' }, { language: 'en' }, { archiveCount: 5 },
-    { theme: 'dark' }, { accent: 'blue' }]) {
-    assert.equal(settingsHash(cfg(extra)), base, JSON.stringify(extra));
+  for (const extra of [{ size: 30 }, { adventure: 0.9 }, { playlistName: 'Anders' }, { seed: 'https://open.spotify.com/playlist/x' },
+    { blockedArtists: [] }, { schedule: 'daily' }, { language: 'en' }]) {
+    assert.equal(accountHash(cfg(extra)), base, JSON.stringify(extra));
   }
-  assert.deepEqual(TRIAL_KEYS.filter(k => ['schedule', 'scheduleTime', 'scheduleDay', 'language'].includes(k)), []);
-  // Jede andere Einstellung zählt
-  const changed = { seed: 'https://open.spotify.com/playlist/x', playlistName: 'Anders', size: 21, familiarShare: 0.5, adventure: 0.9,
-    maxPerArtist: 3, artistWindow: 11, maxPerWindow: 4, artistGap: 3, excludeRecentDays: 1, noRepeatRuns: 5, seedsPerRun: 13,
-    useLastfmTopTracks: false, useLastfmLovedTracks: false, followedArtists: 0.5, preferNewer: 0.5, currentDays: 3, currentFactor: 2, blockedArtists: ['Macloud'], excludeExplicit: true,
-    blockedTracks: [{ artist: 'Nordlicht', name: 'Eisblau' }] };
-  assert.deepEqual(Object.keys(changed).sort(), [...TRIAL_KEYS].sort(), 'jede relevante Einstellung geprüft');
-  for (const [k, v] of Object.entries(changed)) assert.notEqual(settingsHash(cfg({ [k]: v })), base, k);
-  assert.notEqual(settingsHash(cfg({ spotify: { clientId: 'andere-app' } })), base, 'andere Spotify-App');
-  assert.notEqual(settingsHash(cfg({ lastfm: { ...CONFIG.lastfm, user: 'jemand' } })), base, 'anderer Last.fm-Benutzer');
-  assert.equal(settingsHash(cfg({ lastfm: { ...CONFIG.lastfm, apiKey: 'anderer-key' } })), base, 'der API-Key ändert die Auswahl nicht');
+  assert.notEqual(accountHash(cfg({ spotify: { clientId: 'andere-app' } })), base, 'andere Spotify-App');
+  assert.notEqual(accountHash(cfg({ lastfm: { ...CONFIG.lastfm, user: 'jemand' } })), base, 'anderer Last.fm-Benutzer');
+  assert.equal(accountHash(cfg({ lastfm: { ...CONFIG.lastfm, apiKey: 'anderer-key' } })), base, 'der API-Key ist egal');
+  // Für den Hinweis „Regler seit dem Erstellen geändert“ in der Oberfläche: Automatik, Sprache und Aussehen zählen dort nicht
+  assert.deepEqual(['schedule', 'scheduleTime', 'scheduleDay', 'language', 'theme', 'accent', 'mode'].filter(k => !TRIAL_IGNORED.includes(k)), []);
 });
 
 const TRACKS = [
@@ -66,7 +58,7 @@ function withDir(fn) {
   }
 }
 
-test('saveTrial/readTrial/trialProblem: gilt 24 Stunden, mit denselben Einstellungen, nur für die eigene Kennung', () => withDir(dir => {
+test('saveTrial/readTrial/trialProblem: gilt ohne Ablauf und mit geänderten Reglern, nur für die eigene Kennung, dasselbe Konto und ohne gesperrte Songs', () => withDir(dir => {
   assert.equal(readTrial(dir), null);
   assert.equal(trialProblem(readTrial(dir), { cfg: cfg() }), 'missing');
   const now = new Date('2026-10-05T12:00:00Z');
@@ -76,21 +68,27 @@ test('saveTrial/readTrial/trialProblem: gilt 24 Stunden, mit denselben Einstellu
   assert.deepEqual(saved, trial);
   assert.deepEqual(saved.tracks.map(t => t.artists), [['Nordlicht', 'Gast'], ['Elbsand']], 'ohne Liste von Spotify: der Künstler allein');
   assert.deepEqual([saved.playlistName, saved.description, saved.createdAt], ['Test-DJ', 'Beschreibung', now.toISOString()]);
-  assert.deepEqual(trialInfo(saved), { id: trial.id, createdAt: now.toISOString(), expiresAt: '2026-10-06T12:00:00.000Z', songs: 2, playlistName: 'Test-DJ' });
+  assert.deepEqual(trialInfo(saved), { id: trial.id, createdAt: now.toISOString(), songs: 2, playlistName: 'Test-DJ' });
 
   const at = ms => ({ cfg: cfg(), now: now.getTime() + ms });
   assert.equal(trialProblem(saved, at(0)), null);
   assert.equal(trialProblem(saved, { ...at(60_000), id: trial.id }), null);
   assert.equal(trialProblem(saved, { ...at(60_000), id: '0123456789ab' }), 'replaced');
-  assert.equal(trialProblem(saved, at(TRIAL_MAX_AGE)), null, 'genau 24\u00a0Stunden geht noch');
-  assert.equal(trialProblem(saved, at(TRIAL_MAX_AGE + 1)), 'old');
-  assert.equal(trialProblem(saved, at(-10 * 60_000)), 'old', 'aus der Zukunft (Uhr verstellt)');
-  assert.equal(trialProblem(saved, { ...at(0), cfg: cfg({ size: 30 }) }), 'settings');
-  assert.equal(trialProblem(saved, { ...at(0), cfg: cfg({ schedule: 'daily', language: 'en' }) }), null, 'Automatik und Sprache egal');
+  assert.equal(trialProblem(saved, at(30 * 24 * 3600_000)), null, 'kein Ablauf (191)');
+  assert.equal(trialProblem(saved, at(-10 * 60_000)), null, 'Uhr verstellt: egal');
+  assert.equal(trialProblem(saved, { ...at(0), cfg: cfg({ size: 30, adventure: 1, playlistName: 'Anders' }) }), null, 'Regler geändert: die Liste ist fertig (190)');
+  assert.equal(trialProblem(saved, { ...at(0), cfg: cfg({ spotify: { clientId: 'andere-app' } }) }), 'account');
+  assert.equal(trialProblem(saved, { ...at(0), cfg: cfg({ lastfm: { ...CONFIG.lastfm, user: 'jemand' } }) }), 'account');
+  // Seitdem gesperrt: ein Song der Liste (URI oder Künstler + Titel) oder ein Künstler, auch als Gast
+  for (const extra of [{ blockedTracks: [{ uri: TRACKS[1].uri, artist: 'x', name: 'y' }] }, { blockedTracks: [{ artist: 'nordlicht', name: 'Polarnacht' }] },
+    { blockedArtists: ['Elbsand'] }, { blockedArtists: ['Gast'] }]) {
+    assert.equal(trialProblem(saved, { ...at(0), cfg: cfg(extra) }), 'blocked', JSON.stringify(extra));
+  }
+  assert.equal(trialProblem(saved, { ...at(0), cfg: cfg({ blockedArtists: ['Nord'], blockedTracks: [{ artist: 'Nordlicht', name: 'Eisblau' }] }) }), null, 'anderes gesperrt');
 
   // Kaputt oder von Hand verändert: lieber nicht übernehmen
   const file = path.join(dir, TRIAL_FILE);
-  for (const broken of ['{ kaputt', JSON.stringify({ ...trial, format: 2 }), JSON.stringify({ ...trial, tracks: [] }),
+  for (const broken of ['{ kaputt', JSON.stringify({ ...trial, format: 1 }), JSON.stringify({ ...trial, accountHash: undefined }), JSON.stringify({ ...trial, tracks: [] }),
     JSON.stringify({ ...trial, songs: 3 }), JSON.stringify({ ...trial, tracks: [{ ...TRACKS[0], uri: 'spotify:album:x' }, TRACKS[1]] }),
     JSON.stringify({ ...trial, createdAt: 'gestern' }), JSON.stringify({ ...trial, id: '../x' })]) {
     fs.writeFileSync(file, broken);
@@ -140,7 +138,7 @@ test('Übernehmen: genau die Liste des Probelaufs, in derselben Reihenfolge, ohn
     const dry = dj(dir, ['--dry']);
     assert.equal(dry.code, 0, dry.all);
     assert.deepEqual(writes(dry.requests), [], 'Probelauf schreibt nichts');
-    assert.match(dry.out, /^Diese Liste lässt sich 24\u00a0Stunden lang nach Spotify bringen: mit den Knöpfen unter der Liste bzw\. "node dj\.mjs --apply" \(als neue Playlist: --apply --new\)\.$/m);
+    assert.match(dry.out, /^Diese Liste lässt sich genau so nach Spotify bringen, bis du eine neue erstellst oder die Playlist neu erstellt wird: mit den Knöpfen unter der Liste bzw\. "node dj\.mjs --apply" \(als neue Playlist: --apply --new\)\.$/m);
     const trial = readTrial(dir);
     assert.equal(dry.result.trialId, trial.id);
     assert.deepEqual([trial.songs, trial.fresh, trial.familiar], [dry.result.songs, dry.result.fresh, dry.result.familiar]);
@@ -192,7 +190,7 @@ test('Übernehmen: genau die Liste des Probelaufs, in derselben Reihenfolge, ohn
   }
 });
 
-test('Übernehmen geht nicht mehr: Einstellungen geändert, älter als 24 Stunden, neuer Lauf, andere Kennung, Datei fehlt', () => {
+test('Übernehmen: geht auch mit geänderten Reglern und nach 24 Stunden; nicht mehr bei anderem Konto, gesperrtem Song, neuem Lauf, anderer Kennung, fehlender Datei', () => {
   const dir = setup();
   const expired = (res, re) => {
     assert.equal(res.code, 1, res.all);
@@ -201,20 +199,30 @@ test('Übernehmen geht nicht mehr: Einstellungen geändert, älter als 24 Stunde
     assert.deepEqual(writes(res.requests), [], 'nichts geschrieben');
   };
   try {
-    // Einstellungen geändert (auch nur gespeichert, ohne neuen Probelauf) – zurückgestellt gilt er wieder
+    // Regler geändert und gespeichert: geht trotzdem, genau diese Liste (190)
     dj(dir, ['--dry']);
-    writeConfig(dir, { ...CONFIG, size: 25 });
-    expired(dj(dir, ['--apply']), /^Fehler: Die Einstellungen haben sich seit dem Erstellen der Liste geändert\. Erstelle sie noch einmal \(„Playlist erstellen“\)\.$/m);
-    expired(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }), /^Error: The settings have changed since the list was created\. Create it again \(“Create playlist”\)\.$/m);
-    writeConfig(dir, { ...CONFIG, schedule: 'daily', language: 'de' });
-    assert.equal(dj(dir, ['--apply', '--dry']).result.ok, true, 'Automatik und Sprache zählen nicht');
-
-    // Älter als 24 Stunden
     const file = path.join(dir, TRIAL_FILE);
     const trial = JSON.parse(fs.readFileSync(file, 'utf8'));
-    fs.writeFileSync(file, JSON.stringify({ ...trial, createdAt: new Date(Date.now() - TRIAL_MAX_AGE - 60_000).toISOString() }));
-    expired(dj(dir, ['--apply']), /^Fehler: Die Liste ist älter als 24\u00a0Stunden\./m);
-    expired(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }), /^Error: The list is more than 24\u00a0hours old\./m);
+    writeConfig(dir, { ...CONFIG, size: 25, adventure: 1 });
+    const changed = dj(dir, ['--apply', '--dry']);
+    assert.equal(changed.result.ok, true, changed.all);
+    assert.equal(lineupLines(changed.out).length, 20, 'die erstellte Liste, nicht 25 Songs');
+
+    // Älter als 24 Stunden: geht trotzdem (191)
+    fs.writeFileSync(file, JSON.stringify({ ...trial, createdAt: new Date(Date.now() - 3 * 24 * 3600_000).toISOString() }));
+    assert.equal(dj(dir, ['--apply', '--dry']).result.ok, true, 'drei Tage alt');
+    fs.writeFileSync(file, JSON.stringify(trial));
+
+    // Anderes Konto
+    writeConfig(dir, { ...CONFIG, lastfm: { ...CONFIG.lastfm, user: 'jemand' } });
+    expired(dj(dir, ['--apply']), /^Fehler: Die Liste wurde mit einem anderen Spotify- oder Last\.fm-Konto erstellt\. Erstelle sie noch einmal \(„Playlist erstellen“\)\.$/m);
+    expired(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }), /^Error: The list was created with a different Spotify or Last\.fm account\./m);
+
+    // Song aus der Liste seitdem gesperrt
+    writeConfig(dir, { ...CONFIG, blockedTracks: [{ uri: trial.tracks[3].uri, artist: trial.tracks[3].artist, name: trial.tracks[3].name }] });
+    expired(dj(dir, ['--apply']), /^Fehler: Ein Song aus der Liste ist inzwischen gesperrt \(der Song oder sein Künstler\)\. Erstelle sie noch einmal/m);
+    expired(dj(dir, ['--apply'], { TWEAKABLE_DJ_LANG: 'en' }), /^Error: A song in the list has been blocked since \(the song or its artist\)\./m);
+    writeConfig(dir, CONFIG);
 
     // Andere Kennung (die Oberfläche zeigt einen anderen Probelauf als den gespeicherten)
     fs.writeFileSync(file, JSON.stringify(trial));

@@ -193,7 +193,7 @@ export const MESSAGES = {
     'run.forbidden': 'Spotify verweigert den Zugriff (403). Häufige Ursachen:\n'
       + '  – Der Besitzer der Spotify-App hat kein Premium. Seit Februar 2026 ist das für Apps im Entwicklermodus Pflicht.\n'
       + '  – Dein Spotify-Konto fehlt im Spotify-Dashboard deiner App unter „User Management“: https://developer.spotify.com/dashboard',
-    'run.trialSaved': 'Diese Liste lässt sich 24 Stunden lang nach Spotify bringen: mit den Knöpfen unter der Liste bzw. "node dj.mjs --apply" (als neue Playlist: --apply --new).',
+    'run.trialSaved': 'Diese Liste lässt sich genau so nach Spotify bringen, bis du eine neue erstellst oder die Playlist neu erstellt wird: mit den Knöpfen unter der Liste bzw. "node dj.mjs --apply" (als neue Playlist: --apply --new).',
     'run.trialNotSaved': 'Liste nicht gemerkt, sie lässt sich diesmal nicht nach Spotify bringen: {message}',
 
     // --- Erstellte Liste nach Spotify (dj.mjs --apply, trial.mjs) ---
@@ -201,8 +201,8 @@ export const MESSAGES = {
     'trial.missing': 'Es gibt keine erstellte Liste, die sich nach Spotify bringen ließe: Noch keine erstellt, oder die Playlist wurde seitdem neu geschrieben. Erstelle sie noch einmal („Playlist erstellen“).',
     'trial.invalid': 'probelauf.json ist beschädigt oder stammt von einer anderen Version. Erstelle die Liste noch einmal („Playlist erstellen“).',
     'trial.replaced': 'Seitdem wurde eine neuere Liste erstellt (z. B. in einem anderen Fenster). Erstelle sie noch einmal („Playlist erstellen“), dann passen Anzeige und Liste zusammen.',
-    'trial.old': 'Die Liste ist älter als 24 Stunden. Erstelle sie noch einmal („Playlist erstellen“).',
-    'trial.settings': 'Die Einstellungen haben sich seit dem Erstellen der Liste geändert. Erstelle sie noch einmal („Playlist erstellen“).',
+    'trial.account': 'Die Liste wurde mit einem anderen Spotify- oder Last.fm-Konto erstellt. Erstelle sie noch einmal („Playlist erstellen“).',
+    'trial.blocked': 'Ein Song aus der Liste ist inzwischen gesperrt (der Song oder sein Künstler). Erstelle sie noch einmal („Playlist erstellen“).',
 
     // --- Textdatei (dj.mjs export/import, playlist.mjs) ---
     'export.header': '{name} – exportiert am {date}, {time}',
@@ -524,7 +524,7 @@ export const MESSAGES = {
     'run.forbidden': 'Spotify denies access (403). Common causes:\n'
       + '  – The owner of the Spotify app has no Premium. Since February 2026, it is required for apps in development mode.\n'
       + '  – Your Spotify account is missing from your app’s Spotify dashboard under “User Management”: https://developer.spotify.com/dashboard',
-    'run.trialSaved': 'You can bring exactly this list to Spotify within 24 hours: with the buttons below the list or "node dj.mjs --apply" (as a new playlist: --apply --new).',
+    'run.trialSaved': 'You can bring exactly this list to Spotify until you create a new one or the playlist is rebuilt: with the buttons below the list or "node dj.mjs --apply" (as a new playlist: --apply --new).',
     'run.trialNotSaved': 'List not remembered, so it can’t go to Spotify this time: {message}',
 
     // --- Apply a test run (dj.mjs --apply, trial.mjs) ---
@@ -532,8 +532,8 @@ export const MESSAGES = {
     'trial.missing': 'There’s no created list to bring to Spotify: none has been created yet, or the playlist has been written since. Create it again (“Create playlist”).',
     'trial.invalid': 'probelauf.json is damaged or comes from a different version. Create the list again (“Create playlist”).',
     'trial.replaced': 'A newer list has been created since (e.g. in another window). Create it again (“Create playlist”) so the list and what you see match.',
-    'trial.old': 'The list is more than 24 hours old. Create it again (“Create playlist”).',
-    'trial.settings': 'The settings have changed since the list was created. Create it again (“Create playlist”).',
+    'trial.account': 'The list was created with a different Spotify or Last.fm account. Create it again (“Create playlist”).',
+    'trial.blocked': 'A song in the list has been blocked since (the song or its artist). Create it again (“Create playlist”).',
 
     // --- Text file (dj.mjs export/import, playlist.mjs) ---
     'export.header': '{name} – exported on {date}, {time}',
@@ -856,7 +856,7 @@ export const MESSAGES = {
     'run.forbidden': 'Spotify deniega el acceso (403). Causas frecuentes:\n'
       + '  – La persona propietaria de la app de Spotify no tiene Premium. Desde febrero de 2026 es obligatorio para las apps en modo de desarrollo.\n'
       + '  – Tu cuenta de Spotify no figura en «User Management» del dashboard de tu app: https://developer.spotify.com/dashboard',
-    'run.trialSaved': 'Puedes pasar exactamente esta lista a Spotify durante 24 horas: con los botones de debajo de la lista o "node dj.mjs --apply" (como playlist nueva: --apply --new).',
+    'run.trialSaved': 'Puedes pasar exactamente esta lista a Spotify hasta que crees otra o se recree la playlist: con los botones de debajo de la lista o "node dj.mjs --apply" (como playlist nueva: --apply --new).',
     'run.trialNotSaved': 'No se guardó la lista, así que esta vez no se puede pasar a Spotify: {message}',
 
     // --- Erstellte Liste nach Spotify (dj.mjs --apply, trial.mjs) ---
@@ -864,8 +864,8 @@ export const MESSAGES = {
     'trial.missing': 'No hay ninguna lista creada que usar: todavía no se ha creado ninguna o la playlist se ha escrito desde entonces. Créala de nuevo («Crear playlist»).',
     'trial.invalid': 'probelauf.json está dañado o es de otra versión. Crea la lista de nuevo («Crear playlist»).',
     'trial.replaced': 'Desde entonces se ha creado una lista más reciente (p. ej. en otra ventana). Créala de nuevo («Crear playlist») para que la lista coincida con lo que ves.',
-    'trial.old': 'La lista tiene más de 24 horas. Créala de nuevo («Crear playlist»).',
-    'trial.settings': 'Los ajustes han cambiado desde que se creó la lista. Créala de nuevo («Crear playlist»).',
+    'trial.account': 'La lista se creó con otra cuenta de Spotify o Last.fm. Créala de nuevo («Crear playlist»).',
+    'trial.blocked': 'Desde entonces se ha bloqueado una canción de la lista (la canción o su artista). Créala de nuevo («Crear playlist»).',
 
     // --- Textdatei (dj.mjs export/import, playlist.mjs) ---
     'export.header': '{name} – exportada el {date}, {time}',
@@ -1189,7 +1189,7 @@ export const MESSAGES = {
     'run.forbidden': 'Spotify refuse l’accès (403). Causes fréquentes :\n'
       + '  – Le propriétaire de l’app Spotify n’a pas Premium. Depuis février 2026, c’est obligatoire pour les apps en mode développement.\n'
       + '  – Ton compte Spotify ne figure pas dans « User Management » du dashboard de ton app : https://developer.spotify.com/dashboard',
-    'run.trialSaved': 'Tu peux envoyer exactement cette liste vers Spotify pendant 24 heures : avec les boutons sous la liste ou "node dj.mjs --apply" (en nouvelle playlist : --apply --new).',
+    'run.trialSaved': 'Tu peux envoyer exactement cette liste vers Spotify jusqu’à ce que tu en crées une nouvelle ou que la playlist soit recréée : avec les boutons sous la liste ou "node dj.mjs --apply" (en nouvelle playlist : --apply --new).',
     'run.trialNotSaved': 'Liste non enregistrée, elle ne peut donc pas aller dans Spotify cette fois : {message}',
 
     // --- Erstellte Liste nach Spotify (dj.mjs --apply, trial.mjs) ---
@@ -1197,8 +1197,8 @@ export const MESSAGES = {
     'trial.missing': 'Il n’y a aucune liste créée à utiliser : aucune n’a encore été créée, ou la playlist a été réécrite depuis. Crée-la de nouveau (« Créer la playlist »).',
     'trial.invalid': 'probelauf.json est endommagé ou provient d’une autre version. Crée la liste de nouveau (« Créer la playlist »).',
     'trial.replaced': 'Une liste plus récente a été créée depuis (p. ex. dans une autre fenêtre). Crée-la de nouveau (« Créer la playlist ») pour que la liste corresponde à ce que tu vois.',
-    'trial.old': 'La liste date de plus de 24 heures. Crée-la de nouveau (« Créer la playlist »).',
-    'trial.settings': 'Les paramètres ont changé depuis la création de la liste. Crée-la de nouveau (« Créer la playlist »).',
+    'trial.account': 'La liste a été créée avec un autre compte Spotify ou Last.fm. Crée-la de nouveau (« Créer la playlist »).',
+    'trial.blocked': 'Un titre de la liste a été bloqué depuis (le titre ou son artiste). Crée-la de nouveau (« Créer la playlist »).',
 
     // --- Textdatei (dj.mjs export/import, playlist.mjs) ---
     'export.header': '{name} – exportée le {date}, {time}',

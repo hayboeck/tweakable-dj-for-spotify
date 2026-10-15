@@ -631,7 +631,7 @@ test('GET /api/whatsnew: ohne Version kein Hinweis; POST merkt nichts', async ()
   assert.equal(fs.existsSync(path.join(dir, 'seen-version.json')), false);
 });
 
-test('„„<Name>“ überschreiben“: Playlist = erstellte Liste (Probelauf); abgelaufen nach Änderung der Einstellungen bzw. nach dem Übernehmen', async () => {
+test('„„<Name>“ überschreiben“: Playlist = erstellte Liste (Probelauf), auch nach Änderung der Einstellungen; verbraucht nach dem Übernehmen', async () => {
   const dry = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
   const { trialId } = resultLine(dry.text);
   assert.match(trialId, /^[0-9a-f]{12}$/);
@@ -639,7 +639,7 @@ test('„„<Name>“ überschreiben“: Playlist = erstellte Liste (Probelauf);
   assert.equal(trial.id, trialId);
   const ok = (await api(`/api/trial?id=${trialId}`, { lang: 'de' })).data;
   assert.deepEqual([ok.ok, ok.reason, ok.message, ok.trial.id, ok.trial.songs, ok.trial.playlistName], [true, null, '', trialId, 20, 'Test-DJ']);
-  assert.equal(Date.parse(ok.trial.expiresAt) - Date.parse(ok.trial.createdAt), 24 * 3600_000);
+  assert.equal(ok.trial.expiresAt, undefined, 'kein Ablauf');
 
   // Falsche oder fremde Kennung
   assert.deepEqual(await api('/api/apply', { lang: 'en', method: 'POST', body: { id: '../x' } }),
@@ -647,15 +647,10 @@ test('„„<Name>“ überschreiben“: Playlist = erstellte Liste (Probelauf);
   const other = await api('/api/apply', { lang: 'de', method: 'POST', body: { id: '0123456789ab' } });
   assert.deepEqual([other.status, other.data.reason], [409, 'replaced']);
   assert.match(other.data.error, /^Seitdem wurde eine neuere Liste erstellt/);
-  // Einstellung geändert und gespeichert: abgelaufen; zurückgestellt gilt er wieder
+  // Einstellung geändert und gespeichert: gilt weiter – geschrieben wird unten trotzdem genau die erstellte Liste (20 Songs)
   assert.equal((await api('/api/config', { method: 'POST', body: { size: 25 } })).status, 200);
   const changed = (await api(`/api/trial?id=${trialId}`, { lang: 'en' })).data;
-  assert.deepEqual([changed.ok, changed.reason, changed.message], [false, 'settings', 'The settings have changed since the list was created. Create it again (“Create playlist”).']);
-  const refused = await api('/api/apply', { lang: 'de', method: 'POST', body: { id: trialId } });
-  assert.deepEqual([refused.status, refused.data], [409, { error: 'Die Einstellungen haben sich seit dem Erstellen der Liste geändert. Erstelle sie noch einmal („Playlist erstellen“).', reason: 'settings' }]);
-  // (Die Automatik zählt nicht – hier nicht geprüft, weil das den Zeitplaner des Systems fragen würde; siehe tests/trial.test.mjs.)
-  assert.equal((await api('/api/config', { method: 'POST', body: { size: 20 } })).status, 200);
-  assert.equal((await api(`/api/trial?id=${trialId}`)).data.ok, true, 'zurückgestellt: gilt wieder');
+  assert.deepEqual([changed.ok, changed.reason, changed.message], [true, null, '']);
 
   // Noch nicht übernommen: als Textdatei speichern
   const text = (await api(`/api/export?trial=${trialId}`, { lang: 'de' })).data;
@@ -677,6 +672,7 @@ test('„„<Name>“ überschreiben“: Playlist = erstellte Liste (Probelauf);
   assert.deepEqual(playlist.uris, trial.tracks.map(t => t.uri));
   assert.equal(r.playlistUrl, `https://open.spotify.com/playlist/${playlist.id}`);
   assert.equal(playlist.description, trial.description);
+  assert.equal((await api('/api/config', { method: 'POST', body: { size: 20 } })).status, 200);
   const history = JSON.parse(fs.readFileSync(path.join(dir, 'state.json'), 'utf8')).history;
   assert.equal(history.at(-1).length, 20, 'als Lauf gemerkt');
   const gone = (await api(`/api/trial?id=${trialId}`, { lang: 'en' })).data;
@@ -856,7 +852,7 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Zahl und Einh
     'run.ok': [[c, true], [{ ...c, songs: 0, familiar: 1, playlistName: '' }, false]],
     'auto.ok': [[3, true], [null, false], [1, false]],
     'variety.hint': [[c], [{ ...c, artistGap: 0, maxPerArtist: 1 }]],
-    'trial.help': [['Mix', '07:05', 'Mix · 07.10.2026 07:05']],
+    'trial.help': [['Mix', 'Mix · 07.10.2026 07:05']],
     'items.scheduleTime.fmt': [['07:05']],
     'items.scheduleTime.hint': [['07:05', c], ['07:05', { ...c, schedule: 'daily' }]],
     'files.saved': [['mix.txt', 3], ['mix.txt', 1]],
@@ -1070,7 +1066,7 @@ test('GET /api/trial?tracks=1: Songs des Probelaufs; einen davon sperren → nic
     assert.deepEqual(saved.data, { ok: true });
     assert.deepEqual((await api('/api/config')).data.values.blockedTracks, [song], 'gesäubert gespeichert');
     const after = (await api(`/api/trial?id=${trialId}`, { lang: 'de' })).data;
-    assert.deepEqual([after.ok, after.reason], [false, 'settings']);
+    assert.deepEqual([after.ok, after.reason, after.message], [false, 'blocked', 'Ein Song aus der Liste ist inzwischen gesperrt (der Song oder sein Künstler). Erstelle sie noch einmal („Playlist erstellen“).']);
     assert.equal((await api('/api/apply', { lang: 'de', method: 'POST', body: { id: trialId } })).status, 409);
     assert.equal(resultLine((await api('/api/run?dry=1', { lang: 'de', method: 'POST' })).text).ok, true);
     assert.ok(!JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8')).tracks.some(t => t.uri === song.uri), 'nicht mehr dabei');

@@ -69,7 +69,7 @@ test('Alle Schlüssel, die die Programmdateien verwenden, gibt es', () => {
   }
   for (const key of ['stale', 'failed', 'ok']) used.add(`login.${key}Title`).add(`login.${key}Text`);
   // Gründe aus trialProblem() (trial.mjs) und resolveImport() (playlist.mjs), zusammengesetzt als trial.<Grund> bzw. import.reason.<Grund>
-  for (const key of ['missing', 'invalid', 'replaced', 'old', 'settings']) used.add(`trial.${key}`);
+  for (const key of ['missing', 'invalid', 'replaced', 'account', 'blocked']) used.add(`trial.${key}`);
   for (const key of ['notFound', 'format', 'link', 'error']) used.add(`import.reason.${key}`);
   assert.ok(used.size > 80, `nur ${used.size} Schlüssel gefunden`);
   const missing = [...used].filter(k => LANGS.some(lang => !(k in MESSAGES[lang])));

@@ -119,6 +119,14 @@ test('Playlist erstellen, „überschreiben“ per Doppelklick (nur einmal), Vor
   await page.waitFor("document.getElementById('summary').textContent.startsWith('Erstellt:')", 60_000);
   await page.waitFor("!document.getElementById('trial-apply').hidden && !document.getElementById('trial-apply').disabled");
   assert.match(await text(page, 'trial-apply'), /^„Test-DJ“ überschreiben$/);
+  // Regler verstellt (ungespeichert): Die Knöpfe bleiben frei, nur ein Hinweis (190); zurückgestellt wieder der normale Text
+  const help = await text(page, 'trial-msg');
+  await page.eval("set('size', saved.size + 5)");
+  assert.equal(await page.eval("document.getElementById('trial-apply').disabled || document.getElementById('trial-new').disabled"), false);
+  assert.match(await text(page, 'trial-msg'), /^Du hast seit dem Erstellen Regler geändert\. Gespeichert wird die Liste so, wie sie oben steht/);
+  await page.eval("set('size', saved.size)");
+  assert.equal(await text(page, 'trial-msg'), help);
+  assert.match(help, /^Möglich, bis du eine neue Liste erstellst\. /);
   // × hinter jedem Song: Die Knöpfe kommen erst mit der Liste aus GET /api/trial?tracks=1, die die Seite nach dem Lauf lädt
   // (das kann kurz nach der Zusammenfassung sein) – deshalb warten statt sofort zählen.
   await page.waitFor("document.querySelectorAll('#log button.block').length === 20", 10_000);

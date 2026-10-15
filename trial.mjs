@@ -4,33 +4,32 @@
 //
 // dj.mjs --dry speichert sein Ergebnis in probelauf.json: die Songs in ihrer Reihenfolge (URI, Künstler, Titel, Markierung),
 // Name und Beschreibung der Playlist, die Zahlen für die Zusammenfassung samt Spieldauer (durationMs, durationEstimated;
-// fehlen bei Probeläufen älterer Versionen), den Zeitpunkt und einen Fingerabdruck der Einstellungen, die die Auswahl
-// bestimmen (settingsHash). Nach Spotify bringen lässt sich die Liste nur, solange sie gilt
-// (trialProblem): höchstens 24 Stunden alt, Einstellungen seitdem unverändert, kein neuerer Probelauf (andere Kennung) und
-// seitdem keine Neuerstellung – ein echter Lauf und das Schreiben nach Spotify selbst löschen probelauf.json (removeTrial).
+// fehlen bei Probeläufen älterer Versionen), den Zeitpunkt und einen Fingerabdruck von Spotify-App und Last.fm-Benutzer
+// (accountHash). Die Liste ist fertig: Geänderte Regler und ihr Alter ändern nichts daran, sie lässt sich so nach Spotify
+// bringen, solange sie gilt (trialProblem): kein neuerer Probelauf (andere Kennung), seitdem keine Neuerstellung – ein echter
+// Lauf und das Schreiben nach Spotify selbst löschen probelauf.json (removeTrial) –, dasselbe Konto und kein Song daraus
+// seitdem gesperrt.
 // probelauf.json ist eine persönliche Datei wie state.json: nie im Repository, nie in der ZIP-Datei, ein Update schreibt sie nie.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { DEFAULTS, LIMITS } from './config.mjs';
+import { LIMITS } from './config.mjs';
 import { readText, writeAtomic } from './files.mjs';
+import { artistBlocker, trackBlocker } from './lineup.mjs';
 
 export const TRIAL_FILE = 'probelauf.json';
-export const TRIAL_MAX_AGE = 24 * 3600_000;
-const FORMAT = 1;
+// 2: accountHash statt des Fingerabdrucks aller Einstellungen (bis 0.4.0) – ältere Dateien zählen als 'invalid'.
+const FORMAT = 2;
 
-// Einstellungen, die die Auswahl nicht beeinflussen; alle anderen zählen für den Fingerabdruck. Die Oberfläche bekommt die
-// Liste mit GET /api/config (trialIgnored) und weiß so, welche Änderungen die erstellte Liste ungültig machen.
+// Einstellungen, die die Auswahl nicht beeinflussen. Die Oberfläche bekommt die Liste mit GET /api/config (trialIgnored):
+// Ändert sich seit dem Erstellen eine andere, sagt sie dazu, dass die Liste so bleibt, wie sie oben steht.
 export const TRIAL_IGNORED = ['schedule', 'scheduleTime', 'scheduleDay', 'notifyOnFailure', 'remindLogin', 'runShortcut', 'language', 'archiveCount', 'theme', 'accent', 'mode'];
-export const TRIAL_KEYS = Object.keys(DEFAULTS).filter(k => !TRIAL_IGNORED.includes(k));
 
-// Fingerabdruck der Einstellungen, die das Ergebnis bestimmen, dazu Spotify-App und Last.fm-Benutzer
-// (ein anderes Konto hätte andere Lieblingssongs und einen anderen Hörverlauf). 16 Hex-Zeichen von SHA-256.
-export function settingsHash(cfg) {
-  const relevant = Object.fromEntries(TRIAL_KEYS.map(k => [k, cfg[k] ?? null]));
-  relevant['spotify.clientId'] = cfg.spotify?.clientId ?? null;
-  relevant['lastfm.user'] = cfg.lastfm?.user ?? null;
-  return crypto.createHash('sha256').update(JSON.stringify(relevant)).digest('hex').slice(0, 16);
+// Fingerabdruck von Spotify-App und Last.fm-Benutzer: Eine Liste aus einem anderen Konto (andere Lieblingssongs, anderer
+// Hörverlauf) soll nicht in dieses. 16 Hex-Zeichen von SHA-256.
+export function accountHash(cfg) {
+  const account = { 'spotify.clientId': cfg.spotify?.clientId ?? null, 'lastfm.user': cfg.lastfm?.user ?? null };
+  return crypto.createHash('sha256').update(JSON.stringify(account)).digest('hex').slice(0, 16);
 }
 
 const URI = /^spotify:track:[A-Za-z0-9]{1,64}$/;
@@ -40,7 +39,7 @@ const count = v => Number.isInteger(v) && v >= 0;
 // Passt der Inhalt von probelauf.json? (Von Hand geändert oder von einer anderen Version: lieber nicht nach Spotify schreiben.)
 function valid(t) {
   return Boolean(t) && t.format === FORMAT && /^[0-9a-f]{12}$/.test(t.id) && Number.isFinite(Date.parse(t.createdAt))
-    && text(t.settingsHash) && text(t.playlistName) && t.playlistName.trim() && text(t.description) && text(t.summary)
+    && text(t.accountHash) && text(t.playlistName) && t.playlistName.trim() && text(t.description) && text(t.summary)
     && ['songs', 'fresh', 'freshCurrent', 'familiar'].every(k => count(t[k]))
     && (t.durationMs === undefined || t.durationMs === null || count(t.durationMs))
     && (t.durationEstimated === undefined || t.durationEstimated === null || typeof t.durationEstimated === 'boolean')
@@ -74,7 +73,7 @@ export function saveTrial(dir, { cfg, lang, tracks, counts, summary, description
     format: FORMAT,
     id: crypto.randomBytes(6).toString('hex'),
     createdAt: now.toISOString(),
-    settingsHash: settingsHash(cfg),
+    accountHash: accountHash(cfg),
     lang,
     playlistName: cfg.playlistName,
     description,
@@ -100,20 +99,20 @@ export const removeTrial = dir => fs.rmSync(path.join(dir, TRIAL_FILE), { force:
 
 // Warum sich die erstellte Liste (Probelauf) nicht (mehr) nach Spotify bringen lässt, als Schlüssel für die Meldung (trial.<grund> in i18n.mjs):
 // 'missing' (keine Datei, z. B. weil die Playlist seitdem neu erstellt wurde), 'invalid', 'replaced' (neuerer Probelauf,
-// andere Kennung als id), 'old' (älter als 24 Stunden), 'settings' (Einstellungen geändert). null = lässt sich nach Spotify bringen.
-export function trialProblem(trial, { cfg, id = null, now = Date.now() }) {
+// andere Kennung als id), 'account' (andere Spotify-App oder anderer Last.fm-Benutzer), 'blocked' (ein Song daraus oder sein
+// Künstler ist seitdem gesperrt). null = lässt sich nach Spotify bringen.
+export function trialProblem(trial, { cfg, id = null }) {
   if (trial === null) return 'missing';
   if (trial.invalid) return 'invalid';
   if (id && trial.id !== id) return 'replaced';
-  const age = now - Date.parse(trial.createdAt);
-  // Aus der Zukunft (Uhr verstellt) zählt wie zu alt.
-  if (age > TRIAL_MAX_AGE || age < -5 * 60_000) return 'old';
-  if (trial.settingsHash !== settingsHash(cfg)) return 'settings';
+  if (trial.accountHash !== accountHash(cfg)) return 'account';
+  const isBlockedArtist = artistBlocker([].concat(cfg.blockedArtists ?? []));
+  const isBlockedTrack = trackBlocker(cfg.blockedTracks);
+  if (trial.tracks.some(s => s.artists.some(isBlockedArtist) || isBlockedTrack(s))) return 'blocked';
   return null;
 }
 
 // Für die Oberfläche (GET /api/trial): nur die Eckdaten, nicht die ganze Liste.
 export const trialInfo = trial => (trial && !trial.invalid ? {
-  id: trial.id, createdAt: trial.createdAt, expiresAt: new Date(Date.parse(trial.createdAt) + TRIAL_MAX_AGE).toISOString(),
-  songs: trial.tracks.length, playlistName: trial.playlistName,
+  id: trial.id, createdAt: trial.createdAt, songs: trial.tracks.length, playlistName: trial.playlistName,
 } : null);

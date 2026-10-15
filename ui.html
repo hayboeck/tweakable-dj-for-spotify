@@ -1039,13 +1039,12 @@ const TEXT = {
     },
     // Erstellte Liste (Probelauf) überschreiben bzw. neu anlegen; Gründe vom Server (z. B. Playlist inzwischen neu geschrieben) kommen als Text.
     trial: {
-      // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
-      help: (name, until, example) => `Möglich bis ${until} Uhr, solange die Einstellungen gleich bleiben. Als neue Playlist heißt sie z. B. „${example}“; „${name}“ bleibt dann, wie sie ist.`,
+      // example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
+      help: (name, example) => `Möglich, bis du eine neue Liste erstellst. Als neue Playlist heißt sie z. B. „${example}“; „${name}“ bleibt dann, wie sie ist.`,
       overwrite: name => `„${name}“ überschreiben`,
       saveNew: 'Neue Playlist anlegen',
-      dirty: 'Geht nicht mehr: Du hast seit dem Erstellen Einstellungen geändert. Stelle sie zurück oder klicke noch einmal auf „Playlist erstellen“.',
-      old: 'Geht nicht mehr: Die Liste ist älter als 24 Stunden. Klicke noch einmal auf „Playlist erstellen“.',
-      blocked: 'Geht nicht mehr: Du hast einen Song aus dieser Liste gesperrt. Klicke noch einmal auf „Playlist erstellen“ – das speichert vorher.',
+      changed: 'Du hast seit dem Erstellen Regler geändert. Gespeichert wird die Liste so, wie sie oben steht – für eine Liste mit den neuen Reglern noch einmal auf „Playlist erstellen“ klicken.',
+      blocked: 'Geht nicht mehr: Ein Song aus dieser Liste ist inzwischen gesperrt. Klicke noch einmal auf „Playlist erstellen“ – das speichert vorher.',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
@@ -1522,13 +1521,12 @@ const TEXT = {
       update: 'Tweakable DJ is being updated (in another window). The page reloads afterwards.',
     },
     trial: {
-      // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
-      help: (name, until, example) => `Possible until ${until} as long as the settings stay the same. As a new playlist, it’s named e.g. “${example}”; “${name}” then stays as it is.`,
+      // example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
+      help: (name, example) => `Possible until you create a new list. As a new playlist, it’s named e.g. “${example}”; “${name}” then stays as it is.`,
       overwrite: name => `Overwrite “${name}”`,
       saveNew: 'Create new playlist',
-      dirty: 'No longer possible: you’ve changed settings since creating it. Change them back or click “Create playlist” again.',
-      old: 'No longer possible: the list is more than 24 hours old. Click “Create playlist” again.',
-      blocked: 'No longer possible: you blocked a song from this list. Click “Create playlist” again – it saves first.',
+      changed: 'You’ve changed controls since creating it. The list is saved exactly as shown above – for a list with the new controls, click “Create playlist” again.',
+      blocked: 'No longer possible: a song from this list has been blocked since. Click “Create playlist” again – it saves first.',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
@@ -1997,13 +1995,12 @@ const TEXT = {
       update: 'Tweakable DJ se está actualizando (en otra ventana). Después, la página se recarga.',
     },
     trial: {
-      // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
-      help: (name, until, example) => `Posible hasta el ${until}, mientras no cambies los ajustes. Como playlist nueva se llama p. ej. «${example}»; «${name}» se queda como está.`,
+      // example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
+      help: (name, example) => `Posible hasta que crees otra lista. Como playlist nueva se llama p. ej. «${example}»; «${name}» se queda como está.`,
       overwrite: name => `Sobrescribir «${name}»`,
       saveNew: 'Crear playlist nueva',
-      dirty: 'Ya no es posible: has cambiado ajustes desde que la creaste. Vuelve a dejarlos como estaban o haz clic otra vez en «Crear playlist».',
-      old: 'Ya no es posible: la lista tiene más de 24 horas. Haz clic otra vez en «Crear playlist».',
-      blocked: 'Ya no es posible: has bloqueado una canción de esta lista. Haz clic otra vez en «Crear playlist» (antes se guarda todo).',
+      changed: 'Has cambiado controles desde que la creaste. La lista se guarda tal como aparece arriba; para una lista con los nuevos controles, haz clic otra vez en «Crear playlist».',
+      blocked: 'Ya no es posible: desde entonces se ha bloqueado una canción de esta lista. Haz clic otra vez en «Crear playlist» (antes se guarda todo).',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
@@ -2473,13 +2470,12 @@ const TEXT = {
       update: 'Tweakable DJ est en cours de mise à jour (dans une autre fenêtre). La page se recharge ensuite.',
     },
     trial: {
-      // until = Ablaufzeit, example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
-      help: (name, until, example) => `Possible jusqu’au ${until}, tant que les paramètres ne changent pas. En nouvelle playlist, elle s’appelle p. ex. « ${example} » ; « ${name} » reste alors telle quelle.`,
+      // example = Name als neue Playlist (wie newPlaylistName in playlist.mjs)
+      help: (name, example) => `Possible jusqu’à ce que tu crées une nouvelle liste. En nouvelle playlist, elle s’appelle p. ex. « ${example} » ; « ${name} » reste alors telle quelle.`,
       overwrite: name => `Remplacer « ${name} »`,
       saveNew: 'Créer une nouvelle playlist',
-      dirty: 'Plus possible : tu as modifié des paramètres depuis sa création. Remets-les comme avant ou clique de nouveau sur « Créer la playlist ».',
-      old: 'Plus possible : la liste date de plus de 24 heures. Clique de nouveau sur « Créer la playlist ».',
-      blocked: 'Plus possible : tu as bloqué un titre de cette liste. Clique de nouveau sur « Créer la playlist » – elle enregistre d’abord.',
+      changed: 'Tu as modifié des réglages depuis sa création. La liste est enregistrée telle qu’affichée ci-dessus – pour une liste avec les nouveaux réglages, clique de nouveau sur « Créer la playlist ».',
+      blocked: 'Plus possible : un titre de cette liste a été bloqué depuis. Clique de nouveau sur « Créer la playlist » – elle enregistre d’abord.',
     },
     // „Importieren … → Frühere Playlist …“ (Playlist-Archiv): ein Eintrag = Zeitpunkt (wie when) und Anzahl Songs
     archive: {
@@ -2913,9 +2909,8 @@ let libraryScopeFailed = false;   // ♥ angeklickt, aber der Anmeldung fehlt us
 // ♥ in der Liste des Probelaufs: URI → true (Lieblingssong) bzw. false; fehlt eine URI, ist der Stand unbekannt (♡).
 let likes = {};
 const likeBusy = new Set(); // URIs, deren Klick gerade beim Server ist
-// Erstellte Liste (Probelauf), die sich nach Spotify schreiben lässt: { id, expiresAt, settings (Einstellungen beim Probelauf), serverReason, message } oder null
+// Erstellte Liste (Probelauf), die sich nach Spotify schreiben lässt: { id, settings (Einstellungen beim Probelauf), serverReason, message } oder null
 let trial = null;
-let trialTimer = null;
 let importRunning = false;  // Import aus einer Textdatei läuft (Suche oder Schreiben)
 let importState = null;     // { phase: 'busy' | 'preview' | 'done' | 'error', text, result, file, written }
 let shortcutInfo = null;    // Stand der Verknüpfung auf dem Desktop vom Server (GET /api/shortcut), null = noch unbekannt
@@ -3895,7 +3890,7 @@ function finishRun(kind, text, settings) {
   runState = { phase: 'done', kind, dry, result, trialId: dry && result?.ok ? result.trialId ?? null : null, tracks: null };
   if (LOGIN_CODES.includes(result?.errorCode)) showNotice(loginReason());
   if (dry && result?.ok && result.trialId) {
-    trial = { id: result.trialId, settings, expiresAt: new Date(Date.now() + 24 * 3600_000).toISOString(), serverReason: null, message: '' };
+    trial = { id: result.trialId, settings, serverReason: null, message: '' };
     refreshTrial();
     loadTrialTracks(result.trialId);
   } else if (applying && result?.errorCode === 'trial_expired') {
@@ -3973,18 +3968,16 @@ async function watchActivity(kind) {
 
 // --- Erstellte Liste nach Spotify (Probelauf: überschreiben bzw. neue Playlist anlegen) ---
 
-// Einstellungen, die die Auswahl bestimmen (alle außer NOT_FOR_TRIAL): Weichen sie vom Probelauf ab, passt seine Liste nicht mehr.
+// Einstellungen, die die Auswahl bestimmen (alle außer notForTrial), weichen vom Probelauf ab: Die Liste bleibt, wie sie ist –
+// das sagt der Hinweis unter den Knöpfen.
 const trialChanged = () => ITEMS.some(i => !notForTrial.includes(i.key) && !same(current[i.key], trial.settings[i.key]));
 
-// Warum sich die erstellte Liste nicht mehr nach Spotify bringen lässt: 'blocked' (Song daraus gesperrt), 'dirty' (Einstellungen geändert), 'old' (älter als 24 Stunden),
-// sonst ein Grund vom Server (dann steht der Text in trial.message); null = geht.
+// Warum sich die erstellte Liste nicht mehr nach Spotify bringen lässt: 'blocked' (Song daraus gesperrt, auch noch nicht
+// gespeichert), sonst ein Grund vom Server (dann steht der Text in trial.message); null = geht – auch mit geänderten Reglern.
 function trialReason() {
   if (!trial) return null;
-  if (trial.serverReason && trial.serverReason !== 'settings') return trial.serverReason;
-  // Ein Song der Liste ist seit dem Probelauf gesperrt (eigener Hinweis; die Einstellungen sind damit ohnehin geändert)
+  if (trial.serverReason) return trial.serverReason;
   if (runState?.trialId === trial.id && runState.tracks?.some(t => songBlocked(t) && !songBlocked(t, trial.settings.blockedTracks))) return 'blocked';
-  if (trialChanged() || trial.serverReason === 'settings') return 'dirty';
-  if (Date.now() >= Date.parse(trial.expiresAt)) return 'old';
   return null;
 }
 
@@ -4007,7 +4000,6 @@ function renderTrial() {
   const show = trialShown();
   $('trial-apply').hidden = $('trial-new').hidden = $('trial-msg').hidden = !show;
   syncSpotifyRow();
-  clearTimeout(trialTimer);
   if (!show) return;
   const reason = trialReason();
   const name = saved.playlistName ?? '';
@@ -4017,10 +4009,8 @@ function renderTrial() {
   $('trial-apply').disabled = $('trial-new').disabled = isWorking() || Boolean(reason);
   const msg = $('trial-msg');
   if (reason) setMsg(msg, 'warn', T.trial[reason] ?? trial.message);
-  else setMsg(msg, '', T.trial.help(name, when(trial.expiresAt), newPlaylistName(name)));
-  // Nach Ablauf der 24 Stunden von selbst sperren
-  const left = Date.parse(trial.expiresAt) - Date.now();
-  if (!reason && left > 0) trialTimer = setTimeout(renderTrial, Math.min(left + 500, 2 ** 31 - 1));
+  else if (trialChanged()) setMsg(msg, '', T.trial.changed);
+  else setMsg(msg, '', T.trial.help(name, newPlaylistName(name)));
 }
 
 // Beim Server nachfragen (GET /api/trial), ob der Probelauf noch gilt: z. B. nach dem Speichern, nach der Rückkehr auf die
@@ -4033,7 +4023,6 @@ async function refreshTrial() {
     if (trial?.id !== id) return;
     trial.serverReason = data.reason;
     trial.message = data.message;
-    if (data.trial?.id === id) trial.expiresAt = data.trial.expiresAt;
   } catch {
     // Server nicht erreichbar: beim Klick prüft er ohnehin noch einmal
   }

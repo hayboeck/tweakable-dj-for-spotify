@@ -3,8 +3,8 @@
 //   node dj.mjs login   einmalig bei Spotify anmelden
 //   node dj.mjs         Playlist neu befüllen
 //   node dj.mjs --dry   nur anzeigen, nichts an Spotify schicken; das Ergebnis kommt in probelauf.json
-//   node dj.mjs --apply diesen Probelauf genau so in die Playlist schreiben, ohne neu zu losen (höchstens 24 Stunden alt,
-//                       mit denselben Einstellungen; mit --dry nur prüfen und anzeigen). Die Oberfläche nennt den Probelauf
+//   node dj.mjs --apply diesen Probelauf genau so in die Playlist schreiben, ohne neu zu losen (auch mit inzwischen
+//                       geänderten Einstellungen; mit --dry nur prüfen und anzeigen). Die Oberfläche nennt den Probelauf
 //                       „erstellte Liste“: „Playlist erstellen“ = --dry, „„<Name>“ überschreiben“ = --apply.
 //   node dj.mjs --apply --new   dasselbe, aber in eine neue Playlist „<Name> · <Datum> <Uhrzeit>“ (newPlaylistName in
 //                       playlist.mjs); die Playlist aus den Einstellungen bleibt, wie sie ist („Neue Playlist anlegen“).

@@ -871,7 +871,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Stand des letzten Probelaufs (probelauf.json): Lässt sich die erstellte Liste noch nach Spotify bringen? ?id= = Kennung aus @@RESULT (trialId).
-    // { ok, reason ('missing', 'invalid', 'replaced', 'old', 'settings' oder null), message, trial: { id, createdAt, expiresAt, songs, playlistName } }
+    // { ok, reason ('missing', 'invalid', 'replaced', 'account', 'blocked' oder null), message, trial: { id, createdAt, songs, playlistName } }
     // Mit ?tracks=1 zusätzlich tracks: [{ uri, artist, name }] in der Reihenfolge der Liste (für „sperren“ in der Oberfläche).
     if (route === 'GET /api/trial') {
       const trial = readTrial(HERE);
