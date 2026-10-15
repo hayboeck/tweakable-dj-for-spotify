@@ -503,6 +503,16 @@ function ownNodeRunning() {
   }
 }
 
+// Anteile der Genres in der zuletzt erstellten Liste (state.genreShare von dj.mjs: { at, songs, known, counts }), sonst null.
+function lastGenreShare() {
+  try {
+    const share = readJsonFile(STATE, {})?.genreShare;
+    return share && Number.isInteger(share.songs) && share.counts && typeof share.counts === 'object' ? share : null;
+  } catch {
+    return null;
+  }
+}
+
 // Gemerkte ID der Playlist name aus state.json (playlistIds, vom letzten Schreiben), sonst null (auch bei kaputter Datei).
 function knownPlaylistId(name) {
   try {
@@ -653,7 +663,7 @@ const server = http.createServer(async (req, res) => {
       return send(200, {
         values, defaults: DEFAULTS, limits: LIMITS, variety: { keys: VARIETY_KEYS, levels: VARIETY_LEVELS }, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running), importing,
         activity: activity(), trialIgnored: TRIAL_IGNORED, node: { version: process.versions.node, own: ownNodeRunning() },
-        setup: setupStatus(cfg), archiveFiles: archiveFileCount(HERE),
+        setup: setupStatus(cfg), archiveFiles: archiveFileCount(HERE), genreShare: lastGenreShare(),
       });
     }
 

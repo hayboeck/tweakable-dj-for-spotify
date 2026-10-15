@@ -431,3 +431,42 @@ test('Nur die Anmeldung fehlt (tokens.json gelöscht): Regler mit dem Hinweis �
     }
   }
 });
+
+test('Genre-Mixer (Pro): Regler je Genre, Zusammenfassung, Speichern; Anteile nach „Playlist erstellen“; Einfach nennt ihn', { skip }, async () => {
+  const page = await open();
+  const move = (genre, value) => page.eval(`(() => { const r = document.getElementById('f-genre-${genre}'); r.value = ${value};
+    r.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  try {
+    assert.equal(await page.eval("document.getElementById('f-genre-schlager').closest('section').hidden"), false, 'in „Pro“ sichtbar');
+    assert.equal(await page.eval("document.getElementById('f-genre-schlager').closest('details').open"), false, 'ohne Einstellung eingeklappt');
+    await move('schlager', -3);
+    await move('electronic', 2);
+    assert.deepEqual(await page.eval('current.genres'), { electronic: 2, schlager: -3 });
+    assert.equal(await page.eval("document.querySelector('output[for=f-genre-schlager]').textContent"), 'nie');
+    assert.equal(await page.eval("document.querySelector('output[for=f-genre-electronic]').textContent"), 'viel mehr');
+    assert.equal(await page.eval('controls.genres.summary.textContent'), 'Elektronisch viel mehr, Schlager/Austropop nie');
+    await move('electronic', 0);
+    assert.deepEqual(await page.eval('current.genres'), { schlager: -3 }, '„egal“ fällt weg');
+    await move('electronic', 2);
+    await page.click('#save');
+    await page.waitFor("document.getElementById('status').textContent === 'Gespeichert'");
+    assert.match(fs.readFileSync(path.join(dir, 'config.jsonc'), 'utf8'), /"genres": \{ "electronic": 2, "schlager": -3 \}/);
+
+    // Playlist erstellen: danach stehen die Anteile der neuen Liste bei jedem Genre, Schlager kommt nicht vor
+    const before = await page.eval('genreShareInfo?.at ?? null');
+    await page.click('#create');
+    await page.waitFor(`genreShareInfo?.at && genreShareInfo.at !== ${JSON.stringify(before)}`, 60_000);
+    assert.equal(await page.eval('controls.genres.rows.schlager.hint.textContent'), 'In der letzten Liste: 0 %');
+    assert.match(await page.eval('controls.genres.rows.pop.hint.textContent'), /^In der letzten Liste: \d+ %$/);
+
+    // Ansicht „Einfach“: Hinweis nennt den Genre-Mixer; Zurücksetzen stellt alle Genres auf „egal“
+    await page.eval("setMode('simple')");
+    assert.match(await text(page, 'preset-state'), /Genre-Mixer: Elektronisch viel mehr, Schlager\/Austropop nie/);
+    await page.click('#preset-reset');
+    assert.deepEqual(await page.eval('current.genres'), {});
+    assert.deepEqual(page.errors, []);
+  } finally {
+    await page.close();
+    await api('/api/config', { method: 'POST', body: JSON.stringify({ mode: 'pro', genres: {} }) });
+  }
+});

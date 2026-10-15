@@ -41,6 +41,7 @@ import {
 } from './playlist.mjs';
 import { readTrial, removeTrial, saveTrial, trialProblem } from './trial.mjs';
 import { archivedTracks, archivePlaylist, saveArchive } from './archive.mjs';
+import { genreFactor, genreShare, genresActive, tagGenres } from './genres.mjs';
 import { readJson, writeAtomic } from './files.mjs';
 import {
   arrange, artistBlocker, cacheEntry, cacheValue, candidateWeight, followedFactor, followedMatcher, lineupDuration, lineupStats, newerFactor,
@@ -177,6 +178,17 @@ async function notifyAutoRun(out) {
 const warn = msg => console.warn(`  ⚠ ${msg}`);
 // Nicht wiederholen: nur die letzten noRepeatRuns Läufe merken (0 = keinen).
 const lastRuns = (cfg, history) => (cfg.noRepeatRuns > 0 ? history.slice(-cfg.noRepeatRuns) : []);
+// Genre-Mixer: höchstens so viele Künstler je Lauf nachschlagen (je eine Last.fm-Abfrage, 7 Tage im Cache); Vorauswahl der
+// Ausgangspunkte und Favoriten = so viel mal mehr, als gebraucht werden, daraus wird nach Genre neu gelost.
+const GENRE_LOOKUPS = 500;
+const GENRE_POOL = 5;
+// „Genres: Indie 34 % · Pop 20 % · ohne Genre 6 %“ (Anteile der Liste, je Song sein erstes Genre)
+function genreLine(share) {
+  const part = (name, n) => t(lang, 'run.genrePart', { name, pct: Math.round((100 * n) / share.songs) });
+  const parts = Object.entries(share.counts).sort((a, b) => b[1] - a[1]).map(([g, n]) => part(t(lang, `genre.${g}`), n));
+  if (share.songs > share.known) parts.push(part(t(lang, 'genre.unknown'), share.songs - share.known));
+  return t(lang, 'run.genreShare', { list: parts.join(' · ') });
+}
 const lineupLine = (track, i) => `${String(i + 1).padStart(3)}. ${track.artist} – ${track.name}  (${track.kind})`;
 
 async function loadSeeds(spotify, seed) {
@@ -278,6 +290,42 @@ async function main() {
   const followWeight = track => (byFollowed(track) ? followedWeight : 1);
   // Neuere / ältere Songs (preferNewer, 0 = aus): Faktor nach dem Erscheinungsjahr, unbekanntes Jahr = 1 (lineup.mjs).
   const newerWeight = year => newerFactor(cfg.preferNewer, year);
+  // Genre-Mixer (genres): Hauptgenres der Künstler aus ihren Last.fm-Schlagwörtern (genres.mjs). Nachgeschlagen wird für die
+  // Auswahl nur, wenn ein Genre nicht „egal“ ist; für die Anteile der fertigen Liste immer (nur deren Künstler, ohne Warnungen).
+  const levels = cfg.genres ?? {};
+  const mixing = genresActive(levels);
+  const artistGenres = new Map(); // norm(Künstler) → Hauptgenres ([] = unbekannt)
+  let genreLookups = 0;
+  const loadGenres = async (tracks, { quiet = false, limit = true } = {}) => {
+    const todo = [...new Map(tracks.filter(s => s.artist && !artistGenres.has(norm(s.artist))).map(s => [norm(s.artist), s.artist]))]
+      .slice(0, limit ? Math.max(0, GENRE_LOOKUPS - genreLookups) : undefined);
+    if (limit) genreLookups += todo.length;
+    await mapLimit(todo, 4, async ([key, name]) => {
+      try {
+        artistGenres.set(key, tagGenres(await lastfm.artistTopTags(name)));
+      } catch (e) {
+        if (e.fatal && !quiet) throw e;
+        if (!quiet) warnError(e, `${name}: `);
+        artistGenres.set(key, []);
+      }
+    });
+  };
+  const genresOf = track => artistGenres.get(norm(track.artist)) ?? [];
+  const genreWeight = track => (mixing ? genreFactor(levels, genresOf(track)) : 1);
+  // Vor dem Nehmen: Genre noch unbekannt → jetzt nachschlagen (solange das Budget reicht). „nie“ lässt aus; ein kleineres Los,
+  // das beim Auslosen noch nicht zählte (late), gilt dann als Wahrscheinlichkeit, den Song zu nehmen.
+  const genreOut = new Set();
+  const genreAllows = async (track, late = true) => {
+    if (!mixing) return true;
+    const known = artistGenres.has(norm(track.artist));
+    if (!known) await loadGenres([track]);
+    const w = genreWeight(track);
+    if (w === 0) {
+      genreOut.add(trackKey(track.artist, track.name));
+      return false;
+    }
+    return known || !late || w >= 1 || Math.random() < w;
+  };
   // Favoriten für die Playlist (die Ausgangspunkte bleiben davon unberührt); die Last.fm-Lieblingssongs kommen unten dazu.
   const favoritePool = favorites.filter(notFollowedOut).filter(notExplicit);
   let lovedFavorites = [];
@@ -331,7 +379,14 @@ async function main() {
   const isCurrent = track => currentKeys.has(trackKey(track.artist, track.name)) || currentArtists.has(norm(track.artist));
   const seedWeight = track => (isCurrent(track) ? cfg.currentFactor : 1);
   const uniqueSeeds = [...new Map(discoverySeeds.filter(allowed).map(s => [trackKey(s.artist, s.name), s])).values()];
-  const startingPoints = weightedOrder(uniqueSeeds, seedWeight).slice(0, cfg.seedsPerRun);
+  // Genre-Mixer: aus einer größeren Vorauswahl nach Genre neu auslosen – so bestimmt er auch, wozu Last.fm ähnliche Songs sucht.
+  let seedOrder = weightedOrder(uniqueSeeds, seedWeight);
+  if (mixing) {
+    seedOrder = seedOrder.slice(0, cfg.seedsPerRun * GENRE_POOL);
+    await loadGenres(seedOrder);
+    seedOrder = weightedOrder(seedOrder.filter(s => genreWeight(s) > 0), s => seedWeight(s) * genreWeight(s));
+  }
+  const startingPoints = seedOrder.slice(0, cfg.seedsPerRun);
   console.log(t(lang, 'run.startingPoints', { current: startingPoints.filter(isCurrent).length, total: startingPoints.length, factor: cfg.currentFactor }));
 
   console.log(t(lang, 'run.searchingSimilar'));
@@ -369,7 +424,13 @@ async function main() {
       warnError(e, `${seed.artist} – ${seed.name}: `);
     }
   });
-  // Last.fm wird ab hier nicht mehr gefragt: Cache jetzt speichern, dann bleibt er auch bei Spotify-Fehlern erhalten.
+  // Genre-Mixer: Genres der Kandidaten (die mit dem größten Los zuerst) und einer Vorauswahl der Favoriten nachschlagen.
+  if (mixing) {
+    await loadGenres([...candidates.values()].sort((a, b) => b.match * b.weight - a.match * a.weight));
+    const favoriteWeight = f => seedWeight(f) * followWeight(f);
+    await loadGenres(weightedOrder([...favoritePool, ...lovedFavorites], favoriteWeight).slice(0, Math.round(cfg.size * cfg.familiarShare) * GENRE_POOL + 10));
+  }
+  // Last.fm wird für die Auswahl ab hier kaum mehr gefragt: Cache jetzt speichern, dann bleibt er auch bei Spotify-Fehlern erhalten.
   try {
     lastfm.saveCache();
   } catch (e) {
@@ -437,9 +498,9 @@ async function main() {
     }
     return notFollowedOut(found) ? found : null;
   };
-  // Favorit nehmen, wenn er passt; Last.fm-Lieblingssongs vorher auf Spotify suchen.
-  const takeFavorite = async track => {
-    if (!fits(track)) return;
+  // Favorit nehmen, wenn er passt (auch beim Genre); Last.fm-Lieblingssongs vorher auf Spotify suchen. late: wie bei genreAllows.
+  const takeFavorite = async (track, late = true) => {
+    if (!fits(track) || !(await genreAllows(track, late))) return;
     if (track.loved && !track.uri) {
       const found = await resolveLoved(track);
       if (!found) return;
@@ -452,7 +513,7 @@ async function main() {
 
   const familiar = [];
   const familiarTarget = Math.round(cfg.size * cfg.familiarShare);
-  for (const track of weightedOrder(favoritePool, f => seedWeight(f) * followWeight(f) * newerWeight(yearOf(f))).map(asFavorite)) {
+  for (const track of weightedOrder(favoritePool, f => seedWeight(f) * followWeight(f) * newerWeight(yearOf(f)) * genreWeight(f)).map(asFavorite)) {
     if (familiar.length >= familiarTarget) break;
     if (!blocked.has(trackKey(track.artist, track.name))) await takeFavorite(track);
   }
@@ -463,12 +524,12 @@ async function main() {
   // der Suche unten.
   const ordered = weightedOrder(
     [...candidates.values()],
-    c => candidateWeight(c.match, cfg.adventure) * (c.viaCurrent ? cfg.currentFactor : 1) * c.weight * newerWeight(cached(c.key)?.year),
+    c => candidateWeight(c.match, cfg.adventure) * (c.viaCurrent ? cfg.currentFactor : 1) * c.weight * newerWeight(cached(c.key)?.year) * genreWeight(c),
   );
   for (const c of ordered) {
     if (familiar.length + fresh.length >= cfg.size) break;
     const track = { ...c, tags: tagsOf(c.artist, c.via), kind: t(lang, 'run.new', { via: c.via }) + current(c.viaCurrent) };
-    if (!fits(track)) continue;
+    if (!fits(track) || !(await genreAllows(c))) continue;
     let entry = cached(c.key);
     let searched = false;
     // Neu suchen: nicht im Cache, oder mit excludeExplicit ein Eintrag von 0.1.1 (explicit unbekannt).
@@ -510,11 +571,12 @@ async function main() {
     if (fits(track)) take(fresh, track);
   }
 
-  // Zu wenig gefunden? Mit weiteren Favoriten auffüllen (dann auch kürzlich gehörte).
+  // Zu wenig gefunden? Mit weiteren Favoriten auffüllen (dann auch kürzlich gehörte; beim Genre zählt nur noch „nie“).
   for (const track of shuffle(favoritePool).map(asFavorite)) {
     if (familiar.length + fresh.length >= cfg.size) break;
-    await takeFavorite(track);
+    await takeFavorite(track, false);
   }
+  if (genreOut.size) console.log(t(lang, 'run.genreOut', { count: genreOut.size }));
 
   if (blockedTrackOut.size) console.log(t(lang, 'run.blockedSongs', { count: blockedTrackOut.size }));
   if (explicitOut.size) console.log(t(lang, 'run.explicitOut', { count: explicitOut.size }));
@@ -527,14 +589,25 @@ async function main() {
   const duration = formatDuration(lang, counts.durationMs, counts.durationEstimated);
   const summary = t(lang, 'run.summary', { name: cfg.playlistName, ...counts, duration });
   const stats = lineupStats(lineup, playedSet(state));
-  console.log(`\n${summary}\n${formatStats(lang, stats)}\n`);
+  // Anteile der Genres (für den Genre-Mixer in der Oberfläche, state.genreShare): fehlende Künstler der Liste nachschlagen.
+  await loadGenres(lineup, { quiet: true, limit: false });
+  try {
+    lastfm.saveCache();
+  } catch {
+    // schon oben gemeldet
+  }
+  const share = genreShare(lineup.map(genresOf));
+  console.log(`\n${summary}\n${formatStats(lang, stats)}${share.known ? `\n${genreLine(share)}` : ''}\n`);
   if (windowViolations(lineup, cfg.artistWindow, cfg.maxPerWindow)) {
     warn(t(lang, 'run.windowRule', { max: cfg.maxPerWindow, window: cfg.artistWindow }));
   }
   lineup.forEach((track, i) => console.log(lineupLine(track, i)));
   const description = t(lang, 'run.description', { ...dateTime(lang, new Date()), fresh: fresh.length, familiar: familiar.length });
 
-  const saveCache = s => Object.assign(s.cache, cacheUpdates);
+  const saveCache = s => {
+    Object.assign(s.cache, cacheUpdates);
+    s.genreShare = { at: new Date().toISOString(), ...share };
+  };
   if (dry) {
     updateState(saveCache);
     console.log(`\n${t(lang, 'run.dry')}`);

@@ -5,7 +5,13 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.4.1] – 2026-10-15
+
 ### English
+
+**New**
+
+- **Genre mixer** (view *Pro*): turn genres that annoy you right now down, or turn others up to suit your mood. Twelve main genres (Pop, Rock, Indie/Alternative, Hip-hop/Rap, Electronic, R&B/Soul, Metal/Punk, Jazz/Blues, Classical/Film music, Folk/Singer-songwriter, Latin/Reggae, Schlager/Austropop), each from *never* through *less* and *no preference* to *much more*. It applies to starting points, new songs and favorites – so *more Electronic* also makes Last.fm look for more electronic songs. The genres come from the tags listeners give on Last.fm (cached for 7 days; the first run with the mixer takes a little longer). Next to each genre, the interface shows how much of it was in the last list, and the output has a line *Genres: …*. In the view *Simple*, the notice *Custom Pro settings active* names the mixer when it is set.
 
 **Changed**
 
@@ -13,6 +19,10 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 - **No more 24-hour limit**: the created list can be brought to Spotify until you create a new one or another run writes the playlist. It is still disabled if a song from it has been blocked since or a different Spotify or Last.fm account is set up. A list created with an older version has to be created once more.
 
 ### Deutsch
+
+**Neu**
+
+- **Genre-Mixer** (Ansicht *Pro*): Genres, die dich gerade nerven, leiser drehen oder andere je nach Stimmung aufdrehen. Zwölf Hauptgenres (Pop, Rock, Indie/Alternative, Hip-Hop/Rap, Elektronisch, R&B/Soul, Metal/Punk, Jazz/Blues, Klassik/Filmmusik, Folk/Singer-Songwriter, Latin/Reggae, Schlager/Austropop), je von *nie* über *weniger* und *egal* bis *viel mehr*. Er wirkt auf Ausgangspunkte, neue Songs und Favoriten – bei *mehr Elektronisch* sucht Last.fm also auch mehr elektronische Songs. Die Genres stammen von den Schlagwörtern, die Hörer auf Last.fm vergeben (7 Tage im Cache; der erste Lauf mit dem Mixer dauert etwas länger). Neben jedem Genre zeigt die Oberfläche, wie viel davon in der letzten Liste war, und die Ausgabe hat eine Zeile *Genres: …*. In der Ansicht *Einfach* nennt der Hinweis *Eigene Pro-Einstellungen aktiv* den Mixer, wenn er eingestellt ist.
 
 **Geändert**
 
@@ -657,6 +667,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.4.1]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.1
 [0.4.0]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0
 [0.4.0-beta.5]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.5
 [0.4.0-beta.4]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.4

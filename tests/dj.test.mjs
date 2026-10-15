@@ -161,7 +161,12 @@ test('Probelauf: Auswahl, Regeln, Sperrliste, Token-Refresh und Last.fm-Cache', 
     const cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
     const keys = Object.keys(cache);
     assert.equal(keys.filter(k => k.startsWith('track.getSimilar ')).length, 11);
-    assert.ok(keys.every(k => /^(track\.getSimilar|artist\.getSimilar|artist\.getTopTracks) /.test(k)));
+    assert.ok(keys.every(k => /^(track\.getSimilar|artist\.getSimilar|artist\.getTopTracks|artist\.getTopTags) /.test(k)));
+    // Ohne Genre-Mixer: Schlagwörter nur für die Künstler der fertigen Liste (für die Anteile)
+    const lineupArtists = new Set(first.out.split(/\r?\n/).map(l => /^\s*\d+\. (.+?) – /.exec(l)?.[1]).filter(Boolean));
+    const tagCalls = lastfmCalls(first.requests, 'artist.getTopTags');
+    assert.ok(tagCalls > 0 && tagCalls <= lineupArtists.size, `${tagCalls} Abfragen, ${lineupArtists.size} Künstler`);
+    assert.match(first.out, /^Genres: .+ \d+ %/m);
     const notFound = keys.find(k => k.includes('Gibt+es+nicht'));
     assert.deepEqual(cache[notFound].value, []);
     assert.ok(fs.existsSync(path.join(dir, 'state.json')));

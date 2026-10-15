@@ -20,6 +20,7 @@
 //   MOCK_SPOTIFY_HANG=1     Spotify antwortet nie; die Anfrage endet erst mit ihrem Zeitlimit (signal)
 //   MOCK_LASTFM_OFFLINE=1   Last.fm nicht erreichbar (ENOTFOUND)
 //   MOCK_LASTFM_LOVED   JSON [[Künstler, Titel], …]: Lieblingssongs (♥) von testhoerer auf Last.fm (sonst keine)
+//   Schlagwörter der Künstler (artist.getTopTags, Genre-Mixer): fest nach dem Namen aus tests/mock-tags.mjs.
 //   MOCK_SEARCH_DELAY_MS  jede Suche auf Spotify (/v1/search) antwortet erst nach so vielen Millisekunden (Lauf dauert länger)
 //   MOCK_GITHUB         JSON-Datei mit der Antwort von GitHub auf die Frage nach dem neuesten Release (update.mjs):
 //                       { "status": 200, "body": { "tag_name": "v0.2.0", "assets": […], … } } oder { "offline": true }
@@ -47,6 +48,7 @@ import fs from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { mockArtistTags } from './mock-tags.mjs';
 
 const ACCESS_TOKEN = 'mock-access-neu';
 const REFRESH_TOKEN = 'fake-refresh-token';
@@ -433,6 +435,10 @@ function lastfmApi(url) {
       const artists = [{ name: 'Macloud', match: '1' }, ...POOL.map((_, i) => POOL[(h + i) % POOL.length])
         .slice(0, 6).map((name, i) => ({ name, match: String(0.9 - i * 0.1) }))];
       return json({ similarartists: { artist: artists } });
+    }
+    case 'artist.getTopTags': {
+      const artist = q.get('artist');
+      return json({ toptags: { tag: mockArtistTags(artist), '@attr': { artist } } });
     }
     case 'artist.getTopTracks': {
       const artist = q.get('artist');

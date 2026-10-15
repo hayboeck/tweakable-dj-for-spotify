@@ -220,6 +220,9 @@
   details.more > summary { cursor: pointer; font-weight: 600; color: var(--muted); font-size: 14px; }
   details.more > summary:hover { color: var(--text); }
   details.more[open] > summary { margin-bottom: 4px; }
+  /* Genre-Mixer: zwölf Regler in „Genres einstellen“, kompakter als normale Zeilen */
+  .genre-rows .row { padding: 8px 0; }
+  .genre-rows .row:first-of-type { border-top: 0; }
 
   /* Voreinstellungen */
   .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 10px 0 8px; }
@@ -846,7 +849,7 @@ const TEXT = {
       finish: 'Zu den Reglern',
       close: '← Zurück zu den Einstellungen',
       presets: 'Voreinstellungen',
-      presetsHelp: 'Setzen mehrere Regler auf einmal; Name, Quelle, Anzahl Songs, gefolgte Künstler, Erscheinungsjahr und Sperrliste bleiben.',
+      presetsHelp: 'Setzen mehrere Regler auf einmal; Name, Quelle, Anzahl Songs, gefolgte Künstler, Erscheinungsjahr, Genre-Mixer und Sperrliste bleiben.',
       open: 'In Spotify öffnen ↗',
       creditLastfm: `Ähnliche Songs und Hörverlauf: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · Nutzung nur nicht kommerziell · kein offizielles Angebot von Last.fm`,
       creditSpotify: 'Kein offizielles Spotify-Produkt · Spotify ist eine Marke von Spotify AB',
@@ -890,6 +893,18 @@ const TEXT = {
       older: x => `20 Jahre alte Songs haben ein ${x}× größeres Los, Songs von diesem Jahr ein ${x}× kleineres`,
       neutral: 'Egal – das Erscheinungsjahr spielt keine Rolle',
     },
+    // Genre-Mixer (genres): Namen wie genre.* in i18n.mjs, levels = Stufen von −3 (nie) bis 2 (viel mehr)
+    genres: {
+      names: { pop: 'Pop', rock: 'Rock', indie: 'Indie/Alternative', hiphop: 'Hip-Hop/Rap', electronic: 'Elektronisch', rnb: 'R&B/Soul', metal: 'Metal/Punk',
+        jazz: 'Jazz/Blues', classical: 'Klassik/Filmmusik', folk: 'Folk/Singer-Songwriter', latin: 'Latin/Reggae', schlager: 'Schlager/Austropop' },
+      levels: ['nie', 'viel weniger', 'weniger', 'egal', 'mehr', 'viel mehr'],
+      none: 'alle egal',
+      open: 'Genres einstellen',
+      scale: 'weniger = ⅓ des Loses, viel weniger = ⅒, mehr = 3×, viel mehr = 10×, nie = weggelassen.',
+      share: p => `In der letzten Liste: ${p}`,
+      unknown: p => `Ohne erkennbares Genre: ${p} der letzten Liste`,
+      noShare: 'Wie viel von jedem Genre in deiner Liste ist, steht hier nach dem nächsten „Playlist erstellen“.',
+    },
     variety: {
       label: 'Abwechslung bei Künstlern',
       levels: { low: 'wenig', medium: 'mittel', high: 'viel', veryHigh: 'sehr viel' },
@@ -906,6 +921,7 @@ const TEXT = {
       selection: 'Auswahl',
       current: 'Was du gerade hörst',
       variety: 'Abwechslung',
+      genres: 'Genre-Mixer',
       repeats: 'Keine Wiederholungen',
       blocked: 'Sperrliste',
       auto: 'Automatisch neu erstellen',
@@ -930,6 +946,8 @@ const TEXT = {
         help: 'Künstler, denen du auf Spotify folgst, auch als Gast („feat.“).' },
       preferNewer: { label: 'Neuere / ältere Songs', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'Nach Erscheinungsjahr laut Spotify; gilt für neue Songs und Favoriten, nichts fällt weg.' },
+      genres: { label: 'Genre-Mixer', fmt: v => genreSummary(v),
+        help: 'Dämpft Genres, die dich gerade nerven, oder dreht andere je nach Stimmung auf – für Ausgangspunkte, neue Songs und Favoriten. Die Genres stammen von den Schlagwörtern, die Hörer auf Last.fm vergeben; Künstler ohne passende bleiben unberührt.' },
       currentDays: { label: 'Zeitraum „aktuell“', fmt: v => (v ? pluralUnit(v, 'Tag', 'Tage') : 'aus'), help: 'Was du laut Last.fm in diesem Zeitraum gehört hast.' },
       currentFactor: { label: 'Gewicht für aktuelles Hören', fmt: v => (v === 1 ? 'aus' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Aktuell Gehörtes hat ein ${num(v)}× größeres Los`),
@@ -1332,7 +1350,7 @@ const TEXT = {
       finish: 'Go to the controls',
       close: '← Back to settings',
       presets: 'Presets',
-      presetsHelp: 'Set several controls at once; name, source, number of songs, followed artists, release year and block list stay.',
+      presetsHelp: 'Set several controls at once; name, source, number of songs, followed artists, release year, genre mixer and block list stay.',
       open: 'Open in Spotify ↗',
       creditLastfm: `Similar songs and listening history: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · non-commercial use only · not affiliated with Last.fm`,
       creditSpotify: 'Not an official Spotify product · Spotify is a trademark of Spotify AB',
@@ -1376,6 +1394,17 @@ const TEXT = {
       older: x => `20-year-old songs are ${x}× as likely to be drawn, songs from this year ${x}× less likely`,
       neutral: 'No preference – the release year doesn’t matter',
     },
+    genres: {
+      names: { pop: 'Pop', rock: 'Rock', indie: 'Indie/Alternative', hiphop: 'Hip-hop/Rap', electronic: 'Electronic', rnb: 'R&B/Soul', metal: 'Metal/Punk',
+        jazz: 'Jazz/Blues', classical: 'Classical/Film music', folk: 'Folk/Singer-songwriter', latin: 'Latin/Reggae', schlager: 'Schlager/Austropop' },
+      levels: ['never', 'much less', 'less', 'no preference', 'more', 'much more'],
+      none: 'no preference for any genre',
+      open: 'Adjust genres',
+      scale: 'Less = ⅓ the odds, much less = ⅒, more = 3×, much more = 10×, never = left out.',
+      share: p => `In the last list: ${p}`,
+      unknown: p => `No recognizable genre: ${p} of the last list`,
+      noShare: 'How much of each genre is in your list shows up here after the next “Create playlist”.',
+    },
     variety: {
       label: 'Artist variety',
       levels: { low: 'low', medium: 'medium', high: 'high', veryHigh: 'very high' },
@@ -1392,6 +1421,7 @@ const TEXT = {
       selection: 'Selection',
       current: 'What you’re listening to now',
       variety: 'Variety',
+      genres: 'Genre mixer',
       repeats: 'No repeats',
       blocked: 'Block list',
       auto: 'Rebuild automatically',
@@ -1416,6 +1446,8 @@ const TEXT = {
         help: 'Artists you follow on Spotify, also as a guest (“feat.”).' },
       preferNewer: { label: 'Newer / older songs', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'By release year according to Spotify; applies to new songs and favorites, nothing is left out.' },
+      genres: { label: 'Genre mixer', fmt: v => genreSummary(v),
+        help: 'Turn down genres that annoy you right now, or turn others up to suit your mood – for starting points, new songs and favorites. The genres come from the tags listeners give on Last.fm; artists without matching tags aren’t affected.' },
       currentDays: { label: 'Period counted as “current”', fmt: v => (v ? pluralUnit(v, 'day', 'days') : 'off'), help: 'What Last.fm says you played in this period.' },
       currentFactor: { label: 'Weight of current listening', fmt: v => (v === 1 ? 'off' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `What you’re listening to now is ${num(v)}× as likely to be drawn`),
@@ -1806,7 +1838,7 @@ const TEXT = {
       finish: 'Ir a los controles',
       close: '← Volver a los ajustes',
       presets: 'Ajustes predefinidos',
-      presetsHelp: 'Cambian varios controles a la vez; el nombre, la fuente, el número de canciones, los artistas que sigues, el año de publicación y la lista de bloqueo no cambian.',
+      presetsHelp: 'Cambian varios controles a la vez; el nombre, la fuente, el número de canciones, los artistas que sigues, el año de publicación, el mezclador de géneros y la lista de bloqueo no cambian.',
       open: 'Abrir en Spotify ↗',
       creditLastfm: `Canciones similares e historial de escucha: ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · solo uso no comercial · sin relación oficial con Last.fm`,
       creditSpotify: 'No es un producto oficial de Spotify · Spotify es una marca de Spotify AB',
@@ -1850,6 +1882,17 @@ const TEXT = {
       older: x => `Las canciones de hace 20 años tienen ${x}× más probabilidades de salir; las de este año, ${x}× menos`,
       neutral: 'Da igual: el año de publicación no cuenta',
     },
+    genres: {
+      names: { pop: 'Pop', rock: 'Rock', indie: 'Indie/Alternativo', hiphop: 'Hip-hop/Rap', electronic: 'Electrónica', rnb: 'R&B/Soul', metal: 'Metal/Punk',
+        jazz: 'Jazz/Blues', classical: 'Clásica/Bandas sonoras', folk: 'Folk/Cantautor', latin: 'Latino/Reggae', schlager: 'Schlager/Austropop' },
+      levels: ['nunca', 'mucho menos', 'menos', 'da igual', 'más', 'mucho más'],
+      none: 'ningún género preferido',
+      open: 'Ajustar géneros',
+      scale: 'Menos = ⅓ de probabilidad, mucho menos = ⅒, más = 3×, mucho más = 10×, nunca = se omite.',
+      share: p => `En la última lista: ${p}`,
+      unknown: p => `Sin género reconocible: ${p} de la última lista`,
+      noShare: 'Cuánto hay de cada género en tu lista aparece aquí tras el próximo «Crear playlist».',
+    },
     variety: {
       label: 'Variedad de artistas',
       levels: { low: 'poca', medium: 'media', high: 'mucha', veryHigh: 'muchísima' },
@@ -1866,6 +1909,7 @@ const TEXT = {
       selection: 'Selección',
       current: 'Lo que escuchas ahora',
       variety: 'Variedad',
+      genres: 'Mezclador de géneros',
       repeats: 'Sin repeticiones',
       blocked: 'Lista de bloqueo',
       auto: 'Recrear automáticamente',
@@ -1890,6 +1934,8 @@ const TEXT = {
         help: 'Artistas que sigues en Spotify, también como invitados («feat.»).' },
       preferNewer: { label: 'Canciones más nuevas / más antiguas', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'Según el año de publicación en Spotify; vale para canciones nuevas y favoritas, no se excluye nada.' },
+      genres: { label: 'Mezclador de géneros', fmt: v => genreSummary(v),
+        help: 'Baja los géneros que ahora te cansan o sube otros según tu estado de ánimo: para puntos de partida, canciones nuevas y favoritas. Los géneros salen de las etiquetas que los oyentes ponen en Last.fm; los artistas sin etiquetas adecuadas no se ven afectados.' },
       currentDays: { label: 'Periodo «actual»', fmt: v => (v ? pluralUnit(v, 'día', 'días') : 'no'), help: 'Lo que según Last.fm has escuchado en este periodo.' },
       currentFactor: { label: 'Peso de lo que escuchas ahora', fmt: v => (v === 1 ? 'no' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Lo que escuchas ahora tiene ${num(v)}× más probabilidades de salir`),
@@ -2281,7 +2327,7 @@ const TEXT = {
       finish: 'Aller aux curseurs',
       close: '← Retour aux paramètres',
       presets: 'Préréglages',
-      presetsHelp: 'Changent plusieurs curseurs à la fois ; le nom, la source, le nombre de titres, les artistes suivis, l’année de sortie et la liste de blocage restent.',
+      presetsHelp: 'Changent plusieurs curseurs à la fois ; le nom, la source, le nombre de titres, les artistes suivis, l’année de sortie, le mixeur de genres et la liste de blocage restent.',
       open: 'Ouvrir dans Spotify ↗',
       creditLastfm: `Titres similaires et historique d’écoute : ${ext('https://www.last.fm', 'Last.fm')} (powered by AudioScrobbler) · usage non commercial uniquement · pas une offre officielle de Last.fm`,
       creditSpotify: 'Pas un produit officiel de Spotify · Spotify est une marque de Spotify AB',
@@ -2325,6 +2371,17 @@ const TEXT = {
       older: x => `Les titres d’il y a 20 ans ont ${x}× plus de chances d’être tirés, ceux de cette année ${x}× moins`,
       neutral: 'Aucune importance – l’année de sortie ne compte pas',
     },
+    genres: {
+      names: { pop: 'Pop', rock: 'Rock', indie: 'Indie/Alternatif', hiphop: 'Hip-hop/Rap', electronic: 'Électronique', rnb: 'R&B/Soul', metal: 'Metal/Punk',
+        jazz: 'Jazz/Blues', classical: 'Classique/Musique de film', folk: 'Folk/Auteur-compositeur', latin: 'Latino/Reggae', schlager: 'Schlager/Austropop' },
+      levels: ['jamais', 'beaucoup moins', 'moins', 'peu importe', 'plus', 'beaucoup plus'],
+      none: 'aucune préférence de genre',
+      open: 'Régler les genres',
+      scale: 'Moins = ⅓ des chances, beaucoup moins = ⅒, plus = 3×, beaucoup plus = 10×, jamais = omis.',
+      share: p => `Dans la dernière liste : ${p}`,
+      unknown: p => `Sans genre reconnaissable : ${p} de la dernière liste`,
+      noShare: 'La part de chaque genre dans ta liste s’affiche ici après le prochain « Créer la playlist ».',
+    },
     variety: {
       label: 'Variété des artistes',
       levels: { low: 'faible', medium: 'moyenne', high: 'grande', veryHigh: 'très grande' },
@@ -2341,6 +2398,7 @@ const TEXT = {
       selection: 'Sélection',
       current: 'Ce que tu écoutes en ce moment',
       variety: 'Variété',
+      genres: 'Mixeur de genres',
       repeats: 'Pas de répétitions',
       blocked: 'Liste de blocage',
       auto: 'Recréer automatiquement',
@@ -2365,6 +2423,8 @@ const TEXT = {
         help: 'Les artistes que tu suis sur Spotify, aussi en invité (« feat. »).' },
       preferNewer: { label: 'Titres récents / anciens', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'Selon l’année de sortie sur Spotify, pour les nouveaux titres et les favoris – rien n’est exclu.' },
+      genres: { label: 'Mixeur de genres', fmt: v => genreSummary(v),
+        help: 'Baisse les genres qui t’agacent en ce moment ou monte-en d’autres selon ton humeur – pour les points de départ, les nouveaux titres et les favoris. Les genres viennent des tags que les auditeurs donnent sur Last.fm ; les artistes sans tag correspondant ne sont pas concernés.' },
       currentDays: { label: 'Période « actuelle »', fmt: v => (v ? pluralUnit(v, 'jour', 'jours') : 'désactivé'), help: 'Ce que tu as écouté pendant cette période selon Last.fm.' },
       currentFactor: { label: 'Poids de l’écoute actuelle', fmt: v => (v === 1 ? 'désactivé' : `× ${num(v)}`),
         hint: v => (v === 1 ? '' : `Ce que tu écoutes en ce moment a ${num(v)}× plus de chances d’être tiré`),
@@ -2761,6 +2821,23 @@ function newerHint(v) {
   return v > 0 ? T.newer.newer(x) : T.newer.older(x);
 }
 
+// Genre-Mixer: Genres und Stufen wie GENRES, GENRE_NEVER und GENRE_MAX in genres.mjs (tests/genres.test.mjs prüft das).
+const GENRE_IDS = ['pop', 'rock', 'indie', 'hiphop', 'electronic', 'rnb', 'metal', 'jazz', 'classical', 'folk', 'latin', 'schlager'];
+const GENRE_NEVER = -3;
+const GENRE_MAX = 2;
+// Stufe eines Genres aus der Einstellung (ungültig, z. B. von Hand geändert = egal)
+const genreLevel = (levels, g) => {
+  const v = levels && typeof levels === 'object' ? levels[g] : 0;
+  return Number.isInteger(v) && v >= GENRE_NEVER && v <= GENRE_MAX ? v : 0;
+};
+// „Elektronisch viel mehr, Schlager/Austropop nie“ bzw. „alle egal“
+function genreSummary(levels) {
+  const active = GENRE_IDS.filter(g => genreLevel(levels, g) !== 0);
+  return active.length ? active.map(g => `${T.genres.names[g]} ${T.genres.levels[genreLevel(levels, g) - GENRE_NEVER]}`).join(', ') : T.genres.none;
+}
+let genreShareInfo = null; // Anteile der Genres in der zuletzt erstellten Liste (state.genreShare über GET /api/config), null = keine
+let genresOpen = null;     // „Genres einstellen“ aufgeklappt? null = noch nicht entschieden (beim Laden: offen, wenn etwas eingestellt ist)
+
 // --- Regler: Aufbau ohne Texte (die stehen in TEXT[lang].items bzw. .groups) ---
 // Einträge ohne type sind Schieberegler; Bereich und Schrittweite kommen vom Server (limits aus GET /api/config).
 
@@ -2780,6 +2857,10 @@ const GROUPS = [
     { key: 'seedsPerRun', details: true },
     { key: 'useLastfmTopTracks', type: 'toggle', details: true },
     { key: 'useLastfmLovedTracks', type: 'toggle', details: true },
+  ]},
+  // Genre-Mixer: ein Eintrag (Objekt genres), gezeichnet als zwölf Regler (genresBox)
+  { id: 'genres', pro: true, items: [
+    { key: 'genres', type: 'genres' },
   ]},
   { id: 'current', pro: true, items: [
     { key: 'currentDays' },
@@ -3119,6 +3200,9 @@ function build() {
           el('div', { className: 'add-row' }, [input, el('button', { className: 'btn', type: 'button', textContent: T.list.add, onclick: add })]),
           control.note, help, control.tags,
         ]));
+      } else if (item.type === 'genres') {
+        Object.assign(control, genresBox(control));
+        input = control.details;
       } else if (item.type === 'tracks') {
         // Gesperrte Songs: nur Chips mit ×; gesperrt wird in der Liste eines Probelaufs (blockButton).
         label = el('span', { className: 'label', textContent: text.label });
@@ -3146,6 +3230,56 @@ function build() {
     if (group.pro) proSections.push(section);
     if (!group.root) roots[tabOf(group)].append(section);
   }
+}
+
+// Genre-Mixer: Hilfe und Zusammenfassung, darunter aufklappbar zwölf Regler (Stufen −3 … 2) mit dem Anteil des Genres in der
+// letzten Liste; „Standard: alle egal“ setzt alle zurück.
+function genresBox(control) {
+  const summary = el('p', { className: 'hint' });
+  const problem = attr(el('p', { className: 'msg err' }), { role: 'status' });
+  const details = el('details', { className: 'more genre-rows', open: Boolean(genresOpen) }, [el('summary', { textContent: T.genres.open })]);
+  details.addEventListener('toggle', () => { genresOpen = details.open; });
+  const rows = {};
+  for (const g of GENRE_IDS) {
+    const id = `f-genre-${g}`;
+    const range = el('input', { type: 'range', id, min: GENRE_NEVER, max: GENRE_MAX, step: 1, oninput: () => setGenre(g, Number(range.value)) });
+    const out = el('output', { htmlFor: id });
+    const hint = el('p', { className: 'help' });
+    rows[g] = { range, out, hint };
+    details.append(el('div', { className: 'row' }, [el('div', { className: 'row-head' }, [el('label', { htmlFor: id, textContent: T.genres.names[g] }), out]), range, hint]));
+  }
+  const shareNote = el('p', { className: 'help' });
+  details.append(el('p', { className: 'help', textContent: T.genres.scale }), shareNote);
+  control.row = el('div', { className: 'row' }, [el('p', { className: 'help', textContent: control.text.help }), summary, problem, details, control.reset]);
+  return { summary, problem, details, rows, shareNote };
+}
+
+// Ein Genre auf eine Stufe setzen; gespeichert wird wie in genres.mjs (cleanGenres): Reihenfolge von GENRE_IDS, ohne „egal“.
+function setGenre(genre, level) {
+  const levels = Object.fromEntries(GENRE_IDS.map(g => [g, g === genre ? level : genreLevel(current.genres, g)]).filter(([, v]) => v !== 0));
+  set('genres', levels);
+}
+
+function renderGenres(control, levels) {
+  const share = genreShareInfo?.songs > 0 ? genreShareInfo : null;
+  for (const g of GENRE_IDS) {
+    const { range, out, hint } = control.rows[g];
+    const level = genreLevel(levels, g);
+    range.value = level;
+    rangeFill(range);
+    out.textContent = T.genres.levels[level - GENRE_NEVER];
+    attr(range, { 'aria-valuetext': out.textContent });
+    hint.textContent = share ? T.genres.share(pct((share.counts?.[g] ?? 0) / share.songs)) : '';
+  }
+  control.summary.textContent = genreSummary(levels);
+  const unknown = share ? share.songs - (share.known ?? share.songs) : 0;
+  control.shareNote.textContent = !share ? T.genres.noShare : unknown > 0 ? T.genres.unknown(pct(unknown / share.songs)) : '';
+}
+
+// Neue Anteile vom Server (nach einem Lauf, auch einem automatischen)
+function setGenreShare(share) {
+  genreShareInfo = share ?? null;
+  if (controls.genres) renderGenres(controls.genres, current.genres);
 }
 
 // Hauptregler „Abwechslung bei Künstlern“: Stufen 0 … n−1. Passen die vier Werte zu keiner Stufe („Eigene Einstellung“),
@@ -3462,6 +3596,7 @@ function refresh(skipInput) {
       else if (item.type === 'seed') fillSeedSelect(input, v);
       else if (item.type === 'list') renderTags(control, v ?? []);
       else if (item.type === 'tracks') renderTrackTags(control, v ?? []);
+      else if (item.type === 'genres') renderGenres(control, v);
       else if (item.type === 'choice' || item.type === 'swatches') control.radios.forEach(r => { r.checked = r.value === v; });
       else if (!item.type) setSlider(control, v);
       else input.value = v;
@@ -3541,6 +3676,7 @@ async function load(keepEdits = false) {
   problems = data.problems;
   setup = data.setup;
   archiveFiles = data.archiveFiles ?? null;
+  genreShareInfo = data.genreShare ?? null;
   variety = data.variety ?? variety;
   varietyOverwritten = false;
   startActivity = data.activity ?? null;
@@ -3552,6 +3688,7 @@ async function load(keepEdits = false) {
   adoptLang(data);
   refresh();
   if (varietyControl && (varietyIndex(current) < 0 || variety.keys.some(k => problems[k]))) varietyControl.details.open = true;
+  if (genresOpen === null && controls.genres) genresOpen = controls.genres.details.open = Object.keys(current.genres ?? {}).length > 0 || Boolean(problems.genres);
   renderSetup();
   renderNotice();
 }
@@ -3902,7 +4039,7 @@ function finishRun(kind, text, settings) {
   // „Vorige Playlist wiederherstellen“ nur nach dem Überschreiben: Eine neu angelegte Playlist ändert die bisherige nicht.
   if (result?.ok && !dry && kind !== 'new') checkUndo(result.archiveFile);
   // Der Lauf hat das Token eventuell erneuert und dabei die erteilten Berechtigungen gespeichert (setup.missingScopes).
-  apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); setArchiveFiles(d.archiveFiles); }).catch(() => {});
+  apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); setArchiveFiles(d.archiveFiles); setGenreShare(d.genreShare); }).catch(() => {});
 }
 
 // --- Läuft schon etwas? (nach dem Neuladen, in einem zweiten Tab, automatischer Lauf, „Playlist jetzt neu erstellen“) ---
@@ -3962,7 +4099,7 @@ async function watchActivity(kind) {
   refresh();
   renderSummary();
   loadSchedule();
-  apiJson('/api/config').then(d => setArchiveFiles(d.archiveFiles)).catch(() => {});
+  apiJson('/api/config').then(d => { setArchiveFiles(d.archiveFiles); setGenreShare(d.genreShare); }).catch(() => {});
   if (trial) refreshTrial();
 }
 
@@ -4336,7 +4473,7 @@ async function importWrite() {
     // Wiederhergestellt: Knopf weg. Nach jedem anderen Import: vorigen Stand anbieten.
     if (s.undo) setUndo(null);
     else checkUndo(written.archiveFile);
-    apiJson('/api/config').then(d => setArchiveFiles(d.archiveFiles)).catch(() => {});
+    apiJson('/api/config').then(d => { setArchiveFiles(d.archiveFiles); setGenreShare(d.genreShare); }).catch(() => {});
   } catch (e) {
     if (e.data?.login && setup?.loggedIn) showNotice('expired');
     setImport({ ...s, error: e.message });

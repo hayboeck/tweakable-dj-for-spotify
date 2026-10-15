@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readText, writeAtomic } from './files.mjs';
 import { LANGS, resolveLang, t, tError } from './i18n.mjs';
+import { cleanGenres, GENRES } from './genres.mjs';
 import { trackKey } from './lineup.mjs';
 
 export const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -36,6 +37,8 @@ export const DEFAULTS = {
   useLastfmLovedTracks: true, // Songs mit ♥ auf Last.fm zählen zusätzlich als Favoriten (dj.mjs)
   followedArtists: 0,
   preferNewer: 0, // neuere bzw. ältere Songs bevorzugen (Faktor in lineup.mjs, newerFactor)
+  // Genre-Mixer: Hauptgenre → Stufe von −3 (nie) bis 2 (viel mehr), nur was nicht „egal“ ist (genres.mjs, cleanGenres)
+  genres: {},
   currentDays: 7,
   currentFactor: 3,
   excludeExplicit: false,
@@ -227,10 +230,10 @@ export function loadConfig(lang) {
   return cfg;
 }
 
-// Ungültige Zahlenwerte (Schlüssel → Meldung), z. B. von Hand in der config.jsonc geändert; {} = alles gültig.
+// Ungültige Zahlenwerte und Genre-Stufen (Schlüssel → Meldung), z. B. von Hand in der config.jsonc geändert; {} = alles gültig.
 export function numberProblems(cfg, lang) {
   const problems = {};
-  for (const key of Object.keys(LIMITS)) {
+  for (const key of [...Object.keys(LIMITS), 'genres']) {
     try {
       checkValue(key, cfg[key], lang);
     } catch (e) {
@@ -266,6 +269,11 @@ export function checkValue(key, value, lang) {
     return value;
   }
   if (key === 'blockedTracks') return checkTracks(key, value, lang);
+  if (key === 'genres') {
+    const clean = cleanGenres(value);
+    if (!clean) throw tError(lang, 'config.badGenres', { genres: GENRES.join(', ') });
+    return clean;
+  }
   if (Array.isArray(standard)) {
     if (!Array.isArray(value) || value.length > 500 || !value.every(v => typeof v === 'string')) {
       throw tError(lang, 'config.listExpected', { key });

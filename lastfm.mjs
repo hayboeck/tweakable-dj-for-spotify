@@ -87,6 +87,12 @@ export function createLastfm(apiKey, cacheFile, { lang } = {}) {
         list(d?.similarartists?.artist).map(a => ({ name: a.name, match: Number(a.match) || 0 })));
     },
 
+    // Schlagwörter, die Hörer dem Künstler gegeben haben (wichtigste zuerst, count 0–100) – für den Genre-Mixer (genres.mjs).
+    artistTopTags(artist) {
+      return cached('artist.getTopTags', { artist, autocorrect: 1 }, d =>
+        list(d?.toptags?.tag).slice(0, 10).map(t => ({ name: String(t.name ?? ''), count: Number(t.count) || 0 })));
+    },
+
     artistTopTracks(artist, limit = 10) {
       return cached('artist.getTopTracks', { artist, limit, autocorrect: 1 }, d =>
         list(d?.toptracks?.track).map(t => ({ artist: t.artist?.name ?? artist, name: t.name })));

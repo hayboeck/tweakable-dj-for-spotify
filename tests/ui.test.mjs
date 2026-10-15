@@ -839,7 +839,8 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Zahl und Einh
     const followedLabel = () => '';
     const followedHint = () => '';
     const newerLabel = () => '';
-    const newerHint = () => '';`;
+    const newerHint = () => '';
+    const genreSummary = v => (v && typeof v === 'object' && Object.keys(v).length ? T.genres.names.electronic : T.genres.none);`;
   const ctx = vm.createContext({});
   vm.runInContext(`${helpers}\n${html.slice(start, end + 3)}\nthis.TEXT = TEXT; this.setT = l => { T = TEXT[l]; };`, ctx);
   const c = { size: 50, artistWindow: 20, maxPerArtist: 2, maxPerWindow: 3, artistGap: 4, schedule: 'weekly', scheduleDay: 'WED',
@@ -871,6 +872,7 @@ test('ui.html: alle Texte ausrechenbar, Typografie für es und fr, Zahl und Einh
     'backup.changes': [[2, 'A, B'], [1, 'A']],
     'backup.blocked': [[2, 1, 0, 3], [1, 0, 1, 1]],
     'backup.failed': [['Fehler']],
+    'items.genres.fmt': [[{}], [{ electronic: 2 }]],
   };
   const texts = {};
   const collect = (lang, v, key) => {
