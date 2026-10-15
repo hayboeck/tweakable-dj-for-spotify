@@ -5,6 +5,24 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+## [0.4.0-beta.5] – 2026-10-15
+
+*Pre-release to try out: installed programs never update to it by themselves (see the README, section “Pre-releases”).*
+
+*Vorabversion zum Ausprobieren: Installierte Programme aktualisieren nie von selbst darauf (siehe README, Abschnitt „Vorabversionen“).*
+
+### English
+
+**Changed**
+
+- **“Not logged in yet” instead of “expired”**: if Client ID and Last.fm are set but you have never logged in to Spotify (e.g. the setup wizard was left before the login step), the notice now says *Not logged in to Spotify yet. Log in to start creating playlists.* – nothing has expired. The notice *Your Spotify login has expired or is missing* stays for a login that got lost.
+
+### Deutsch
+
+**Geändert**
+
+- **„Noch nicht angemeldet“ statt „abgelaufen“**: Sind Client ID und Last.fm eingetragen, du hast dich aber noch nie bei Spotify angemeldet (z. B. den Einrichtungs-Assistenten vor dem Schritt Anmeldung verlassen), sagt der Hinweis jetzt *Noch nicht bei Spotify angemeldet. Melde dich an, dann kannst du Playlists erstellen.* – abgelaufen ist da nichts. Der Hinweis *Deine Spotify-Anmeldung ist abgelaufen oder fehlt* bleibt für eine Anmeldung, die verloren gegangen ist.
+
 ## [0.4.0-beta.4] – 2026-10-14
 
 *Pre-release to try out: installed programs never update to it by themselves (see the README, section “Pre-releases”).*
@@ -563,6 +581,7 @@ Erste veröffentlichte Version.
 - Automatische Läufe über den Zeitplaner des Systems (Windows-Aufgabenplanung, macOS launchd, Linux cron).
 - Prüfung auf neue Versionen einmal am Tag und *Jetzt aktualisieren* mit Prüfsummen und automatischer Rücksicherung.
 
+[0.4.0-beta.5]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.5
 [0.4.0-beta.4]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.4
 [0.4.0-beta.3]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.3
 [0.4.0-beta.2]: https://github.com/hayboeck/tweakable-dj-for-spotify/releases/tag/v0.4.0-beta.2
