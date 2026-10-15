@@ -1738,6 +1738,16 @@ test('Nur die Anmeldung fehlt (tokens.json gelöscht oder ungültig): „neu anm
       const playlists = await s.call('/api/playlists');
       assert.deepEqual([playlists.status, playlists.data.login], [409, true]);
     }
+    // Noch nie angemeldet (weder tokens.json noch state.json): firstLogin – die Seite sagt „noch nicht angemeldet“ statt „abgelaufen“
+    const state = path.join(s.dir, 'state.json');
+    fs.rmSync(file, { force: true });
+    fs.rmSync(state, { force: true });
+    assert.equal((await s.call('/api/config')).data.setup.firstLogin, true);
+    fs.writeFileSync(state, '{}');
+    assert.equal((await s.call('/api/config')).data.setup.firstLogin, false, 'mit state.json: schon einmal gelaufen');
+    fs.rmSync(state, { force: true });
+    fs.writeFileSync(file, '{ kaputt');
+    assert.equal((await s.call('/api/config')).data.setup.firstLogin, false, 'tokens.json vorhanden, aber ungültig');
     // Automatik und zweite Verknüpfung: 409 mit dem Hinweis auf die Anmeldung, nichts gespeichert, Zeitplaner nicht gefragt
     const schedule = await s.call('/api/config', { method: 'POST', body: { schedule: 'daily', size: 34 } });
     assert.deepEqual([schedule.status, schedule.data.errorCode, schedule.data.error], [409, 'not_logged_in', scheduleText]);

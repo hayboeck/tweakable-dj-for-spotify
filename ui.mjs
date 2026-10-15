@@ -194,6 +194,8 @@ function readTokens() {
 // Stand der Einrichtung: Fehlt noch etwas, zeigt die Seite den Assistenten statt der Regler. loginOnly: Die Zugangsdaten sind
 // vollständig, es fehlt nur die Anmeldung bei Spotify (tokens.json fehlt oder ist ungültig, z. B. gelöscht) – dann zeigt die
 // Seite die Regler mit dem Hinweis „neu anmelden“, und der Server meldet not_logged_in statt „Einrichtung abschließen“.
+// firstLogin: dabei gibt es weder tokens.json noch state.json – noch nie angemeldet (Assistent ohne den Schritt Anmeldung
+// verlassen), also „noch nicht angemeldet“ statt „abgelaufen“.
 function setupStatus(cfg) {
   const tokens = readTokens();
   const configExists = fs.existsSync(CONFIG);
@@ -207,6 +209,7 @@ function setupStatus(cfg) {
   return {
     needsSetup: !configExists || missing.length > 0 || !loggedIn,
     loginOnly: configExists && missing.length === 0 && !loggedIn,
+    firstLogin: configExists && missing.length === 0 && !loggedIn && !fs.existsSync(TOKENS) && !fs.existsSync(STATE),
     configExists,
     missing,
     loggedIn,

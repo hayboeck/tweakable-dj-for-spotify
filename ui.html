@@ -1120,6 +1120,7 @@ const TEXT = {
     notice: {
       done: 'Angemeldet ✓ Die Spotify-Anmeldung gilt jetzt wieder 180 Tage (rund 6 Monate).',
       expired: 'Deine Spotify-Anmeldung ist abgelaufen oder fehlt. Melde dich neu an, dann klappt es wieder.',
+      first: 'Noch nicht bei Spotify angemeldet. Melde dich an, dann kannst du Playlists erstellen.',
       left: n => `Deine Spotify-Anmeldung läuft in ${pluralUnit(n, 'Tag', 'Tagen')} ab. Spotify verlangt alle 6 Monate eine neue Anmeldung.`,
       probably: 'Deine Spotify-Anmeldung ist wahrscheinlich abgelaufen. Spotify verlangt alle 6 Monate eine neue Anmeldung.',
       scope: 'Für „Gefolgte Künstler“ bitte einmal neu bei Spotify anmelden.',
@@ -1601,6 +1602,7 @@ const TEXT = {
     notice: {
       done: 'Logged in ✓ The Spotify login is valid for another 180 days (about 6 months).',
       expired: 'Your Spotify login has expired or is missing. Log in again and it will work again.',
+      first: 'Not logged in to Spotify yet. Log in to start creating playlists.',
       left: n => `Your Spotify login expires in ${pluralUnit(n, 'day', 'days')}. Spotify requires a new login every 6 months.`,
       probably: 'Your Spotify login has probably expired. Spotify requires a new login every 6 months.',
       scope: 'For “Followed artists”, please log in to Spotify again once.',
@@ -2075,6 +2077,7 @@ const TEXT = {
     notice: {
       done: 'Sesión iniciada ✓ El inicio de sesión de Spotify vuelve a valer 180 días (unos 6 meses).',
       expired: 'Tu sesión de Spotify ha caducado o falta. Vuelve a iniciar sesión y todo funcionará de nuevo.',
+      first: 'Todavía no has iniciado sesión en Spotify. Inicia sesión y podrás crear playlists.',
       left: n => `Tu sesión de Spotify caduca dentro de ${pluralUnit(n, 'día', 'días')}. Spotify pide iniciar sesión de nuevo cada 6 meses.`,
       probably: 'Probablemente tu sesión de Spotify ha caducado. Spotify pide iniciar sesión de nuevo cada 6 meses.',
       scope: 'Para «Artistas que sigues», vuelve a iniciar sesión en Spotify una vez.',
@@ -2550,6 +2553,7 @@ const TEXT = {
     notice: {
       done: 'Connexion réussie ✓ La connexion Spotify est de nouveau valable 180 jours (environ 6 mois).',
       expired: 'Ta connexion Spotify a expiré ou manque. Reconnecte-toi et tout fonctionnera à nouveau.',
+      first: 'Tu n’es pas encore connecté à Spotify. Connecte-toi pour créer des playlists.',
       left: n => `Ta connexion Spotify expire dans ${pluralUnit(n, 'jour', 'jours')}. Spotify demande une nouvelle connexion tous les 6 mois.`,
       probably: 'Ta connexion Spotify a probablement expiré. Spotify demande une nouvelle connexion tous les 6 mois.',
       scope: 'Pour « Artistes suivis », reconnecte-toi une fois à Spotify.',
@@ -2894,7 +2898,7 @@ let seedOptions = null;     // Lieblingssongs + Playlists, null = nicht verfügb
 let seedNote = null;        // { key: 'login' | 'loading' | 'error' | 'raw', msg }
 let loginState = { status: 'idle', message: '' };   // mit key statt message: Text aus T.login
 let loginTimer = null;
-let noticeReason = null;    // 'expired' nach gescheitertem Lauf, 'done' nach erfolgreicher Anmeldung
+let noticeReason = null;    // 'expired' nach gescheitertem Lauf, 'first' ohne bisherige Anmeldung, 'done' nach erfolgreicher Anmeldung
 let noticeClosed = null;    // mit × ausgeblendeter Grund; ein anderer Grund zeigt den Hinweis wieder
 let fromSettings = false;   // Assistent über "Zugangsdaten ändern" geöffnet?
 let scheduleInfo = null;    // Stand der Automatik vom Server (GET /api/schedule)
@@ -3889,7 +3893,7 @@ function finishRun(kind, text, settings) {
   const applying = kind === 'apply' || kind === 'new';
   const result = runResult(text);
   runState = { phase: 'done', kind, dry, result, trialId: dry && result?.ok ? result.trialId ?? null : null, tracks: null };
-  if (LOGIN_CODES.includes(result?.errorCode)) showNotice('expired');
+  if (LOGIN_CODES.includes(result?.errorCode)) showNotice(loginReason());
   if (dry && result?.ok && result.trialId) {
     trial = { id: result.trialId, settings, expiresAt: new Date(Date.now() + 24 * 3600_000).toISOString(), serverReason: null, message: '' };
     refreshTrial();
@@ -4317,7 +4321,7 @@ async function importPreview(file, { undo = false } = {}) {
     }
     const result = runResult(text + decoder.decode());
     if (!result?.ok) {
-      if (LOGIN_CODES.includes(result?.errorCode)) showNotice('expired');
+      if (LOGIN_CODES.includes(result?.errorCode)) showNotice(loginReason());
       throw new Error(result?.error ?? T.files.failed);
     }
     setImport({ phase: 'preview', result, file: file.name, undo });
@@ -4539,7 +4543,7 @@ function scopeNeeded() {
 
 function currentNoticeReason() {
   const age = setup?.authAgeDays;
-  return noticeReason ?? (loginOnly() ? 'expired' : loginNeeded(scheduleInfo?.lastRun) ? 'auto' : scopeNeeded() ? 'scope'
+  return noticeReason ?? (loginOnly() ? loginReason() : loginNeeded(scheduleInfo?.lastRun) ? 'auto' : scopeNeeded() ? 'scope'
     : libraryScopeFailed && setup?.loggedIn ? 'library' : age != null && age >= 170 ? 'age' : null);
 }
 
@@ -4554,6 +4558,7 @@ function renderNotice() {
   $('notice-text').textContent = reason === 'done' ? T.notice.done
     : reason === 'auto' ? T.auto.notice
     : reason === 'expired' ? T.notice.expired
+    : reason === 'first' ? T.notice.first
     : reason === 'scope' ? T.notice.scope
     : reason === 'library' ? T.notice.library
     : left > 0 ? T.notice.left(left)
@@ -4900,6 +4905,10 @@ let setupNoteClosed = false;   // × am Hinweis (bis man etwas versucht, das die
 // abgeschlossen: Die Seite zeigt die Regler mit dem Hinweis „neu anmelden“ (renderNotice), nicht „Einrichtung abschließen“.
 const setupMissing = () => Boolean(setup?.needsSetup) && !setup.loginOnly;
 const loginOnly = () => Boolean(setup?.needsSetup && setup.loginOnly);
+// Hinweis zur fehlenden Anmeldung: „noch nicht angemeldet“, wenn es noch nie eine gab (firstLogin), sonst „abgelaufen oder fehlt“
+function loginReason() {
+  return setup?.firstLogin ? 'first' : 'expired';
+}
 
 function renderSetupNote() {
   const show = view === 'main' && setupMissing() && (Boolean(setupNeed) || !setupNoteClosed);
@@ -4915,7 +4924,7 @@ function renderSetupNote() {
 function needsSetupFor(what) {
   if (loginOnly()) {
     noticeClosed = null;
-    showNotice('expired');
+    showNotice(loginReason());
     $('notice').scrollIntoView({ block: 'nearest' });
     $('notice-login').querySelector('button')?.focus({ preventScroll: true });
     return true;

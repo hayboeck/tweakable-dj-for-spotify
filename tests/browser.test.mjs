@@ -356,6 +356,9 @@ test('Nur die Anmeldung fehlt (tokens.json gelöscht): Regler mit dem Hinweis �
   for (const f of fs.readdirSync(path.join(dir, 'assets'))) fs.copyFileSync(path.join(dir, 'assets', f), path.join(fresh, 'assets', f));
   fs.mkdirSync(path.join(fresh, 'desktop'));
   fs.writeFileSync(path.join(fresh, 'config.jsonc'), `// Test-Einstellungen\n${JSON.stringify(CONFIG, null, 2)}\n`);
+  // state.json da: Tweakable DJ lief schon einmal, die Anmeldung ist also verloren gegangen (nicht „noch nie angemeldet“)
+  const state = path.join(fresh, 'state.json');
+  fs.writeFileSync(state, '{}');
   const scheduler = path.join(fresh, 'zeitplaner.json');
   fs.writeFileSync(scheduler, JSON.stringify({ entries: {}, fail: null, calls: [] }));
   const port = await freePort();
@@ -381,6 +384,15 @@ test('Nur die Anmeldung fehlt (tokens.json gelöscht): Regler mit dem Hinweis �
     assert.equal(await text(page, 'notice-text'), expired);
     assert.equal(await page.eval("document.querySelector('#notice-login button').textContent"), 'Mit Spotify anmelden');
     assert.equal(await text(page, 'open-setup'), 'Zugangsdaten ändern');
+    // Noch nie angemeldet (auch kein state.json): „noch nicht angemeldet“ statt „abgelaufen“
+    fs.rmSync(state, { force: true });
+    await page.goto(`${url}/`);
+    await page.waitFor("!document.getElementById('main-view').hidden && document.getElementById('status').textContent !== 'Lädt …'");
+    assert.equal(await text(page, 'notice-text'), 'Noch nicht bei Spotify angemeldet. Melde dich an, dann kannst du Playlists erstellen.');
+    fs.writeFileSync(state, '{}');
+    await page.goto(`${url}/`);
+    await page.waitFor("!document.getElementById('main-view').hidden && document.getElementById('status').textContent !== 'Lädt …'");
+    assert.equal(await text(page, 'notice-text'), expired);
     // × blendet ihn aus; „Playlist erstellen“ zeigt ihn wieder, ohne Anfrage an den Server
     await page.click('#notice-close');
     assert.ok(await page.eval("document.getElementById('notice').hidden"));
