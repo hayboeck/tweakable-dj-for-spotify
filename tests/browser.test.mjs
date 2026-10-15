@@ -62,6 +62,8 @@ before(async () => {
     MOCK_LOG: path.join(dir, 'mock-anfragen.jsonl'), MOCK_SPOTIFY_STORE: path.join(dir, 'store.json'), TWEAKABLE_DJ_DESKTOP: path.join(dir, 'desktop'),
     // Läufe dauern etwas (jede Suche 40 ms), damit Neuladen und zweiter Tab sicher mitten hinein fallen
     MOCK_SEARCH_DELAY_MS: '40',
+    // Solange es diese Datei gibt, hält jeder Lauf bei der Suche auf Spotify an (Neuladen mitten im Lauf, auch auf langsamen Runnern)
+    MOCK_SEARCH_GATE: path.join(dir, 'suche-angehalten'),
   };
   server = spawn(process.execPath, ['ui.mjs', '--no-browser'], { cwd: dir, env });
   await new Promise((resolve, reject) => {
@@ -150,14 +152,23 @@ test('Playlist erstellen, „überschreiben“ per Doppelklick (nur einmal), Vor
 
 test('Neuladen während eines Laufs und zweiter Tab: „Läuft …“, Knöpfe gesperrt, danach Ergebnis mit den Knöpfen zum Schreiben', { skip }, async () => {
   const page = await open();
-  await page.click('#create');
-  await page.waitFor("document.getElementById('status').textContent === 'Läuft …' && document.getElementById('log').textContent.length > 20");
-  const second = await open();
-  // Zweiter Tab: erkennt den Lauf beim Laden
-  await second.waitFor("document.getElementById('status').textContent === 'Läuft …'");
-  assert.ok(await second.eval("document.getElementById('create').disabled && !document.getElementById('wait-msg').hidden"));
-  await page.reload();
-  await page.waitFor("document.getElementById('status').textContent === 'Läuft …' && document.getElementById('create').disabled");
+  // Der Lauf hält bei der ersten Suche auf Spotify an, bis beide Tabs ihn gesehen haben – sonst wäre er auf einem schnellen
+  // Rechner schon fertig bzw. auf einem langsamen Runner (macOS) der zweite Tab noch nicht geladen.
+  const gate = path.join(dir, 'suche-angehalten');
+  fs.writeFileSync(gate, '');
+  let second;
+  try {
+    await page.click('#create');
+    await page.waitFor("document.getElementById('status').textContent === 'Läuft …' && document.getElementById('log').textContent.length > 20");
+    second = await open();
+    // Zweiter Tab: erkennt den Lauf beim Laden
+    await second.waitFor("document.getElementById('status').textContent === 'Läuft …'");
+    assert.ok(await second.eval("document.getElementById('create').disabled && !document.getElementById('wait-msg').hidden"));
+    await page.reload();
+    await page.waitFor("document.getElementById('status').textContent === 'Läuft …' && document.getElementById('create').disabled");
+  } finally {
+    fs.rmSync(gate, { force: true });
+  }
   for (const p of [page, second]) {
     await p.waitFor("document.getElementById('summary').textContent.startsWith('Erstellt:')", 60_000);
     await p.waitFor("!document.getElementById('trial-apply').hidden && !document.getElementById('trial-apply').disabled");

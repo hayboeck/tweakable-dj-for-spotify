@@ -22,6 +22,7 @@
 //   MOCK_LASTFM_LOVED   JSON [[Künstler, Titel], …]: Lieblingssongs (♥) von testhoerer auf Last.fm (sonst keine)
 //   Schlagwörter der Künstler (artist.getTopTags, Genre-Mixer): fest nach dem Namen aus tests/mock-tags.mjs.
 //   MOCK_SEARCH_DELAY_MS  jede Suche auf Spotify (/v1/search) antwortet erst nach so vielen Millisekunden (Lauf dauert länger)
+//   MOCK_SEARCH_GATE    Datei: Solange es sie gibt, wartet jede Suche auf Spotify – ein Lauf bleibt sicher „mittendrin“, bis der Test sie löscht
 //   MOCK_GITHUB         JSON-Datei mit der Antwort von GitHub auf die Frage nach dem neuesten Release (update.mjs):
 //                       { "status": 200, "body": { "tag_name": "v0.2.0", "assets": […], … } } oder { "offline": true }
 //                       (= Netzfehler). Dazu für „Jetzt aktualisieren“ (install-update.mjs) die Dateien des Releases:
@@ -512,6 +513,7 @@ globalThis.fetch = async (input, init) => {
   if (url.origin === 'https://accounts.spotify.com' && url.pathname === '/api/token') res = spotifyToken(init);
   else if (url.origin === 'https://api.spotify.com') {
     if (url.pathname === '/v1/search' && Number(process.env.MOCK_SEARCH_DELAY_MS) > 0) await new Promise(r => setTimeout(r, Number(process.env.MOCK_SEARCH_DELAY_MS)));
+    while (url.pathname === '/v1/search' && process.env.MOCK_SEARCH_GATE && fs.existsSync(process.env.MOCK_SEARCH_GATE)) await new Promise(r => setTimeout(r, 50));
     res = await spotifyApi(url, init, headers);
   }
   else if (url.origin === 'https://ws.audioscrobbler.com' && url.pathname === '/2.0/') res = lastfmApi(url);
