@@ -377,6 +377,18 @@ test('loadConfig: unvollständige Einrichtung mit errorCode, Platzhalter beider 
 
 const URI_A = 'spotify:track:aaaaaaaaaaaaaaaaaaaaaa';
 
+test('moods (Stimmungen des Genre-Mixers): Name 1–40 Zeichen, gültige Genres, höchstens 20, gleicher Name nur einmal; notifyOnSuccess', () => {
+  assert.deepEqual([DEFAULTS.moods, DEFAULTS.notifyOnSuccess], [[], false]);
+  assert.deepEqual(checkValue('moods', [{ name: '  Arbeiten  am   Abend ', genres: { schlager: -3, electronic: 1 }, extra: 1 }, { name: 'arbeiten am abend', genres: {} }, { name: 'Party', genres: {} }]),
+    [{ name: 'Arbeiten am Abend', genres: { electronic: 1, schlager: -3 } }, { name: 'Party', genres: {} }]);
+  for (const bad of [null, {}, [{ name: '', genres: {} }], [{ name: 'x'.repeat(41), genres: {} }], [{ name: 'A', genres: { techno: 1 } }], [{ name: 'A' }], ['A'],
+    Array.from({ length: 21 }, (_, i) => ({ name: `M${i}`, genres: {} }))]) {
+    assert.throws(() => checkValue('moods', bad, 'de'), /moods: höchstens 20 Stimmungen/, JSON.stringify(bad)?.slice(0, 60));
+  }
+  assert.equal(checkValue('notifyOnSuccess', true), true);
+  assert.throws(() => checkValue('notifyOnSuccess', 'ja'));
+});
+
 test('blockedTracks: Objekte { uri, artist, name }, uri darf fehlen; gesäubert, Doppelte über trackKey; höchstens 1000', () => {
   assert.deepEqual([DEFAULTS.blockedTracks, DEFAULTS.excludeExplicit], [[], false]);
   assert.deepEqual(checkValue('blockedTracks', [

@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   APP_VAR, LOGIN_DAYS, NOTIFY_TIMEOUT, REMIND_DAYS, TOAST_VAR, WINDOWS_APP_ID, autoRunNotice, escapeXml, failureNotice, loginReminderDays,
-  notify, notifyCommand, notifyProblem, remindLogin, testNotice, toastXml,
+  notify, notifyCommand, notifyProblem, nowNotice, remindLogin, testNotice, toastXml,
 } from '../notify.mjs';
 
 // Text mit allem, was in einer Befehlszeile, in XML oder in AppleScript Ärger machen könnte.
@@ -160,13 +160,32 @@ test('failureNotice: Grund aus errorCode und was zu tun ist; sonst die erste Zei
   assert.deepEqual(testNotice('en'), { title: 'Tweakable DJ: test notification', text: 'This is how Tweakable DJ tells you when an automatic run fails.' });
 });
 
-test('autoRunNotice: nur bei Fehlern, Schalter wirkt; Erfolg und laufende Läufe melden nie', () => {
+test('autoRunNotice: bei Fehlern (Schalter notifyOnFailure); Erfolg nur mit success; laufende Läufe melden nie', () => {
   const failed = { ok: false, errorCode: 'login_expired', error: 'abgelaufen' };
   assert.equal(autoRunNotice({ result: failed, lang: 'de' }).title, 'Tweakable DJ: automatischer Lauf fehlgeschlagen');
   assert.equal(autoRunNotice({ result: failed, lang: 'de', enabled: false }), null, 'Schalter aus');
   assert.equal(autoRunNotice({ result: { ok: true }, lang: 'de' }), null);
   assert.equal(autoRunNotice({ result: { ok: null }, lang: 'de' }), null);
   assert.equal(autoRunNotice({ result: null, lang: 'de' }), null);
+  // Erfolgsmeldung (notifyOnSuccess, 201): Name, Anzahl Songs und Spieldauer
+  const ok = { ok: true, playlistName: 'Mix', songs: 50, fresh: 40, familiar: 10, durationMs: 3 * 3600_000 + 12 * 60_000, durationEstimated: false };
+  assert.deepEqual(autoRunNotice({ result: ok, lang: 'de', success: true }), { title: 'Tweakable DJ', text: 'Playlist „Mix“ neu erstellt ✓ – 50 Songs · 3:12\u00a0Std.' });
+  assert.equal(autoRunNotice({ result: ok, lang: 'de', success: true, enabled: false }).title, 'Tweakable DJ', 'unabhängig von notifyOnFailure');
+  assert.equal(autoRunNotice({ result: { ...ok, durationMs: null }, lang: 'en', success: true }).text, 'Playlist “Mix” rebuilt ✓ – 50 songs');
+  assert.equal(autoRunNotice({ result: { ok: false, errorCode: 'other', error: 'x' }, lang: 'de', success: true, enabled: false }), null, 'Fehler nur mit notifyOnFailure');
+  // Last.fm nicht erreichbar (200): eigene Meldung, auch ohne success – außer beide Schalter sind aus
+  const offline = { ...ok, fresh: 0, familiar: 50, lastfmOffline: true };
+  assert.deepEqual(autoRunNotice({ result: offline, lang: 'de' }), { title: 'Tweakable DJ: Last.fm nicht erreichbar',
+    text: '„Mix“ besteht diesmal nur aus deinen Favoriten (50 Songs). Der nächste Lauf versucht es wieder.' });
+  assert.equal(autoRunNotice({ result: { ...offline, fresh: 12, familiar: 38 }, lang: 'en' }).text, '“Mix” has fewer new songs this time (12 new, 38 favorites).');
+  assert.equal(autoRunNotice({ result: offline, lang: 'de', enabled: false }), null);
+  assert.equal(autoRunNotice({ result: offline, lang: 'de', enabled: false, success: true }).title, 'Tweakable DJ: Last.fm nicht erreichbar');
+});
+
+test('nowNotice: Erfolg mit Spieldauer, ohne Last.fm eigene Meldung', () => {
+  const ok = { ok: true, playlistName: 'Mix', songs: 20, fresh: 15, familiar: 5, durationMs: 69 * 60_000, durationEstimated: true };
+  assert.deepEqual(nowNotice('de', ok), { title: 'Tweakable DJ', text: 'Playlist „Mix“ neu erstellt ✓ – 20 Songs · ≈\u00a01:09\u00a0Std.' });
+  assert.equal(nowNotice('de', { ...ok, lastfmOffline: true, fresh: 0 }).title, 'Tweakable DJ: Last.fm nicht erreichbar');
 });
 
 test('loginReminderDays: in der letzten Woche vor dem Ablauf, höchstens einmal am Tag', () => {

@@ -252,6 +252,16 @@
   pre button.like { font: inherit; font-size: 12px; line-height: 1.2; padding: 0 6px; margin-left: 6px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); cursor: pointer; }
   pre button.like:hover, pre button.like[aria-pressed="true"] { color: var(--accent); border-color: currentColor; }
   pre button.like:disabled { opacity: .5; cursor: default; }
+  pre button.radio { font: inherit; font-size: 12px; line-height: 1.2; padding: 0 6px; margin-left: 6px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); cursor: pointer; }
+  pre button.radio:hover { color: var(--accent); border-color: currentColor; }
+  pre button.radio:disabled { opacity: .5; cursor: default; }
+  .moods { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 8px 0 0; }
+  .moods .mood { display: inline-flex; align-items: stretch; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .moods .mood button { font: inherit; font-size: 13.5px; border: 0; background: none; color: var(--text); padding: 4px 10px; cursor: pointer; }
+  .moods .mood button.x { padding: 4px 9px 4px 2px; color: var(--muted); }
+  .moods .mood[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  .moods .mood[aria-current="true"] button:first-child::after { content: " ✓"; color: var(--accent); }
+  .moods .empty { color: var(--muted); font-size: 13.5px; }
 
   /* Automatik */
   .row-head .label { font-weight: 600; }
@@ -893,6 +903,16 @@ const TEXT = {
       older: x => `20 Jahre alte Songs haben ein ${x}× größeres Los, Songs von diesem Jahr ein ${x}× kleineres`,
       neutral: 'Egal – das Erscheinungsjahr spielt keine Rolle',
     },
+    // Stimmungen (moods): gespeicherte Genre-Stufen
+    moods: {
+      save: 'Aktuelle Genres speichern',
+      empty: 'Noch keine Stimmung gespeichert.',
+      apply: name => `Stimmung „${name}“ einstellen`,
+      remove: name => `Stimmung „${name}“ löschen`,
+      noName: 'Bitte zuerst einen Namen eingeben.',
+      replaced: name => `„${name}“ hat jetzt die aktuellen Genre-Stufen.`,
+      full: max => `Höchstens ${max} Stimmungen – lösche zuerst eine.`,
+    },
     // Genre-Mixer (genres): Namen wie genre.* in i18n.mjs, levels = Stufen von −3 (nie) bis 2 (viel mehr)
     genres: {
       names: { pop: 'Pop', rock: 'Rock', indie: 'Indie/Alternative', hiphop: 'Hip-Hop/Rap', electronic: 'Elektronisch', rnb: 'R&B/Soul', metal: 'Metal/Punk',
@@ -901,7 +921,9 @@ const TEXT = {
       none: 'alle egal',
       open: 'Genres einstellen',
       scale: 'weniger = ⅓ des Loses, viel weniger = ⅒, mehr = 3×, viel mehr = 10×, nie = weggelassen.',
-      share: p => `In der letzten Liste: ${p}`,
+      inList: p => `In der letzten Liste: ${p}`,
+      inFavorites: p => `In deinen Favoriten: ${p}`,
+      favoritesNote: n => `„In deinen Favoriten“ zählt die Songs deiner ${n} häufigsten Künstler.`,
       unknown: p => `Ohne erkennbares Genre: ${p} der letzten Liste`,
       noShare: 'Wie viel von jedem Genre in deiner Liste ist, steht hier nach dem nächsten „Playlist erstellen“.',
     },
@@ -946,6 +968,8 @@ const TEXT = {
         help: 'Künstler, denen du auf Spotify folgst, auch als Gast („feat.“).' },
       preferNewer: { label: 'Neuere / ältere Songs', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'Nach Erscheinungsjahr laut Spotify; gilt für neue Songs und Favoriten, nichts fällt weg.' },
+      moods: { label: 'Stimmungen', placeholder: 'Name, z. B. Arbeiten',
+        help: 'Speichert die Genre-Stufen von oben unter einem Namen; ein Klick stellt sie wieder ein (dann „Speichern“ oder „Playlist erstellen“).' },
       genres: { label: 'Genre-Mixer', fmt: v => genreSummary(v),
         help: 'Dämpft Genres, die dich gerade nerven, oder dreht andere je nach Stimmung auf – für Ausgangspunkte, neue Songs und Favoriten. Die Genres stammen von den Schlagwörtern, die Hörer auf Last.fm vergeben; Künstler ohne passende bleiben unberührt.' },
       currentDays: { label: 'Zeitraum „aktuell“', fmt: v => (v ? pluralUnit(v, 'Tag', 'Tage') : 'aus'), help: 'Was du laut Last.fm in diesem Zeitraum gehört hast.' },
@@ -980,6 +1004,8 @@ const TEXT = {
         options: { MON: 'Montag', TUE: 'Dienstag', WED: 'Mittwoch', THU: 'Donnerstag', FRI: 'Freitag', SAT: 'Samstag', SUN: 'Sonntag' } },
       scheduleTime: { label: 'Uhrzeit', fmt: v => `${v} Uhr`,
         hint: (v, c) => `${c.schedule === 'weekly' ? `Jeden ${T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay}` : 'Jeden Tag'} um ${v} Uhr` },
+      notifyOnSuccess: { label: 'Auch bei Erfolg benachrichtigen',
+        help: 'Nach jedem automatischen Lauf eine kurze Meldung mit Anzahl Songs und Spieldauer.' },
       notifyOnFailure: { label: 'Bei Fehlern benachrichtigen',
         help: 'Meldet sich, wenn ein automatischer Lauf scheitert – z. B. bei abgelaufener Spotify-Anmeldung oder ungültigem Last.fm-Key.' },
       runShortcut: { label: 'Zweite Verknüpfung: Playlist jetzt neu erstellen',
@@ -999,6 +1025,8 @@ const TEXT = {
       unblock: 'Sperre aufheben',
       unblockName: name => `Sperre für „${name}“ aufheben`,
       // ♥ in der Liste eines Probelaufs: zu den Lieblingssongs in Spotify hinzufügen bzw. daraus entfernen
+      radio: 'Radio zu diesem Song: eine neue Liste rund um ihn erstellen (die Einstellungen bleiben)',
+      radioName: name => `Radio zu „${name}“`,
       like: 'Zu deinen Lieblingssongs in Spotify hinzufügen',
       likeName: name => `„${name}“ zu den Lieblingssongs hinzufügen`,
       unlike: 'Aus deinen Lieblingssongs entfernen',
@@ -1041,6 +1069,7 @@ const TEXT = {
     },
     run: {
       running: kind => (kind === 'dry' ? 'Playlist wird erstellt … (ca. 1 Minute)' : kind === 'new' ? 'Neue Playlist wird in Spotify angelegt …' : 'Playlist wird überschrieben …'),
+      lastfmOffline: ' – Last.fm war nicht erreichbar, deshalb nur bzw. mehr Favoriten',
       ok: (r, dry) => `${dry ? 'Erstellt' : 'Fertig'}: ${!dry && r.playlistName ? `„${r.playlistName}“ · ` : ''}${plural(r.songs, 'Song', 'Songs')}${durationText(r)} (${num(r.fresh)} neu, davon ${num(r.freshCurrent)} über aktuelles Hören; ${plural(r.familiar, 'Favorit', 'Favoriten')})`,
       unchanged: ' · noch nicht in Spotify',
       failedWith: reason => `Fehlgeschlagen: ${reason} – siehe Ausgabe`,
@@ -1394,6 +1423,15 @@ const TEXT = {
       older: x => `20-year-old songs are ${x}× as likely to be drawn, songs from this year ${x}× less likely`,
       neutral: 'No preference – the release year doesn’t matter',
     },
+    moods: {
+      save: 'Save current genres',
+      empty: 'No mood saved yet.',
+      apply: name => `Set mood “${name}”`,
+      remove: name => `Delete mood “${name}”`,
+      noName: 'Please enter a name first.',
+      replaced: name => `“${name}” now has the current genre levels.`,
+      full: max => `At most ${max} moods – delete one first.`,
+    },
     genres: {
       names: { pop: 'Pop', rock: 'Rock', indie: 'Indie/Alternative', hiphop: 'Hip-hop/Rap', electronic: 'Electronic', rnb: 'R&B/Soul', metal: 'Metal/Punk',
         jazz: 'Jazz/Blues', classical: 'Classical/Film music', folk: 'Folk/Singer-songwriter', latin: 'Latin/Reggae', schlager: 'Schlager/Austropop' },
@@ -1401,7 +1439,9 @@ const TEXT = {
       none: 'no preference for any genre',
       open: 'Adjust genres',
       scale: 'Less = ⅓ the odds, much less = ⅒, more = 3×, much more = 10×, never = left out.',
-      share: p => `In the last list: ${p}`,
+      inList: p => `In the last list: ${p}`,
+      inFavorites: p => `In your favorites: ${p}`,
+      favoritesNote: n => `“In your favorites” counts the songs of your ${n} most frequent artists.`,
       unknown: p => `No recognizable genre: ${p} of the last list`,
       noShare: 'How much of each genre is in your list shows up here after the next “Create playlist”.',
     },
@@ -1446,6 +1486,8 @@ const TEXT = {
         help: 'Artists you follow on Spotify, also as a guest (“feat.”).' },
       preferNewer: { label: 'Newer / older songs', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'By release year according to Spotify; applies to new songs and favorites, nothing is left out.' },
+      moods: { label: 'Moods', placeholder: 'Name, e.g. Work',
+        help: 'Saves the genre levels above under a name; one click sets them again (then “Save” or “Create playlist”).' },
       genres: { label: 'Genre mixer', fmt: v => genreSummary(v),
         help: 'Turn down genres that annoy you right now, or turn others up to suit your mood – for starting points, new songs and favorites. The genres come from the tags listeners give on Last.fm; artists without matching tags aren’t affected.' },
       currentDays: { label: 'Period counted as “current”', fmt: v => (v ? pluralUnit(v, 'day', 'days') : 'off'), help: 'What Last.fm says you played in this period.' },
@@ -1480,6 +1522,8 @@ const TEXT = {
         options: { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' } },
       scheduleTime: { label: 'Time', fmt: v => v,
         hint: (v, c) => `${c.schedule === 'weekly' ? `Every ${T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay}` : 'Every day'} at ${v}` },
+      notifyOnSuccess: { label: 'Also notify on success',
+        help: 'A short message after every automatic run, with the number of songs and the play time.' },
       notifyOnFailure: { label: 'Notify on failures',
         help: 'Notifies you when an automatic run fails – e.g. because the Spotify login expired or the Last.fm key is invalid.' },
       runShortcut: { label: 'Second shortcut: rebuild playlist now',
@@ -1499,6 +1543,8 @@ const TEXT = {
       unblock: 'Unblock',
       unblockName: name => `Unblock “${name}”`,
       // ♥ in der Liste eines Probelaufs: zu den Lieblingssongs in Spotify hinzufügen bzw. daraus entfernen
+      radio: 'Radio for this song: create a new list around it (settings stay as they are)',
+      radioName: name => `Radio for “${name}”`,
       like: 'Add to your Liked Songs in Spotify',
       likeName: name => `Add “${name}” to Liked Songs`,
       unlike: 'Remove from your Liked Songs',
@@ -1539,6 +1585,7 @@ const TEXT = {
     },
     run: {
       running: kind => (kind === 'dry' ? 'Creating the playlist … (about 1 minute)' : kind === 'new' ? 'Creating a new playlist in Spotify …' : 'Overwriting the playlist …'),
+      lastfmOffline: ' – Last.fm couldn’t be reached, so only or more favorites',
       ok: (r, dry) => `${dry ? 'Created' : 'Done'}: ${!dry && r.playlistName ? `“${r.playlistName}” · ` : ''}${plural(r.songs, 'song', 'songs')}${durationText(r)} (${num(r.fresh)} new, ${num(r.freshCurrent)} of them via current listening; ${plural(r.familiar, 'favorite', 'favorites')})`,
       unchanged: ' · not in Spotify yet',
       failedWith: reason => `Failed: ${reason} – see output`,
@@ -1882,6 +1929,15 @@ const TEXT = {
       older: x => `Las canciones de hace 20 años tienen ${x}× más probabilidades de salir; las de este año, ${x}× menos`,
       neutral: 'Da igual: el año de publicación no cuenta',
     },
+    moods: {
+      save: 'Guardar los géneros actuales',
+      empty: 'Aún no hay ningún estado de ánimo guardado.',
+      apply: name => `Poner el estado de ánimo «${name}»`,
+      remove: name => `Borrar el estado de ánimo «${name}»`,
+      noName: 'Escribe primero un nombre.',
+      replaced: name => `«${name}» tiene ahora los niveles de género actuales.`,
+      full: max => `Como máximo ${max} estados de ánimo: borra uno primero.`,
+    },
     genres: {
       names: { pop: 'Pop', rock: 'Rock', indie: 'Indie/Alternativo', hiphop: 'Hip-hop/Rap', electronic: 'Electrónica', rnb: 'R&B/Soul', metal: 'Metal/Punk',
         jazz: 'Jazz/Blues', classical: 'Clásica/Bandas sonoras', folk: 'Folk/Cantautor', latin: 'Latino/Reggae', schlager: 'Schlager/Austropop' },
@@ -1889,7 +1945,9 @@ const TEXT = {
       none: 'ningún género preferido',
       open: 'Ajustar géneros',
       scale: 'Menos = ⅓ de probabilidad, mucho menos = ⅒, más = 3×, mucho más = 10×, nunca = se omite.',
-      share: p => `En la última lista: ${p}`,
+      inList: p => `En la última lista: ${p}`,
+      inFavorites: p => `En tus favoritas: ${p}`,
+      favoritesNote: n => `«En tus favoritas» cuenta las canciones de tus ${n} artistas más frecuentes.`,
       unknown: p => `Sin género reconocible: ${p} de la última lista`,
       noShare: 'Cuánto hay de cada género en tu lista aparece aquí tras el próximo «Crear playlist».',
     },
@@ -1934,6 +1992,8 @@ const TEXT = {
         help: 'Artistas que sigues en Spotify, también como invitados («feat.»).' },
       preferNewer: { label: 'Canciones más nuevas / más antiguas', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'Según el año de publicación en Spotify; vale para canciones nuevas y favoritas, no se excluye nada.' },
+      moods: { label: 'Estados de ánimo', placeholder: 'Nombre, p. ej. Trabajo',
+        help: 'Guarda los niveles de género de arriba con un nombre; un clic los vuelve a poner (luego «Guardar» o «Crear playlist»).' },
       genres: { label: 'Mezclador de géneros', fmt: v => genreSummary(v),
         help: 'Baja los géneros que ahora te cansan o sube otros según tu estado de ánimo: para puntos de partida, canciones nuevas y favoritas. Los géneros salen de las etiquetas que los oyentes ponen en Last.fm; los artistas sin etiquetas adecuadas no se ven afectados.' },
       currentDays: { label: 'Periodo «actual»', fmt: v => (v ? pluralUnit(v, 'día', 'días') : 'no'), help: 'Lo que según Last.fm has escuchado en este periodo.' },
@@ -1968,6 +2028,8 @@ const TEXT = {
         options: { MON: 'Lunes', TUE: 'Martes', WED: 'Miércoles', THU: 'Jueves', FRI: 'Viernes', SAT: 'Sábado', SUN: 'Domingo' } },
       scheduleTime: { label: 'Hora', fmt: v => v,
         hint: (v, c) => `${c.schedule === 'weekly' ? `Cada ${(T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay).toLowerCase()}` : 'Todos los días'} a las ${v}` },
+      notifyOnSuccess: { label: 'Avisar también si todo va bien',
+        help: 'Un aviso breve tras cada ejecución automática, con el número de canciones y la duración.' },
       notifyOnFailure: { label: 'Avisar si algo falla',
         help: 'Avisa si falla una ejecución automática, p. ej. porque la sesión de Spotify ha caducado o la clave de Last.fm no es válida.' },
       runShortcut: { label: 'Segundo acceso directo: recrear la playlist ahora',
@@ -1987,6 +2049,8 @@ const TEXT = {
       unblock: 'Desbloquear',
       unblockName: name => `Desbloquear «${name}»`,
       // ♥ in der Liste eines Probelaufs: zu den Lieblingssongs in Spotify hinzufügen bzw. daraus entfernen
+      radio: 'Radio de esta canción: crear una lista nueva a su alrededor (los ajustes no cambian)',
+      radioName: name => `Radio de «${name}»`,
       like: 'Añadir a Tus me gusta en Spotify',
       likeName: name => `Añadir «${name}» a Tus me gusta`,
       unlike: 'Quitar de Tus me gusta',
@@ -2027,6 +2091,7 @@ const TEXT = {
     },
     run: {
       running: kind => (kind === 'dry' ? 'Creando la playlist … (aprox. 1 minuto)' : kind === 'new' ? 'Creando una playlist nueva en Spotify …' : 'Sobrescribiendo la playlist …'),
+      lastfmOffline: ' – no se pudo conectar con Last.fm, por eso solo o más favoritas',
       ok: (r, dry) => `${dry ? 'Creada' : 'Listo'}: ${!dry && r.playlistName ? `«${r.playlistName}» · ` : ''}${plural(r.songs, 'canción', 'canciones')}${durationText(r)} (${plural(r.fresh, 'nueva', 'nuevas')}, ${num(r.freshCurrent)} de ellas por lo que escuchas ahora; ${plural(r.familiar, 'favorita', 'favoritas')})`,
       unchanged: ' · todavía no está en Spotify',
       failedWith: reason => `Error: ${reason} (ver la salida)`,
@@ -2371,6 +2436,15 @@ const TEXT = {
       older: x => `Les titres d’il y a 20 ans ont ${x}× plus de chances d’être tirés, ceux de cette année ${x}× moins`,
       neutral: 'Aucune importance – l’année de sortie ne compte pas',
     },
+    moods: {
+      save: 'Enregistrer les genres actuels',
+      empty: 'Aucune humeur enregistrée pour l’instant.',
+      apply: name => `Choisir l’humeur « ${name} »`,
+      remove: name => `Supprimer l’humeur « ${name} »`,
+      noName: 'Saisis d’abord un nom.',
+      replaced: name => `« ${name} » a maintenant les niveaux de genre actuels.`,
+      full: max => `Au plus ${max} humeurs – supprimes-en d’abord une.`,
+    },
     genres: {
       names: { pop: 'Pop', rock: 'Rock', indie: 'Indie/Alternatif', hiphop: 'Hip-hop/Rap', electronic: 'Électronique', rnb: 'R&B/Soul', metal: 'Metal/Punk',
         jazz: 'Jazz/Blues', classical: 'Classique/Musique de film', folk: 'Folk/Auteur-compositeur', latin: 'Latino/Reggae', schlager: 'Schlager/Austropop' },
@@ -2378,7 +2452,9 @@ const TEXT = {
       none: 'aucune préférence de genre',
       open: 'Régler les genres',
       scale: 'Moins = ⅓ des chances, beaucoup moins = ⅒, plus = 3×, beaucoup plus = 10×, jamais = omis.',
-      share: p => `Dans la dernière liste : ${p}`,
+      inList: p => `Dans la dernière liste : ${p}`,
+      inFavorites: p => `Dans tes favoris : ${p}`,
+      favoritesNote: n => `« Dans tes favoris » compte les titres de tes ${n} artistes les plus fréquents.`,
       unknown: p => `Sans genre reconnaissable : ${p} de la dernière liste`,
       noShare: 'La part de chaque genre dans ta liste s’affiche ici après le prochain « Créer la playlist ».',
     },
@@ -2423,6 +2499,8 @@ const TEXT = {
         help: 'Les artistes que tu suis sur Spotify, aussi en invité (« feat. »).' },
       preferNewer: { label: 'Titres récents / anciens', fmt: v => newerLabel(v), hint: v => newerHint(v),
         help: 'Selon l’année de sortie sur Spotify, pour les nouveaux titres et les favoris – rien n’est exclu.' },
+      moods: { label: 'Humeurs', placeholder: 'Nom, p. ex. Travail',
+        help: 'Enregistre les niveaux de genre ci-dessus sous un nom ; un clic les remet (puis « Enregistrer » ou « Créer la playlist »).' },
       genres: { label: 'Mixeur de genres', fmt: v => genreSummary(v),
         help: 'Baisse les genres qui t’agacent en ce moment ou monte-en d’autres selon ton humeur – pour les points de départ, les nouveaux titres et les favoris. Les genres viennent des tags que les auditeurs donnent sur Last.fm ; les artistes sans tag correspondant ne sont pas concernés.' },
       currentDays: { label: 'Période « actuelle »', fmt: v => (v ? pluralUnit(v, 'jour', 'jours') : 'désactivé'), help: 'Ce que tu as écouté pendant cette période selon Last.fm.' },
@@ -2457,6 +2535,8 @@ const TEXT = {
         options: { MON: 'Lundi', TUE: 'Mardi', WED: 'Mercredi', THU: 'Jeudi', FRI: 'Vendredi', SAT: 'Samedi', SUN: 'Dimanche' } },
       scheduleTime: { label: 'Heure', fmt: v => v,
         hint: (v, c) => `${c.schedule === 'weekly' ? `Chaque ${(T.items.scheduleDay.options[c.scheduleDay] ?? c.scheduleDay).toLowerCase()}` : 'Tous les jours'} à ${v}` },
+      notifyOnSuccess: { label: 'Prévenir aussi en cas de réussite',
+        help: 'Un court message après chaque exécution automatique, avec le nombre de titres et la durée.' },
       notifyOnFailure: { label: 'Prévenir en cas d’échec',
         help: 'Te prévient quand une exécution automatique échoue – p. ex. connexion Spotify expirée ou clé Last.fm non valide.' },
       runShortcut: { label: 'Deuxième raccourci : recréer la playlist maintenant',
@@ -2476,6 +2556,8 @@ const TEXT = {
       unblock: 'Débloquer',
       unblockName: name => `Débloquer « ${name} »`,
       // ♥ in der Liste eines Probelaufs: zu den Lieblingssongs in Spotify hinzufügen bzw. daraus entfernen
+      radio: 'Radio autour de ce titre : créer une nouvelle liste autour de lui (les paramètres restent)',
+      radioName: name => `Radio autour de « ${name} »`,
       like: 'Ajouter à tes Titres likés sur Spotify',
       likeName: name => `Ajouter « ${name} » aux Titres likés`,
       unlike: 'Retirer de tes Titres likés',
@@ -2516,6 +2598,7 @@ const TEXT = {
     },
     run: {
       running: kind => (kind === 'dry' ? 'Création de la playlist … (environ 1 minute)' : kind === 'new' ? 'Création d’une nouvelle playlist dans Spotify …' : 'Remplacement de la playlist …'),
+      lastfmOffline: ' – Last.fm était injoignable, donc uniquement ou davantage de favoris',
       ok: (r, dry) => `${dry ? 'Créée' : 'Terminé'} : ${!dry && r.playlistName ? `« ${r.playlistName} » · ` : ''}${plural(r.songs, 'titre', 'titres')}${durationText(r)} (${plural(r.fresh, 'nouveau', 'nouveaux')}, dont ${num(r.freshCurrent)} via ce que tu écoutes en ce moment ; ${plural(r.familiar, 'favori', 'favoris')})`,
       unchanged: ' · pas encore dans Spotify',
       failedWith: reason => `Échec : ${reason} – voir la sortie`,
@@ -2836,6 +2919,7 @@ function genreSummary(levels) {
   return active.length ? active.map(g => `${T.genres.names[g]} ${T.genres.levels[genreLevel(levels, g) - GENRE_NEVER]}`).join(', ') : T.genres.none;
 }
 let genreShareInfo = null; // Anteile der Genres in der zuletzt erstellten Liste (state.genreShare über GET /api/config), null = keine
+let favoriteShareInfo = null; // … in deinen Favoriten (state.favoriteGenreShare: die häufigsten Künstler der Quelle), null = keine
 let genresOpen = null;     // „Genres einstellen“ aufgeklappt? null = noch nicht entschieden (beim Laden: offen, wenn etwas eingestellt ist)
 
 // --- Regler: Aufbau ohne Texte (die stehen in TEXT[lang].items bzw. .groups) ---
@@ -2861,6 +2945,8 @@ const GROUPS = [
   // Genre-Mixer: ein Eintrag (Objekt genres), gezeichnet als zwölf Regler (genresBox)
   { id: 'genres', pro: true, items: [
     { key: 'genres', type: 'genres' },
+    // Stimmungen: Kärtchen und „Aktuelle Genres speichern“, eingehängt über den zwölf Reglern (moodsBox)
+    { key: 'moods', type: 'moods' },
   ]},
   { id: 'current', pro: true, items: [
     { key: 'currentDays' },
@@ -2889,6 +2975,7 @@ const GROUPS = [
     { key: 'scheduleTime', type: 'time', show: c => c.schedule !== 'off' },
     // Mit „Testbenachrichtigung senden“ (notifyTestBox) darunter.
     { key: 'notifyOnFailure', type: 'toggle', show: c => c.schedule !== 'off', test: true },
+    { key: 'notifyOnSuccess', type: 'toggle', show: c => c.schedule !== 'off' },
   ]},
   // Gruppen mit root stehen ohne eigene Überschrift in einem festen Abschnitt der Seite (hier „Zugangsdaten“).
   { id: 'login', tab: 'settings', root: 'credentials', items: [
@@ -2915,7 +3002,7 @@ const GROUPS = [
 ];
 // Einstellungen, die die Auswahl eines Probelaufs nicht ändern (TRIAL_IGNORED in trial.mjs, kommt mit GET /api/config): Ändert
 // man sie, lässt sich die erstellte Liste weiter überschreiben bzw. als neue Playlist anlegen.
-let notForTrial = [...SCHEDULE_KEYS, 'notifyOnFailure', 'remindLogin', 'runShortcut', 'archiveCount', 'theme', 'accent', 'mode', 'language'];
+let notForTrial = [...SCHEDULE_KEYS, 'notifyOnFailure', 'notifyOnSuccess', 'moods', 'remindLogin', 'runShortcut', 'archiveCount', 'theme', 'accent', 'mode', 'language'];
 const TABS = ['playlist', 'settings'];
 const tabOf = group => group.tab ?? 'playlist';
 // Texte eines Reglers in der aktuellen Sprache; Auswahllisten zeigen ohne eigenes fmt den Namen der Option.
@@ -3200,6 +3287,9 @@ function build() {
           el('div', { className: 'add-row' }, [input, el('button', { className: 'btn', type: 'button', textContent: T.list.add, onclick: add })]),
           control.note, help, control.tags,
         ]));
+      } else if (item.type === 'moods') {
+        Object.assign(control, moodsBox(control));
+        input = control.input;
       } else if (item.type === 'genres') {
         Object.assign(control, genresBox(control));
         input = control.details;
@@ -3226,6 +3316,8 @@ function build() {
       controls[item.key] = control;
     }
     if (details && !group.variety) section.append(details);
+    // Stimmungen über die zwölf Regler des Genre-Mixers
+    if (group.id === 'genres' && controls.moods && controls.genres) controls.genres.row.insertBefore(controls.moods.row, controls.genres.details);
     if (group.status) section.append(scheduleBox());
     if (group.pro) proSections.push(section);
     if (!group.root) roots[tabOf(group)].append(section);
@@ -3262,6 +3354,7 @@ function setGenre(genre, level) {
 
 function renderGenres(control, levels) {
   const share = genreShareInfo?.songs > 0 ? genreShareInfo : null;
+  const fav = favoriteShareInfo?.songs > 0 ? favoriteShareInfo : null;
   for (const g of GENRE_IDS) {
     const { range, out, hint } = control.rows[g];
     const level = genreLevel(levels, g);
@@ -3269,16 +3362,61 @@ function renderGenres(control, levels) {
     rangeFill(range);
     out.textContent = T.genres.levels[level - GENRE_NEVER];
     attr(range, { 'aria-valuetext': out.textContent });
-    hint.textContent = share ? T.genres.share(pct((share.counts?.[g] ?? 0) / share.songs)) : '';
+    hint.textContent = [share && T.genres.inList(pct((share.counts?.[g] ?? 0) / share.songs)),
+      fav && T.genres.inFavorites(pct((fav.counts?.[g] ?? 0) / fav.songs))].filter(Boolean).join(' · ');
   }
   control.summary.textContent = genreSummary(levels);
   const unknown = share ? share.songs - (share.known ?? share.songs) : 0;
-  control.shareNote.textContent = !share ? T.genres.noShare : unknown > 0 ? T.genres.unknown(pct(unknown / share.songs)) : '';
+  control.shareNote.textContent = [!share ? T.genres.noShare : unknown > 0 ? T.genres.unknown(pct(unknown / share.songs)) : '',
+    fav ? T.genres.favoritesNote(fav.artists ?? 100) : ''].filter(Boolean).join(' ');
 }
 
-// Neue Anteile vom Server (nach einem Lauf, auch einem automatischen)
-function setGenreShare(share) {
-  genreShareInfo = share ?? null;
+// Stimmungen (moods: [{ name, genres }]): Kärtchen – Klick stellt die Genre-Stufen ein, × löscht; darunter Name und
+// „Aktuelle Genres speichern“ (gleicher Name: überschreibt). Gespeichert wird wie alles mit „Speichern“.
+const MOODS_MAX = 20; // wie in config.mjs
+function moodsBox(control) {
+  const label = el('span', { className: 'label', textContent: control.text.label });
+  const chips = attr(el('ul', { className: 'moods' }), { 'aria-label': control.text.label });
+  const input = el('input', { type: 'text', id: 'f-moods', maxLength: 40, placeholder: control.text.placeholder, autocomplete: 'off' });
+  const note = attr(el('p', { className: 'msg' }), { role: 'status' });
+  const save = () => saveMood(input, note);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+  control.reset.hidden = true;
+  control.row = el('div', { className: 'row' }, [
+    el('div', { className: 'row-head' }, [label]), chips,
+    el('div', { className: 'add-row' }, [input, el('button', { className: 'btn', type: 'button', textContent: T.moods.save, onclick: save })]),
+    note, el('p', { className: 'help', textContent: control.text.help }),
+  ]);
+  return { chips, input, note };
+}
+
+const sameGenres = (a, b) => GENRE_IDS.every(g => genreLevel(a, g) === genreLevel(b, g));
+function saveMood(input, note) {
+  const name = input.value.trim().replace(/\s+/g, ' ');
+  if (!name) return setMsg(note, 'warn', T.moods.noName);
+  const genres = Object.fromEntries(GENRE_IDS.map(g => [g, genreLevel(current.genres, g)]).filter(([, v]) => v !== 0));
+  const list = Array.isArray(current.moods) ? current.moods : [];
+  const old = list.find(m => m.name.toLowerCase() === name.toLowerCase());
+  if (!old && list.length >= MOODS_MAX) return setMsg(note, 'warn', T.moods.full(MOODS_MAX));
+  setMsg(note, old ? 'ok' : '', old ? T.moods.replaced(old.name) : '');
+  set('moods', old ? list.map(m => (m === old ? { name: m.name, genres } : m)) : [...list, { name, genres }]);
+  input.value = '';
+}
+
+function renderMoods(control, list) {
+  const moods = Array.isArray(list) ? list.filter(m => m && typeof m.name === 'string') : [];
+  control.chips.replaceChildren(...(moods.length ? moods.map(m => attr(el('li', { className: 'mood' }, [
+    attr(el('button', { type: 'button', textContent: m.name, title: T.moods.apply(m.name), onclick: () => set('genres', { ...(m.genres ?? {}) }) }),
+      { 'aria-label': T.moods.apply(m.name) }),
+    attr(el('button', { type: 'button', className: 'x', textContent: '×', title: T.moods.remove(m.name),
+      onclick: () => set('moods', moods.filter(x => x !== m)) }), { 'aria-label': T.moods.remove(m.name) }),
+  ]), { 'aria-current': String(sameGenres(m.genres, current.genres)) })) : [el('li', { className: 'empty', textContent: T.moods.empty })]));
+}
+
+// Neue Anteile vom Server (nach einem Lauf, auch einem automatischen): d = Antwort von GET /api/config
+function setGenreShare(d) {
+  genreShareInfo = d?.genreShare ?? null;
+  favoriteShareInfo = d?.favoriteGenreShare ?? favoriteShareInfo;
   if (controls.genres) renderGenres(controls.genres, current.genres);
 }
 
@@ -3450,6 +3588,16 @@ function likeButton(track) {
   }), { 'aria-label': liked ? T.list.unlikeName(name) : T.list.likeName(name), 'aria-pressed': String(liked) });
 }
 
+// 📻 neben ♥: neue Liste rund um diesen Song („Playlist erstellen“ mit TWEAKABLE_DJ_RADIO in dj.mjs); die Einstellungen bleiben.
+function radioButton(track) {
+  const name = trackLabel(track);
+  return attr(el('button', {
+    // Läuft gerade etwas, tut der Klick nichts (run); gesperrte Songs bekommen kein Radio
+    type: 'button', className: 'radio', textContent: '📻', title: T.list.radio, disabled: songBlocked(track),
+    onclick: () => run('dry', { artist: track.artist, name: track.name, uri: track.uri }),
+  }), { 'aria-label': T.list.radioName(name) });
+}
+
 async function toggleLike(track) {
   const saved = likes[track.uri] !== true;
   likeBusy.add(track.uri);
@@ -3554,7 +3702,7 @@ const presetValues = p => Object.fromEntries(PRESET_KEYS.map(k => [k, p.values[k
 // Regler, die nur in „Pro“ zu sehen sind, aber keine Voreinstellung setzt (gefolgte Künstler, neuere/ältere Songs, Last.fm-
 // Lieblingssongs): Weichen sie vom Standard ab, nennt „Einfach“ sie mit ihrem Wert. Passt eine Voreinstellung, setzt der Knopf
 // darunter nur sie zurück („Ausgeblendete Regler zurücksetzen“) und die Voreinstellung bleibt; sonst alles auf „Standard“.
-const proExtraKeys = () => GROUPS.filter(g => g.pro).flatMap(g => g.items.map(i => i.key)).filter(k => !PRESET_KEYS.includes(k));
+const proExtraKeys = () => GROUPS.filter(g => g.pro).flatMap(g => g.items.map(i => i.key)).filter(k => !PRESET_KEYS.includes(k) && k !== 'moods');
 const changedExtras = () => proExtraKeys().filter(k => k in defaults && !same(current[k], defaults[k]));
 const extraText = k => {
   const v = current[k];
@@ -3597,6 +3745,7 @@ function refresh(skipInput) {
       else if (item.type === 'list') renderTags(control, v ?? []);
       else if (item.type === 'tracks') renderTrackTags(control, v ?? []);
       else if (item.type === 'genres') renderGenres(control, v);
+      else if (item.type === 'moods') renderMoods(control, v ?? []);
       else if (item.type === 'choice' || item.type === 'swatches') control.radios.forEach(r => { r.checked = r.value === v; });
       else if (!item.type) setSlider(control, v);
       else input.value = v;
@@ -3608,7 +3757,7 @@ function refresh(skipInput) {
     out.textContent = item.type === 'swatches' ? text.fmt(v) : item.type ? '' : OUT_TEXT[item.key] ? OUT_TEXT[item.key](v) : text.fmt(v);
     hint.textContent = OUT_HINT[item.key] ? OUT_HINT[item.key](v) : text.hint ? text.hint(v, current) : '';
     hint.classList.toggle('warn', hintWarn(item.key, v));
-    if (item.type === 'list' || item.type === 'tracks') continue;
+    if (item.type === 'list' || item.type === 'tracks' || item.type === 'moods') continue;
     reset.hidden = same(v, defaults[item.key]);
     const d = defaults[item.key];
     reset.textContent = T.reset(item.type === 'toggle' ? (d ? T.on : T.off) : item.type === 'text' ? d : text.fmt(d));
@@ -3677,6 +3826,7 @@ async function load(keepEdits = false) {
   setup = data.setup;
   archiveFiles = data.archiveFiles ?? null;
   genreShareInfo = data.genreShare ?? null;
+  favoriteShareInfo = data.favoriteGenreShare ?? null;
   variety = data.variety ?? variety;
   varietyOverwritten = false;
   startActivity = data.activity ?? null;
@@ -3908,7 +4058,7 @@ function renderLog(text) {
     const track = tracks?.[n - 1];
     if (!track || !line.includes(trackLabel(track))) return [span, '\n'];
     if (songBlocked(track)) span.classList.add('blocked');
-    return [span, blockButton(track), likeButton(track), '\n'];
+    return [span, blockButton(track), likeButton(track), radioButton(track), '\n'];
   }));
 }
 
@@ -3926,7 +4076,7 @@ async function loadTrialTracks(id) {
 }
 
 function runSummary(r) {
-  if (r?.ok) return T.run.ok(r, r.dry) + (r.dry ? T.run.unchanged : '');
+  if (r?.ok) return (r.radio ? `📻 ${trackLabel(r.radio)} · ` : '') + T.run.ok(r, r.dry) + (r.lastfmOffline ? T.run.lastfmOffline : '') + (r.dry ? T.run.unchanged : '');
   return T.errors[r?.errorCode] ? T.run.failedWith(T.errors[r.errorCode]) : T.run.failed;
 }
 
@@ -3946,17 +4096,18 @@ function renderSummary() {
 // Nur ein Lauf gleichzeitig aus dieser Seite: Ein zweiter Klick (Doppelklick, auch während vorher noch gespeichert wird)
 // tut nichts.
 let runPending = false;
-async function run(kind) {
+// radio: { artist, name, uri } für „📻 Radio zu einem Song“ (nur mit kind 'dry'), sonst null.
+async function run(kind, radio = null) {
   if (runPending || isWorking() || needsSetupFor('create')) return;
   runPending = true;
   try {
-    await startRun(kind);
+    await startRun(kind, radio);
   } finally {
     runPending = false;
   }
 }
 
-async function startRun(kind) {
+async function startRun(kind, radio = null) {
   const dry = kind === 'dry';
   const applying = kind === 'apply' || kind === 'new';
   showError('');
@@ -3980,7 +4131,7 @@ async function startRun(kind) {
   try {
     const res = applying
       ? await api('/api/apply', { method: 'POST', body: JSON.stringify({ id: trial.id, target: kind === 'new' ? 'new' : 'standard' }) })
-      : await api(`/api/run${dry ? '?dry=1' : ''}`, { method: 'POST' });
+      : await api(`/api/run${dry ? '?dry=1' : ''}`, { method: 'POST', ...(radio && { body: JSON.stringify({ radio }) }) });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       // Läuft schon etwas (anderes Fenster, automatischer Lauf …): Stand wie vorher und warten, statt nur „belegt“ zu melden.
@@ -4039,7 +4190,7 @@ function finishRun(kind, text, settings) {
   // „Vorige Playlist wiederherstellen“ nur nach dem Überschreiben: Eine neu angelegte Playlist ändert die bisherige nicht.
   if (result?.ok && !dry && kind !== 'new') checkUndo(result.archiveFile);
   // Der Lauf hat das Token eventuell erneuert und dabei die erteilten Berechtigungen gespeichert (setup.missingScopes).
-  apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); setArchiveFiles(d.archiveFiles); setGenreShare(d.genreShare); }).catch(() => {});
+  apiJson('/api/config').then(d => { setup = d.setup; renderNotice(); setArchiveFiles(d.archiveFiles); setGenreShare(d); }).catch(() => {});
 }
 
 // --- Läuft schon etwas? (nach dem Neuladen, in einem zweiten Tab, automatischer Lauf, „Playlist jetzt neu erstellen“) ---
@@ -4099,7 +4250,7 @@ async function watchActivity(kind) {
   refresh();
   renderSummary();
   loadSchedule();
-  apiJson('/api/config').then(d => { setArchiveFiles(d.archiveFiles); setGenreShare(d.genreShare); }).catch(() => {});
+  apiJson('/api/config').then(d => { setArchiveFiles(d.archiveFiles); setGenreShare(d); }).catch(() => {});
   if (trial) refreshTrial();
 }
 
@@ -4473,7 +4624,7 @@ async function importWrite() {
     // Wiederhergestellt: Knopf weg. Nach jedem anderen Import: vorigen Stand anbieten.
     if (s.undo) setUndo(null);
     else checkUndo(written.archiveFile);
-    apiJson('/api/config').then(d => { setArchiveFiles(d.archiveFiles); setGenreShare(d.genreShare); }).catch(() => {});
+    apiJson('/api/config').then(d => { setArchiveFiles(d.archiveFiles); setGenreShare(d); }).catch(() => {});
   } catch (e) {
     if (e.data?.login && setup?.loggedIn) showNotice('expired');
     setImport({ ...s, error: e.message });

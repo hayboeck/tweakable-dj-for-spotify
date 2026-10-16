@@ -1848,3 +1848,16 @@ test('Ohne Einrichtung („Erst einmal umsehen“): Einstellungen speichern geht
     }
   }
 });
+
+test('POST /api/run mit radio (📻): nur mit dry und gültigem Song; dj.mjs bekommt ihn, der nächste Lauf ohne', async () => {
+  for (const body of [{ radio: { artist: 'A' } }, { radio: { artist: 'A', name: 'x'.repeat(201) } }, { radio: { artist: 'A', name: 'B', uri: 'spotify:album:x' } }, { radio: 'A – B' }]) {
+    assert.equal((await api('/api/run?dry=1', { method: 'POST', body })).status, 400, JSON.stringify(body));
+  }
+  assert.equal((await api('/api/run', { method: 'POST', body: { radio: { artist: 'Nordlicht', name: 'Polarnacht' } } })).status, 400, 'nur mit dry');
+  const r = await api('/api/run?dry=1', { lang: 'de', method: 'POST', body: { radio: { artist: 'Nordlicht', name: 'Polarnacht' } } });
+  assert.equal(r.status, 200);
+  assert.deepEqual(resultLine(r.text).radio, { artist: 'Nordlicht', name: 'Polarnacht' });
+  assert.match(r.text, /^📻 Radio zu Nordlicht – Polarnacht: /m);
+  const plain = await api('/api/run?dry=1', { lang: 'de', method: 'POST' });
+  assert.equal(resultLine(plain.text).radio, null, 'ohne radio wieder normal');
+});

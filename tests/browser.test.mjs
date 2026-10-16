@@ -467,17 +467,59 @@ test('Genre-Mixer (Pro): Regler je Genre, Zusammenfassung, Speichern; Anteile na
     const before = await page.eval('genreShareInfo?.at ?? null');
     await page.click('#create');
     await page.waitFor(`genreShareInfo?.at && genreShareInfo.at !== ${JSON.stringify(before)}`, 60_000);
-    assert.equal(await page.eval('controls.genres.rows.schlager.hint.textContent'), 'In der letzten Liste: 0 %');
-    assert.match(await page.eval('controls.genres.rows.pop.hint.textContent'), /^In der letzten Liste: \d+ %$/);
+    // … und daneben die Anteile in deinen Favoriten (196)
+    assert.match(await page.eval('controls.genres.rows.schlager.hint.textContent'), /^In der letzten Liste: 0\u00a0% · In deinen Favoriten: \d+\u00a0%$/);
+    assert.match(await page.eval('controls.genres.rows.pop.hint.textContent'), /^In der letzten Liste: \d+\u00a0% · In deinen Favoriten: \d+\u00a0%$/);
+    assert.match(await page.eval('controls.genres.shareNote.textContent'), /„In deinen Favoriten“ zählt die Songs deiner \d+ häufigsten Künstler\./);
+
+    // Stimmungen (195): aktuelle Genres unter einem Namen speichern, umstellen, per Klick wieder einstellen, speichern
+    await page.eval("document.getElementById('f-moods').value = 'Arbeiten'");
+    await page.eval("[...document.querySelectorAll('button')].find(b => b.textContent === 'Aktuelle Genres speichern').click()");
+    assert.deepEqual(await page.eval('current.moods'), [{ name: 'Arbeiten', genres: { electronic: 2, schlager: -3 } }]);
+    assert.equal(await page.eval("document.querySelector('.moods .mood').getAttribute('aria-current')"), 'true', 'passt gerade');
+    await move('electronic', 0);
+    await move('schlager', 0);
+    assert.equal(await page.eval("document.querySelector('.moods .mood').getAttribute('aria-current')"), 'false');
+    await page.eval("document.querySelector('.moods .mood button').click()");
+    assert.deepEqual(await page.eval('current.genres'), { electronic: 2, schlager: -3 }, 'Stimmung eingestellt');
+    await page.click('#save');
+    await page.waitFor("document.getElementById('status').textContent === 'Gespeichert'");
+    assert.match(fs.readFileSync(path.join(dir, 'config.jsonc'), 'utf8'), /"moods": \[\s*\{ "name": "Arbeiten", "genres": \{ "electronic": 2, "schlager": -3 \} \}\s*\]/);
+    // Stimmungen sind keine „eigene Pro-Einstellung“: In „Einfach“ nennt der Hinweis nur den Genre-Mixer (unten)
 
     // Ansicht „Einfach“: Hinweis nennt den Genre-Mixer; Zurücksetzen stellt alle Genres auf „egal“
     await page.eval("setMode('simple')");
-    assert.match(await text(page, 'preset-state'), /Genre-Mixer: Elektronisch viel mehr, Schlager\/Austropop nie/);
+    assert.match(await text(page, 'preset-state'), /\(Genre-Mixer: Elektronisch viel mehr, Schlager\/Austropop nie\)/);
     await page.click('#preset-reset');
     assert.deepEqual(await page.eval('current.genres'), {});
     assert.deepEqual(page.errors, []);
   } finally {
     await page.close();
-    await api('/api/config', { method: 'POST', body: JSON.stringify({ mode: 'pro', genres: {} }) });
+    await api('/api/config', { method: 'POST', body: JSON.stringify({ mode: 'pro', genres: {}, moods: [] }) });
+  }
+});
+
+test('📻 Radio zu einem Song: Knopf in der Liste, neue Liste mit dem Song vorne, Zusammenfassung mit 📻; Schalter „Auch bei Erfolg benachrichtigen“', { skip }, async () => {
+  const page = await open();
+  try {
+    await page.click('#create');
+    await page.waitFor("runState?.tracks?.length > 2 && document.querySelectorAll('#log button.radio').length === runState.tracks.length", 60_000);
+    const song = await page.eval('({ artist: runState.tracks[2].artist, name: runState.tracks[2].name })');
+    await page.eval("document.querySelectorAll('#log button.radio')[2].click()");
+    await page.waitFor("document.getElementById('summary').textContent.startsWith('📻 ')", 60_000);
+    assert.ok((await text(page, 'summary')).startsWith(`📻 ${song.artist} – ${song.name} · Erstellt: `), await text(page, 'summary'));
+    await page.waitFor(`runState?.tracks?.[0]?.name === ${JSON.stringify(song.name)}`, 15_000);
+    assert.equal(await page.eval('runState.tracks[0].artist'), song.artist, 'der Song steht vorne');
+    assert.match(await text(page, 'log'), /^📻 Radio zu .+: Ausgangspunkte sind der Song und seine ähnlichsten Songs$/m);
+    await page.waitFor("!document.getElementById('trial-apply').hidden && !document.getElementById('trial-apply').disabled");
+
+    // Automatik an: „Auch bei Erfolg benachrichtigen“ erscheint unter „Bei Fehlern benachrichtigen“, Standard aus
+    await page.eval("showTab('settings'); set('schedule', 'daily')");
+    assert.equal(await page.eval("document.getElementById('f-notifyOnSuccess').closest('.row').hidden"), false);
+    assert.equal(await page.eval("document.getElementById('f-notifyOnSuccess').checked"), false);
+    await page.click('#discard');
+    assert.deepEqual(page.errors, []);
+  } finally {
+    await page.close();
   }
 });

@@ -15,7 +15,7 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { readText, writeAtomic } from './files.mjs';
-import { t } from './i18n.mjs';
+import { formatDuration, t } from './i18n.mjs';
 
 export const NOTIFY_TIMEOUT = 10_000;
 // App-Kennung (AppUserModelID) von Windows PowerShell; Windows zeigt sie als Absender „Windows PowerShell“.
@@ -184,11 +184,23 @@ export function failureNotice(lang, { errorCode, error } = {}, { now = false } =
   };
 }
 
+// Lauf geklappt, aber Last.fm war nicht erreichbar (lastfmOffline in @@RESULT): nur Favoriten bzw. weniger neue Songs als sonst.
+export function lastfmOfflineNotice(lang, result) {
+  const vars = { name: result.playlistName ?? '', songs: result.songs ?? 0, fresh: result.fresh ?? 0, familiar: result.familiar ?? 0 };
+  return { title: t(lang, 'notify.lastfmOfflineTitle'), text: t(lang, result.fresh ? 'notify.lastfmOfflineFewer' : 'notify.lastfmOfflineText', vars) };
+}
+
+// Erfolgsmeldung: „Playlist „X“ neu erstellt ✓ – 50 Songs · 3 Std. 12 Min.“ (ohne bekannte Dauer ohne den letzten Teil)
+function doneNotice(lang, result) {
+  const duration = Number(result.durationMs) > 0 ? ` · ${formatDuration(lang, result.durationMs, result.durationEstimated === true)}` : '';
+  return { title: t(lang, 'notify.nowTitle'), text: t(lang, 'notify.nowDoneText', { name: result.playlistName ?? '', songs: result.songs ?? 0 }) + duration };
+}
+
 // „Playlist jetzt neu erstellen“ (dj.mjs --now): Ergebnis (wie @@RESULT) als Benachrichtigung – immer, auch ohne
 // notifyOnFailure, denn man hat gerade selbst doppelgeklickt.
 export function nowNotice(lang, result) {
   if (result?.ok !== true) return failureNotice(lang, result, { now: true });
-  return { title: t(lang, 'notify.nowTitle'), text: t(lang, 'notify.nowDoneText', { name: result.playlistName ?? '', songs: result.songs ?? 0 }) };
+  return result.lastfmOffline ? lastfmOfflineNotice(lang, result) : doneNotice(lang, result);
 }
 export const nowBusyNotice = lang => ({ title: t(lang, 'notify.nowBusyTitle'), text: t(lang, 'notify.nowBusyText') });
 // … und gleich beim Start, damit man nach dem Doppelklick sofort sieht, dass es losgeht (name: Playlist, null = unbekannt).
@@ -205,13 +217,16 @@ export const testNotice = lang => ({ title: t(lang, 'notify.testTitle'), text: t
 
 const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
-// Benachrichtigung nach einem automatischen Lauf: { title, text } oder null (= keine). Nur bei einem Fehler.
-//   result:  Ergebnis wie in automatik.json (ok, errorCode, error)
-//   enabled: Einstellung notifyOnFailure (aus = gar keine Benachrichtigung)
+// Benachrichtigung nach einem automatischen Lauf: { title, text } oder null (= keine).
+//   result:  Ergebnis wie in automatik.json (ok, errorCode, error, songs, durationMs, lastfmOffline …)
+//   enabled: Einstellung notifyOnFailure – bei einem Fehler und wenn Last.fm nicht erreichbar war (nur Favoriten)
+//   success: Einstellung notifyOnSuccess – auch nach einem erfolgreichen Lauf
 // Die Erinnerung an die Spotify-Anmeldung ist davon getrennt (remindLogin, Einstellung remindLogin).
-export function autoRunNotice({ result, lang, enabled = true }) {
-  if (!enabled || result?.ok !== false) return null;
-  return failureNotice(lang, result);
+export function autoRunNotice({ result, lang, enabled = true, success = false }) {
+  if (result?.ok === false) return enabled ? failureNotice(lang, result) : null;
+  if (result?.ok !== true) return null;
+  if (result.lastfmOffline && (enabled || success)) return lastfmOfflineNotice(lang, result);
+  return success ? doneNotice(lang, result) : null;
 }
 
 // Erinnerung an die Spotify-Anmeldung fällig? → Tage bis zum Ablauf (0 = heute) oder null.

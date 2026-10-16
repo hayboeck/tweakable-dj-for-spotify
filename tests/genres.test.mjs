@@ -119,6 +119,10 @@ test('Lauf mit Genre-Mixer: „nie“ lässt das Genre weg, Anteile in der Ausga
   assert.equal(Object.values(share.counts).reduce((a, b) => a + b, 0), share.known);
   assert.match(r.out, /^Genres: .+ \d+ %/m);
   assert.ok(Number.isFinite(Date.parse(share.at)));
+  // Genres deiner Favoriten (196): über die häufigsten Künstler der Quelle
+  const fav = r.state.favoriteGenreShare;
+  assert.ok(fav.songs > 0 && fav.known > 0 && fav.artists > 0 && fav.artists <= 100, JSON.stringify(fav));
+  assert.equal(Object.values(fav.counts).reduce((a, b) => a + b, 0), fav.known);
 });
 
 test('Lauf mit Genre-Mixer: nur Elektronisch erlaubt → nur elektronische Songs oder solche ohne Genre', () => {

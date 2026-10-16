@@ -23,7 +23,7 @@ const FORMAT = 2;
 
 // Einstellungen, die die Auswahl nicht beeinflussen. Die Oberfläche bekommt die Liste mit GET /api/config (trialIgnored):
 // Ändert sich seit dem Erstellen eine andere, sagt sie dazu, dass die Liste so bleibt, wie sie oben steht.
-export const TRIAL_IGNORED = ['schedule', 'scheduleTime', 'scheduleDay', 'notifyOnFailure', 'remindLogin', 'runShortcut', 'language', 'archiveCount', 'theme', 'accent', 'mode'];
+export const TRIAL_IGNORED = ['schedule', 'scheduleTime', 'scheduleDay', 'notifyOnFailure', 'notifyOnSuccess', 'moods', 'remindLogin', 'runShortcut', 'language', 'archiveCount', 'theme', 'accent', 'mode'];
 
 // Fingerabdruck von Spotify-App und Last.fm-Benutzer: Eine Liste aus einem anderen Konto (andere Lieblingssongs, anderer
 // Hörverlauf) soll nicht in dieses. 16 Hex-Zeichen von SHA-256.

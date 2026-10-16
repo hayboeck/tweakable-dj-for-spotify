@@ -39,6 +39,8 @@ export const DEFAULTS = {
   preferNewer: 0, // neuere bzw. ältere Songs bevorzugen (Faktor in lineup.mjs, newerFactor)
   // Genre-Mixer: Hauptgenre → Stufe von −3 (nie) bis 2 (viel mehr), nur was nicht „egal“ ist (genres.mjs, cleanGenres)
   genres: {},
+  // Gespeicherte Stimmungen des Genre-Mixers: [{ name, genres }] (checkMoods); ein Klick in der Oberfläche setzt genres
+  moods: [],
   currentDays: 7,
   currentFactor: 3,
   excludeExplicit: false,
@@ -49,6 +51,7 @@ export const DEFAULTS = {
   scheduleTime: '07:00',
   scheduleDay: 'MON',
   notifyOnFailure: true, // Systembenachrichtigung, wenn ein automatischer Lauf fehlschlägt (notify.mjs)
+  notifyOnSuccess: false, // … und auch nach jedem erfolgreichen (Anzahl Songs, Spieldauer; autoRunNotice in notify.mjs)
   remindLogin: true, // Systembenachrichtigung eine Woche bevor die Spotify-Anmeldung abläuft (remindLogin in notify.mjs)
   runShortcut: false, // zweite Verknüpfung „Tweakable DJ – Playlist neu erstellen“ auf dem Desktop (shortcut.mjs, Art 'run'); wirkt beim Speichern
   theme: 'system', // Aussehen der Oberfläche: 'system', 'light' oder 'dark' (THEMES)
@@ -193,6 +196,14 @@ function switchOn(key) {
 }
 export const notifyOnFailure = () => switchOn('notifyOnFailure');
 export const remindLoginOn = () => switchOn('remindLogin');
+// Erfolgsmeldung nach automatischen Läufen: nur ein ausdrückliches true schaltet sie ein (Standard aus).
+export function notifyOnSuccess() {
+  try {
+    return JSON.parse(stripComments(readText(CONFIG))).notifyOnSuccess === true;
+  } catch {
+    return false;
+  }
+}
 
 // Liest die Config ohne Prüfung der Zugangsdaten. Fehlt mode, stammt sie von einer Version vor der Ansicht „Einfach“: 'pro'.
 export function readConfig(lang) {
@@ -269,6 +280,7 @@ export function checkValue(key, value, lang) {
     return value;
   }
   if (key === 'blockedTracks') return checkTracks(key, value, lang);
+  if (key === 'moods') return checkMoods(key, value, lang);
   if (key === 'genres') {
     const clean = cleanGenres(value);
     if (!clean) throw tError(lang, 'config.badGenres', { genres: GENRES.join(', ') });
@@ -331,6 +343,24 @@ function checkTracks(key, value, lang) {
     if (seen.has(k)) continue;
     seen.add(k);
     out.push(uri ? { uri, artist, name } : { artist, name });
+  }
+  return out;
+}
+
+// Stimmungen des Genre-Mixers (moods): höchstens MOODS_MAX Einträge { name, genres }; name 1–40 Zeichen (Leerzeichen gesäubert),
+// genres wie die Einstellung genres (cleanGenres). Gleicher Name (Groß/Klein egal) nur einmal: der erste zählt.
+export const MOODS_MAX = 20;
+function checkMoods(key, value, lang) {
+  if (!Array.isArray(value) || value.length > MOODS_MAX) throw tError(lang, 'config.badMoods', { key, max: MOODS_MAX });
+  const seen = new Set();
+  const out = [];
+  for (const raw of value) {
+    const name = raw && typeof raw === 'object' && typeof raw.name === 'string' ? raw.name.trim().replace(/\s+/g, ' ') : '';
+    const genres = raw && typeof raw === 'object' ? cleanGenres(raw.genres) : null;
+    if (!name || name.length > 40 || !genres) throw tError(lang, 'config.badMoods', { key, max: MOODS_MAX });
+    if (seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    out.push({ name, genres });
   }
   return out;
 }

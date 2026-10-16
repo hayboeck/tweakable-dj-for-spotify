@@ -13,7 +13,7 @@ import { norm, trackKey, windowViolations } from '../lineup.mjs';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MOCK = pathToFileURL(path.join(ROOT, 'tests', 'mock-apis.mjs')).href;
 const RESULT_KEYS = ['ok', 'dry', 'songs', 'fresh', 'freshCurrent', 'familiar', 'durationMs', 'durationEstimated', 'playlistName', 'playlistUrl', 'errorCode', 'error', 'missingScope', 'trialId', 'archiveFile',
-  'artists', 'yearFrom', 'yearTo', 'firstTime'];
+  'artists', 'yearFrom', 'yearTo', 'firstTime', 'lastfmOffline', 'radio'];
 
 const CONFIG = {
   spotify: { clientId: 'test-client-id' },
@@ -165,7 +165,8 @@ test('Probelauf: Auswahl, Regeln, Sperrliste, Token-Refresh und Last.fm-Cache', 
     // Ohne Genre-Mixer: Schlagwörter nur für die Künstler der fertigen Liste (für die Anteile)
     const lineupArtists = new Set(first.out.split(/\r?\n/).map(l => /^\s*\d+\. (.+?) – /.exec(l)?.[1]).filter(Boolean));
     const tagCalls = lastfmCalls(first.requests, 'artist.getTopTags');
-    assert.ok(tagCalls > 0 && tagCalls <= lineupArtists.size, `${tagCalls} Abfragen, ${lineupArtists.size} Künstler`);
+    // … und die (höchstens 100) häufigsten Künstler deiner Favoriten (für „in deinen Favoriten“)
+    assert.ok(tagCalls > 0 && tagCalls <= lineupArtists.size + 100, `${tagCalls} Abfragen, ${lineupArtists.size} Künstler`);
     assert.match(first.out, /^Genres: .+ \d+ %/m);
     const notFound = keys.find(k => k.includes('Gibt+es+nicht'));
     assert.deepEqual(cache[notFound].value, []);
@@ -955,6 +956,51 @@ test('Netz: Spotify nicht erreichbar bzw. hängt → verständliche Meldung (err
     assert.equal(lastfm.code, 0, lastfm.all);
     assert.equal(lastfm.all.split('\n').filter(l => l.includes('Last.fm ist nicht erreichbar (ENOTFOUND)')).length, 1, lastfm.all);
     assert.ok(lastfm.result.songs > 0);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+// --- 📻 Radio zu einem Song (55) und Last.fm nicht erreichbar (200) ---
+
+test('📻 Radio (TWEAKABLE_DJ_RADIO): der Song vorne, Ausgangspunkte = er und seine ähnlichsten Songs, Beschreibung mit 📻', () => {
+  const dir = setup();
+  try {
+    assert.equal(run(dir).code, 0);
+    const before = JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8'));
+    const pick = before.tracks.find(t => t.kind.startsWith('neu')) ?? before.tracks[0];
+    const r = run(dir, { TWEAKABLE_DJ_RADIO: JSON.stringify({ artist: pick.artist, name: pick.name, uri: pick.uri }) });
+    assert.equal(r.code, 0, r.all);
+    assert.deepEqual(r.result.radio, { artist: pick.artist, name: pick.name });
+    assert.ok(r.out.split(/\r?\n/).includes(`📻 Radio zu ${pick.artist} – ${pick.name}: Ausgangspunkte sind der Song und seine ähnlichsten Songs`), r.out);
+    const lineup = parseLineup(r.out);
+    assert.deepEqual([lineup[0].artist, lineup[0].name], [pick.artist, pick.name], 'der Song steht vorne');
+    assert.equal(lineup.length, r.result.songs);
+    assert.ok(lineup.length <= 20);
+    // Erste Frage an Last.fm nach ähnlichen Songs: genau zu diesem Song
+    const firstSimilar = new URLSearchParams(r.requests.find(q => q.method === 'track.getSimilar').path.split('?')[1]);
+    assert.deepEqual([firstSimilar.get('artist'), firstSimilar.get('track')], [pick.artist, pick.name]);
+    const trial = JSON.parse(fs.readFileSync(path.join(dir, 'probelauf.json'), 'utf8'));
+    assert.ok(trial.description.startsWith(`📻 Radio zu ${pick.artist} – ${pick.name} · Tweakable DJ · `), trial.description);
+    assert.equal(trial.tracks[0].uri, pick.uri);
+    // Ohne --dry (normaler Lauf) zählt TWEAKABLE_DJ_RADIO nicht; kaputtes JSON ebenso
+    const broken = run(dir, { TWEAKABLE_DJ_RADIO: '{kaputt' });
+    assert.equal(broken.result.radio, null);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('Last.fm nicht erreichbar (200): Liste nur aus Favoriten statt Abbruch, lastfmOffline im Ergebnis, Hinweis in der Ausgabe', () => {
+  const dir = setup();
+  try {
+    const r = run(dir, { MOCK_LASTFM_OFFLINE: '1' });
+    assert.equal(r.code, 0, r.all);
+    assert.deepEqual([r.result.ok, r.result.lastfmOffline, r.result.fresh], [true, true, 0]);
+    assert.ok(r.result.familiar > 0);
+    assert.match(r.out, /^⚠ Last\.fm war nicht erreichbar – diese Liste besteht nur aus deinen Favoriten\. Der nächste Lauf versucht es wieder\.$/m);
+    const normal = run(dir);
+    assert.equal(normal.result.lastfmOffline, false);
   } finally {
     cleanup(dir);
   }

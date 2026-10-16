@@ -503,10 +503,11 @@ function ownNodeRunning() {
   }
 }
 
-// Anteile der Genres in der zuletzt erstellten Liste (state.genreShare von dj.mjs: { at, songs, known, counts }), sonst null.
-function lastGenreShare() {
+// Anteile der Genres aus state.json (von dj.mjs: { at, songs, known, counts }), sonst null. key: 'genreShare' (zuletzt
+// erstellte Liste) bzw. 'favoriteGenreShare' (deine Favoriten).
+function lastGenreShare(key) {
   try {
-    const share = readJsonFile(STATE, {})?.genreShare;
+    const share = readJsonFile(STATE, {})?.[key];
     return share && Number.isInteger(share.songs) && share.counts && typeof share.counts === 'object' ? share : null;
   } catch {
     return null;
@@ -550,14 +551,14 @@ const RUN_TEXT_MAX = 5_000_000; // mehr hebt der Server nicht auf (die Seite, di
 
 // Startet dj.mjs mit args und schickt seine Ausgabe als Text (in der Sprache der Anfrage), am Ende eine Zeile "@@RESULT {…}".
 // Kopfzeile X-Tweakable-DJ-Run: Nummer des Laufs (lastRun.id), damit die Seite ihn später als ihren eigenen erkennt.
-function streamRun(res, args, lang, kind) {
+function streamRun(res, args, lang, kind, env = {}) {
   const dry = kind === 'dry';
   const job = { id: ++runCount, kind, dry, text: '', done: false, result: null };
   lastRun = job;
   res.writeHead(200, {
     'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-Tweakable-DJ-Run': String(job.id),
   });
-  const child = spawn(process.execPath, args, { cwd: HERE, env: { ...process.env, TWEAKABLE_DJ_LANG: lang } });
+  const child = spawn(process.execPath, args, { cwd: HERE, env: { ...process.env, TWEAKABLE_DJ_RADIO: '', ...env, TWEAKABLE_DJ_LANG: lang } });
   running = child;
   // Seite neu geladen bzw. geschlossen: Der Lauf geht weiter, nur die Antwort an sie fällt weg.
   const write = chunk => {
@@ -663,7 +664,7 @@ const server = http.createServer(async (req, res) => {
       return send(200, {
         values, defaults: DEFAULTS, limits: LIMITS, variety: { keys: VARIETY_KEYS, levels: VARIETY_LEVELS }, problems: numberProblems(cfg, lang), lang, systemLang: systemLang(), running: Boolean(running), importing,
         activity: activity(), trialIgnored: TRIAL_IGNORED, node: { version: process.versions.node, own: ownNodeRunning() },
-        setup: setupStatus(cfg), archiveFiles: archiveFileCount(HERE), genreShare: lastGenreShare(),
+        setup: setupStatus(cfg), archiveFiles: archiveFileCount(HERE), genreShare: lastGenreShare('genreShare'), favoriteGenreShare: lastGenreShare('favoriteGenreShare'),
       });
     }
 
@@ -863,7 +864,14 @@ const server = http.createServer(async (req, res) => {
       const refusal = setupRefusal(lang);
       if (refusal) return send(409, refusal);
       const dry = url.searchParams.get('dry') === '1';
-      return streamRun(res, ['dj.mjs', ...(dry ? ['--dry'] : [])], lang, dry ? 'dry' : 'run');
+      // 📻 Radio zu einem Song: Body { radio: { artist, name, uri? } }, nur mit dry (dj.mjs liest TWEAKABLE_DJ_RADIO)
+      const { radio } = await readJson(req, lang);
+      const text = v => typeof v === 'string' && v.trim() !== '' && v.length <= 200;
+      if (radio !== undefined && !(dry && radio && text(radio.artist) && text(radio.name) && (radio.uri == null || /^spotify:track:[A-Za-z0-9]{22}$/.test(radio.uri)))) {
+        return send(400, { error: t(lang, 'ui.badRequest') });
+      }
+      const env = radio ? { TWEAKABLE_DJ_RADIO: JSON.stringify({ artist: radio.artist, name: radio.name, uri: radio.uri ?? null }) } : {};
+      return streamRun(res, ['dj.mjs', ...(dry ? ['--dry'] : [])], lang, dry ? 'dry' : 'run', env);
     }
 
     // Letzter Lauf aus der Oberfläche (lastRun), z. B. für eine neu geladene Seite. ?id=<Nummer>&from=<Zeichen>: Ist es noch

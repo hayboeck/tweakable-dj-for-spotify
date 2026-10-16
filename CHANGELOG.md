@@ -5,6 +5,32 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+### English
+
+**New**
+
+- **📻 Radio for a song**: next to ♥ and × in the created list, 📻 creates a new list around exactly this song – it comes first, the starting points are it and its most similar songs, favorites only from matching artists. The settings stay as they are.
+- **Moods for the genre mixer**: save the current genre levels under a name (e.g. “Work”, “Party”) and switch with one click.
+- **Genres of your favorites**: next to each genre, the genre mixer also shows how much of it is in your favorites (your 100 most frequent artists), not only in the last list.
+- **Also notify on success** (automatic runs, off by default): a short message with the number of songs and the play time.
+
+**Changed**
+
+- **Without Last.fm**: if Last.fm can’t be reached, the list consists of your favorites as before – now with a clear notice in the output and summary and, for automatic runs, a notification “Last.fm unreachable”. The notification after “Rebuild playlist now” also shows the play time.
+
+### Deutsch
+
+**Neu**
+
+- **📻 Radio zu einem Song**: Neben ♥ und × in der erstellten Liste erstellt 📻 eine neue Liste rund um genau diesen Song – er steht vorne, Ausgangspunkte sind er und seine ähnlichsten Songs, Favoriten nur von passenden Künstlern. Die Einstellungen bleiben, wie sie sind.
+- **Stimmungen für den Genre-Mixer**: die aktuellen Genre-Stufen unter einem Namen speichern (z. B. „Arbeiten“, „Party“) und mit einem Klick umschalten.
+- **Genres deiner Favoriten**: Neben jedem Genre zeigt der Genre-Mixer auch, wie viel davon in deinen Favoriten ist (deine 100 häufigsten Künstler), nicht nur in der letzten Liste.
+- **Auch bei Erfolg benachrichtigen** (Automatik, standardmäßig aus): eine kurze Meldung mit Anzahl Songs und Spieldauer.
+
+**Geändert**
+
+- **Ohne Last.fm**: Ist Last.fm nicht erreichbar, besteht die Liste wie bisher aus deinen Favoriten – jetzt mit deutlichem Hinweis in Ausgabe und Zusammenfassung und bei automatischen Läufen mit der Benachrichtigung „Last.fm nicht erreichbar“. Die Meldung nach „Playlist jetzt neu erstellen“ nennt außerdem die Spieldauer.
+
 ## [0.4.1] – 2026-10-15
 
 ### English

@@ -27,7 +27,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { CONFIG, HERE, configLanguage, loadConfig, notifyOnFailure, readConfig, remindLoginOn } from './config.mjs';
+import { CONFIG, HERE, configLanguage, loadConfig, notifyOnFailure, notifyOnSuccess, readConfig, remindLoginOn } from './config.mjs';
 import { formatDuration, formatStats, resolveLang, t, tError } from './i18n.mjs';
 import { createLastfm } from './lastfm.mjs';
 import http from 'node:http';
@@ -52,6 +52,19 @@ const lang = resolveLang(process.env.TWEAKABLE_DJ_LANG, configLanguage());
 const dry = process.argv.includes('--dry');
 const apply = process.argv.includes('--apply');
 const asNew = process.argv.includes('--new');
+// 📻 Radio zu einem Song (Oberfläche: POST /api/run?dry=1 mit { radio }): TWEAKABLE_DJ_RADIO = JSON { artist, name, uri? }. Eine
+// Liste rund um genau diesen Song – er steht vorne, Ausgangspunkte sind er und seine ähnlichsten Songs, Favoriten nur von
+// passenden Künstlern; alle anderen Einstellungen gelten wie immer. Nur mit --dry (danach überschreiben bzw. neu anlegen).
+const radio = (() => {
+  try {
+    const r = JSON.parse(process.env.TWEAKABLE_DJ_RADIO || 'null');
+    const ok = s => typeof s === 'string' && s.trim() !== '' && s.length <= 200;
+    if (!dry || !r || !ok(r.artist) || !ok(r.name)) return null;
+    return { artist: r.artist.trim(), name: r.name.trim(), uri: /^spotify:track:[A-Za-z0-9]{22}$/.test(r.uri ?? '') ? r.uri : null };
+  } catch {
+    return null;
+  }
+})();
 // Befehl (login, export, import) und dessen Datei; sonst ein Lauf.
 const [command, fileArg] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 
@@ -127,7 +140,9 @@ function updateState(change) {
 // durationMs: Spieldauer der Liste in Millisekunden; durationEstimated: true, wenn sie für einzelne Songs geschätzt ist.
 // archiveFile: Name der Archivdatei, die dieser Lauf angelegt hat (für „Vorige Playlist wiederherstellen“), sonst null.
 // artists, yearFrom, yearTo, firstTime: Zeile nach der Zusammenfassung (lineupStats in lineup.mjs; null = unbekannt).
-const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null, playlistName: null, playlistUrl: null, missingScope: null, trialId: null, archiveFile: null, artists: null, yearFrom: null, yearTo: null, firstTime: null, summary: null };
+// lastfmOffline: Last.fm war (zeitweise) nicht erreichbar – die Liste hat deshalb nur Favoriten bzw. weniger neue Songs.
+// radio: { artist, name } bei „Radio zu einem Song“, sonst null.
+const result = { dry, songs: null, fresh: null, freshCurrent: null, familiar: null, durationMs: null, durationEstimated: null, playlistName: null, playlistUrl: null, missingScope: null, trialId: null, archiveFile: null, artists: null, yearFrom: null, yearTo: null, firstTime: null, lastfmOffline: false, radio: radio && { artist: radio.artist, name: radio.name }, summary: null };
 
 // Fehlerart für die Oberfläche: login_expired, not_logged_in, forbidden, lastfm_key, setup_incomplete, node_version,
 // trial_expired (die erstellte Liste lässt sich nicht mehr nach Spotify bringen), other.
@@ -142,6 +157,7 @@ function report(values) {
     playlistName: r.playlistName, playlistUrl: r.playlistUrl, errorCode: r.errorCode ?? null, error: r.error ?? null,
     missingScope: r.missingScope ?? null, trialId: r.trialId ?? null, archiveFile: r.archiveFile ?? null,
     artists: r.artists ?? null, yearFrom: r.yearFrom ?? null, yearTo: r.yearTo ?? null, firstTime: r.firstTime ?? null,
+    lastfmOffline: r.lastfmOffline === true, radio: r.radio ?? null,
   };
   auto?.finish({ ...out, summary: summary ?? null });
   if (!process.stdout.isTTY) process.stdout.write(`@@RESULT ${JSON.stringify(out)}\n`);
@@ -167,9 +183,12 @@ async function notifyNowRun(out) {
 // Hinweis in automatik.log.
 async function notifyAutoRun(out) {
   try {
-    const notice = autoRunNotice({ result: out, lang, enabled: notifyOnFailure() });
-    const sent = notice ? await notify(notice) : await remindLogin({ dir: HERE, lang, enabled: remindLoginOn() });
+    const notice = autoRunNotice({ result: out, lang, enabled: notifyOnFailure(), success: notifyOnSuccess() });
+    const sent = notice ? await notify(notice) : null;
     if (sent && !sent.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, sent) }));
+    // Nach einem Fehler nur dessen Meldung; sonst ggf. auch die Erinnerung an die Anmeldung
+    const reminded = out.ok === false ? null : await remindLogin({ dir: HERE, lang, enabled: remindLoginOn() });
+    if (reminded && !reminded.ok) console.warn(t(lang, 'notify.logNote', { problem: notifyProblem(lang, reminded) }));
   } catch {
     // Eine Benachrichtigung darf den Lauf nie stören.
   }
@@ -178,6 +197,9 @@ async function notifyAutoRun(out) {
 const warn = msg => console.warn(`  ⚠ ${msg}`);
 // Nicht wiederholen: nur die letzten noRepeatRuns Läufe merken (0 = keinen).
 const lastRuns = (cfg, history) => (cfg.noRepeatRuns > 0 ? history.slice(-cfg.noRepeatRuns) : []);
+// Genres deiner Favoriten (Genre-Mixer, „in deinen Favoriten: 12 %“): so viele der häufigsten Künstler der Quelle samt
+// Last.fm-Lieblingssongs nachschlagen (7 Tage im Cache), gezählt werden deren Songs.
+const FAVORITE_GENRE_ARTISTS = 100;
 // Genre-Mixer: höchstens so viele Künstler je Lauf nachschlagen (je eine Last.fm-Abfrage, 7 Tage im Cache); Vorauswahl der
 // Ausgangspunkte und Favoriten = so viel mal mehr, als gebraucht werden, daraus wird nach Genre neu gelost.
 const GENRE_LOOKUPS = 500;
@@ -381,7 +403,12 @@ async function main() {
   const uniqueSeeds = [...new Map(discoverySeeds.filter(allowed).map(s => [trackKey(s.artist, s.name), s])).values()];
   // Genre-Mixer: aus einer größeren Vorauswahl nach Genre neu auslosen – so bestimmt er auch, wozu Last.fm ähnliche Songs sucht.
   let seedOrder = weightedOrder(uniqueSeeds, seedWeight);
-  if (mixing) {
+  if (radio) {
+    // 📻 Ausgangspunkte: der Song selbst und seine ähnlichsten Songs (Last.fm) statt der Favoriten
+    console.log(t(lang, 'run.radio', { artist: radio.artist, name: radio.name }));
+    const near = await lastfm.similarTracks(radio.artist, radio.name).catch(warnOr([]));
+    seedOrder = [radio, ...near.filter(s => s.artist && s.name && allowed(s))];
+  } else if (mixing) {
     seedOrder = seedOrder.slice(0, cfg.seedsPerRun * GENRE_POOL);
     await loadGenres(seedOrder);
     seedOrder = weightedOrder(seedOrder.filter(s => genreWeight(s) > 0), s => seedWeight(s) * genreWeight(s));
@@ -465,6 +492,11 @@ async function main() {
   const spotifyArtists = new Map();
   const cached = key => (Object.hasOwn(state.cache, key) ? cacheEntry(state.cache[key]) : undefined);
   favoritePool.push(...lovedFavorites.filter(notFollowedOut));
+  // 📻 Favoriten nur von Künstlern, die zum Song passen: sein Künstler und die der gefundenen ähnlichen Songs
+  if (radio) {
+    const close = new Set([norm(radio.artist), ...[...candidates.values()].map(c => norm(c.artist))]);
+    favoritePool.splice(0, favoritePool.length, ...favoritePool.filter(f => close.has(norm(f.artist))));
+  }
   // Last.fm-Lieblingssong für die Playlist: jetzt auf Spotify suchen (Such-Cache wie bei neuen Songs), höchstens LOVED_SEARCHES
   // neue Suchen je Lauf. Ergebnis wie ein Favorit von Spotify, oder null (nicht gefunden, explizit, gesperrt, gefolgt und -1).
   const LOVED_SEARCHES = 50;
@@ -581,7 +613,21 @@ async function main() {
   if (blockedTrackOut.size) console.log(t(lang, 'run.blockedSongs', { count: blockedTrackOut.size }));
   if (explicitOut.size) console.log(t(lang, 'run.explicitOut', { count: explicitOut.size }));
 
-  const lineup = arrange([...familiar, ...fresh], { gap: cfg.artistGap, window: cfg.artistWindow, maxPerWindow: cfg.maxPerWindow });
+  // 📻 Der Song selbst kommt nach vorne – auch wenn ihn die Auslosung nicht getroffen hat (dann ersetzt er den letzten neuen Song).
+  let radioStart = null;
+  if (radio) {
+    const key = trackKey(radio.artist, radio.name);
+    radioStart = [...familiar, ...fresh].find(s => trackKey(s.artist, s.name) === key || (radio.uri && s.uri === radio.uri)) ?? null;
+    if (!radioStart && radio.uri && !usedUris.has(radio.uri) && allowed({ uri: radio.uri, artist: radio.artist, name: radio.name })) {
+      const own = seedKeys.has(key);
+      if (familiar.length + fresh.length >= cfg.size) (fresh.length ? fresh : familiar).pop();
+      radioStart = { uri: radio.uri, artist: radio.artist, artists: [radio.artist], name: radio.name, tags: tagsOf(radio.artist),
+        kind: own ? t(lang, 'run.favorite') : t(lang, 'run.radioStart'), durationMs: null, releaseYear: null };
+      (own ? familiar : fresh).push(radioStart);
+    }
+  }
+  let lineup = arrange([...familiar, ...fresh], { gap: cfg.artistGap, window: cfg.artistWindow, maxPerWindow: cfg.maxPerWindow });
+  if (radioStart && lineup) lineup = [radioStart, ...lineup.filter(s => s !== radioStart)];
   // Kein einziger Song (z. B. keine Lieblingssongs und kein Hörverlauf): abbrechen, statt die Playlist zu leeren.
   if (!lineup.length) throw new Error(t(lang, 'run.noSongs'));
   const freshCurrent = fresh.filter(c => c.viaCurrent).length;
@@ -589,8 +635,16 @@ async function main() {
   const duration = formatDuration(lang, counts.durationMs, counts.durationEstimated);
   const summary = t(lang, 'run.summary', { name: cfg.playlistName, ...counts, duration });
   const stats = lineupStats(lineup, playedSet(state));
-  // Anteile der Genres (für den Genre-Mixer in der Oberfläche, state.genreShare): fehlende Künstler der Liste nachschlagen.
+  // Anteile der Genres (für den Genre-Mixer in der Oberfläche, state.genreShare): fehlende Künstler der Liste nachschlagen,
+  // dazu die häufigsten Künstler deiner Favoriten (state.favoriteGenreShare).
   await loadGenres(lineup, { quiet: true, limit: false });
+  const favoriteSongs = [...favorites, ...lovedFavorites];
+  const songsPerArtist = new Map();
+  for (const s of favoriteSongs) songsPerArtist.set(norm(s.artist), { artist: s.artist, n: (songsPerArtist.get(norm(s.artist))?.n ?? 0) + 1 });
+  const topArtists = [...songsPerArtist.values()].sort((a, b) => b.n - a.n).slice(0, FAVORITE_GENRE_ARTISTS);
+  await loadGenres(topArtists, { quiet: true, limit: false });
+  const topKeys = new Set(topArtists.map(a => norm(a.artist)));
+  const favoriteShare = genreShare(favoriteSongs.filter(s => topKeys.has(norm(s.artist))).map(genresOf));
   try {
     lastfm.saveCache();
   } catch {
@@ -602,12 +656,20 @@ async function main() {
     warn(t(lang, 'run.windowRule', { max: cfg.maxPerWindow, window: cfg.artistWindow }));
   }
   lineup.forEach((track, i) => console.log(lineupLine(track, i)));
-  const description = t(lang, 'run.description', { ...dateTime(lang, new Date()), fresh: fresh.length, familiar: familiar.length });
+  const description = (radio ? `${t(lang, 'run.radioDescription', { artist: radio.artist, name: radio.name })} · ` : '')
+    + t(lang, 'run.description', { ...dateTime(lang, new Date()), fresh: fresh.length, familiar: familiar.length });
 
   const saveCache = s => {
     Object.assign(s.cache, cacheUpdates);
     s.genreShare = { at: new Date().toISOString(), ...share };
+    // Ohne erkennbare Genres (z. B. Last.fm nicht erreichbar) bleibt der vorige Stand
+    if (favoriteShare.known) s.favoriteGenreShare = { at: new Date().toISOString(), artists: topArtists.length, ...favoriteShare };
   };
+  // Last.fm nicht erreichbar: deutlich sagen, warum die Liste anders aussieht (lastfmOffline; Benachrichtigung in notify.mjs)
+  if (offlineWarned) {
+    result.lastfmOffline = true;
+    console.log(t(lang, fresh.length ? 'run.lastfmOfflineFewer' : 'run.lastfmOfflineOnly'));
+  }
   if (dry) {
     updateState(saveCache);
     console.log(`\n${t(lang, 'run.dry')}`);

@@ -369,8 +369,10 @@ test('--now: normaler Lauf mit Archiv, Ergebnis in jetzt.json (nicht automatik.j
     // Gleich beim Start „wird neu erstellt …“, am Ende das Ergebnis – in dieser Reihenfolge
     assert.deepEqual(notices(dir), [
       { title: 'Tweakable DJ', text: 'Playlist „Test-DJ“ wird neu erstellt …' },
-      { title: 'Tweakable DJ', text: 'Playlist „Test-DJ“ neu erstellt ✓ – 20 Songs' },
+      { title: 'Tweakable DJ', text: notices(dir)[1].text },
     ]);
+    // mit Spieldauer (201)
+    assert.match(notices(dir)[1].text, /^Playlist „Test-DJ“ neu erstellt ✓ – 20 Songs · (≈ )?\d/);
 
     // Fehler: Grund mit Rat für --now (jetzt.log), auch ohne notifyOnFailure
     writeConfig(dir, { ...CONFIG, notifyOnFailure: false, lastfm: { apiKey: 'falscher-key', user: 'testhoerer' } });

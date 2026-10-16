@@ -21,6 +21,7 @@
   "followedArtists": 0,               // Artists you follow on Spotify (-1–1): -1 = none of them, 0 = no preference (the list isn't even fetched), 1 = strongly preferred; applies to new songs and favorites
   "preferNewer": 0,                   // Newer or older songs by release year (-1–1): -1 = prefer older, 0 = no preference, 1 = prefer newer; only changes the odds, nothing is left out
   "genres": {},                       // Genre mixer, e.g. { "electronic": 2, "schlager": -3 }: -3 = never, -2 = much less, -1 = less, 1 = more, 2 = much more; genres: pop, rock, indie, hiphop, electronic, rnb, metal, jazz, classical, folk, latin, schlager (by Last.fm tags)
+  "moods": [],                        // Saved genre mixer moods, e.g. [{ "name": "Work", "genres": { "electronic": 1, "jazz": 1 } }] (at most 20)
 
   // --- What you're listening to right now ---
   "currentDays": 7,                   // "Current" = played within this many days (according to Last.fm; 0–365, 0 = off)
@@ -50,6 +51,7 @@
   "schedule": "off",                  // Recreate the playlist automatically: "off", "daily" or "weekly"
   "scheduleTime": "07:00",            // Time of day (24-hour clock, HH:MM)
   "scheduleDay": "MON",               // Day of the week for "weekly": "MON", "TUE", "WED", "THU", "FRI", "SAT" or "SUN"
+  "notifyOnSuccess": false,          // Also notify after every successful automatic run (number of songs, play time)
   "notifyOnFailure": true,            // Show a system notification when an automatic run fails (e.g. Spotify login expired); false = off
 
   // --- Spotify login ---
