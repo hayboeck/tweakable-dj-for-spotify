@@ -33,8 +33,8 @@ import { autoRunMessage, autoRunSince, cleanObsolete, installBlocker, installUpd
 import { NOW_RESULT } from './schedule.mjs';
 import { notify, notifyProblem, remindLogin, testNotice } from './notify.mjs';
 import {
-  exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, isOwnPlaylist, parseImport, readPlaylist,
-  rememberOwnPlaylist, resolveImport, validUris, writePlaylist,
+  exportFileName, formatExport, IMPORT_MAX_BYTES, importDescription, importHints, isOwnPlaylist, parseImport, playlistUrl,
+  readPlaylist, rememberOwnPlaylist, resolveImport, validUris, writePlaylist,
 } from './playlist.mjs';
 import { readTrial, TRIAL_IGNORED, trialInfo, trialProblem } from './trial.mjs';
 import { archiveFileCount, archivePlaylist, listArchive, readArchive, undoTarget } from './archive.mjs';
@@ -823,7 +823,8 @@ const server = http.createServer(async (req, res) => {
     // „Testbenachrichtigung senden“: sofort eine Systembenachrichtigung in der Sprache der Anfrage, auch wenn notifyOnFailure
     // aus ist. Antwortet immer mit 200: { ok: true } bzw. { ok: false, error } (warum nichts angekommen ist).
     if (route === 'POST /api/notify/test') {
-      const sent = await notify(testNotice(lang));
+      const id = knownPlaylistId(currentConfig(lang).playlistName);
+      const sent = await notify(testNotice(lang, id ? playlistUrl(id) : null));
       return send(200, sent.ok ? { ok: true } : { ok: false, error: notifyProblem(lang, sent) });
     }
 

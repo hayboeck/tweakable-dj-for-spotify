@@ -2,11 +2,13 @@
 // Spotify-Anmeldung abläuft, und für „Testbenachrichtigung senden“ in der Oberfläche.
 // Nur Bordmittel des Systems, keine Abhängigkeiten:
 //   Windows: PowerShell zeigt eine Toast-Benachrichtigung (Windows.UI.Notifications) unter der App-Kennung von Windows
-//            PowerShell – die gibt es auf jedem Windows 10/11, eine eigene Registrierung ist nicht nötig. Der Text kommt
+//            PowerShell – die gibt es auf jedem Windows 10/11, eine eigene Registrierung ist nicht nötig. Mit link (Playlist
+//            auf open.spotify.com) öffnet ein Klick auf die Meldung bzw. ihr Knopf die Playlist (Protokoll-Aktivierung). Der Text kommt
 //            als fertig maskiertes XML in einer Umgebungsvariable, das (feste) Skript als -EncodedCommand: In der
 //            Befehlszeile steht nichts vom Text, also lässt sich nichts einschleusen. Ohne -ExecutionPolicy: Die
 //            Ausführungsrichtlinie gilt nur für Skriptdateien, nicht für -EncodedCommand (läuft auch unter „Restricted“).
 //   macOS:   osascript mit "display notification"; Titel und Text als Argumente des Skripts (on run argv), nie im Skript.
+//            Ein Klick darauf kann dort nichts öffnen (wie auch unter Linux): link zählt nur unter Windows.
 //   Linux:   notify-send, falls vorhanden. Fehlt DBUS_SESSION_BUS_ADDRESS (z. B. unter cron), der übliche Bus des Benutzers
 //            (/run/user/<uid>/bus), sofern es ihn gibt.
 // Eine Benachrichtigung darf nie einen Lauf stören: notify() wirft nie und gibt spätestens nach timeoutMs auf.
@@ -62,18 +64,30 @@ export const escapeXml = s => tidy(s).replace(/&/g, '&amp;').replace(/</g, '&lt;
 // notify-send deutet den Text als einfache Auszeichnung (<b>, &amp; …); der Titel bleibt reiner Text.
 const escapeMarkup = s => tidy(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export const toastXml = (title, text) =>
-  `<toast><visual><binding template="ToastGeneric"><text>${escapeXml(title)}</text><text>${escapeXml(text)}</text></binding></visual></toast>`;
+// Nur Links auf eine Playlist bei Spotify (wie playlistUrl in playlist.mjs) – nichts anderes öffnet ein Klick.
+export const SPOTIFY_PLAYLIST = /^https:\/\/open\.spotify\.com\/playlist\/[A-Za-z0-9]{1,64}$/;
+const safeLink = link => (link && SPOTIFY_PLAYLIST.test(String(link.url ?? '')) ? { url: link.url, label: String(link.label ?? '') } : null);
+
+// link: { url, label } – Klick auf die Meldung öffnet url, dazu ein Knopf mit label.
+export function toastXml(title, text, link = null) {
+  const open = safeLink(link);
+  const head = open ? `<toast activationType="protocol" launch="${escapeXml(open.url)}">` : '<toast>';
+  const actions = open ? `<actions><action content="${escapeXml(open.label)}" activationType="protocol" arguments="${escapeXml(open.url)}"/></actions>` : '';
+  return `${head}<visual><binding template="ToastGeneric"><text>${escapeXml(title)}</text><text>${escapeXml(text)}</text></binding></visual>${actions}</toast>`;
+}
+
+// Link „In Spotify öffnen“ zu einem Ergebnis (playlistUrl in @@RESULT), sonst null.
+export const playlistLink = (lang, url) => (SPOTIFY_PLAYLIST.test(String(url ?? '')) ? { url, label: t(lang, 'notify.openSpotify') } : null);
 
 // Befehl für die Plattform: { file, args, env } oder null (keine Benachrichtigungen auf dieser Plattform).
 // exists und uid nur für die Tests (Linux: gibt es den Bus des Benutzers?).
-export function notifyCommand({ title, text, platform = process.platform, env = process.env, exists = fs.existsSync, uid = process.getuid?.() }) {
+export function notifyCommand({ title, text, link = null, platform = process.platform, env = process.env, exists = fs.existsSync, uid = process.getuid?.() }) {
   if (platform === 'win32') {
     const root = env.SystemRoot || env.SYSTEMROOT || 'C:\\Windows';
     return {
       file: `${root}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
       args: ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', Buffer.from(PS_SCRIPT, 'utf16le').toString('base64')],
-      env: { ...env, [TOAST_VAR]: toastXml(title, text), [APP_VAR]: WINDOWS_APP_ID },
+      env: { ...env, [TOAST_VAR]: toastXml(title, text, link), [APP_VAR]: WINDOWS_APP_ID },
     };
   }
   if (platform === 'darwin') {
@@ -187,13 +201,14 @@ export function failureNotice(lang, { errorCode, error } = {}, { now = false } =
 // Lauf geklappt, aber Last.fm war nicht erreichbar (lastfmOffline in @@RESULT): nur Favoriten bzw. weniger neue Songs als sonst.
 export function lastfmOfflineNotice(lang, result) {
   const vars = { name: result.playlistName ?? '', songs: result.songs ?? 0, fresh: result.fresh ?? 0, familiar: result.familiar ?? 0 };
-  return { title: t(lang, 'notify.lastfmOfflineTitle'), text: t(lang, result.fresh ? 'notify.lastfmOfflineFewer' : 'notify.lastfmOfflineText', vars) };
+  return { title: t(lang, 'notify.lastfmOfflineTitle'), text: t(lang, result.fresh ? 'notify.lastfmOfflineFewer' : 'notify.lastfmOfflineText', vars), link: playlistLink(lang, result.playlistUrl) };
 }
 
 // Erfolgsmeldung: „Playlist „X“ neu erstellt ✓ – 50 Songs · 3 Std. 12 Min.“ (ohne bekannte Dauer ohne den letzten Teil)
 function doneNotice(lang, result) {
   const duration = Number(result.durationMs) > 0 ? ` · ${formatDuration(lang, result.durationMs, result.durationEstimated === true)}` : '';
-  return { title: t(lang, 'notify.nowTitle'), text: t(lang, 'notify.nowDoneText', { name: result.playlistName ?? '', songs: result.songs ?? 0 }) + duration };
+  return { title: t(lang, 'notify.nowTitle'), text: t(lang, 'notify.nowDoneText', { name: result.playlistName ?? '', songs: result.songs ?? 0 }) + duration,
+    link: playlistLink(lang, result.playlistUrl) };
 }
 
 // „Playlist jetzt neu erstellen“ (dj.mjs --now): Ergebnis (wie @@RESULT) als Benachrichtigung – immer, auch ohne
@@ -213,7 +228,8 @@ export function loginNotice(lang, daysLeft) {
   return { title: t(lang, 'notify.loginTitle'), text: t(lang, daysLeft > 0 ? 'notify.loginText' : 'notify.loginTextToday', { days: daysLeft }) };
 }
 
-export const testNotice = lang => ({ title: t(lang, 'notify.testTitle'), text: t(lang, 'notify.testText') });
+// url: Playlist aus den Einstellungen, falls es sie schon gibt – dann lässt sich auch der Klick ausprobieren (Windows).
+export const testNotice = (lang, url = null) => ({ title: t(lang, 'notify.testTitle'), text: t(lang, 'notify.testText'), link: playlistLink(lang, url) });
 
 const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 

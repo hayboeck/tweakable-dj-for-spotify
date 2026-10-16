@@ -157,7 +157,7 @@ test('failureNotice: Grund aus errorCode und was zu tun ist; sonst die erste Zei
       assert.ok(!text.includes('notify.') && text.split('\n').length === 2 && !text.startsWith('x'), `${lang} ${errorCode}: ${text}`);
     }
   }
-  assert.deepEqual(testNotice('en'), { title: 'Tweakable DJ: test notification', text: 'This is how Tweakable DJ tells you when an automatic run fails.' });
+  assert.deepEqual(testNotice('en'), { title: 'Tweakable DJ: test notification', text: 'This is how Tweakable DJ tells you when an automatic run fails.', link: null });
 });
 
 test('autoRunNotice: bei Fehlern (Schalter notifyOnFailure); Erfolg nur mit success; laufende Läufe melden nie', () => {
@@ -169,22 +169,47 @@ test('autoRunNotice: bei Fehlern (Schalter notifyOnFailure); Erfolg nur mit succ
   assert.equal(autoRunNotice({ result: null, lang: 'de' }), null);
   // Erfolgsmeldung (notifyOnSuccess, 201): Name, Anzahl Songs und Spieldauer
   const ok = { ok: true, playlistName: 'Mix', songs: 50, fresh: 40, familiar: 10, durationMs: 3 * 3600_000 + 12 * 60_000, durationEstimated: false };
-  assert.deepEqual(autoRunNotice({ result: ok, lang: 'de', success: true }), { title: 'Tweakable DJ', text: 'Playlist „Mix“ neu erstellt ✓ – 50 Songs · 3:12\u00a0Std.' });
+  assert.deepEqual(autoRunNotice({ result: ok, lang: 'de', success: true }), { title: 'Tweakable DJ', text: 'Playlist „Mix“ neu erstellt ✓ – 50 Songs · 3:12\u00a0Std.', link: null });
   assert.equal(autoRunNotice({ result: ok, lang: 'de', success: true, enabled: false }).title, 'Tweakable DJ', 'unabhängig von notifyOnFailure');
   assert.equal(autoRunNotice({ result: { ...ok, durationMs: null }, lang: 'en', success: true }).text, 'Playlist “Mix” rebuilt ✓ – 50 songs');
   assert.equal(autoRunNotice({ result: { ok: false, errorCode: 'other', error: 'x' }, lang: 'de', success: true, enabled: false }), null, 'Fehler nur mit notifyOnFailure');
   // Last.fm nicht erreichbar (200): eigene Meldung, auch ohne success – außer beide Schalter sind aus
   const offline = { ...ok, fresh: 0, familiar: 50, lastfmOffline: true };
   assert.deepEqual(autoRunNotice({ result: offline, lang: 'de' }), { title: 'Tweakable DJ: Last.fm nicht erreichbar',
-    text: '„Mix“ besteht diesmal nur aus deinen Favoriten (50 Songs). Der nächste Lauf versucht es wieder.' });
+    text: '„Mix“ besteht diesmal nur aus deinen Favoriten (50 Songs). Der nächste Lauf versucht es wieder.', link: null });
   assert.equal(autoRunNotice({ result: { ...offline, fresh: 12, familiar: 38 }, lang: 'en' }).text, '“Mix” has fewer new songs this time (12 new, 38 favorites).');
   assert.equal(autoRunNotice({ result: offline, lang: 'de', enabled: false }), null);
   assert.equal(autoRunNotice({ result: offline, lang: 'de', enabled: false, success: true }).title, 'Tweakable DJ: Last.fm nicht erreichbar');
 });
 
+test('Klick öffnet die Playlist (209): Windows-Toast mit Protokoll-Aktivierung und Knopf, nur für Playlists auf open.spotify.com', () => {
+  const url = 'https://open.spotify.com/playlist/abcDEF123';
+  const link = { url, label: 'In Spotify öffnen' };
+  assert.equal(toastXml('T', 'x', link), `<toast activationType="protocol" launch="${url}"><visual><binding template="ToastGeneric"><text>T</text><text>x</text></binding></visual>`
+    + `<actions><action content="In Spotify öffnen" activationType="protocol" arguments="${url}"/></actions></toast>`);
+  assert.equal(toastXml('T', 'x'), '<toast><visual><binding template="ToastGeneric"><text>T</text><text>x</text></binding></visual></toast>');
+  for (const bad of ['https://evil.example/playlist/x', 'spotify:playlist:x', 'https://open.spotify.com/playlist/x"><y', 'javascript:alert(1)', 'https://open.spotify.com/track/abc']) {
+    assert.equal(toastXml('T', 'x', { url: bad, label: 'L' }), toastXml('T', 'x'), bad);
+  }
+  assert.ok(notifyCommand({ title: 'T', text: 'x', link, platform: 'win32', env: {} }).env[TOAST_VAR].includes(`launch="${url}"`));
+  // macOS und Linux: kein Klick möglich, Befehl unverändert
+  for (const platform of ['darwin', 'linux']) {
+    assert.deepEqual(notifyCommand({ title: 'T', text: 'x', link, platform, env: {}, exists: () => false }).args, notifyCommand({ title: 'T', text: 'x', platform, env: {}, exists: () => false }).args);
+  }
+  // Erfolg und „ohne Last.fm“ mit Link, Probelauf (ohne playlistUrl) und Fehler ohne
+  const ok = { ok: true, playlistName: 'Mix', songs: 50, fresh: 40, familiar: 10, durationMs: 60_000, playlistUrl: url };
+  assert.deepEqual(autoRunNotice({ result: ok, lang: 'de', success: true }).link, link);
+  assert.deepEqual(autoRunNotice({ result: { ...ok, lastfmOffline: true, fresh: 0 }, lang: 'en' }).link, { url, label: 'Open in Spotify' });
+  assert.equal(autoRunNotice({ result: { ...ok, playlistUrl: null }, lang: 'de', success: true }).link, null);
+  assert.equal(nowNotice('de', ok).link.url, url);
+  assert.equal(autoRunNotice({ result: { ok: false, errorCode: 'other', error: 'x' }, lang: 'de' }).link, undefined);
+  assert.deepEqual(testNotice('fr', url).link, { url, label: 'Ouvrir dans Spotify' });
+  assert.equal(testNotice('de').link, null);
+});
+
 test('nowNotice: Erfolg mit Spieldauer, ohne Last.fm eigene Meldung', () => {
   const ok = { ok: true, playlistName: 'Mix', songs: 20, fresh: 15, familiar: 5, durationMs: 69 * 60_000, durationEstimated: true };
-  assert.deepEqual(nowNotice('de', ok), { title: 'Tweakable DJ', text: 'Playlist „Mix“ neu erstellt ✓ – 20 Songs · ≈\u00a01:09\u00a0Std.' });
+  assert.deepEqual(nowNotice('de', ok), { title: 'Tweakable DJ', text: 'Playlist „Mix“ neu erstellt ✓ – 20 Songs · ≈\u00a01:09\u00a0Std.', link: null });
   assert.equal(nowNotice('de', { ...ok, lastfmOffline: true, fresh: 0 }).title, 'Tweakable DJ: Last.fm nicht erreichbar');
 });
 

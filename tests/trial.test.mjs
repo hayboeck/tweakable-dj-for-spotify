@@ -373,6 +373,11 @@ test('--now: normaler Lauf mit Archiv, Ergebnis in jetzt.json (nicht automatik.j
     ]);
     // mit Spieldauer (201)
     assert.match(notices(dir)[1].text, /^Playlist „Test-DJ“ neu erstellt ✓ – 20 Songs · (≈ )?\d/);
+    // Unter Windows öffnet ein Klick die Playlist (209); macOS/Linux können das nicht (dort nur Titel und Text)
+    const raw = fs.readFileSync(path.join(dir, 'mock-log.jsonl'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l).notify).filter(Boolean);
+    const playlistId = store(dir).playlists.find(p => p.name === 'Test-DJ').id;
+    if (raw[1].toast) assert.ok(raw[1].toast.startsWith(`<toast activationType="protocol" launch="https://open.spotify.com/playlist/${playlistId}">`), raw[1].toast);
+    if (raw[0].toast) assert.ok(raw[0].toast.startsWith('<toast><visual>'), 'Startmeldung ohne Link');
 
     // Fehler: Grund mit Rat für --now (jetzt.log), auch ohne notifyOnFailure
     writeConfig(dir, { ...CONFIG, notifyOnFailure: false, lastfm: { apiKey: 'falscher-key', user: 'testhoerer' } });

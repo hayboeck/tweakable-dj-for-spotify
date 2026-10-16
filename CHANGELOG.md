@@ -5,6 +5,18 @@ Alle wichtigen Änderungen an Tweakable DJ for Spotify, die neueste Version zuer
 
 ## [Unreleased]
 
+### English
+
+**New**
+
+- **Open the playlist from the notification** (Windows): clicking the notification after an automatic run or *Rebuild playlist now* – or its button *Open in Spotify* – opens the playlist in Spotify. *Send test notification* shows it too once the playlist exists. On macOS and Linux, notifications can’t open anything; they stay as they are.
+
+### Deutsch
+
+**Neu**
+
+- **Playlist aus der Benachrichtigung öffnen** (Windows): Ein Klick auf die Meldung nach einem automatischen Lauf bzw. nach „Playlist jetzt neu erstellen“ – oder auf ihren Knopf *In Spotify öffnen* – öffnet die Playlist in Spotify. *Testbenachrichtigung senden* zeigt das auch, sobald es die Playlist gibt. Unter macOS und Linux können Benachrichtigungen nichts öffnen; dort bleiben sie, wie sie sind.
+
 ## [0.4.2] – 2026-10-16
 
 ### English
